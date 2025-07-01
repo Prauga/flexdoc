@@ -17,6 +17,7 @@
     "dev:backend": "npm run dev -w packages/backend",
     "build:client": "npm run build -w packages/client",
     "build:backend": "npm run build -w packages/backend",
+    "example:nestjs": "cd packages/examples/nestjs && npm install && npm run start:dev"
   },
   "keywords": [
     "openapi",
