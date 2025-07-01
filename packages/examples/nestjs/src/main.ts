@@ -21,8 +21,11 @@ async function bootstrap() {
       title: 'FlexDoc Example API',
       description: 'Example API demonstrating FlexDoc integration',
       version: '1.0',
-      theme: 'light',
-      logo: 'https://placehold.co/150x50?text=FlexDoc',
+      theme: 'dark',
+      logo: {
+        url: 'https://placehold.co/150x50?text=FlexDoc',
+        clickable: true,
+      },
       hideDownloadButton: false,
       theme_: {
         colors: {
