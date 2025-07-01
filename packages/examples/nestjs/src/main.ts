@@ -22,7 +22,7 @@ async function bootstrap() {
       description: 'Example API demonstrating FlexDoc integration',
       version: '1.0',
       theme: 'light',
-      logo: 'https://via.placeholder.com/150x50?text=FlexDoc',
+      logo: 'https://placehold.co/150x50?text=FlexDoc',
       hideDownloadButton: false,
       theme_: {
         colors: {
