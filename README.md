@@ -233,6 +233,38 @@ setupFlexDoc(app, '/internal-docs', {
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
+## Testing
+
+FlexDoc uses Jest for testing both the client and backend packages. Each package has its own test configuration and coverage reports.
+
+### Client Tests
+
+```bash
+cd packages/client
+npm test
+```
+
+To generate coverage reports:
+
+```bash
+cd packages/client
+npm run test:coverage
+```
+
+### Backend Tests
+
+```bash
+cd packages/backend
+npm test
+```
+
+To generate coverage reports:
+
+```bash
+cd packages/backend
+npm run test:coverage
+```
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
