@@ -127,11 +127,12 @@ describe('Sidebar', () => {
     // Type in the search input
     const searchInput = screen.getByPlaceholderText('Search endpoints...');
     expect(searchInput).toBeInTheDocument();
-    
+
     // Apply the search filter
     fireEvent.change(searchInput, { target: { value: 'petId' } });
-    
+
     // Verify the tag is still visible after filtering
     expect(screen.getByText('pets')).toBeInTheDocument();
   });
 });
+

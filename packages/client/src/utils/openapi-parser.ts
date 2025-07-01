@@ -1,4 +1,4 @@
-import yaml from 'js-yaml';
+import * as yaml from 'js-yaml';
 import { OpenAPISpec } from '../types/openapi';
 
 export class OpenAPIParser {
@@ -6,14 +6,18 @@ export class OpenAPIParser {
     let spec: any;
 
     if (typeof input === 'string') {
+      // Trim the input string to remove any leading/trailing whitespace
+      const trimmedInput = input.trim();
+
       try {
         // Try parsing as JSON first
-        spec = JSON.parse(input);
+        spec = JSON.parse(trimmedInput);
       } catch {
         try {
           // Try parsing as YAML
-          spec = yaml.load(input);
+          spec = yaml.load(trimmedInput);
         } catch (error) {
+          // If both JSON and YAML parsing fail, throw an error
           throw new Error('Invalid OpenAPI specification format');
         }
       }
@@ -78,6 +82,10 @@ export class OpenAPIParser {
   }
 
   static isReference(obj: any): boolean {
-    return obj && typeof obj === 'object' && '$ref' in obj;
+    if (obj === null || obj === undefined) {
+      return false;
+    }
+    return typeof obj === 'object' && '$ref' in obj;
   }
 }
+
