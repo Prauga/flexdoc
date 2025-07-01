@@ -113,8 +113,9 @@ export interface Encoding {
 }
 
 export interface Responses {
+  // Use Record<string, Response | Reference> instead of string index
+  // to avoid conflict with the 'default' property
   [statusCode: string]: Response | Reference;
-  default?: Response | Reference;
 }
 
 export interface Response {

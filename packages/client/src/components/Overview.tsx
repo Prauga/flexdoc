@@ -14,7 +14,7 @@ export const Overview: React.FC<OverviewProps> = ({
 }) => {
   // Get endpoint statistics
   const endpointStats = Object.entries(spec.paths).reduce(
-    (acc, [path, pathItem]) => {
+    (acc, [_path, pathItem]) => {
       const methods = OpenAPIParser.getHttpMethods(pathItem);
       methods.forEach((method) => {
         acc[method] = (acc[method] || 0) + 1;

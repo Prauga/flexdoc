@@ -5,10 +5,10 @@ import {
   Lock,
   Unlock,
   AlertCircle,
-  CheckCircle,
 } from 'lucide-react';
-import { OpenAPISpec, Operation, Parameter, Schema } from '../types/openapi';
+import { OpenAPISpec, Operation, Schema } from '../types/openapi';
 import { OpenAPIParser } from '../utils/openapi-parser';
+import { isRequestBody } from '../utils/type-guards';
 import { CodeBlock } from './CodeBlock';
 
 interface EndpointDetailProps {
@@ -278,31 +278,35 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({
               Request Body
             </button>
 
-            {expandedSections.has('requestBody') && (
-              <div className='space-y-4'>
-                {Object.entries(operation.requestBody.content || {}).map(
-                  ([mediaType, content]) => (
-                    <div
-                      key={mediaType}
-                      className='border border-gray-200 rounded-lg p-4'
-                    >
-                      <div className='flex items-center gap-2 mb-3'>
-                        <code className='text-sm bg-gray-100 px-2 py-1 rounded'>
-                          {mediaType}
-                        </code>
-                        {operation.requestBody?.required && (
-                          <span className='text-xs bg-red-100 text-red-700 px-2 py-1 rounded'>
-                            required
-                          </span>
-                        )}
-                      </div>
+            {expandedSections.has('requestBody') &&
+              operation.requestBody &&
+              isRequestBody(operation.requestBody) && (
+                <div className='space-y-4'>
+                  {Object.entries(operation.requestBody.content || {}).map(
+                    ([mediaType, content]: [string, any]) => (
+                      <div
+                        key={mediaType}
+                        className='border border-gray-200 rounded-lg p-4'
+                      >
+                        <div className='flex items-center gap-2 mb-3'>
+                          <code className='text-sm bg-gray-100 px-2 py-1 rounded'>
+                            {mediaType}
+                          </code>
+                          {operation.requestBody &&
+                            isRequestBody(operation.requestBody) &&
+                            operation.requestBody.required && (
+                              <span className='text-xs bg-red-100 text-red-700 px-2 py-1 rounded'>
+                                required
+                              </span>
+                            )}
+                        </div>
 
-                      {content.schema && renderSchema(content.schema)}
-                    </div>
-                  )
-                )}
-              </div>
-            )}
+                        {content.schema && renderSchema(content.schema)}
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
           </div>
         )}
 
@@ -397,3 +401,4 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({
     </div>
   );
 };
+

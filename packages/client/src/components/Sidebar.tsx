@@ -35,7 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         const operation = pathItem[method as keyof typeof pathItem] as any;
         const tags = operation?.tags || ['default'];
 
-        tags.forEach((tag) => {
+        tags.forEach((tag: string) => {
           if (!acc[tag]) {
             acc[tag] = [];
           }

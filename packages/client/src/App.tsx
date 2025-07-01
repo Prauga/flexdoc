@@ -38,29 +38,6 @@ function App() {
     setSpec(sampleSpec);
   };
 
-  const handleSpecFromUrl = async (url: string) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error('Failed to fetch specification');
-      }
-      const text = await response.text();
-      const parsedSpec = await OpenAPIParser.parseSpec(text);
-      setSpec(parsedSpec);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Failed to load specification from URL'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (spec) {
     return <FlexDoc spec={spec} />;
   }
@@ -241,3 +218,4 @@ function App() {
 }
 
 export default App;
+
