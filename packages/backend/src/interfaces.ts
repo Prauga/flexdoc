@@ -1,3 +1,30 @@
+/**
+ * Logo customization options
+ */
+export interface LogoOptions {
+  /** URL or path to the logo image */
+  url: string;
+  /** Background color for the logo area (CSS color value) */
+  backgroundColor?: string;
+  /** Padding around the logo in pixels or CSS value (e.g., '10px' or '10px 20px') */
+  padding?:
+    | string
+    | {
+        vertical?: string | number;
+        horizontal?: string | number;
+      };
+  /** Maximum height of the logo in pixels or CSS value */
+  maxHeight?: string | number;
+  /** Maximum width of the logo in pixels or CSS value */
+  maxWidth?: string | number;
+  /** Alt text for the logo image */
+  alt?: string;
+  /** CSS class to apply to the logo container */
+  containerClass?: string;
+  /** Whether to make the logo clickable to return to the documentation root */
+  clickable?: boolean;
+}
+
 export interface FlexDocOptions {
   title?: string;
   description?: string;
@@ -6,7 +33,8 @@ export interface FlexDocOptions {
   customCss?: string;
   customJs?: string;
   favicon?: string;
-  logo?: string;
+  /** Logo configuration - can be a simple URL string or a LogoOptions object for advanced customization */
+  logo?: string | LogoOptions;
   hideDownloadButton?: boolean;
   hideTopbar?: boolean;
   expandResponses?: string;
@@ -53,3 +81,4 @@ export interface FlexDocModuleOptions {
   spec?: object;
   options?: FlexDocOptions;
 }
+

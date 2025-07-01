@@ -1,4 +1,4 @@
-import { FlexDocOptions } from './interfaces';
+import { FlexDocOptions, LogoOptions } from './interfaces';
 
 export function generateFlexDocHTML(
   spec: object | null,
@@ -16,12 +16,88 @@ export function generateFlexDocHTML(
     theme_,
   } = options;
 
+  // Process logo options
+  let logoUrl = '';
+  let logoStyle = '';
+  let logoContainerStyle = '';
+  let logoContainerClass = '';
+  let logoAlt = 'Logo';
+  let logoClickable = false;
+
+  if (logo) {
+    if (typeof logo === 'string') {
+      logoUrl = logo;
+    } else {
+      logoUrl = logo.url;
+      logoAlt = logo.alt || 'Logo';
+      logoClickable = logo.clickable || false;
+
+      // Build logo style
+      const logoStyles = [];
+      if (logo.maxHeight) {
+        logoStyles.push(
+          `max-height: ${
+            typeof logo.maxHeight === 'number'
+              ? `${logo.maxHeight}px`
+              : logo.maxHeight
+          }`
+        );
+      }
+      if (logo.maxWidth) {
+        logoStyles.push(
+          `max-width: ${
+            typeof logo.maxWidth === 'number'
+              ? `${logo.maxWidth}px`
+              : logo.maxWidth
+          }`
+        );
+      }
+      logoStyle =
+        logoStyles.length > 0 ? ` style="${logoStyles.join('; ')}"` : '';
+
+      // Build container style
+      const containerStyles = [];
+      if (logo.backgroundColor) {
+        containerStyles.push(`background-color: ${logo.backgroundColor}`);
+      }
+
+      // Handle padding
+      if (logo.padding) {
+        if (typeof logo.padding === 'string') {
+          containerStyles.push(`padding: ${logo.padding}`);
+        } else {
+          const vertical = logo.padding.vertical
+            ? typeof logo.padding.vertical === 'number'
+              ? `${logo.padding.vertical}px`
+              : logo.padding.vertical
+            : '0';
+          const horizontal = logo.padding.horizontal
+            ? typeof logo.padding.horizontal === 'number'
+              ? `${logo.padding.horizontal}px`
+              : logo.padding.horizontal
+            : '0';
+          containerStyles.push(`padding: ${vertical} ${horizontal}`);
+        }
+      }
+
+      logoContainerStyle =
+        containerStyles.length > 0
+          ? ` style="${containerStyles.join('; ')}"`
+          : '';
+      logoContainerClass = logo.containerClass ? ` ${logo.containerClass}` : '';
+    }
+  }
+
   const specData = spec ? JSON.stringify(spec, null, 2) : null;
   const specSource = specUrl
     ? `fetch('${specUrl}').then(r => r.json())`
     : `Promise.resolve(${specData})`;
 
+  // Process theme colors
   const themeColors = theme_?.colors || {};
+  const isDarkMode = theme === 'dark';
+
+  // Allow theme_ to override default dark mode colors
   const customThemeCSS = Object.entries(themeColors)
     .map(([key, value]) => `--flexdoc-${key}: ${value};`)
     .join('\n    ');
@@ -37,6 +113,14 @@ export function generateFlexDocHTML(
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {}
+        }
+      }
+    </script>
     
     <!-- Prism.js for syntax highlighting -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
@@ -59,23 +143,52 @@ export function generateFlexDocHTML(
             ${customThemeCSS}
         }
         
+        .dark {
+            --flexdoc-primary: #60a5fa;
+            --flexdoc-secondary: #34d399;
+            --flexdoc-accent: #a78bfa;
+            --flexdoc-background: #111827;
+            --flexdoc-surface: #1f2937;
+            --flexdoc-text: #f9fafb;
+            --flexdoc-text-secondary: #d1d5db;
+            --flexdoc-border: #374151;
+        }
+        
         .flexdoc-container {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         
-        .method-get { @apply text-blue-600 bg-blue-50 border-blue-200; }
-        .method-post { @apply text-green-600 bg-green-50 border-green-200; }
-        .method-put { @apply text-orange-600 bg-orange-50 border-orange-200; }
-        .method-delete { @apply text-red-600 bg-red-50 border-red-200; }
-        .method-patch { @apply text-purple-600 bg-purple-50 border-purple-200; }
-        .method-options { @apply text-gray-600 bg-gray-50 border-gray-200; }
-        .method-head { @apply text-gray-600 bg-gray-50 border-gray-200; }
-        .method-trace { @apply text-gray-600 bg-gray-50 border-gray-200; }
+        /* Method badges - with filled backgrounds */
+        .method-get { color: white; background-color: #3B82F6; border-color: #2563EB; }
+        .method-post { color: white; background-color: #10B981; border-color: #059669; }
+        .method-put { color: white; background-color: #F59E0B; border-color: #D97706; }
+        .method-delete { color: white; background-color: #EF4444; border-color: #DC2626; }
+        .method-patch { color: white; background-color: #8B5CF6; border-color: #7C3AED; }
+        .method-options { color: white; background-color: #6B7280; border-color: #4B5563; }
+        .method-head { color: white; background-color: #6B7280; border-color: #4B5563; }
+        .method-trace { color: white; background-color: #6B7280; border-color: #4B5563; }
         
-        .status-2xx { @apply text-green-600 bg-green-50 border-green-200; }
-        .status-3xx { @apply text-blue-600 bg-blue-50 border-blue-200; }
-        .status-4xx { @apply text-orange-600 bg-orange-50 border-orange-200; }
-        .status-5xx { @apply text-red-600 bg-red-50 border-red-200; }
+        /* Method badges - dark mode (keeping the same vibrant colors as light mode) */
+        .dark .method-get { color: white; background-color: #2563EB; border-color: #1D4ED8; }
+        .dark .method-post { color: white; background-color: #059669; border-color: #047857; }
+        .dark .method-put { color: white; background-color: #D97706; border-color: #B45309; }
+        .dark .method-delete { color: white; background-color: #DC2626; border-color: #B91C1C; }
+        .dark .method-patch { color: white; background-color: #7C3AED; border-color: #6D28D9; }
+        .dark .method-options { color: white; background-color: #4B5563; border-color: #374151; }
+        .dark .method-head { color: white; background-color: #4B5563; border-color: #374151; }
+        .dark .method-trace { color: white; background-color: #4B5563; border-color: #374151; }
+        
+        /* Status badges - light mode */
+        .status-2xx { color: #059669; background-color: #ECFDF5; border-color: #A7F3D0; }
+        .status-3xx { color: #2563EB; background-color: #EFF6FF; border-color: #BFDBFE; }
+        .status-4xx { color: #D97706; background-color: #FFFBEB; border-color: #FCD34D; }
+        .status-5xx { color: #DC2626; background-color: #FEF2F2; border-color: #FECACA; }
+        
+        /* Status badges - dark mode */
+        .dark .status-2xx { color: #6EE7B7; background-color: #064E3B; border-color: #065F46; }
+        .dark .status-3xx { color: #93C5FD; background-color: #1E3A8A; border-color: #1E40AF; }
+        .dark .status-4xx { color: #FBBF24; background-color: #78350F; border-color: #92400E; }
+        .dark .status-5xx { color: #FCA5A5; background-color: #7F1D1D; border-color: #991B1B; }
         
         .fade-in {
             animation: fadeIn 0.3s ease-in-out;
@@ -98,36 +211,46 @@ export function generateFlexDocHTML(
         ${customCss}
     </style>
 </head>
-<body class="bg-gray-50 ${theme === 'dark' ? 'dark' : ''}">
+<body class="bg-gray-50 transition-colors duration-200 ${
+    theme === 'dark' ? 'dark dark:bg-gray-900' : ''
+  }">
     <div id="flexdoc-app" class="flexdoc-container min-h-screen">
         <div class="flex h-screen">
             <!-- Sidebar -->
-            <div id="sidebar" class="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+            <div id="sidebar" class="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full transition-colors duration-200">
                 <!-- Header -->
-                <div class="p-6 border-b border-gray-200">
+                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
                     <div class="flex items-center gap-3 mb-4">
                         ${
-                          logo
-                            ? `<img src="${logo}" alt="Logo" class="w-8 h-8">`
+                          logoUrl
+                            ? `<div class="logo-container${logoContainerClass}"${logoContainerStyle}>
+                                ${
+                                  logoClickable
+                                    ? `<a href="#" onclick="window.location.reload(true);">`
+                                    : ''
+                                }
+                                <img src="${logoUrl}" alt="${logoAlt}" class="h-8"${logoStyle}>
+                                ${logoClickable ? `</a>` : ''}
+                              </div>`
                             : `
                         <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                             <i data-lucide="file-text" class="w-4 h-4 text-white"></i>
                         </div>`
                         }
                         <div>
-                            <h1 class="text-lg font-semibold text-gray-900">FlexDoc</h1>
-                            <p class="text-sm text-gray-500">API Documentation</p>
+                            <h1 class="text-lg font-semibold text-gray-900 dark:text-white">FlexDoc</h1>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">API Documentation</p>
                         </div>
                     </div>
                     
                     <!-- Search -->
                     <div class="relative">
-                        <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400"></i>
+                        <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500"></i>
                         <input
                             type="text"
                             id="search-input"
                             placeholder="Search endpoints..."
-                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                         />
                     </div>
                 </div>
@@ -137,7 +260,7 @@ export function generateFlexDocHTML(
                     <div class="p-4">
                         <!-- API Info -->
                         <div class="mb-6">
-                            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">API Information</h3>
+                            <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">API Information</h3>
                             <div id="api-info" class="space-y-2">
                                 <!-- Will be populated by JavaScript -->
                             </div>
@@ -145,7 +268,7 @@ export function generateFlexDocHTML(
 
                         <!-- Endpoints -->
                         <div>
-                            <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Endpoints</h3>
+                            <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Endpoints</h3>
                             <div id="endpoints-nav">
                                 <!-- Will be populated by JavaScript -->
                             </div>
@@ -156,12 +279,22 @@ export function generateFlexDocHTML(
 
             <!-- Main Content -->
             <div class="flex-1 flex flex-col">
-                <div id="main-content" class="flex-1 overflow-y-auto">
+                <div id="main-content" class="flex-1 overflow-y-auto bg-white dark:bg-gray-800 transition-colors duration-200">
                     <!-- Will be populated by JavaScript -->
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Theme Toggle Button (Bottom Left Corner) -->
+    <button 
+        id="theme-toggle" 
+        class="fixed left-4 bottom-4 z-50 p-2 rounded-md bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+        aria-label="Toggle Dark Mode"
+    >
+        <i data-lucide="moon" class="w-5 h-5 text-gray-700 dark:text-gray-300 hidden dark:block"></i>
+        <i data-lucide="sun" class="w-5 h-5 text-gray-700 dark:text-gray-300 block dark:hidden"></i>
+    </button>
 
     <script>
         // Global state
@@ -207,19 +340,19 @@ export function generateFlexDocHTML(
             const info = currentSpec.info;
             
             apiInfoEl.innerHTML = \`
-                <div class="p-3 bg-gray-50 rounded-lg">
-                    <h4 class="font-medium text-gray-900">\${info.title}</h4>
-                    <p class="text-sm text-gray-600">Version \${info.version}</p>
+                <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <h4 class="font-medium text-gray-900 dark:text-white">\${info.title}</h4>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Version \${info.version}</p>
                 </div>
                 \${currentSpec.servers && currentSpec.servers.length > 0 ? \`
-                <div class="p-3 bg-gray-50 rounded-lg">
+                <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <div class="flex items-center gap-2 mb-2">
-                        <i data-lucide="server" class="w-4 h-4 text-gray-500"></i>
-                        <span class="text-sm font-medium text-gray-700">Servers</span>
+                        <i data-lucide="server" class="w-4 h-4 text-gray-500 dark:text-gray-400"></i>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Servers</span>
                     </div>
                     \${currentSpec.servers.map(server => \`
-                        <div class="text-sm text-gray-600">
-                            <code class="text-xs bg-gray-200 px-1 rounded">\${server.url}</code>
+                        <div class="text-sm text-gray-600 dark:text-gray-400">
+                            <code class="text-xs bg-gray-200 dark:bg-gray-700 px-1 rounded">\${server.url}</code>
                             \${server.description ? \`<p class="mt-1">\${server.description}</p>\` : ''}
                         </div>
                     \`).join('')}
@@ -281,12 +414,12 @@ export function generateFlexDocHTML(
                         onclick="toggleTag('\${tag}')"
                         class="flex items-center gap-2 w-full text-left p-2 hover:bg-gray-50 rounded-lg transition-colors"
                     >
-                        <i data-lucide="\${isExpanded ? 'chevron-down' : 'chevron-right'}" class="w-4 h-4 text-gray-500"></i>
-                        <i data-lucide="tag" class="w-4 h-4 text-gray-500"></i>
-                        <span class="text-sm font-medium text-gray-700 capitalize">
+                        <i data-lucide="\${isExpanded ? 'chevron-down' : 'chevron-right'}" class="w-4 h-4 text-gray-500 dark:text-gray-400"></i>
+                        <i data-lucide="tag" class="w-4 h-4 text-gray-500 dark:text-gray-400"></i>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-400 capitalize">
                             \${tag === 'default' ? 'General' : tag}
                         </span>
-                        <span class="text-xs text-gray-500 ml-auto">\${filteredEndpoints.length}</span>
+                        <span class="text-xs text-gray-500 ml-auto dark:text-gray-400">\${filteredEndpoints.length}</span>
                     </button>
                     
                     \${isExpanded ? \`
@@ -306,17 +439,17 @@ export function generateFlexDocHTML(
                 <button
                     onclick="selectEndpoint('\${path}', '\${method}')"
                     class="w-full text-left p-2 rounded-lg transition-colors \${
-                        isSelected ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50'
+                        isSelected ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
                     }"
                 >
                     <div class="flex items-center gap-2 mb-1">
-                        <span class="text-xs font-bold px-2 py-1 rounded border method-\${method}">
+                        <span class="text-xs font-bold px-2 py-1 rounded method-\${method}">
                             \${method.toUpperCase()}
                         </span>
                     </div>
-                    <div class="text-sm text-gray-900 font-mono break-all">\${path}</div>
+                    <div class="text-sm text-gray-900 dark:text-gray-100 font-mono break-all">\${path}</div>
                     \${operation?.summary ? \`
-                        <div class="text-xs text-gray-600 mt-1">\${operation.summary}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">\${operation.summary}</div>
                     \` : ''}
                 </button>
             \`;
@@ -347,62 +480,70 @@ export function generateFlexDocHTML(
                                 <i data-lucide="file-text" class="w-6 h-6 text-white"></i>
                             </div>
                             <div>
-                                <h1 class="text-3xl font-bold text-gray-900">\${info.title}</h1>
-                                <p class="text-gray-600">Version \${info.version}</p>
+                                <h1 class="text-3xl font-bold text-gray-900 dark:text-white">\${
+                                  info.title
+                                }</h1>
+                                <p class="text-gray-600 dark:text-gray-400">Version \${
+                                  info.version
+                                }</p>
                             </div>
                         </div>
                         
-                        \${info.description ? \`
-                            <p class="text-lg text-gray-600 leading-relaxed max-w-4xl">\${info.description}</p>
-                        \` : ''}
+                        \${
+                          info.description
+                            ? \`
+                            <p class="text-lg text-gray-600 dark:text-gray-400 leading-relaxed max-w-4xl">\${info.description}</p>
+                        \`
+                            : ''
+                        }
                     </div>
 
                     <!-- Quick Stats -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                                     <i data-lucide="file-text" class="w-5 h-5 text-blue-600"></i>
                                 </div>
                                 <div>
-                                    <p class="text-sm text-gray-500 font-medium">Total Endpoints</p>
-                                    <p class="text-2xl font-bold text-gray-900">\${endpointStats.total}</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Endpoints</p>
+                                    <p class="text-2xl font-bold text-gray-900 dark:text-white">\${endpointStats.total}</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                <div class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                                     <i data-lucide="server" class="w-5 h-5 text-green-600"></i>
                                 </div>
                                 <div>
-                                    <p class="text-sm text-gray-500 font-medium">Servers</p>
-                                    <p class="text-2xl font-bold text-gray-900">\${currentSpec.servers?.length || 0}</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Servers</p>
+                                    <p class="text-2xl font-bold text-gray-900 dark:text-white">\${currentSpec.servers?.length || 0}</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                <div class="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
                                     <i data-lucide="tag" class="w-5 h-5 text-purple-600"></i>
                                 </div>
                                 <div>
-                                    <p class="text-sm text-gray-500 font-medium">Tags</p>
-                                    <p class="text-2xl font-bold text-gray-900">\${currentSpec.tags?.length || 0}</p>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Tags</p>
+                                    <p class="text-2xl font-bold text-gray-900 dark:text-white">\${currentSpec.tags?.length || 0}</p>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                        <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                                <div class="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
                                     <i data-lucide="shield" class="w-5 h-5 text-orange-600"></i>
                                 </div>
                                 <div>
-                                    <p class="text-sm text-gray-500 font-medium">Security Schemes</p>
-                                    <p class="text-2xl font-bold text-gray-900">
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Security Schemes</p>
+                                    <p class="text-2xl font-bold text-gray-900 dark:text-white">
                                         \${currentSpec.components?.securitySchemes ? Object.keys(currentSpec.components.securitySchemes).length : 0}
                                     </p>
                                 </div>
@@ -411,16 +552,15 @@ export function generateFlexDocHTML(
                     </div>
 
                     <!-- Method Distribution -->
-                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-8">
-                        <h2 class="text-xl font-semibold text-gray-900 mb-4">HTTP Methods Distribution</h2>
+                    <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 mb-8">
+                        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">HTTP Methods Distribution</h2>
                         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                             \${['get', 'post', 'put', 'delete', 'patch', 'options'].map(method => \`
                                 <div class="text-center">
                                     <div class="w-12 h-12 mx-auto rounded-lg flex items-center justify-center mb-2 method-\${method}">
                                         <span class="text-xs font-bold">\${method.toUpperCase()}</span>
                                     </div>
-                                    <p class="text-lg font-bold text-gray-900">\${endpointStats[method] || 0}</p>
-                                    <p class="text-sm text-gray-500">\${method.toUpperCase()}</p>
+                                    <p class="text-lg font-bold text-gray-900 dark:text-white">\${endpointStats[method] || 0}</p>
                                 </div>
                             \`).join('')}
                         </div>
@@ -458,34 +598,34 @@ export function generateFlexDocHTML(
                             <span class="text-sm font-bold px-3 py-1 rounded border method-\${method}">
                                 \${method.toUpperCase()}
                             </span>
-                            <code class="text-lg font-mono font-medium text-gray-900 bg-gray-100 px-3 py-1 rounded">
+                            <code class="text-lg font-mono font-medium text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-600 px-3 py-1 rounded">
                                 \${path}
                             </code>
                         </div>
                         
                         \${operation.summary ? \`
-                            <h1 class="text-2xl font-bold text-gray-900 mb-2">\${operation.summary}</h1>
+                            <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">\${operation.summary}</h1>
                         \` : ''}
                         
                         \${operation.description ? \`
-                            <p class="text-gray-600 leading-relaxed">\${operation.description}</p>
+                            <p class="text-gray-600 dark:text-gray-400 leading-relaxed">\${operation.description}</p>
                         \` : ''}
                         
                         <div class="flex items-center gap-4 mt-4">
                             \${operation.deprecated ? \`
-                                <div class="flex items-center gap-1 text-orange-600">
+                                <div class="flex items-center gap-1 text-orange-600 dark:text-orange-400">
                                     <i data-lucide="alert-circle" class="w-4 h-4"></i>
                                     <span class="text-sm font-medium">Deprecated</span>
                                 </div>
                             \` : ''}
                             
                             \${operation.security ? \`
-                                <div class="flex items-center gap-1 text-red-600">
+                                <div class="flex items-center gap-1 text-red-600 dark:text-red-400">
                                     <i data-lucide="lock" class="w-4 h-4"></i>
                                     <span class="text-sm">Authentication required</span>
                                 </div>
                             \` : \`
-                                <div class="flex items-center gap-1 text-green-600">
+                                <div class="flex items-center gap-1 text-green-600 dark:text-green-400">
                                     <i data-lucide="unlock" class="w-4 h-4"></i>
                                     <span class="text-sm">No authentication required</span>
                                 </div>
@@ -515,24 +655,24 @@ export function generateFlexDocHTML(
             
             return \`
                 <div class="mb-8">
-                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Parameters</h2>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Parameters</h2>
                     <div class="space-y-4">
                         \${parameters.map(param => {
                             const parameter = param.$ref ? resolveReference(param.$ref) : param;
                             return \`
-                                <div class="border border-gray-200 rounded-lg p-4">
+                                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 dark:bg-gray-800/30">
                                     <div class="flex items-center gap-2 mb-2">
-                                        <code class="font-mono font-medium text-gray-900">\${parameter.name}</code>
+                                        <code class="font-mono font-medium text-gray-900 dark:text-gray-100">\${parameter.name}</code>
                                         <span class="text-xs px-2 py-1 rounded \${getParameterTypeClass(parameter.in)}">
                                             \${parameter.in}
                                         </span>
                                         \${parameter.required ? \`
-                                            <span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">required</span>
+                                            <span class="text-xs bg-red-100 dark:bg-red-600 text-red-700 dark:text-red-300 px-2 py-1 rounded">required</span>
                                         \` : ''}
                                     </div>
                                     
                                     \${parameter.description ? \`
-                                        <p class="text-sm text-gray-600 mb-3">\${parameter.description}</p>
+                                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">\${parameter.description}</p>
                                     \` : ''}
                                     
                                     \${parameter.schema ? renderSchema(parameter.schema) : ''}
@@ -563,15 +703,15 @@ export function generateFlexDocHTML(
                 resolveReference(operation.requestBody.$ref) : operation.requestBody;
             
             return \`
-                <div class="mb-8">
-                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Request Body</h2>
-                    <div class="space-y-4">
+                <div class="mb-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 p-4">Request Body</h2>
+                    <div class="space-y-4 p-4">
                         \${Object.entries(requestBody.content || {}).map(([mediaType, content]) => \`
-                            <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 dark:bg-gray-800/30">
                                 <div class="flex items-center gap-2 mb-3">
-                                    <code class="text-sm bg-gray-100 px-2 py-1 rounded">\${mediaType}</code>
+                                    <code class="text-sm bg-gray-100 dark:bg-gray-600 px-2 py-1 rounded">\${mediaType}</code>
                                     \${requestBody.required ? \`
-                                        <span class="text-xs bg-red-100 text-red-700 px-2 py-1 rounded">required</span>
+                                        <span class="text-xs bg-red-100 dark:bg-red-600 text-red-700 dark:text-red-300 px-2 py-1 rounded">required</span>
                                     \` : ''}
                                 </div>
                                 
@@ -586,23 +726,23 @@ export function generateFlexDocHTML(
         // Render responses section
         function renderResponses(operation) {
             return \`
-                <div class="mb-8">
-                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Responses</h2>
-                    <div class="space-y-4">
+                <div class="mb-8 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4 p-4">Responses</h2>
+                    <div class="space-y-4 p-4">
                         \${Object.entries(operation.responses).map(([statusCode, response]) => {
                             const resolvedResponse = response.$ref ? resolveReference(response.$ref) : response;
                             return \`
-                                <div class="border border-gray-200 rounded-lg p-4">
+                                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 dark:bg-gray-800/30">
                                     <div class="flex items-center gap-2 mb-3">
                                         <span class="text-sm font-bold px-3 py-1 rounded border \${getStatusClass(statusCode)}">
                                             \${statusCode}
                                         </span>
-                                        <span class="text-sm text-gray-600">\${resolvedResponse.description}</span>
+                                        <span class="text-sm text-gray-600 dark:text-gray-400">\${resolvedResponse.description}</span>
                                     </div>
                                     
                                     \${resolvedResponse.content ? Object.entries(resolvedResponse.content).map(([mediaType, content]) => \`
                                         <div class="mt-3">
-                                            <code class="text-sm bg-gray-100 px-2 py-1 rounded">\${mediaType}</code>
+                                            <code class="text-sm bg-gray-100 dark:bg-gray-600 px-2 py-1 rounded">\${mediaType}</code>
                                             \${content.schema ? \`<div class="mt-2">\${renderSchema(content.schema)}</div>\` : ''}
                                         </div>
                                     \`).join('') : ''}
@@ -630,7 +770,7 @@ export function generateFlexDocHTML(
             
             return \`
                 <div class="mb-8">
-                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Code Examples</h2>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Code Examples</h2>
                     <div class="bg-gray-900 rounded-lg overflow-hidden border border-gray-700">
                         <div class="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
                             <span class="text-sm font-medium text-gray-300">cURL</span>
@@ -678,22 +818,22 @@ export function generateFlexDocHTML(
             const indent = level * 16;
             
             return \`
-                <div style="margin-left: \${indent}px">
+                <div style="margin-left: \${indent}px" class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4">
                     <div class="flex items-center gap-2 py-1">
-                        <span class="text-sm text-gray-600">
+                        <span class="text-sm text-gray-600 dark:text-gray-400">
                             \${schema.type || 'any'}
                             \${schema.format ? \` (\${schema.format})\` : ''}
                         </span>
                         \${schema.required ? \`
-                            <span class="text-xs bg-red-100 text-red-700 px-1 rounded">required</span>
+                            <span class="text-xs bg-red-100 dark:bg-red-600 text-red-700 dark:text-red-300 px-1 rounded">required</span>
                         \` : ''}
                         \${schema.nullable ? \`
-                            <span class="text-xs bg-gray-100 text-gray-700 px-1 rounded">nullable</span>
+                            <span class="text-xs bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-400 px-1 rounded">nullable</span>
                         \` : ''}
                     </div>
                     
                     \${schema.description ? \`
-                        <p class="text-sm text-gray-600 mt-1">\${schema.description}</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">\${schema.description}</p>
                     \` : ''}
                     
                     \${schema.example !== undefined ? \`
@@ -705,8 +845,8 @@ export function generateFlexDocHTML(
                     \` : ''}
 
                     \${schema.properties ? Object.entries(schema.properties).map(([propName, propSchema]) => \`
-                        <div class="border-l-2 border-gray-200 pl-3 mt-2">
-                            <div class="font-mono text-sm font-medium text-gray-900">\${propName}</div>
+                        <div class="border-l-2 border-gray-200 dark:border-gray-700 pl-3 mt-2">
+                            <div class="font-mono text-sm font-medium text-gray-900 dark:text-gray-100">\${propName}</div>
                             \${renderSchema(propSchema, level + 1)}
                         </div>
                     \`).join('') : ''}
@@ -766,6 +906,37 @@ export function generateFlexDocHTML(
                 renderEndpointsNav();
                 lucide.createIcons();
             });
+            
+            // Theme toggle functionality
+            const themeToggle = document.getElementById('theme-toggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', () => {
+                    // Toggle dark mode class
+                    document.body.classList.toggle('dark');
+                    
+                    // Update background colors for body
+                    if (document.body.classList.contains('dark')) {
+                        document.body.classList.add('bg-gray-900');
+                        document.body.classList.remove('bg-gray-50');
+                    } else {
+                        document.body.classList.add('bg-gray-50');
+                        document.body.classList.remove('bg-gray-900');
+                    }
+                    
+                    // Re-initialize icons to update their appearance
+                    lucide.createIcons();
+                    
+                    // Store preference in localStorage
+                    localStorage.setItem('flexdoc-theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+                });
+            }
+            
+            // Check for saved theme preference
+            const savedTheme = localStorage.getItem('flexdoc-theme');
+            if (savedTheme === 'dark' && !document.body.classList.contains('dark')) {
+                document.body.classList.add('dark', 'bg-gray-900');
+                document.body.classList.remove('bg-gray-50');
+            }
         }
 
         // Custom JavaScript
