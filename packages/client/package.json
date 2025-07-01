@@ -10,7 +10,10 @@
   "scripts": {
     "build": "tsc && vite build",
     "dev": "vite",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "keywords": [
     "openapi",
@@ -26,21 +29,27 @@
   "dependencies": {
     "js-yaml": "^4.1.0",
     "lucide-react": "^0.263.1",
+    "prismjs": "^1.30.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "prismjs": "^1.30.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/jest": "^30.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
+    "jest": "^30.0.3",
+    "jest-environment-jsdom": "^30.0.2",
     "postcss": "^8.4.38",
+    "prismjs": "^1.30.0",
     "tailwindcss": "^3.4.4",
+    "ts-jest": "^29.4.0",
     "typescript": "^5.0.0",
-    "vite": "^7.0.0",
-    "prismjs": "^1.30.0"
+    "vite": "^7.0.0"
   }
 }
 
