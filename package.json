@@ -1,0 +1,76 @@
+{
+  "name": "flexdoc",
+  "version": "1.0.0",
+  "description": "A beautiful, highly customizable OpenAPI documentation generator",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "lib",
+    "examples"
+  ],
+  "scripts": {
+    "build": "tsc && vite build",
+    "dev": "vite",
+    "preview": "vite preview",
+    "lib:build": "tsc",
+    "lib:dev": "tsc --watch",
+    "prepublishOnly": "npm run lib:build",
+    "example:nestjs": "cd examples/nestjs-example && npm install && npm run start:dev"
+  },
+  "keywords": [
+    "openapi",
+    "swagger",
+    "documentation",
+    "api",
+    "nestjs",
+    "express",
+    "react",
+    "typescript"
+  ],
+  "author": "FlexDoc Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flexdoc/flexdoc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/flexdoc/flexdoc/issues"
+  },
+  "homepage": "https://flexdoc.dev",
+  "peerDependencies": {
+    "@nestjs/common": "^10.0.0",
+    "@nestjs/core": "^10.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@nestjs/common": {
+      "optional": true
+    },
+    "@nestjs/core": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "lucide-react": "^0.263.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "prismjs": "^1.29.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.7",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
+    "typescript": "^5.0.0",
+    "vite": "^7.0.0"
+  }
+}
+
