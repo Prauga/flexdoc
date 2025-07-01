@@ -1,22 +1,20 @@
 {
-  "name": "flexdoc",
+  "name": "flexdoc-monorepo",
   "version": "1.0.0",
   "description": "A beautiful, highly customizable OpenAPI documentation generator",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "files": [
     "dist",
     "lib",
     "examples"
   ],
   "scripts": {
-    "build": "tsc && vite build",
-    "dev": "vite",
-    "preview": "vite preview",
-    "lib:build": "tsc",
-    "lib:dev": "tsc --watch",
-    "prepublishOnly": "npm run lib:build",
-    "example:nestjs": "cd examples/nestjs-example && npm install && npm run start:dev"
+    "build": "npm run build --workspaces",
+    "dev:client": "npm run dev -w packages/client",
+    "build:backend": "npm run build -w packages/backend",
   },
   "keywords": [
     "openapi",
@@ -32,12 +30,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/flexdoc/flexdoc.git"
+    "url": "https://github.com/bluejeans117/flexdoc.git"
   },
   "bugs": {
-    "url": "https://github.com/flexdoc/flexdoc/issues"
+    "url": "https://github.com/bluejeans117/flexdoc/issues"
   },
-  "homepage": "https://flexdoc.dev",
+  "homepage": "https://bluejeans117.github.io/flexdoc",
   "peerDependencies": {
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0"

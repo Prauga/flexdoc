@@ -18,11 +18,11 @@ FlexDoc is a beautiful, highly customizable OpenAPI documentation generator that
 ### React Component (Standalone)
 
 ```bash
-npm install flexdoc
+npm install @flexdoc/client
 ```
 
 ```tsx
-import { FlexDoc } from 'flexdoc';
+import { FlexDoc } from '@flexdoc/client';
 import { openApiSpec } from './your-spec';
 
 function App() {
@@ -39,12 +39,12 @@ function App() {
 ### NestJS Integration
 
 ```bash
-npm install flexdoc
+npm install @flexdoc/backend
 ```
 
 ```typescript
 // main.ts
-import { setupFlexDoc } from 'flexdoc';
+import { setupFlexDoc } from '@flexdoc/backend';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap() {
@@ -243,3 +243,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - 💬 [Discord Community](https://discord.gg/flexdoc)
 - 🐛 [Issue Tracker](https://github.com/flexdoc/flexdoc/issues)
 - 📧 [Email Support](mailto:support@flexdoc.dev)
+
