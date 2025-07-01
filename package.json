@@ -14,6 +14,8 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "dev:client": "npm run dev -w packages/client",
+    "dev:backend": "npm run dev -w packages/backend",
+    "build:client": "npm run build -w packages/client",
     "build:backend": "npm run build -w packages/backend",
   },
   "keywords": [

@@ -1,6 +1,9 @@
 import { FlexDocOptions } from './interfaces';
 
-export function generateFlexDocHTML(spec: object | null, options: FlexDocOptions & { specUrl?: string } = {}): string {
+export function generateFlexDocHTML(
+  spec: object | null,
+  options: FlexDocOptions & { specUrl?: string } = {}
+): string {
   const {
     title = 'API Documentation',
     description = 'Interactive API documentation powered by FlexDoc',
@@ -10,11 +13,13 @@ export function generateFlexDocHTML(spec: object | null, options: FlexDocOptions
     favicon = '',
     logo = '',
     specUrl,
-    theme_
+    theme_,
   } = options;
 
   const specData = spec ? JSON.stringify(spec, null, 2) : null;
-  const specSource = specUrl ? `fetch('${specUrl}').then(r => r.json())` : `Promise.resolve(${specData})`;
+  const specSource = specUrl
+    ? `fetch('${specUrl}').then(r => r.json())`
+    : `Promise.resolve(${specData})`;
 
   const themeColors = theme_?.colors || {};
   const customThemeCSS = Object.entries(themeColors)
@@ -101,10 +106,14 @@ export function generateFlexDocHTML(spec: object | null, options: FlexDocOptions
                 <!-- Header -->
                 <div class="p-6 border-b border-gray-200">
                     <div class="flex items-center gap-3 mb-4">
-                        ${logo ? `<img src="${logo}" alt="Logo" class="w-8 h-8">` : `
+                        ${
+                          logo
+                            ? `<img src="${logo}" alt="Logo" class="w-8 h-8">`
+                            : `
                         <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                             <i data-lucide="file-text" class="w-4 h-4 text-white"></i>
-                        </div>`}
+                        </div>`
+                        }
                         <div>
                             <h1 class="text-lg font-semibold text-gray-900">FlexDoc</h1>
                             <p class="text-sm text-gray-500">API Documentation</p>
@@ -181,6 +190,7 @@ export function generateFlexDocHTML(spec: object | null, options: FlexDocOptions
                         </div>
                     </div>
                 \`;
+                lucide.createIcons();
             }
         }
 
@@ -624,7 +634,7 @@ export function generateFlexDocHTML(spec: object | null, options: FlexDocOptions
                     <div class="bg-gray-900 rounded-lg overflow-hidden border border-gray-700">
                         <div class="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
                             <span class="text-sm font-medium text-gray-300">cURL</span>
-                            <button onclick="copyToClipboard(\\\`\${curlExample.replace(/\`/g, '\\\\`')}\\\`)" class="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200 transition-colors">
+                            <button onclick="copyToClipboard(\\\`\${curlExample.replace(/\`/g, '\\\`')}\\\`)" class="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200 transition-colors">
                                 <i data-lucide="copy" class="w-3 h-3"></i>
                                 Copy
                             </button>
@@ -742,7 +752,6 @@ export function generateFlexDocHTML(spec: object | null, options: FlexDocOptions
 
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text).then(() => {
-                // Could show a toast notification here
                 console.log('Copied to clipboard');
             }).catch(err => {
                 console.error('Failed to copy text: ', err);
@@ -768,3 +777,4 @@ export function generateFlexDocHTML(spec: object | null, options: FlexDocOptions
 </body>
 </html>`;
 }
+
