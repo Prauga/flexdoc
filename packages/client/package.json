@@ -24,7 +24,7 @@
     "react",
     "typescript"
   ],
-  "author": "FlexDoc Team",
+  "author": "Vishnu R <vishnurajesh45@gmail.com>",
   "license": "MIT",
   "dependencies": {
     "js-yaml": "^4.1.0",

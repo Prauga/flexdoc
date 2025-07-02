@@ -32,7 +32,7 @@
     "react",
     "typescript"
   ],
-  "author": "FlexDoc Team",
+  "author": "Vishnu R <vishnurajesh45@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -77,4 +77,3 @@
     "vite": "^7.0.0"
   }
 }
-
