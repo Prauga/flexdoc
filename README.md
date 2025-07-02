@@ -9,6 +9,7 @@ FlexDoc is a beautiful, highly customizable OpenAPI documentation generator that
 - 🎯 **Interactive**: Live API explorer with request/response examples
 - 🔍 **Advanced Search**: Powerful search and filtering capabilities
 - 🎨 **Customizable**: Extensive theming and styling options
+- 🔒 **Authentication**: Secure your documentation with Basic or Bearer token authentication
 - ⚡ **Fast**: Optimized performance with lazy loading and efficient rendering
 - 🔧 **Easy Integration**: Simple setup for NestJS and other frameworks
 - 📖 **OpenAPI 3.0**: Full support for OpenAPI 3.0 specifications
@@ -43,56 +44,104 @@ npm install @flexdoc/backend
 ```
 
 ```typescript
-// main.ts
-import { setupFlexDoc } from '@flexdoc/backend';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+// app.module.ts
+import { Module } from '@nestjs/common';
+import { FlexDocModule } from '@flexdoc/backend';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-
-  // Create OpenAPI document
-  const config = new DocumentBuilder()
-    .setTitle('My API')
-    .setDescription('API documentation')
-    .setVersion('1.0')
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
-
-  // Setup FlexDoc
-  setupFlexDoc(app, '/docs', {
-    spec: document,
-    options: {
-      title: 'My API Documentation',
-      theme: 'light',
-      customCss: `
-        .flexdoc-container {
-          --primary-color: #3b82f6;
-        }
-      `,
-    },
-  });
-
-  await app.listen(3000);
-}
+@Module({
+  imports: [
+    // Your other modules...
+    FlexDocModule.forRoot({
+      path: 'api-docs',
+      options: {
+        title: 'My API Documentation',
+        hideHostname: true,
+        pathInMiddlePanel: true,
+        // Enable authentication (optional)
+        auth: {
+          type: 'basic', // or 'bearer'
+          secretKey: process.env.FLEXDOC_SECRET_KEY || 'your-strong-secret-key',
+        },
+      },
+    }),
+  ],
+})
+export class AppModule {}
 ```
 
 ### Express Integration
 
 ```typescript
 import express from 'express';
-import { generateFlexDocHTML } from 'flexdoc';
+import { setupFlexDoc } from '@flexdoc/backend';
 
 const app = express();
 
-app.get('/docs', (req, res) => {
-  const html = generateFlexDocHTML(openApiSpec, {
+// Your other routes and middleware...
+
+// Set up FlexDoc
+setupFlexDoc(app, {
+  path: 'api-docs',
+  options: {
     title: 'My API Documentation',
-    theme: 'light',
-  });
-  res.send(html);
+    hideHostname: true,
+    pathInMiddlePanel: true,
+    // Enable authentication (optional)
+    auth: {
+      type: 'basic', // or 'bearer'
+      secretKey: process.env.FLEXDOC_SECRET_KEY || 'your-strong-secret-key',
+    },
+  },
+});
+
+app.listen(3000, () => {
+  console.log('Server running on http://localhost:3000');
 });
 ```
+
+## Authentication
+
+FlexDoc supports two authentication methods to secure your API documentation:
+
+### Basic Authentication
+
+```typescript
+// In your configuration
+options: {
+  auth: {
+    type: 'basic',
+    secretKey: process.env.FLEXDOC_SECRET_KEY
+  }
+}
+```
+
+Generate credentials for users:
+
+```bash
+# Using the CLI tool
+npx ts-node generate-auth.ts basic --username admin --secret your-strong-secret-key
+```
+
+### Bearer Authentication (JWT)
+
+```typescript
+// In your configuration
+options: {
+  auth: {
+    type: 'bearer',
+    secretKey: process.env.FLEXDOC_SECRET_KEY
+  }
+}
+```
+
+Generate JWT tokens:
+
+```bash
+# Using the CLI tool
+npx ts-node generate-auth.ts bearer --expiry 30 --secret your-strong-secret-key
+```
+
+For more details, see the [Authentication Guide](./packages/backend/docs/authentication.md).
 
 ## Configuration Options
 
@@ -102,11 +151,19 @@ app.get('/docs', (req, res) => {
 interface FlexDocOptions {
   title?: string; // Page title
   description?: string; // Page description
-  theme?: 'light' | 'dark'; // Color theme
+  theme?: 'light' | 'dark' | ThemeOptions; // Color theme
   customCss?: string; // Custom CSS styles
   customJs?: string; // Custom JavaScript
   favicon?: string; // Custom favicon URL
   logo?: string; // Custom logo URL
+  hideHostname?: boolean; // Hide hostname in API endpoints
+  pathInMiddlePanel?: boolean; // Show path in middle panel
+
+  // Authentication
+  auth?: {
+    type: 'basic' | 'bearer';
+    secretKey: string;
+  };
 
   // Advanced theming
   theme_?: {
@@ -132,13 +189,15 @@ interface FlexDocOptions {
 }
 ```
 
+For a complete list of configuration options, see the [Configuration Guide](./docs/configuration.md).
+
 ## Examples
 
 ### Basic Usage
 
 ```typescript
-setupFlexDoc(app, '/docs', {
-  spec: openApiDocument,
+FlexDocModule.forRoot({
+  path: 'api-docs',
   options: {
     title: 'Pet Store API',
     description: 'Beautiful API documentation',
@@ -150,21 +209,15 @@ setupFlexDoc(app, '/docs', {
 ### Custom Theming
 
 ```typescript
-setupFlexDoc(app, '/docs', {
-  spec: openApiDocument,
+FlexDocModule.forRoot({
+  path: 'api-docs',
   options: {
     title: 'My API',
-    theme: 'light',
-    theme_: {
-      colors: {
-        primary: '#6366f1',
-        secondary: '#10b981',
-        accent: '#f59e0b',
-      },
-      typography: {
-        fontFamily: 'Inter, sans-serif',
-        fontSize: '14px',
-      },
+    theme: {
+      primaryColor: '#6366f1',
+      secondaryColor: '#10b981',
+      backgroundColor: '#ffffff',
+      textColor: '#333333',
     },
     customCss: `
       .flexdoc-container {
@@ -178,21 +231,41 @@ setupFlexDoc(app, '/docs', {
 });
 ```
 
+### Secured Documentation with Authentication
+
+```typescript
+FlexDocModule.forRoot({
+  path: 'api-docs',
+  options: {
+    title: 'Internal API Documentation',
+    theme: 'dark',
+    auth: {
+      type: 'basic', // or 'bearer'
+      secretKey: process.env.FLEXDOC_SECRET_KEY,
+    },
+  },
+});
+```
+
 ### Multiple Documentation Sites
 
 ```typescript
 // Public API docs
-setupFlexDoc(app, '/docs', {
-  spec: publicApiSpec,
+FlexDocModule.forRoot({
+  path: 'public-docs',
   options: { title: 'Public API' },
 });
 
-// Internal API docs
-setupFlexDoc(app, '/internal-docs', {
-  spec: internalApiSpec,
+// Internal API docs (with authentication)
+FlexDocModule.forRoot({
+  path: 'internal-docs',
   options: {
     title: 'Internal API',
     theme: 'dark',
+    auth: {
+      type: 'basic',
+      secretKey: process.env.FLEXDOC_SECRET_KEY,
+    },
   },
 });
 ```
@@ -200,15 +273,17 @@ setupFlexDoc(app, '/internal-docs', {
 ## Running the Example
 
 1. Clone the repository
-2. Navigate to the NestJS example:
+2. Install dependencies:
    ```bash
-   cd examples/nestjs-example
    npm install
+   ```
+3. Navigate to the NestJS example:
+   ```bash
+   cd packages/examples/nestjs
    npm run start:dev
    ```
-3. Open your browser:
-   - FlexDoc: http://localhost:3000/docs
-   - Swagger UI: http://localhost:3000/swagger
+4. Open your browser:
+   - FlexDoc: http://localhost:3000/api-docs
 
 ## Comparison with Other Tools
 
@@ -219,6 +294,7 @@ setupFlexDoc(app, '/internal-docs', {
 | Interactive Examples | ✅      | ❌    | ✅         |
 | Advanced Search      | ✅      | ⚠️    | ❌         |
 | Custom Theming       | ✅      | ⚠️    | ⚠️         |
+| Authentication       | ✅      | ❌    | ⚠️         |
 | Performance          | ✅      | ✅    | ⚠️         |
 | Easy Integration     | ✅      | ✅    | ✅         |
 
@@ -276,3 +352,11 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - 🐛 [Issue Tracker](https://github.com/flexdoc/flexdoc/issues)
 - 📧 [Email Support](mailto:support@flexdoc.dev)
 
+## Documentation
+
+- [Getting Started](./docs/getting-started.md)
+- [Configuration Options](./docs/configuration.md)
+- [Theming Guide](./docs/theming.md)
+- [Authentication](./packages/backend/docs/authentication.md)
+- [API Reference](./docs/api-reference.md)
+- [Examples](./packages/examples)
