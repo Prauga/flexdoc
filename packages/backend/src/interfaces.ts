@@ -181,6 +181,14 @@ export interface FlexDocOptions {
     type: 'basic' | 'bearer';
     secretKey: string;
   };
+  footer?: {
+    copyright?: string;
+    link?: Array<{
+      text: string;
+      url: string;
+      icon?: string;
+    }>;
+  };
 }
 
 export interface FlexDocModuleOptions {

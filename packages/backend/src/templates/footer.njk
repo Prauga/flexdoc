@@ -1,17 +1,38 @@
 <footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-4 fixed bottom-0 left-0 right-0 z-10">
-    <div class="max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="container mx-auto px-4">
         <div class="flex justify-between items-center">
+            <!-- Left side: Always show Powered by text -->
             <div class="text-sm text-gray-500 dark:text-gray-400">
-                Powered by <a href="https://github.com/bluejeans117/flexdoc" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">FlexDoc</a>
+                Powered by <a href="https://bluejeans117.github.io/flexdoc" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">FlexDoc</a>
             </div>
-            {% if specUrl %}
-            <div>
+            
+            <!-- Center: Copyright text -->
+            <div class="absolute left-1/2 transform -translate-x-1/2 text-sm text-gray-500 dark:text-gray-400">
+                {% if footer and footer.copyright %}
+                    {{ footer.copyright }}
+                {% endif %}
+            </div>
+            
+            <!-- Right side: Links followed by OpenAPI Spec link -->
+            <div class="flex space-x-4 items-center justify-end">
+                {% if footer and footer.link %}
+                    {% for link in footer.link %}
+                        <a href="{{ link.url }}" target="_blank" class="text-sm text-primary-600 dark:text-primary-400 hover:underline flex items-center">
+                            {% if link.icon %}
+                            <i data-lucide="{{ link.icon }}" class="w-4 h-4 mr-1"></i>
+                            {% endif %}
+                            {{ link.text }}
+                        </a>
+                    {% endfor %}
+                {% endif %}
+                
+                {% if specUrl %}
                 <a href="{{ specUrl }}" target="_blank" class="text-sm text-primary-600 dark:text-primary-400 hover:underline flex items-center">
                     <i data-lucide="file-json" class="w-4 h-4 mr-1"></i>
                     OpenAPI Spec
                 </a>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
     </div>
 </footer>

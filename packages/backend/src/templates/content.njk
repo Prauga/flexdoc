@@ -88,23 +88,7 @@
                         HTTP Methods Distribution
                     </h2>
                     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        <!-- Calculate method counts properly -->
-                        {% set methodCounts = {
-                            'get': 0,
-                            'post': 0,
-                            'put': 0,
-                            'delete': 0,
-                            'patch': 0,
-                            'options': 0
-                        } %}
-                        
-                        {% for tag, paths in taggedPaths %}
-                            {% for path, methods in paths %}
-                                {% for method, operation in methods %}
-                                    {# Method counts are now pre-calculated in TypeScript #}
-                                {% endfor %}
-                            {% endfor %}
-                        {% endfor %}
+                        <!-- Method counts are pre-calculated in TypeScript -->
                         
                         {% for method in ['get', 'post', 'put', 'delete', 'patch', 'options'] %}
                         <div class="text-center">

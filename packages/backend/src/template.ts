@@ -1052,11 +1052,13 @@ func main() {${bodyCode}
     head: 0,
   };
 
-  // Pre-count methods
-  if (spec && spec.paths) {
-    for (const path in spec.paths) {
-      const pathItem = spec.paths[path];
-      for (const method in pathItem) {
+  // Calculate method counts AFTER filtering paths by tags
+  // This ensures counts match what's actually displayed in the UI
+  for (const tag in taggedPaths) {
+    const paths = taggedPaths[tag];
+    for (const path in paths) {
+      const methods = paths[path];
+      for (const method in methods) {
         if (
           ['get', 'post', 'put', 'delete', 'patch', 'options', 'head'].includes(
             method
@@ -1257,5 +1259,6 @@ func main() {${bodyCode}
     renderSchema,
     renderExample,
     specJsonString,
+    footer: options.footer, // Pass footer options to the template
   });
 }
