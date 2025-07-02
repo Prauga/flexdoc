@@ -33,11 +33,6 @@ describe('generateFlexDocHTML', () => {
   it('should include theme options when provided', () => {
     const options: FlexDocOptions = {
       theme: 'dark',
-      theme_: {
-        colors: {
-          primary: '#123456',
-        },
-      },
     };
 
     const html = generateFlexDocHTML(null, options);

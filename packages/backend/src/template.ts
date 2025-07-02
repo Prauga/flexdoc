@@ -1,4 +1,4 @@
-import { FlexDocOptions, LogoOptions } from './interfaces';
+import { FlexDocOptions, LogoOptions, ThemeConfig } from './interfaces';
 
 export function generateFlexDocHTML(
   spec: object | null,
@@ -13,8 +13,11 @@ export function generateFlexDocHTML(
     favicon = '',
     logo = '',
     specUrl,
-    theme_,
   } = options;
+
+  // Process theme configuration
+  const themeConfig: ThemeConfig = typeof theme === 'object' ? theme : {};
+  const themeMode = typeof theme === 'string' ? theme : 'light';
 
   // Process logo options
   let logoUrl = '';
@@ -94,8 +97,117 @@ export function generateFlexDocHTML(
     : `Promise.resolve(${specData})`;
 
   // Process theme colors
-  const themeColors = theme_?.colors || {};
-  const isDarkMode = theme === 'dark';
+  const themeColors = themeConfig?.colors || {};
+  const isDarkMode = themeMode === 'dark';
+
+  // Generate CSS variables for theme
+  const cssVars = [];
+
+  // Primary colors
+  if (themeColors.primary) {
+    if (themeColors.primary.main)
+      cssVars.push(`--flexdoc-primary: ${themeColors.primary.main}`);
+    if (themeColors.primary.light)
+      cssVars.push(`--flexdoc-primary-light: ${themeColors.primary.light}`);
+    if (themeColors.primary.dark)
+      cssVars.push(`--flexdoc-primary-dark: ${themeColors.primary.dark}`);
+  }
+
+  // Success colors
+  if (themeColors.success) {
+    if (themeColors.success.main)
+      cssVars.push(`--flexdoc-success: ${themeColors.success.main}`);
+    if (themeColors.success.light)
+      cssVars.push(`--flexdoc-success-light: ${themeColors.success.light}`);
+    if (themeColors.success.dark)
+      cssVars.push(`--flexdoc-success-dark: ${themeColors.success.dark}`);
+  }
+
+  // Error colors
+  if (themeColors.error) {
+    if (themeColors.error.main)
+      cssVars.push(`--flexdoc-error: ${themeColors.error.main}`);
+    if (themeColors.error.light)
+      cssVars.push(`--flexdoc-error-light: ${themeColors.error.light}`);
+    if (themeColors.error.dark)
+      cssVars.push(`--flexdoc-error-dark: ${themeColors.error.dark}`);
+  }
+
+  // Text colors
+  if (themeColors.text) {
+    if (themeColors.text.primary)
+      cssVars.push(`--flexdoc-text-primary: ${themeColors.text.primary}`);
+    if (themeColors.text.secondary)
+      cssVars.push(`--flexdoc-text-secondary: ${themeColors.text.secondary}`);
+  }
+
+  // Gray colors
+  if (themeColors.gray) {
+    if (themeColors.gray[50])
+      cssVars.push(`--flexdoc-gray-50: ${themeColors.gray[50]}`);
+    if (themeColors.gray[100])
+      cssVars.push(`--flexdoc-gray-100: ${themeColors.gray[100]}`);
+  }
+
+  // Border colors
+  if (themeColors.border) {
+    if (themeColors.border.dark)
+      cssVars.push(`--flexdoc-border-dark: ${themeColors.border.dark}`);
+    if (themeColors.border.light)
+      cssVars.push(`--flexdoc-border-light: ${themeColors.border.light}`);
+  }
+
+  // Typography
+  if (themeConfig.typography) {
+    const typography = themeConfig.typography;
+    if (typography.fontSize)
+      cssVars.push(`--flexdoc-font-size: ${typography.fontSize}`);
+    if (typography.lineHeight)
+      cssVars.push(`--flexdoc-line-height: ${typography.lineHeight}`);
+    if (typography.fontFamily)
+      cssVars.push(`--flexdoc-font-family: ${typography.fontFamily}`);
+
+    if (typography.headings) {
+      if (typography.headings.fontFamily)
+        cssVars.push(
+          `--flexdoc-headings-font-family: ${typography.headings.fontFamily}`
+        );
+      if (typography.headings.fontWeight)
+        cssVars.push(
+          `--flexdoc-headings-font-weight: ${typography.headings.fontWeight}`
+        );
+    }
+
+    if (typography.code) {
+      if (typography.code.fontSize)
+        cssVars.push(`--flexdoc-code-font-size: ${typography.code.fontSize}`);
+      if (typography.code.fontFamily)
+        cssVars.push(
+          `--flexdoc-code-font-family: ${typography.code.fontFamily}`
+        );
+      if (typography.code.lineHeight)
+        cssVars.push(
+          `--flexdoc-code-line-height: ${typography.code.lineHeight}`
+        );
+      if (typography.code.color)
+        cssVars.push(`--flexdoc-code-color: ${typography.code.color}`);
+      if (typography.code.backgroundColor)
+        cssVars.push(`--flexdoc-code-bg: ${typography.code.backgroundColor}`);
+    }
+  }
+
+  // Sidebar
+  if (themeConfig.sidebar) {
+    const sidebar = themeConfig.sidebar;
+    if (sidebar.backgroundColor)
+      cssVars.push(`--flexdoc-sidebar-bg: ${sidebar.backgroundColor}`);
+    if (sidebar.textColor)
+      cssVars.push(`--flexdoc-sidebar-text: ${sidebar.textColor}`);
+    if (sidebar.activeTextColor)
+      cssVars.push(`--flexdoc-sidebar-active: ${sidebar.activeTextColor}`);
+  }
+
+  const cssVarsString = cssVars.length > 0 ? cssVars.join(';') + ';' : '';
 
   // Allow theme_ to override default dark mode colors
   const customThemeCSS = Object.entries(themeColors)
@@ -103,15 +215,32 @@ export function generateFlexDocHTML(
     .join('\n    ');
 
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="${isDarkMode ? 'dark' : ''}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title}</title>
-    <meta name="description" content="${description}">
-    ${favicon ? `<link rel="icon" href="${favicon}">` : ''}
-    
-    <!-- Tailwind CSS -->
+    ${favicon ? `<link rel="icon" href="${favicon}" />` : ''}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    ${
+      themeConfig.typography?.headings?.fontFamily &&
+      !themeConfig.typography.headings.fontFamily.includes('Inter')
+        ? `<link href="https://fonts.googleapis.com/css2?family=${themeConfig.typography.headings.fontFamily.replace(
+            / /g,
+            '+'
+          )}:wght@400;500;600;700&display=swap" rel="stylesheet">`
+        : ''
+    }
+    ${
+      themeConfig.typography?.fontFamily &&
+      !themeConfig.typography.fontFamily.includes('Inter')
+        ? `<link href="https://fonts.googleapis.com/css2?family=${themeConfig.typography.fontFamily.replace(
+            / /g,
+            '+'
+          )}:wght@400;500;600;700&display=swap" rel="stylesheet">`
+        : ''
+    }
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -132,63 +261,283 @@ export function generateFlexDocHTML(
     
     <style>
         :root {
-            --flexdoc-primary: #3b82f6;
-            --flexdoc-secondary: #10b981;
-            --flexdoc-accent: #8b5cf6;
+            /* Base theme variables */
+            --flexdoc-primary: ${themeColors.primary?.main || '#3b82f6'};
+            --flexdoc-primary-light: ${themeColors.primary?.light || '#60a5fa'};
+            --flexdoc-primary-dark: ${themeColors.primary?.dark || '#2563eb'};
+            
+            --flexdoc-success: ${themeColors.success?.main || '#10b981'};
+            --flexdoc-success-light: ${themeColors.success?.light || '#F0F9ED'};
+            --flexdoc-success-dark: ${themeColors.success?.dark || '#059669'};
+            
+            --flexdoc-error: ${themeColors.error?.main || '#F44336'};
+            --flexdoc-error-light: ${themeColors.error?.light || '#FDEDEB'};
+            --flexdoc-error-dark: ${themeColors.error?.dark || '#D32F2F'};
+            
+            --flexdoc-text-primary: ${themeColors.text?.primary || '#111111'};
+            --flexdoc-text-secondary: ${
+              themeColors.text?.secondary || '#666666'
+            };
+            
+            --flexdoc-gray-50: ${themeColors.gray?.[50] || '#F9FAFC'};
+            --flexdoc-gray-100: ${themeColors.gray?.[100] || '#E7EDF4'};
+            
+            --flexdoc-border-dark: ${themeColors.border?.dark || '#B6C9DE'};
+            --flexdoc-border-light: ${themeColors.border?.light || '#E7EDF4'};
+            
+            /* Typography */
+            --flexdoc-font-size: ${themeConfig.typography?.fontSize || '16px'};
+            --flexdoc-line-height: ${
+              themeConfig.typography?.lineHeight || '1.5em'
+            };
+            --flexdoc-font-family: ${
+              themeConfig.typography?.fontFamily ||
+              'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            };
+            
+            --flexdoc-headings-font-family: ${
+              themeConfig.typography?.headings?.fontFamily ||
+              'Inter, sans-serif'
+            };
+            --flexdoc-headings-font-weight: ${
+              themeConfig.typography?.headings?.fontWeight || '600'
+            };
+            
+            --flexdoc-code-font-size: ${
+              themeConfig.typography?.code?.fontSize || '14px'
+            };
+            --flexdoc-code-font-family: ${
+              themeConfig.typography?.code?.fontFamily || 'monospace'
+            };
+            --flexdoc-code-line-height: ${
+              themeConfig.typography?.code?.lineHeight || '1.4em'
+            };
+            --flexdoc-code-color: ${
+              themeConfig.typography?.code?.color || '#0C4C91'
+            };
+            --flexdoc-code-bg: ${
+              themeConfig.typography?.code?.backgroundColor || '#EFF3FF'
+            };
+            
+            /* Sidebar */
+            --flexdoc-sidebar-bg: ${
+              themeConfig.sidebar?.backgroundColor || '#F9FAFC'
+            };
+            --flexdoc-sidebar-text: ${
+              themeConfig.sidebar?.textColor || '#111111'
+            };
+            --flexdoc-sidebar-active: ${
+              themeConfig.sidebar?.activeTextColor || '#0C4C91'
+            };
+            --flexdoc-sidebar-border: ${
+              themeConfig.sidebar?.borderColor || '#E5E7EB'
+            };
+            
+            /* Method badge colors */
+            --flexdoc-method-text: #ffffff;
+            --flexdoc-method-get-bg: ${
+              themeConfig.methodColors?.get?.bg || '#3b82f6'
+            };
+            --flexdoc-method-get-border: ${
+              themeConfig.methodColors?.get?.border || '#2563eb'
+            };
+            --flexdoc-method-post-bg: ${
+              themeConfig.methodColors?.post?.bg || '#10b981'
+            };
+            --flexdoc-method-post-border: ${
+              themeConfig.methodColors?.post?.border || '#059669'
+            };
+            --flexdoc-method-put-bg: ${
+              themeConfig.methodColors?.put?.bg || '#f59e0b'
+            };
+            --flexdoc-method-put-border: ${
+              themeConfig.methodColors?.put?.border || '#d97706'
+            };
+            --flexdoc-method-delete-bg: ${
+              themeConfig.methodColors?.delete?.bg || '#ef4444'
+            };
+            --flexdoc-method-delete-border: ${
+              themeConfig.methodColors?.delete?.border || '#dc2626'
+            };
+            --flexdoc-method-patch-bg: ${
+              themeConfig.methodColors?.patch?.bg || '#8b5cf6'
+            };
+            --flexdoc-method-patch-border: ${
+              themeConfig.methodColors?.patch?.border || '#7c3aed'
+            };
+            --flexdoc-method-options-bg: ${
+              themeConfig.methodColors?.options?.bg || '#6b7280'
+            };
+            --flexdoc-method-options-border: ${
+              themeConfig.methodColors?.options?.border || '#4b5563'
+            };
+            --flexdoc-method-head-bg: ${
+              themeConfig.methodColors?.head?.bg || '#1e40af'
+            };
+            --flexdoc-method-head-border: ${
+              themeConfig.methodColors?.head?.border || '#1e3a8a'
+            };
+            
+            /* Legacy variables for backward compatibility */
             --flexdoc-background: #ffffff;
             --flexdoc-surface: #f8fafc;
-            --flexdoc-text: #1f2937;
-            --flexdoc-text-secondary: #6b7280;
-            --flexdoc-border: #e5e7eb;
-            ${customThemeCSS}
+            --flexdoc-text: var(--flexdoc-text-primary);
+            --flexdoc-border: var(--flexdoc-border-light);
+            ${cssVarsString}
         }
         
         .dark {
-            --flexdoc-primary: #60a5fa;
-            --flexdoc-secondary: #34d399;
-            --flexdoc-accent: #a78bfa;
+            /* Dark mode overrides */
             --flexdoc-background: #111827;
             --flexdoc-surface: #1f2937;
-            --flexdoc-text: #f9fafb;
+            --flexdoc-text-primary: #f9fafb;
             --flexdoc-text-secondary: #d1d5db;
+            --flexdoc-border-light: #374151;
             --flexdoc-border: #374151;
+            --flexdoc-code-bg: #111827;
+            --flexdoc-code-color: #93c5fd;
+            
+            /* Sidebar dark mode */
+            --flexdoc-sidebar-bg: ${
+              themeConfig.sidebar?.backgroundColorDark || '#111827'
+            };
+            --flexdoc-sidebar-text: ${
+              themeConfig.sidebar?.textColorDark || '#f9fafb'
+            };
+            --flexdoc-sidebar-active: ${
+              themeConfig.sidebar?.activeTextColorDark || '#60a5fa'
+            };
+            --flexdoc-sidebar-border: ${
+              themeConfig.sidebar?.borderColorDark || '#374151'
+            };
+            
+            /* Only override if not explicitly set in theme config */
+            ${
+              !themeColors.primary?.light
+                ? '--flexdoc-primary-light: #60a5fa;'
+                : ''
+            }
+            ${
+              !themeColors.primary?.dark
+                ? '--flexdoc-primary-dark: #1d4ed8;'
+                : ''
+            }
+            
+            ${
+              !themeColors.success?.light
+                ? '--flexdoc-success-light: #064e3b;'
+                : ''
+            }
+            ${
+              !themeColors.success?.dark
+                ? '--flexdoc-success-dark: #047857;'
+                : ''
+            }
+            
+            ${
+              !themeColors.error?.light ? '--flexdoc-error-light: #7f1d1d;' : ''
+            }
+            ${!themeColors.error?.dark ? '--flexdoc-error-dark: #b91c1c;' : ''}
+            
+            /* Method badge colors for dark mode */
+            --flexdoc-method-get-bg: ${
+              themeConfig.methodColors?.get?.bg || '#3b82f6'
+            };
+            --flexdoc-method-get-border: ${
+              themeConfig.methodColors?.get?.border || '#2563eb'
+            };
+            --flexdoc-method-post-bg: ${
+              themeConfig.methodColors?.post?.bg || '#10b981'
+            };
+            --flexdoc-method-post-border: ${
+              themeConfig.methodColors?.post?.border || '#059669'
+            };
+            --flexdoc-method-put-bg: ${
+              themeConfig.methodColors?.put?.bg || '#f59e0b'
+            };
+            --flexdoc-method-put-border: ${
+              themeConfig.methodColors?.put?.border || '#d97706'
+            };
+            --flexdoc-method-delete-bg: ${
+              themeConfig.methodColors?.delete?.bg || '#ef4444'
+            };
+            --flexdoc-method-delete-border: ${
+              themeConfig.methodColors?.delete?.border || '#dc2626'
+            };
+            --flexdoc-method-patch-bg: ${
+              themeConfig.methodColors?.patch?.bg || '#8b5cf6'
+            };
+            --flexdoc-method-patch-border: ${
+              themeConfig.methodColors?.patch?.border || '#7c3aed'
+            };
+            --flexdoc-method-options-bg: ${
+              themeConfig.methodColors?.options?.bg || '#6b7280'
+            };
+            --flexdoc-method-options-border: ${
+              themeConfig.methodColors?.options?.border || '#4b5563'
+            };
+            --flexdoc-method-head-bg: ${
+              themeConfig.methodColors?.head?.bg || '#1e40af'
+            };
+            --flexdoc-method-head-border: ${
+              themeConfig.methodColors?.head?.border || '#1e3a8a'
+            };
         }
         
         .flexdoc-container {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: var(--flexdoc-font-family);
+            font-size: var(--flexdoc-font-size);
+            line-height: var(--flexdoc-line-height);
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            font-family: var(--flexdoc-headings-font-family);
+            font-weight: var(--flexdoc-headings-font-weight);
+        }
+        
+        code {
+            font-family: var(--flexdoc-code-font-family);
+            font-size: var(--flexdoc-code-font-size);
+            line-height: var(--flexdoc-code-line-height);
+        }
+        
+        pre code {
+            white-space: ${
+              themeConfig.typography?.code?.wrap ? 'pre-wrap' : 'pre'
+            };
         }
         
         /* Method badges - with filled backgrounds */
-        .method-get { color: white; background-color: #3B82F6; border-color: #2563EB; }
-        .method-post { color: white; background-color: #10B981; border-color: #059669; }
-        .method-put { color: white; background-color: #F59E0B; border-color: #D97706; }
-        .method-delete { color: white; background-color: #EF4444; border-color: #DC2626; }
-        .method-patch { color: white; background-color: #8B5CF6; border-color: #7C3AED; }
-        .method-options { color: white; background-color: #6B7280; border-color: #4B5563; }
-        .method-head { color: white; background-color: #6B7280; border-color: #4B5563; }
-        .method-trace { color: white; background-color: #6B7280; border-color: #4B5563; }
+        .method-get { color: white; background-color: var(--method-get-bg, #3B82F6); border-color: var(--method-get-border, #2563EB); }
+        .method-post { color: white; background-color: var(--method-post-bg, #10B981); border-color: var(--method-post-border, #059669); }
+        .method-put { color: white; background-color: var(--method-put-bg, #F59E0B); border-color: var(--method-put-border, #D97706); }
+        .method-delete { color: white; background-color: var(--method-delete-bg, #EF4444); border-color: var(--method-delete-border, #DC2626); }
+        .method-patch { color: white; background-color: var(--method-patch-bg, #8B5CF6); border-color: var(--method-patch-border, #7C3AED); }
+        .method-options { color: white; background-color: var(--method-options-bg, #6B7280); border-color: var(--method-options-border, #4B5563); }
+        .method-head { color: white; background-color: var(--method-head-bg, #6B7280); border-color: var(--method-head-border, #4B5563); }
+        .method-trace { color: white; background-color: var(--method-trace-bg, #6B7280); border-color: var(--method-trace-border, #4B5563); }
         
         /* Method badges - dark mode (keeping the same vibrant colors as light mode) */
-        .dark .method-get { color: white; background-color: #2563EB; border-color: #1D4ED8; }
-        .dark .method-post { color: white; background-color: #059669; border-color: #047857; }
-        .dark .method-put { color: white; background-color: #D97706; border-color: #B45309; }
-        .dark .method-delete { color: white; background-color: #DC2626; border-color: #B91C1C; }
-        .dark .method-patch { color: white; background-color: #7C3AED; border-color: #6D28D9; }
-        .dark .method-options { color: white; background-color: #4B5563; border-color: #374151; }
-        .dark .method-head { color: white; background-color: #4B5563; border-color: #374151; }
-        .dark .method-trace { color: white; background-color: #4B5563; border-color: #374151; }
+        .dark .method-get { color: white; background-color: var(--method-get-bg-dark, #2563EB); border-color: var(--method-get-border-dark, #1D4ED8); }
+        .dark .method-post { color: white; background-color: var(--method-post-bg-dark, #059669); border-color: var(--method-post-border-dark, #047857); }
+        .dark .method-put { color: white; background-color: var(--method-put-bg-dark, #D97706); border-color: var(--method-put-border-dark, #B45309); }
+        .dark .method-delete { color: white; background-color: var(--method-delete-bg-dark, #DC2626); border-color: var(--method-delete-border-dark, #B91C1C); }
+        .dark .method-patch { color: white; background-color: var(--method-patch-bg-dark, #7C3AED); border-color: var(--method-patch-border-dark, #6D28D9); }
+        .dark .method-options { color: white; background-color: var(--method-options-bg-dark, #4B5563); border-color: var(--method-options-border-dark, #374151); }
+        .dark .method-head { color: white; background-color: var(--method-head-bg-dark, #4B5563); border-color: var(--method-head-border-dark, #374151); }
+        .dark .method-trace { color: white; background-color: var(--method-trace-bg-dark, #4B5563); border-color: var(--method-trace-border-dark, #374151); }
         
         /* Status badges - light mode */
-        .status-2xx { color: #059669; background-color: #ECFDF5; border-color: #A7F3D0; }
-        .status-3xx { color: #2563EB; background-color: #EFF6FF; border-color: #BFDBFE; }
-        .status-4xx { color: #D97706; background-color: #FFFBEB; border-color: #FCD34D; }
-        .status-5xx { color: #DC2626; background-color: #FEF2F2; border-color: #FECACA; }
+        .status-2xx { color: var(--status-2xx-color, #059669); background-color: var(--status-2xx-bg, #ECFDF5); border-color: var(--status-2xx-border, #A7F3D0); }
+        .status-3xx { color: var(--status-3xx-color, #0369A1); background-color: var(--status-3xx-bg, #F0F9FF); border-color: var(--status-3xx-border, #BAE6FD); }
+        .status-4xx { color: var(--status-4xx-color, #B45309); background-color: var(--status-4xx-bg, #FFFBEB); border-color: var(--status-4xx-border, #FCD34D); }
+        .status-5xx { color: var(--status-5xx-color, #B91C1C); background-color: var(--status-5xx-bg, #FEF2F2); border-color: var(--status-5xx-border, #FECACA); }
         
         /* Status badges - dark mode */
-        .dark .status-2xx { color: #6EE7B7; background-color: #064E3B; border-color: #065F46; }
-        .dark .status-3xx { color: #93C5FD; background-color: #1E3A8A; border-color: #1E40AF; }
-        .dark .status-4xx { color: #FBBF24; background-color: #78350F; border-color: #92400E; }
-        .dark .status-5xx { color: #FCA5A5; background-color: #7F1D1D; border-color: #991B1B; }
+        .dark .status-2xx { color: var(--status-2xx-color-dark, #A7F3D0); background-color: var(--status-2xx-bg-dark, #064E3B); border-color: var(--status-2xx-border-dark, #047857); }
+        .dark .status-3xx { color: var(--status-3xx-color-dark, #BAE6FD); background-color: var(--status-3xx-bg-dark, #075985); border-color: var(--status-3xx-border-dark, #0369A1); }
+        .dark .status-4xx { color: var(--status-4xx-color-dark, #FCD34D); background-color: var(--status-4xx-bg-dark, #78350F); border-color: var(--status-4xx-border-dark, #92400E); }
+        .dark .status-5xx { color: var(--status-5xx-color-dark, #FECACA); background-color: var(--status-5xx-bg-dark, #7F1D1D); border-color: var(--status-5xx-border-dark, #991B1B); }
         
         .fade-in {
             animation: fadeIn 0.3s ease-in-out;
@@ -211,15 +560,15 @@ export function generateFlexDocHTML(
         ${customCss}
     </style>
 </head>
-<body class="bg-gray-50 transition-colors duration-200 ${
-    theme === 'dark' ? 'dark dark:bg-gray-900' : ''
-  }">
+<body class="transition-colors duration-200 ${
+    isDarkMode ? 'dark' : ''
+  }" style="background-color: var(--flexdoc-background, #f8fafc);">
     <div id="flexdoc-app" class="flexdoc-container min-h-screen">
         <div class="flex h-screen">
             <!-- Sidebar -->
-            <div id="sidebar" class="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full transition-colors duration-200">
+            <div id="sidebar" class="w-80 flex flex-col h-full transition-colors duration-200" style="background-color: var(--flexdoc-sidebar-bg, #ffffff); border-right: 1px solid var(--flexdoc-sidebar-border, #e5e7eb); color: var(--flexdoc-sidebar-text, #111111);">
                 <!-- Header -->
-                <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div class="p-6" style="border-bottom: 1px solid var(--flexdoc-border, #e5e7eb);">
                     <div class="flex items-center gap-3 mb-4">
                         ${
                           logoUrl
@@ -238,19 +587,20 @@ export function generateFlexDocHTML(
                         </div>`
                         }
                         <div>
-                            <h1 class="text-lg font-semibold text-gray-900 dark:text-white">FlexDoc</h1>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">API Documentation</p>
+                            <h1 class="text-lg font-semibold" style="color: var(--flexdoc-text-primary, #111111);">FlexDoc</h1>
+                            <p class="text-sm" style="color: var(--flexdoc-text-secondary, #666666);">API Documentation</p>
                         </div>
                     </div>
                     
                     <!-- Search -->
                     <div class="relative">
-                        <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500"></i>
+                        <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" style="color: var(--flexdoc-text-secondary, #666666);"></i>
                         <input
                             type="text"
                             id="search-input"
                             placeholder="Search endpoints..."
-                            class="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                            class="w-full pl-10 pr-4 py-2 rounded-lg focus:ring-2 focus:border-transparent text-sm"
+                            style="border: 1px solid var(--flexdoc-sidebar-border, #e5e7eb); background-color: var(--flexdoc-background, #ffffff); color: var(--flexdoc-text-primary, #111111);" 
                         />
                     </div>
                 </div>
@@ -260,7 +610,7 @@ export function generateFlexDocHTML(
                     <div class="p-4">
                         <!-- API Info -->
                         <div class="mb-6">
-                            <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">API Information</h3>
+                            <h3 class="text-xs font-semibold uppercase tracking-wider mb-2" style="color: var(--flexdoc-text-secondary, #666666);">API Information</h3>
                             <div id="api-info" class="space-y-2">
                                 <!-- Will be populated by JavaScript -->
                             </div>
@@ -268,7 +618,7 @@ export function generateFlexDocHTML(
 
                         <!-- Endpoints -->
                         <div>
-                            <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Endpoints</h3>
+                            <h3 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--flexdoc-text-secondary, #666666);">Endpoints</h3>
                             <div id="endpoints-nav">
                                 <!-- Will be populated by JavaScript -->
                             </div>
@@ -279,7 +629,7 @@ export function generateFlexDocHTML(
 
             <!-- Main Content -->
             <div class="flex-1 flex flex-col">
-                <div id="main-content" class="flex-1 overflow-y-auto bg-white dark:bg-gray-800 transition-colors duration-200">
+                <div id="main-content" class="flex-1 overflow-y-auto transition-colors duration-200" style="background-color: var(--flexdoc-background, #ffffff); color: var(--flexdoc-text-primary, #111111);">
                     <!-- Will be populated by JavaScript -->
                 </div>
             </div>
@@ -289,11 +639,12 @@ export function generateFlexDocHTML(
     <!-- Theme Toggle Button (Bottom Left Corner) -->
     <button 
         id="theme-toggle" 
-        class="fixed left-4 bottom-4 z-50 p-2 rounded-md bg-white dark:bg-gray-800 shadow-lg hover:shadow-xl border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+        class="fixed left-4 bottom-4 z-50 p-2 rounded-md shadow-lg hover:shadow-xl focus:outline-none focus:ring-2 transition-all duration-200"
+        style="background-color: var(--flexdoc-background, #ffffff); border: 1px solid var(--flexdoc-border, #e5e7eb); color: var(--flexdoc-text-primary, #111111);"
         aria-label="Toggle Dark Mode"
     >
-        <i data-lucide="moon" class="w-5 h-5 text-gray-700 dark:text-gray-300 hidden dark:block"></i>
-        <i data-lucide="sun" class="w-5 h-5 text-gray-700 dark:text-gray-300 block dark:hidden"></i>
+        <i data-lucide="moon" class="w-5 h-5 hidden dark:block"></i>
+        <i data-lucide="sun" class="w-5 h-5 block dark:hidden"></i>
     </button>
 
     <script>
@@ -438,18 +789,21 @@ export function generateFlexDocHTML(
             return \`
                 <button
                     onclick="selectEndpoint('\${path}', '\${method}')"
-                    class="w-full text-left p-2 rounded-lg transition-colors \${
-                        isSelected ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800' : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                    class="w-full text-left p-2 rounded-lg transition-colors"
+                    style="\${
+                        isSelected ? 
+                        'background-color: var(--flexdoc-primary-light, #dbeafe); border: 1px solid var(--flexdoc-primary, #3b82f6);' : 
+                        'border: 1px solid transparent;'
                     }"
                 >
                     <div class="flex items-center gap-2 mb-1">
-                        <span class="text-xs font-bold px-2 py-1 rounded method-\${method}">
+                        <span class="text-xs font-bold px-2 py-1 rounded" style="background-color: var(--flexdoc-method-\${method.toLowerCase()}-bg, var(--flexdoc-primary, #3b82f6)); color: var(--flexdoc-method-text, white); border: 1px solid var(--flexdoc-method-\${method.toLowerCase()}-border, var(--flexdoc-primary-dark, #2563eb));">
                             \${method.toUpperCase()}
                         </span>
                     </div>
-                    <div class="text-sm text-gray-900 dark:text-gray-100 font-mono break-all">\${path}</div>
+                    <div class="text-sm font-mono break-all" style="color: var(--flexdoc-code-color, #0C4C91);">\${path}</div>
                     \${operation?.summary ? \`
-                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">\${operation.summary}</div>
+                        <div class="text-xs mt-1" style="color: var(--flexdoc-text-secondary, #666666);">\${operation.summary}</div>
                     \` : ''}
                 </button>
             \`;
@@ -472,7 +826,7 @@ export function generateFlexDocHTML(
             const endpointStats = calculateEndpointStats();
             
             return \`
-                <div class="p-8">
+                <div class="p-8" style="background-color: var(--flexdoc-background, #f8fafc);">
                     <!-- Header -->
                     <div class="mb-8">
                         <div class="flex items-center gap-3 mb-4">
@@ -480,12 +834,8 @@ export function generateFlexDocHTML(
                                 <i data-lucide="file-text" class="w-6 h-6 text-white"></i>
                             </div>
                             <div>
-                                <h1 class="text-3xl font-bold text-gray-900 dark:text-white">\${
-                                  info.title
-                                }</h1>
-                                <p class="text-gray-600 dark:text-gray-400">Version \${
-                                  info.version
-                                }</p>
+                                <h1 class="text-3xl font-bold text-gray-900 dark:text-white" style="color: var(--flexdoc-text-primary, #111111);">\${info.title}</h1>
+                                <p class="text-gray-600 dark:text-gray-400">Version \${info.version}</p>
                             </div>
                         </div>
                         
@@ -557,7 +907,7 @@ export function generateFlexDocHTML(
                         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                             \${['get', 'post', 'put', 'delete', 'patch', 'options'].map(method => \`
                                 <div class="text-center">
-                                    <div class="w-12 h-12 mx-auto rounded-lg flex items-center justify-center mb-2 method-\${method}">
+                                    <div class="w-16 h-12 mx-auto rounded-lg flex items-center justify-center mb-2" style="background-color: var(--flexdoc-method-\${method.toLowerCase()}-bg, var(--flexdoc-primary, #3b82f6)); color: var(--flexdoc-method-text, white); border: 1px solid var(--flexdoc-method-\${method.toLowerCase()}-border, var(--flexdoc-primary-dark, #2563eb)); padding: 0 8px;">
                                         <span class="text-xs font-bold">\${method.toUpperCase()}</span>
                                     </div>
                                     <p class="text-lg font-bold text-gray-900 dark:text-white">\${endpointStats[method] || 0}</p>
@@ -912,30 +1262,40 @@ export function generateFlexDocHTML(
             if (themeToggle) {
                 themeToggle.addEventListener('click', () => {
                     // Toggle dark mode class
+                    document.documentElement.classList.toggle('dark');
                     document.body.classList.toggle('dark');
                     
-                    // Update background colors for body
-                    if (document.body.classList.contains('dark')) {
-                        document.body.classList.add('bg-gray-900');
-                        document.body.classList.remove('bg-gray-50');
+                    // Apply CSS variables for the current theme
+                    const isDarkMode = document.documentElement.classList.contains('dark');
+                    
+                    // Update theme toggle button appearance
+                    if (isDarkMode) {
+                        themeToggle.style.backgroundColor = 'var(--flexdoc-surface, #1f2937)';
+                        themeToggle.style.borderColor = 'var(--flexdoc-border, #374151)';
                     } else {
-                        document.body.classList.add('bg-gray-50');
-                        document.body.classList.remove('bg-gray-900');
+                        themeToggle.style.backgroundColor = 'var(--flexdoc-background, #ffffff)';
+                        themeToggle.style.borderColor = 'var(--flexdoc-border, #e5e7eb)';
                     }
                     
                     // Re-initialize icons to update their appearance
                     lucide.createIcons();
                     
                     // Store preference in localStorage
-                    localStorage.setItem('flexdoc-theme', document.body.classList.contains('dark') ? 'dark' : 'light');
+                    localStorage.setItem('flexdoc-theme', isDarkMode ? 'dark' : 'light');
                 });
             }
             
             // Check for saved theme preference
             const savedTheme = localStorage.getItem('flexdoc-theme');
-            if (savedTheme === 'dark' && !document.body.classList.contains('dark')) {
-                document.body.classList.add('dark', 'bg-gray-900');
-                document.body.classList.remove('bg-gray-50');
+            if (savedTheme === 'dark' && !document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.add('dark');
+                document.body.classList.add('dark');
+                
+                // Update theme toggle button appearance for dark mode
+                if (themeToggle) {
+                    themeToggle.style.backgroundColor = 'var(--flexdoc-surface, #1f2937)';
+                    themeToggle.style.borderColor = 'var(--flexdoc-border, #374151)';
+                }
             }
         }
 

@@ -25,11 +25,130 @@ export interface LogoOptions {
   clickable?: boolean;
 }
 
+/**
+ * Theme color configuration
+ */
+export interface ThemeColors {
+  primary?: {
+    main?: string;
+    light?: string;
+    dark?: string;
+  };
+  success?: {
+    main?: string;
+    light?: string;
+    dark?: string;
+  };
+  error?: {
+    main?: string;
+    light?: string;
+    dark?: string;
+  };
+  text?: {
+    primary?: string;
+    secondary?: string;
+  };
+  gray?: {
+    50?: string;
+    100?: string;
+  };
+  border?: {
+    dark?: string;
+    light?: string;
+  };
+}
+
+/**
+ * Theme typography configuration
+ */
+export interface ThemeTypography {
+  fontSize?: string;
+  lineHeight?: string;
+  fontFamily?: string;
+  headings?: {
+    fontFamily?: string;
+    fontWeight?: string;
+  };
+  code?: {
+    fontSize?: string;
+    fontFamily?: string;
+    lineHeight?: string;
+    color?: string;
+    backgroundColor?: string;
+    wrap?: boolean;
+  };
+}
+
+/**
+ * Theme sidebar configuration
+ */
+export interface ThemeSidebar {
+  backgroundColor?: string;
+  backgroundColorDark?: string;
+  textColor?: string;
+  textColorDark?: string;
+  activeTextColor?: string;
+  activeTextColorDark?: string;
+  borderColor?: string;
+  borderColorDark?: string;
+  groupItems?: {
+    textTransform?: string;
+  };
+}
+
+/**
+ * Advanced theme configuration
+ */
+/**
+ * HTTP method badge color configuration
+ */
+export interface MethodColors {
+  get?: {
+    bg?: string;
+    border?: string;
+  };
+  post?: {
+    bg?: string;
+    border?: string;
+  };
+  put?: {
+    bg?: string;
+    border?: string;
+  };
+  delete?: {
+    bg?: string;
+    border?: string;
+  };
+  patch?: {
+    bg?: string;
+    border?: string;
+  };
+  options?: {
+    bg?: string;
+    border?: string;
+  };
+  head?: {
+    bg?: string;
+    border?: string;
+  };
+}
+
+export interface ThemeConfig {
+  colors?: ThemeColors;
+  typography?: ThemeTypography;
+  sidebar?: ThemeSidebar;
+  methodColors?: MethodColors;
+}
+
 export interface FlexDocOptions {
   title?: string;
   description?: string;
   version?: string;
-  theme?: 'light' | 'dark';
+  /**
+   * Theme configuration - can be 'light', 'dark', or a detailed ThemeConfig object
+   * @example 'light' | 'dark' | { colors: { primary: { main: '#0C4C91' } } }
+   */
+  theme?: 'light' | 'dark' | ThemeConfig;
   customCss?: string;
   customJs?: string;
   favicon?: string;
@@ -53,26 +172,6 @@ export interface FlexDocOptions {
   scrollYOffset?: number | string;
   suppressWarnings?: boolean;
   payloadSampleIdx?: number;
-  theme_?: {
-    colors?: {
-      primary?: string;
-      secondary?: string;
-      accent?: string;
-      background?: string;
-      surface?: string;
-      text?: string;
-      textSecondary?: string;
-      border?: string;
-    };
-    typography?: {
-      fontSize?: string;
-      fontFamily?: string;
-      lineHeight?: string;
-    };
-    spacing?: {
-      unit?: number;
-    };
-  };
 }
 
 export interface FlexDocModuleOptions {
