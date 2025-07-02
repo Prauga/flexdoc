@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { setupFlexDoc } from '@flexdoc/backend';
+import { setupFlexDoc } from '@bluejeans/flexdoc-backend';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -27,6 +27,26 @@ async function bootstrap() {
         clickable: true,
       },
       hideDownloadButton: false,
+      footer: {
+        copyright: 'Copyright © 2025 FlexDoc',
+        link: [
+          {
+            text: 'GitHub',
+            url: 'https://github.com/bluejeans117/flexdoc',
+            icon: 'github',
+          },
+          {
+            text: 'Documentation',
+            url: 'https://flexdoc.bluejeans.com',
+            icon: 'book-open',
+          },
+          {
+            text: 'Support',
+            url: 'https://github.com/bluejeans117/flexdoc/issues',
+            icon: 'help-circle',
+          },
+        ],
+      },
     },
   });
 

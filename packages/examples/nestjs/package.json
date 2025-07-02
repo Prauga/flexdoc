@@ -20,7 +20,7 @@
     "gen:auth:bearer": "npx ts-node ../../backend/src/scripts/generate-auth.ts bearer"
   },
   "dependencies": {
-    "@flexdoc/backend": "^1.0.0",
+    "@bluejeans/flexdoc-backend": "^1.0.2",
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
