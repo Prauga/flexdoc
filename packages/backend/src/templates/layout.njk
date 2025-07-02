@@ -298,10 +298,11 @@
         <div class="flex flex-1 overflow-hidden">
             {% include "sidebar.njk" %}
             
-            <main class="flex-1 overflow-y-auto">
+            <main class="flex-1 overflow-y-auto pb-16">
                 {% block content %}{% endblock %}
             </main>
         </div>
+        {% include "footer.njk" %}
     </div>
     
     <script>

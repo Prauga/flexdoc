@@ -521,13 +521,8 @@ export function generateFlexDocHTML(
       try {
         // Generate example body from schema
         const schema = operation.requestBody.content['application/json'].schema;
-        console.log(
-          'Schema for request body:',
-          JSON.stringify(schema, null, 2)
-        );
 
         if (!schema) {
-          console.log('Schema is null or undefined');
           body = ` \\
   -d '{ "example": "No schema available" }'`;
           return `curl -X ${method.toUpperCase()} \\
@@ -536,10 +531,6 @@ export function generateFlexDocHTML(
         }
 
         const exampleBody = generateExampleFromSchema(schema);
-        console.log(
-          'Generated example body:',
-          JSON.stringify(exampleBody, null, 2)
-        );
 
         // Format the JSON with proper escaping for cURL
         const jsonString = JSON.stringify(exampleBody, null, 2);
@@ -565,7 +556,6 @@ export function generateFlexDocHTML(
   // Helper function to resolve schema references
   function resolveSchemaRef(ref: string): any {
     if (!ref.startsWith('#/')) {
-      console.log('External references not supported:', ref);
       return null;
     }
 
