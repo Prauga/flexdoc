@@ -1,6 +1,6 @@
 {
   "name": "@bluejeans/flexdoc-backend",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "FlexDoc backend integration for NestJS and other frameworks",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
