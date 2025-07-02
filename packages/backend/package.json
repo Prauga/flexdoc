@@ -1,5 +1,5 @@
 {
-  "name": "@flexdoc/backend",
+  "name": "@bluejeans/flexdoc-backend",
   "version": "1.0.0",
   "description": "FlexDoc backend integration for NestJS and other frameworks",
   "main": "dist/index.js",
@@ -32,6 +32,11 @@
   ],
   "author": "Vishnu R <vishnurajesh45@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bluejeans117/flexdoc.git",
+    "directory": "packages/backend"
+  },
   "peerDependencies": {
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0"

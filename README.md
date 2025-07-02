@@ -40,13 +40,13 @@ function App() {
 ### NestJS Integration
 
 ```bash
-npm install @flexdoc/backend
+npm install @bluejeans/flexdoc-backend
 ```
 
 ```typescript
 // app.module.ts
 import { Module } from '@nestjs/common';
-import { FlexDocModule } from '@flexdoc/backend';
+import { FlexDocModule } from '@bluejeans/flexdoc-backend';
 
 @Module({
   imports: [
@@ -73,7 +73,7 @@ export class AppModule {}
 
 ```typescript
 import express from 'express';
-import { setupFlexDoc } from '@flexdoc/backend';
+import { setupFlexDoc } from '@bluejeans/flexdoc-backend';
 
 const app = express();
 
@@ -347,10 +347,9 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Support
 
-- 📖 [Documentation](https://flexdoc.dev)
-- 💬 [Discord Community](https://discord.gg/flexdoc)
-- 🐛 [Issue Tracker](https://github.com/flexdoc/flexdoc/issues)
-- 📧 [Email Support](mailto:support@flexdoc.dev)
+- 📖 [Documentation](https://bluejeans117.github.io/flexdoc)
+- 🐛 [Issue Tracker](https://github.com/bluejeans117/flexdoc/issues)
+- 📧 [Email Support](mailto:vishnurajesh45@gmail.com)
 
 ## Documentation
 

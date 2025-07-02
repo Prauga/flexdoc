@@ -9,7 +9,7 @@ This guide will help you quickly set up FlexDoc in your project to create beauti
 Install the FlexDoc backend package:
 
 ```bash
-npm install @flexdoc/backend
+npm install @bluejeans/flexdoc-backend
 ```
 
 ### Frontend Integration (Optional)
@@ -28,7 +28,7 @@ npm install @flexdoc/client
 
 ```typescript
 import { Module } from '@nestjs/common';
-import { FlexDocModule } from '@flexdoc/backend';
+import { FlexDocModule } from '@bluejeans/flexdoc-backend';
 
 @Module({
   imports: [
@@ -52,7 +52,7 @@ export class AppModule {}
 
 ```typescript
 import express from 'express';
-import { setupFlexDoc } from '@flexdoc/backend';
+import { setupFlexDoc } from '@bluejeans/flexdoc-backend';
 
 const app = express();
 
