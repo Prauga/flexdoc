@@ -27,13 +27,21 @@
             </div>
             
             <div class="flex items-center space-x-4">
-                {% if not hideDownloadButton and specUrl %}
-                <a href="{{ specUrl }}" 
-                   target="_blank" 
-                   class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <i data-lucide="download" class="w-4 h-4 mr-2"></i>
-                    Download Spec
-                </a>
+                {% if not hideDownloadButton %}
+                    {% if specUrl %}
+                    <a href="{{ specUrl }}" 
+                       target="_blank" 
+                       class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                        Download Spec
+                    </a>
+                    {% else %}
+                    <button id="download-spec-btn"
+                       class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        <i data-lucide="download" class="w-4 h-4 mr-2"></i>
+                        Download Spec
+                    </button>
+                    {% endif %}
                 {% endif %}
                 
                 {% if not hideTopbar %}

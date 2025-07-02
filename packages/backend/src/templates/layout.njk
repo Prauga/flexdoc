@@ -406,6 +406,9 @@
             
             // Setup tag toggles
             setupTagToggles();
+            
+            // Setup download spec button functionality
+            setupDownloadSpecButton();
         });
         
         // Endpoint navigation functionality
@@ -571,6 +574,34 @@
             });
         }
         
+        // Setup download spec button functionality
+        function setupDownloadSpecButton() {
+            const downloadBtn = document.getElementById('download-spec-btn');
+            if (downloadBtn) {
+                downloadBtn.addEventListener('click', () => {
+                    // Create a blob with the spec JSON
+                    const specJson = `{{ specJsonString | safe }}`;
+                    const blob = new Blob([specJson], { type: 'application/json' });
+                    
+                    // Create a download link
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = '{{ title | default("openapi-spec") }}.json';
+                    
+                    // Trigger the download
+                    document.body.appendChild(a);
+                    a.click();
+                    
+                    // Clean up
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }, 0);
+                });
+            }
+        }
+
         {{ customJs }}
     </script>
 </body>

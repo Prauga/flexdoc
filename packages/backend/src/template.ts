@@ -171,7 +171,79 @@ export function generateFlexDocHTML(
 
     // Replace the original paths with filtered paths
     spec.paths = filteredPaths;
+
+    // Filter out unused schemas
+    if (spec.components?.schemas) {
+      // First, collect all schema references used in the filtered paths
+      const usedSchemaRefs = new Set<string>();
+
+      // Helper function to collect schema references recursively
+      const collectSchemaRefs = (obj: any) => {
+        if (!obj || typeof obj !== 'object') return;
+
+        // Check for direct references
+        if (
+          obj.$ref &&
+          typeof obj.$ref === 'string' &&
+          obj.$ref.startsWith('#/components/schemas/')
+        ) {
+          const schemaName = obj.$ref.replace('#/components/schemas/', '');
+          usedSchemaRefs.add(schemaName);
+
+          // Also collect refs from the referenced schema (recursive)
+          if (spec.components?.schemas?.[schemaName]) {
+            collectSchemaRefs(spec.components.schemas[schemaName]);
+          }
+        }
+
+        // Check array items
+        if (obj.items) {
+          collectSchemaRefs(obj.items);
+        }
+
+        // Check properties
+        if (obj.properties) {
+          Object.values(obj.properties).forEach((prop) => {
+            collectSchemaRefs(prop);
+          });
+        }
+
+        // Check for nested objects in arrays
+        if (Array.isArray(obj)) {
+          obj.forEach((item) => collectSchemaRefs(item));
+        }
+
+        // Check all other properties that might contain schema references
+        Object.values(obj).forEach((val) => {
+          if (val && typeof val === 'object') {
+            collectSchemaRefs(val);
+          }
+        });
+      };
+
+      // Collect all schema references from paths
+      Object.values(filteredPaths).forEach((pathItem) => {
+        collectSchemaRefs(pathItem);
+      });
+
+      // Filter schemas to only include those that are referenced
+      const filteredSchemas: Record<string, any> = {};
+
+      // First pass: add directly referenced schemas
+      for (const schemaName of usedSchemaRefs) {
+        if (spec.components.schemas[schemaName]) {
+          filteredSchemas[schemaName] = spec.components.schemas[schemaName];
+        }
+      }
+
+      // Replace the original schemas with filtered schemas
+      spec.components.schemas = filteredSchemas;
+    }
   }
+
+  // Create a JSON string of the full spec for download functionality
+  // This is now after filtering, so it will only include filtered endpoints
+  const specJsonString = spec ? JSON.stringify(spec, null, 2) : '';
 
   // Process logo options
   let logoUrl = '';
@@ -1182,5 +1254,6 @@ func main() {${bodyCode}
     renderGoExample,
     renderSchema,
     renderExample,
+    specJsonString,
   });
 }
