@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "flexdoc-auth": "dist/scripts/generate-auth.js"
+    "flexdoc-auth-generator": "dist/scripts/generate-auth.js"
   },
   "files": [
     "dist"

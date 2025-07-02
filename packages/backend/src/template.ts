@@ -110,6 +110,7 @@ export function generateFlexDocHTML(
   const {
     title = 'API Documentation',
     description = 'Interactive API documentation powered by FlexDoc',
+    altDescription = '',
     theme = 'light',
     customCss = '',
     customJs = '',
@@ -1226,6 +1227,7 @@ func main() {${bodyCode}
   return nunjucksEnv.render('content.njk', {
     title,
     description,
+    altDescription,
     favicon,
     logo: logoUrl,
     logoAlt,

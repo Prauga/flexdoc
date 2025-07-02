@@ -143,6 +143,7 @@ export interface ThemeConfig {
 export interface FlexDocOptions {
   title?: string;
   description?: string;
+  altDescription?: string;
   version?: string;
   tagGroups?: {
     name: string;
