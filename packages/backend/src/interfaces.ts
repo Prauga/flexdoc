@@ -144,6 +144,10 @@ export interface FlexDocOptions {
   title?: string;
   description?: string;
   version?: string;
+  tagGroups?: {
+    name: string;
+    tags: string[];
+  }[];
   /**
    * Theme configuration - can be 'light', 'dark', or a detailed ThemeConfig object
    * @example 'light' | 'dark' | { colors: { primary: { main: '#0C4C91' } } }
@@ -184,4 +188,3 @@ export interface FlexDocModuleOptions {
   spec?: object;
   options?: FlexDocOptions;
 }
-

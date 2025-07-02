@@ -102,7 +102,10 @@ interface MediaType {
 
 export function generateFlexDocHTML(
   spec: OpenAPISpec | null,
-  options: FlexDocOptions & { specUrl?: string } = {}
+  options: FlexDocOptions & {
+    specUrl?: string;
+    tagGroups?: { tags: string[] }[];
+  } = {}
 ): string {
   const {
     title = 'API Documentation',
@@ -113,11 +116,62 @@ export function generateFlexDocHTML(
     favicon = '',
     logo = '',
     specUrl,
+    tagGroups,
   } = options;
 
   // Process theme configuration
   const themeConfig: ThemeConfig = typeof theme === 'object' ? theme : {};
   const themeMode = typeof theme === 'string' ? theme : 'light';
+
+  // Filter spec based on tagGroups if defined
+  if (spec && tagGroups && spec.paths) {
+    // Create a set of all tags that should be included
+    const includedTags = new Set<string>();
+    tagGroups.forEach((group) => {
+      group.tags.forEach((tag) => includedTags.add(tag));
+    });
+
+    // Filter paths to only include operations with matching tags
+    const filteredPaths: Record<string, PathItem> = {};
+
+    for (const path in spec.paths) {
+      const pathItem = spec.paths[path];
+      const filteredPathItem: PathItem = {};
+      let hasIncludedOperation = false;
+
+      // Check each HTTP method operation
+      for (const method in pathItem) {
+        if (
+          ['get', 'post', 'put', 'delete', 'patch', 'options', 'head'].includes(
+            method
+          )
+        ) {
+          const operation = pathItem[method as keyof PathItem] as Operation;
+
+          // Include operation if it has at least one matching tag
+          if (
+            operation.tags &&
+            operation.tags.some((tag) => includedTags.has(tag))
+          ) {
+            filteredPathItem[method as keyof PathItem] = operation;
+            hasIncludedOperation = true;
+          }
+        } else {
+          // Copy non-operation properties (like parameters)
+          filteredPathItem[method as keyof PathItem] =
+            pathItem[method as keyof PathItem];
+        }
+      }
+
+      // Only include path if it has at least one included operation
+      if (hasIncludedOperation) {
+        filteredPaths[path] = filteredPathItem;
+      }
+    }
+
+    // Replace the original paths with filtered paths
+    spec.paths = filteredPaths;
+  }
 
   // Process logo options
   let logoUrl = '';
@@ -320,6 +374,16 @@ export function generateFlexDocHTML(
     Record<string, Record<string, Operation>>
   > = {};
 
+  // Create a mapping of tag to custom name from tagGroups
+  const tagNameMap: Record<string, string> = {};
+  if (options.tagGroups) {
+    options.tagGroups.forEach((group) => {
+      group.tags.forEach((tag) => {
+        tagNameMap[tag] = group.name;
+      });
+    });
+  }
+
   if (spec) {
     const paths = spec['paths'] || {};
 
@@ -332,24 +396,30 @@ export function generateFlexDocHTML(
             method
           )
         ) {
-          const operation = pathItem[method] as Operation;
+          const operation = pathItem[method as keyof PathItem] as Operation;
           const tags = operation.tags || ['default'];
 
           for (const tag of tags) {
-            if (!taggedPaths[tag]) {
-              taggedPaths[tag] = {};
+            const tagName = tagNameMap[tag] || tag;
+            if (!taggedPaths[tagName]) {
+              taggedPaths[tagName] = {};
             }
 
-            if (!taggedPaths[tag][path]) {
-              taggedPaths[tag][path] = {};
+            if (!taggedPaths[tagName][path]) {
+              taggedPaths[tagName][path] = {};
             }
 
-            taggedPaths[tag][path][method] = operation;
+            taggedPaths[tagName][path][method] = operation;
           }
         }
       }
     }
   }
+
+  // Pass the tag name mapping to the template
+  const tagNameMapForTemplate = Object.fromEntries(
+    Object.entries(tagNameMap).map(([tag, name]) => [name, tag])
+  );
 
   // Define method colors for UI
   const methodColors = {
@@ -747,10 +817,10 @@ url = \`${url}?\${queryString}\`;`;
 
     return `// Using fetch API\nasync function callApi() {\n  let url = "${url}";
   ${queryParamsCode ? queryParamsCode + '\n\n  ' : ''}${
-      bodyCode ? bodyCode + '\n\n  ' : ''
-    }const options = {\n    method: "${method.toUpperCase()}",\n    headers: {\n      "Content-Type": "application/json"\n    }${
-      bodyCode ? ',\n    body: JSON.stringify(payload)' : ''
-    }\n  };\n\n  try {\n    const response = await fetch(url, options);\n    const data = await response.json();\n    console.log(data);\n  } catch (error) {\n    console.error("Error:", error);\n  }\n}\n\ncallApi();`;
+    bodyCode ? bodyCode + '\n\n  ' : ''
+  }const options = {\n    method: "${method.toUpperCase()}",\n    headers: {\n      "Content-Type": "application/json"\n    }${
+    bodyCode ? ',\n    body: JSON.stringify(payload)' : ''
+  }\n  };\n\n  try {\n    const response = await fetch(url, options);\n    const data = await response.json();\n    console.log(data);\n  } catch (error) {\n    console.error("Error:", error);\n  }\n}\n\ncallApi();`;
   }
 
   function renderGoExample(
@@ -1099,6 +1169,7 @@ func main() {${bodyCode}
     isDarkMode,
     currentSpec: spec,
     taggedPaths,
+    tagNameMapForTemplate,
     methodColors,
     specUrl,
     baseUrl,
@@ -1113,4 +1184,3 @@ func main() {${bodyCode}
     renderExample,
   });
 }
-
