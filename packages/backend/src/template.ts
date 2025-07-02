@@ -347,6 +347,11 @@ export function generateFlexDocHTML(
             --flexdoc-method-post-border: ${
               themeConfig.methodColors?.post?.border || '#059669'
             };
+            
+            /* Code tabs colors */
+            --flexdoc-code-tab-inactive: #6b7280;
+            --flexdoc-code-tab-active: #3b82f6;
+            --flexdoc-code-tab-hover: #4b5563;
             --flexdoc-method-put-bg: ${
               themeConfig.methodColors?.put?.bg || '#f59e0b'
             };
@@ -438,6 +443,11 @@ export function generateFlexDocHTML(
               !themeColors.error?.light ? '--flexdoc-error-light: #7f1d1d;' : ''
             }
             ${!themeColors.error?.dark ? '--flexdoc-error-dark: #b91c1c;' : ''}
+            
+            /* Code tabs colors for dark mode */
+            --flexdoc-code-tab-inactive: #9ca3af;
+            --flexdoc-code-tab-active: #60a5fa;
+            --flexdoc-code-tab-hover: #d1d5db;
             
             /* Method badge colors for dark mode */
             --flexdoc-method-get-bg: ${
@@ -538,6 +548,29 @@ export function generateFlexDocHTML(
         .dark .status-3xx { color: var(--status-3xx-color-dark, #BAE6FD); background-color: var(--status-3xx-bg-dark, #075985); border-color: var(--status-3xx-border-dark, #0369A1); }
         .dark .status-4xx { color: var(--status-4xx-color-dark, #FCD34D); background-color: var(--status-4xx-bg-dark, #78350F); border-color: var(--status-4xx-border-dark, #92400E); }
         .dark .status-5xx { color: var(--status-5xx-color-dark, #FECACA); background-color: var(--status-5xx-bg-dark, #7F1D1D); border-color: var(--status-5xx-border-dark, #991B1B); }
+        
+        /* Code tabs styles */
+        .code-tab {
+            color: var(--flexdoc-code-tab-inactive);
+            transition: all 0.2s ease-in-out;
+        }
+        
+        .code-tab:hover {
+            color: var(--flexdoc-code-tab-hover);
+        }
+        
+        .code-tab.active {
+            color: var(--flexdoc-code-tab-active);
+            border-color: var(--flexdoc-code-tab-active);
+        }
+        
+        .code-panel {
+            display: block;
+        }
+        
+        .code-panel.hidden {
+            display: none;
+        }
         
         .fade-in {
             animation: fadeIn 0.3s ease-in-out;
@@ -1117,6 +1150,9 @@ export function generateFlexDocHTML(
         // Render code examples section
         function renderCodeExamples(path, method, operation) {
             const curlExample = generateCurlExample(path, method, operation);
+            const pythonExample = generatePythonExample(path, method, operation);
+            const jsExample = generateJavaScriptExample(path, method, operation);
+            const goExample = generateGoExample(path, method, operation);
             
             return \`
                 <div class="mb-8">
@@ -1156,6 +1192,242 @@ export function generateFlexDocHTML(
             }
             
             return curl;
+        }
+
+        // Generate Python code example
+        function generatePythonExample(path, method, operation) {
+            const baseUrl = currentSpec.servers?.[0]?.url || 'https://api.example.com'; // Use server URL from OpenAPI spec
+            const fullPath = path.startsWith('/') ? path : '/' + path;
+            const hasBody = ['post', 'put', 'patch'].includes(method.toLowerCase());
+            const hasParams = operation.parameters?.some(p => p.in === 'query');
+            
+            let code = \`import requests\n\n\`;
+            
+            // Add URL construction with query parameters if needed
+            if (hasParams) {
+                code += \`params = {\n\`;
+                operation.parameters?.forEach(param => {
+                    if (param.in === 'query') {
+                        const exampleValue = param.example || 
+                            (param.schema?.type === 'string' ? '"example"' : 
+                            param.schema?.type === 'number' ? '123' : 
+                            param.schema?.type === 'boolean' ? 'True' : 'None');
+                        code += \`    "\${param.name}": \${exampleValue},\n\`;
+                    }
+                });
+                code += \`}\n\`;
+            }
+            
+            // Add request body if needed
+            if (hasBody) {
+                code += \`payload = {\n\`;
+                if (operation.requestBody?.content?.['application/json']?.schema?.properties) {
+                    const props = operation.requestBody.content['application/json'].schema.properties;
+                    Object.keys(props).forEach(key => {
+                        const prop = props[key];
+                        const exampleValue = prop.example || 
+                            (prop.type === 'string' ? '"example"' : 
+                            prop.type === 'number' ? '123' : 
+                            prop.type === 'boolean' ? 'True' : '{}');
+                        code += \`    "\${key}": \${exampleValue},\n\`;
+                    });
+                } else {
+                    code += \`    "key": "value"\n\`;
+                }
+                code += \`}\n\`;
+            }
+            
+            // Add headers
+            code += \`headers = {\n\`;
+            code += \`    "Content-Type": "application/json",\n\`;
+            code += \`    "Accept": "application/json"\n\`;
+            code += \`}\n\`;
+            
+            // Add the request
+            code += \`response = requests.\${method.toLowerCase()}(\n\`;
+            code += \`    "\${baseUrl}\${fullPath}",\n\`;
+            if (hasParams) code += \`    params=params,\n\`;
+            if (hasBody) code += \`    json=payload,\n\`;
+            code += \`    headers=headers\n\`;
+            code += \`)\`;
+            
+            // Add response handling
+            code += \`print(response.status_code)\n\`;
+            code += \`print(response.json())\n\`;
+            
+            return code;
+        }
+        
+        // Generate JavaScript code example
+        function generateJavaScriptExample(path, method, operation) {
+            const baseUrl = currentSpec.servers?.[0]?.url || 'https://api.example.com'; // Use server URL from OpenAPI spec
+            const fullPath = path.startsWith('/') ? path : '/' + path;
+            const hasBody = ['post', 'put', 'patch'].includes(method.toLowerCase());
+            const hasParams = operation.parameters?.some(p => p.in === 'query');
+            
+            let code = \`// Using fetch API\n\n\`;
+            
+            // Add URL construction with query parameters if needed
+            if (hasParams) {
+                code += \`const params = new URLSearchParams({\n\`;
+                operation.parameters?.forEach(param => {
+                    if (param.in === 'query') {
+                        const exampleValue = param.example || 
+                            (param.schema?.type === 'string' ? '"example"' : 
+                            param.schema?.type === 'number' ? '123' : 
+                            param.schema?.type === 'boolean' ? 'true' : 'null');
+                        code += \`  \${param.name}: \${exampleValue},\n\`;
+                    }
+                });
+                code += \`});\n\n\`;
+                code += \`const url = "\${baseUrl}\${fullPath}?" + params.toString();\n\`;
+            } else {
+                code += \`const url = "\${baseUrl}\${fullPath}";\n\`;
+            }
+            
+            // Add request options
+            code += \`const options = {\n\`;
+            code += \`  method: "\${method.toUpperCase()}",\n\`;
+            code += \`  headers: {\n\`;
+            code += \`    \"Content-Type\": \"application/json\",\n\`;
+            code += \`    \"Accept\": \"application/json\"\n\`;
+            code += \`  }\n\`;
+            
+            // Add request body if needed
+            if (hasBody) {
+                code += \`  body: JSON.stringify({\n\`;
+                if (operation.requestBody?.content?.['application/json']?.schema?.properties) {
+                    const props = operation.requestBody.content['application/json'].schema.properties;
+                    Object.keys(props).forEach(key => {
+                        const prop = props[key];
+                        const exampleValue = prop.example || 
+                            (prop.type === 'string' ? '"example"' : 
+                            prop.type === 'number' ? '123' : 
+                            prop.type === 'boolean' ? 'true' : '{}');
+                        code += \`    \${key}: \${exampleValue},\n\`;
+                    });
+                } else {
+                    code += \`    key: \"value\"\n\`;
+                }
+                code += \`  })\n\`;
+            } else {
+                code += \`\n\`;
+            }
+            code += \`};\n\n\`;
+            // Add the fetch call and response handling
+            code += \`fetch(url, options)\n\`;
+            code += \`  .then(response => response.json())\n\`;
+            code += \`  .then(data => console.log(data))\n\`;
+            code += \`  .catch(error => console.error("Error:", error));\`;
+            
+            return code;
+        }
+        
+        // Generate Go code example
+        function generateGoExample(path, method, operation) {
+            const baseUrl = currentSpec.servers?.[0]?.url || 'https://api.example.com'; // Use server URL from OpenAPI spec
+            const fullPath = path.startsWith('/') ? path : '/' + path;
+            const hasBody = ['post', 'put', 'patch'].includes(method.toLowerCase());
+            const hasParams = operation.parameters?.some(p => p.in === 'query');
+            
+            let code = \`package main\n\n\`;
+            code += \`import (\n\`;
+            code += \`\t"fmt"\n\`;
+            code += \`\t"io/ioutil"\n\`;
+            code += \`\t"net/http"\n\`;
+
+            if (hasBody) code += \`\t"bytes"\n\`;
+            if (hasParams) code += \`\t"net/url"\n\`;
+            code += \`\t"encoding/json"\n\`;
+            code += \`)\n\`;
+            
+            code += \`func main() {\n\`;
+            
+            // Add URL construction with query parameters if needed
+            if (hasParams) {
+                code += \`// Create URL with query parameters\n\`;
+                code += \`baseURL := "\${baseUrl}\${fullPath}"\n\`;
+                code += \`params := url.Values{}\n\`;
+                operation.parameters?.forEach(param => {
+                    if (param.in === 'query') {
+                        const exampleValue = param.example || 
+                            (param.schema?.type === 'string' ? '"example"' : 
+                            param.schema?.type === 'number' ? '123' : 
+                            param.schema?.type === 'boolean' ? 'true' : 'nil');
+                        code += \`\tparams.Add("\${param.name}", \${exampleValue})\n\`;
+                    }
+                });
+                code += \`\trequestURL := baseURL + "?" + params.Encode()\n\`;
+            } else {
+                code += \`\trequestURL := "\${baseUrl}\${fullPath}\n\`;
+            }
+            
+            // Add request body if needed
+            if (hasBody) {
+                code += \`// Create request body\n\`;
+
+                code += \`\tpayload := RequestBody{\n\`;
+                if (operation.requestBody?.content?.['application/json']?.schema?.properties) {
+                    const props = operation.requestBody.content['application/json'].schema.properties;
+                    Object.keys(props).forEach(key => {
+                        const prop = props[key];
+                        const pascalKey = key.charAt(0).toUpperCase() + key.slice(1);
+                        const exampleValue = prop.example || 
+                            (prop.type === 'string' ? '"example"' : 
+                            prop.type === 'number' || prop.type === 'integer' ? '123' : 
+                            prop.type === 'boolean' ? 'true' : 'nil');
+                        code += \`\t\t\${pascalKey}: \${exampleValue},\n\`;
+                    });
+                } else {
+                    code += \`\t\tKey: "value",\n\`;
+                }
+                code += \`\t}\n\n\`;
+                
+                code += \`\tjsonPayload, err := json.Marshal(payload)\n\`;
+                code += \`\tif err != nil {\n\`;
+                code += \`\t\tfmt.Println("Error creating JSON payload:", err)\n\`;
+                code += \`\t\treturn\n\`;
+                code += \`\t}\n\n\`;
+                
+                code += \`\treq, err := http.NewRequest("\${method.toUpperCase()}", requestURL, bytes.NewBuffer(jsonPayload))\n\`;
+            } else {
+                code += \`\treq, err := http.NewRequest("\${method.toUpperCase()}", requestURL, nil)\n\`;
+            }
+            
+            // Add headers and error handling
+            code += \`\tif err != nil {\n\`;
+            code += \`\t\tfmt.Println("Error creating request:", err)\n\`;
+            code += \`\t\treturn\n\`;
+            code += \`\t}\n\n\`;
+            
+            code += \`\t// Add headers\n\`;
+            code += \`\treq.Header.Set("Content-Type", "application/json")\n\`;
+            code += \`\treq.Header.Set("Accept", "application/json")\n\n\`;
+            
+            // Send request and handle response
+            code += \`\tclient := &http.Client{}\n\`;
+            code += \`\tresp, err := client.Do(req)\n\`;
+            code += \`\tif err != nil {\n\`;
+            code += \`\t\tfmt.Println("Error sending request:", err)\n\`;
+            code += \`\t\treturn\n\`;
+            code += \`\t}\n\`;
+            
+            code += \`\tdefer resp.Body.Close()\n\`;
+            
+            code += \`\t// Read and print response\n\`;
+            code += \`\tfmt.Println("Response Status:", resp.Status)\n\`;
+            code += \`\tbody, err := ioutil.ReadAll(resp.Body)\n\`;
+            code += \`\tif err != nil {\n\`;
+            code += \`\t\tfmt.Println("Error reading response:", err)\n\`;
+            code += \`\t\treturn\n\`;
+            code += \`\t}\n\`;
+            code += \`\tfmt.Println(string(body))\n\`;
+            code += \`}\n\`;
+
+            code += \`\tfmt.Println(string(body))\n\`;
+            code += \`}\n\`;
+            
+            return code;
         }
 
         // Render schema
