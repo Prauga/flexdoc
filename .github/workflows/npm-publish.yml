@@ -28,7 +28,7 @@ jobs:
         run: npm ci
 
       - name: Build packages
-        run: npm run build
+        run: npm run build -w packages/backend
 
       - name: Update package.json for npm registry
         run: |
@@ -55,4 +55,3 @@ jobs:
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
