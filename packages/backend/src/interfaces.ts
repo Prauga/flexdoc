@@ -172,6 +172,10 @@ export interface FlexDocOptions {
   scrollYOffset?: number | string;
   suppressWarnings?: boolean;
   payloadSampleIdx?: number;
+  auth?: {
+    type: 'basic' | 'bearer';
+    secretKey: string;
+  };
 }
 
 export interface FlexDocModuleOptions {

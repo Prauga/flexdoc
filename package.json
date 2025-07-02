@@ -4,7 +4,8 @@
   "description": "A beautiful, highly customizable OpenAPI documentation generator",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "packages/examples/*"
   ],
   "files": [
     "dist",
@@ -56,9 +57,9 @@
   "dependencies": {
     "js-yaml": "^4.1.0",
     "lucide-react": "^0.263.1",
+    "prismjs": "^1.29.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "prismjs": "^1.29.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
