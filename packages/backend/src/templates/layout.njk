@@ -96,8 +96,8 @@
             --flexdoc-code-font-size: {{ themeConfig.typography.code.fontSize | default('13px') }};
             --flexdoc-code-font-family: {{ themeConfig.typography.code.fontFamily | default('Monaco, Menlo, monospace') }};
             --flexdoc-code-line-height: {{ themeConfig.typography.code.lineHeight | default('1.4') }};
-            --flexdoc-code-color: {{ themeConfig.typography.code.color | default('#e5e7eb') }};
-            --flexdoc-code-bg: {{ themeConfig.typography.code.backgroundColor | default('#2d3748') }};
+            --flexdoc-code-color: {{ themeConfig.typography.code.colorLight | default('#374151') }};
+            --flexdoc-code-bg: {{ themeConfig.typography.code.backgroundColorLight | default('#f3f4f6') }};
             
             /* Sidebar */
             --flexdoc-sidebar-bg: {{ themeConfig.sidebar.backgroundColor | default('#ffffff') }};
@@ -126,6 +126,10 @@
             --flexdoc-sidebar-text: {{ themeConfig.sidebar.textColorDark | default('#d1d5db') }};
             --flexdoc-sidebar-active: {{ themeConfig.sidebar.activeTextColorDark | default('#60a5fa') }};
             --flexdoc-sidebar-border: {{ themeConfig.sidebar.borderColorDark | default('#374151') }};
+            
+            /* Code dark mode overrides */
+            --flexdoc-code-color: {{ themeConfig.typography.code.color | default('#e5e7eb') }};
+            --flexdoc-code-bg: {{ themeConfig.typography.code.backgroundColor | default('#2d3748') }};
         }
 
         /* Apply custom variables */
@@ -183,6 +187,11 @@
             background: var(--flexdoc-code-bg);
             border-radius: 8px;
             overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        
+        .dark .code-block {
+            border-color: transparent;
         }
 
         .code-block pre {
