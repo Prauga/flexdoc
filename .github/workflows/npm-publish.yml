@@ -40,7 +40,11 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: |
           cd packages/backend
-          npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          # Only update version if it's different from current version
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          if [ "$CURRENT_VERSION" != "${{ github.event.inputs.version }}" ]; then
+            npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          fi
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
