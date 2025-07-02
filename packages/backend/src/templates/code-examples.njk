@@ -1,0 +1,106 @@
+<div class="mb-8">
+    <button class="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors" 
+            data-toggle="code-examples-{{ getOperationId(path, method, operation) }}">
+        <i data-lucide="chevron-down" class="w-5 h-5"></i>
+        Code Examples
+    </button>
+    
+    <div id="code-examples-{{ getOperationId(path, method, operation) }}" class="collapsible-content">
+        <div class="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 border border-gray-200 dark:border-gray-600">
+            <div class="code-tabs">
+                <!-- Tab Navigation -->
+                <div class="border-b border-gray-200 dark:border-gray-600 mb-4">
+                    <nav class="flex space-x-8">
+                        <button class="code-tab border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 py-2 px-1 text-sm font-medium" 
+                                data-target="curl-{{ getOperationId(path, method, operation) }}">
+                            cURL
+                        </button>
+                        <button class="code-tab border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 py-2 px-1 text-sm font-medium" 
+                                data-target="python-{{ getOperationId(path, method, operation) }}">
+                            Python
+                        </button>
+                        <button class="code-tab border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 py-2 px-1 text-sm font-medium" 
+                                data-target="javascript-{{ getOperationId(path, method, operation) }}">
+                            JavaScript
+                        </button>
+                        <button class="code-tab border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 py-2 px-1 text-sm font-medium" 
+                                data-target="go-{{ getOperationId(path, method, operation) }}">
+                            Go
+                        </button>
+                    </nav>
+                </div>
+                
+                <!-- Tab Panels -->
+                <div>
+                    <!-- cURL Panel -->
+                    <div id="curl-{{ getOperationId(path, method, operation) }}" class="code-panel">
+                        <div class="bg-gray-900 rounded-lg overflow-hidden">
+                            <div class="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
+                                <span class="text-sm font-medium text-gray-300">cURL</span>
+                                <button class="text-xs text-gray-400 hover:text-gray-200 transition-colors" 
+                                        data-copy="{{ renderCurlExample(path, method, operation, baseUrl) }}">
+                                    <i data-lucide="copy" class="w-3 h-3 inline mr-1"></i>
+                                    Copy
+                                </button>
+                            </div>
+                            <div class="p-4 overflow-x-auto">
+                                <pre class="text-sm text-gray-300"><code>{{ renderCurlExample(path, method, operation, baseUrl) }}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Python Panel -->
+                    <div id="python-{{ getOperationId(path, method, operation) }}" class="code-panel hidden">
+                        <div class="bg-gray-900 rounded-lg overflow-hidden">
+                            <div class="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
+                                <span class="text-sm font-medium text-gray-300">Python</span>
+                                <button class="text-xs text-gray-400 hover:text-gray-200 transition-colors" 
+                                        data-copy="{{ renderPythonExample(path, method, operation, baseUrl) }}">
+                                    <i data-lucide="copy" class="w-3 h-3 inline mr-1"></i>
+                                    Copy
+                                </button>
+                            </div>
+                            <div class="p-4 overflow-x-auto">
+                                <pre class="text-sm text-gray-300"><code>{{ renderPythonExample(path, method, operation, baseUrl) }}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- JavaScript Panel -->
+                    <div id="javascript-{{ getOperationId(path, method, operation) }}" class="code-panel hidden">
+                        <div class="bg-gray-900 rounded-lg overflow-hidden">
+                            <div class="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
+                                <span class="text-sm font-medium text-gray-300">JavaScript</span>
+                                <button class="text-xs text-gray-400 hover:text-gray-200 transition-colors" 
+                                        data-copy="{{ renderJavaScriptExample(path, method, operation, baseUrl) }}">
+                                    <i data-lucide="copy" class="w-3 h-3 inline mr-1"></i>
+                                    Copy
+                                </button>
+                            </div>
+                            <div class="p-4 overflow-x-auto">
+                                <pre class="text-sm text-gray-300"><code>{{ renderJavaScriptExample(path, method, operation, baseUrl) }}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Go Panel -->
+                    <div id="go-{{ getOperationId(path, method, operation) }}" class="code-panel hidden">
+                        <div class="bg-gray-900 rounded-lg overflow-hidden">
+                            <div class="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
+                                <span class="text-sm font-medium text-gray-300">Go</span>
+                                <button class="text-xs text-gray-400 hover:text-gray-200 transition-colors" 
+                                        data-copy="{{ renderGoExample(path, method, operation, baseUrl) }}">
+                                    <i data-lucide="copy" class="w-3 h-3 inline mr-1"></i>
+                                    Copy
+                                </button>
+                            </div>
+                            <div class="p-4 overflow-x-auto">
+                                <pre class="text-sm text-gray-300"><code>{{ renderGoExample(path, method, operation, baseUrl) }}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

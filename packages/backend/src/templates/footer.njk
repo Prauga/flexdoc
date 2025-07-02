@@ -1,0 +1,17 @@
+<footer class="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 py-4">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center">
+            <div class="text-sm text-gray-500 dark:text-gray-400">
+                Powered by <a href="https://github.com/bluejeans117/flexdoc" target="_blank" class="text-primary-600 dark:text-primary-400 hover:underline">FlexDoc</a>
+            </div>
+            {% if specUrl %}
+            <div>
+                <a href="{{ specUrl }}" target="_blank" class="text-sm text-primary-600 dark:text-primary-400 hover:underline flex items-center">
+                    <i data-lucide="file-json" class="w-4 h-4 mr-1"></i>
+                    OpenAPI Spec
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</footer>

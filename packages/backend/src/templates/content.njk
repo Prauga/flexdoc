@@ -1,0 +1,210 @@
+{% extends "layout.njk" %}
+
+{% block content %}
+<div class="p-8">
+    <!-- Overview Content (shown by default) -->
+    <div class="overview-content">
+        {% if currentSpec %}
+            <!-- API Overview -->
+            <div class="mb-12">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="w-16 h-16 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center">
+                        <i data-lucide="file-text" class="w-8 h-8 text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-4xl font-bold text-gray-900 dark:text-white">{{ currentSpec.info.title }}</h1>
+                        {% if currentSpec.info.description %}
+                        <p class="text-xl text-gray-600 dark:text-gray-400 mt-2 max-w-3xl">{{ currentSpec.info.description }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Quick Stats -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 hover-lift">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                                <i data-lucide="file-text" class="w-5 h-5 text-blue-600 dark:text-blue-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Total Endpoints</p>
+                                <p class="text-2xl font-bold text-gray-900 dark:text-white">
+                                    {% set totalEndpoints = 0 %}
+                                    {% for tag, paths in taggedPaths %}
+                                        {% for path, methods in paths %}
+                                            {% for method, operation in methods %}
+                                                {% set totalEndpoints = totalEndpoints + 1 %}
+                                            {% endfor %}
+                                        {% endfor %}
+                                    {% endfor %}
+                                    {{ totalEndpoints }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 hover-lift">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
+                                <i data-lucide="server" class="w-5 h-5 text-green-600 dark:text-green-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Servers</p>
+                                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ currentSpec.servers.length if currentSpec.servers else 0 }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 hover-lift">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
+                                <i data-lucide="tag" class="w-5 h-5 text-purple-600 dark:text-purple-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Tags</p>
+                                <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ taggedPaths | length }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 hover-lift">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
+                                <i data-lucide="shield" class="w-5 h-5 text-orange-600 dark:text-orange-400"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">Security Schemes</p>
+                                <p class="text-2xl font-bold text-gray-900 dark:text-white">
+                                    {{ currentSpec.components.securitySchemes | length if currentSpec.components and currentSpec.components.securitySchemes else 0 }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Method Distribution -->
+                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6 mb-8">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                        HTTP Methods Distribution
+                    </h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        <!-- Calculate method counts properly -->
+                        {% set methodCounts = {
+                            'get': 0,
+                            'post': 0,
+                            'put': 0,
+                            'delete': 0,
+                            'patch': 0,
+                            'options': 0
+                        } %}
+                        
+                        {% for tag, paths in taggedPaths %}
+                            {% for path, methods in paths %}
+                                {% for method, operation in methods %}
+                                    {# Method counts are now pre-calculated in TypeScript #}
+                                {% endfor %}
+                            {% endfor %}
+                        {% endfor %}
+                        
+                        {% for method in ['get', 'post', 'put', 'delete', 'patch', 'options'] %}
+                        <div class="text-center">
+                            <div class="min-w-fit px-3 py-2 mx-auto rounded-lg flex items-center justify-center mb-2 method-{{ method }}">
+                                <span class="text-xs font-bold">
+                                    {{ method | upper }}
+                                </span>
+                            </div>
+                            <p class="text-lg font-bold text-gray-900 dark:text-white">
+                                {{ methodCounts[method] }}
+                            </p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                {{ method | upper }}
+                            </p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+        {% else %}
+            <!-- No Spec State -->
+            <div class="flex items-center justify-center h-96">
+                <div class="text-center">
+                    <div class="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <i data-lucide="file-x" class="w-12 h-12 text-gray-400"></i>
+                    </div>
+                    <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-2">No OpenAPI specification found</h2>
+                    <p class="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+                        Please provide a valid OpenAPI 3.0 specification to generate documentation.
+                    </p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Individual Endpoint Details (hidden by default) -->
+    {% for tag, paths in taggedPaths %}
+        {% for path, methods in paths %}
+            {% for method, operation in methods %}
+            <div id="{{ getOperationId(path, method, operation) }}" class="endpoint-detail">
+                <!-- Endpoint Header -->
+                <div class="mb-8">
+                    <div class="flex items-center gap-3 mb-4">
+                        <span class="px-3 py-1 text-sm font-bold rounded-lg border method-{{ method }}">
+                            {{ method | upper }}
+                        </span>
+                        <code class="text-lg font-mono font-medium text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-lg">
+                            {{ path }}
+                        </code>
+                    </div>
+
+                    {% if operation.summary %}
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                        {{ operation.summary }}
+                    </h1>
+                    {% endif %}
+
+                    {% if operation.description %}
+                    <p class="text-gray-600 dark:text-gray-400 leading-relaxed">
+                        {{ operation.description }}
+                    </p>
+                    {% endif %}
+
+                    <div class="flex items-center gap-4 mt-4">
+                        {% if operation.deprecated %}
+                        <div class="flex items-center gap-1 text-orange-600 dark:text-orange-400">
+                            <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                            <span class="text-sm font-medium">Deprecated</span>
+                        </div>
+                        {% endif %}
+
+                        {% if operation.security %}
+                        <div class="flex items-center gap-1 text-red-600 dark:text-red-400">
+                            <i data-lucide="lock" class="w-4 h-4"></i>
+                            <span class="text-sm">Authentication required</span>
+                        </div>
+                        {% else %}
+                        <div class="flex items-center gap-1 text-green-600 dark:text-green-400">
+                            <i data-lucide="unlock" class="w-4 h-4"></i>
+                            <span class="text-sm">No authentication required</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Parameters -->
+                {% include "parameters.njk" %}
+                
+                <!-- Request Body -->
+                {% include "request-body.njk" %}
+                
+                <!-- Responses -->
+                {% include "responses.njk" %}
+                
+                <!-- Code Examples -->
+                {% include "code-examples.njk" %}
+            </div>
+            {% endfor %}
+        {% endfor %}
+    {% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% if operation.responses %}
+<div class="mb-8">
+    <button class="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors" 
+            data-toggle="responses-{{ getOperationId(path, method, operation) }}">
+        <i data-lucide="chevron-down" class="w-5 h-5"></i>
+        Responses
+    </button>
+    
+    <div id="responses-{{ getOperationId(path, method, operation) }}" class="collapsible-content">
+        <div class="space-y-4">
+            {% for statusCode, response in operation.responses %}
+            <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="px-6 py-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
+                    <div class="flex items-center gap-3">
+                        <span class="px-3 py-1 text-sm font-bold rounded-lg border {{ getStatusCodeClass(statusCode) }}">
+                            {{ statusCode }}
+                        </span>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {{ getStatusText(statusCode) }}
+                        </span>
+                        {% if response.description %}
+                        <span class="text-sm text-gray-600 dark:text-gray-400">• {{ response.description }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if response.content %}
+                <div class="p-6">
+                    {% for contentType, content in response.content %}
+                    <div class="mb-4 last:mb-0">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Content Type:</span>
+                            <code class="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-sm text-gray-900 dark:text-white">
+                                {{ contentType }}
+                            </code>
+                        </div>
+                        
+                        {% if content.schema %}
+                        <div class="mb-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Schema:</span>
+                                <button class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors" 
+                                        data-copy="{{ renderSchema(content.schema) }}">
+                                    <i data-lucide="copy" class="w-3 h-3 inline mr-1"></i>
+                                    Copy
+                                </button>
+                            </div>
+                            <div class="code-block">
+                                <pre class="text-gray-300">{{ renderSchema(content.schema) | safe }}</pre>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if content.example %}
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Example:</span>
+                                <button class="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors" 
+                                        data-copy="{{ renderExample(content.example) }}">
+                                    <i data-lucide="copy" class="w-3 h-3 inline mr-1"></i>
+                                    Copy
+                                </button>
+                            </div>
+                            <div class="code-block">
+                                <pre class="text-gray-300">{{ renderExample(content.example) | safe }}</pre>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}

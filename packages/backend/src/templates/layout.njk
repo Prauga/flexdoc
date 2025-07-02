@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en" class="{{ themeMode }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <meta name="description" content="{{ description }}">
+    {% if favicon %}
+    <link rel="icon" href="{{ favicon }}">
+    {% endif %}
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '{{ themeConfig.colors.primary.light | default("#eff6ff") }}',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '{{ themeConfig.colors.primary.main | default("#3b82f6") }}',
+                            600: '{{ themeConfig.colors.primary.dark | default("#2563eb") }}',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        },
+                        success: {
+                            500: '{{ themeConfig.colors.success.main | default("#10b981") }}',
+                            600: '{{ themeConfig.colors.success.dark | default("#059669") }}',
+                        },
+                        error: {
+                            500: '{{ themeConfig.colors.error.main | default("#ef4444") }}',
+                            600: '{{ themeConfig.colors.error.dark | default("#dc2626") }}',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['{{ themeConfig.typography.fontFamily | default("Inter, system-ui, sans-serif") }}'],
+                        mono: ['{{ themeConfig.typography.code.fontFamily | default("Monaco, Menlo, monospace") }}'],
+                    },
+                    fontSize: {
+                        base: '{{ themeConfig.typography.fontSize | default("14px") }}',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Custom Styles -->
+    <style>
+        :root {
+            /* Primary Colors */
+            --flexdoc-primary: {{ themeConfig.colors.primary.main | default('#3b82f6') }};
+            --flexdoc-primary-light: {{ themeConfig.colors.primary.light | default('#60a5fa') }};
+            --flexdoc-primary-dark: {{ themeConfig.colors.primary.dark | default('#2563eb') }};
+            
+            /* Success Colors */
+            --flexdoc-success: {{ themeConfig.colors.success.main | default('#10b981') }};
+            --flexdoc-success-light: {{ themeConfig.colors.success.light | default('#34d399') }};
+            --flexdoc-success-dark: {{ themeConfig.colors.success.dark | default('#059669') }};
+            
+            /* Error Colors */
+            --flexdoc-error: {{ themeConfig.colors.error.main | default('#ef4444') }};
+            --flexdoc-error-light: {{ themeConfig.colors.error.light | default('#f87171') }};
+            --flexdoc-error-dark: {{ themeConfig.colors.error.dark | default('#dc2626') }};
+            
+            /* Text Colors */
+            --flexdoc-text-primary: {{ themeConfig.colors.text.primary | default('#111827') }};
+            --flexdoc-text-secondary: {{ themeConfig.colors.text.secondary | default('#6b7280') }};
+            
+            /* Gray Colors */
+            --flexdoc-gray-50: {{ themeConfig.colors.gray[50] | default('#f9fafb') }};
+            --flexdoc-gray-100: {{ themeConfig.colors.gray[100] | default('#f3f4f6') }};
+            
+            /* Border Colors */
+            --flexdoc-border-light: {{ themeConfig.colors.border.light | default('#e5e7eb') }};
+            --flexdoc-border-dark: {{ themeConfig.colors.border.dark | default('#374151') }};
+            
+            /* Typography */
+            --flexdoc-font-size: {{ themeConfig.typography.fontSize | default('14px') }};
+            --flexdoc-line-height: {{ themeConfig.typography.lineHeight | default('1.5') }};
+            --flexdoc-font-family: {{ themeConfig.typography.fontFamily | default('Inter, system-ui, sans-serif') }};
+            
+            /* Headings */
+            --flexdoc-headings-font-family: {{ themeConfig.typography.headings.fontFamily | default('inherit') }};
+            --flexdoc-headings-font-weight: {{ themeConfig.typography.headings.fontWeight | default('600') }};
+            
+            /* Code */
+            --flexdoc-code-font-size: {{ themeConfig.typography.code.fontSize | default('13px') }};
+            --flexdoc-code-font-family: {{ themeConfig.typography.code.fontFamily | default('Monaco, Menlo, monospace') }};
+            --flexdoc-code-line-height: {{ themeConfig.typography.code.lineHeight | default('1.4') }};
+            --flexdoc-code-color: {{ themeConfig.typography.code.color | default('#e5e7eb') }};
+            --flexdoc-code-bg: {{ themeConfig.typography.code.backgroundColor | default('#1f2937') }};
+            
+            /* Sidebar */
+            --flexdoc-sidebar-bg: {{ themeConfig.sidebar.backgroundColor | default('#ffffff') }};
+            --flexdoc-sidebar-text: {{ themeConfig.sidebar.textColor | default('#374151') }};
+            --flexdoc-sidebar-active: {{ themeConfig.sidebar.activeTextColor | default('#3b82f6') }};
+            --flexdoc-sidebar-border: {{ themeConfig.sidebar.borderColor | default('#e5e7eb') }};
+            
+            /* Method Colors */
+            --flexdoc-method-get-bg: {{ themeConfig.methodColors.get.bg | default('#dbeafe') }};
+            --flexdoc-method-get-border: {{ themeConfig.methodColors.get.border | default('#93c5fd') }};
+            --flexdoc-method-post-bg: {{ themeConfig.methodColors.post.bg | default('#d1fae5') }};
+            --flexdoc-method-post-border: {{ themeConfig.methodColors.post.border | default('#6ee7b7') }};
+            --flexdoc-method-put-bg: {{ themeConfig.methodColors.put.bg | default('#fed7aa') }};
+            --flexdoc-method-put-border: {{ themeConfig.methodColors.put.border | default('#fdba74') }};
+            --flexdoc-method-delete-bg: {{ themeConfig.methodColors.delete.bg | default('#fecaca') }};
+            --flexdoc-method-delete-border: {{ themeConfig.methodColors.delete.border | default('#f87171') }};
+            --flexdoc-method-patch-bg: {{ themeConfig.methodColors.patch.bg | default('#e9d5ff') }};
+            --flexdoc-method-patch-border: {{ themeConfig.methodColors.patch.border | default('#c4b5fd') }};
+            --flexdoc-method-options-bg: {{ themeConfig.methodColors.options.bg | default('#f3f4f6') }};
+            --flexdoc-method-options-border: {{ themeConfig.methodColors.options.border | default('#d1d5db') }};
+        }
+        
+        .dark {
+            /* Dark mode overrides */
+            --flexdoc-sidebar-bg: {{ themeConfig.sidebar.backgroundColorDark | default('#1f2937') }};
+            --flexdoc-sidebar-text: {{ themeConfig.sidebar.textColorDark | default('#d1d5db') }};
+            --flexdoc-sidebar-active: {{ themeConfig.sidebar.activeTextColorDark | default('#60a5fa') }};
+            --flexdoc-sidebar-border: {{ themeConfig.sidebar.borderColorDark | default('#374151') }};
+        }
+
+        /* Apply custom variables */
+        body {
+            font-family: var(--flexdoc-font-family);
+            font-size: var(--flexdoc-font-size);
+            line-height: var(--flexdoc-line-height);
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            font-family: var(--flexdoc-headings-font-family);
+            font-weight: var(--flexdoc-headings-font-weight);
+        }
+        
+        code, pre {
+            font-family: var(--flexdoc-code-font-family);
+            font-size: var(--flexdoc-code-font-size);
+            line-height: var(--flexdoc-code-line-height);
+        }
+
+        /* Smooth transitions */
+        * {
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.5);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.7);
+        }
+
+        .dark ::-webkit-scrollbar-thumb {
+            background: rgba(75, 85, 99, 0.5);
+        }
+
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: rgba(75, 85, 99, 0.7);
+        }
+
+        /* Code block styling */
+        .code-block {
+            background: var(--flexdoc-code-bg);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .code-block pre {
+            margin: 0;
+            padding: 1rem;
+            overflow-x: auto;
+            color: var(--flexdoc-code-color);
+        }
+
+        /* Method badges using custom colors */
+        .method-get { 
+            background-color: var(--flexdoc-method-get-bg);
+            border-color: var(--flexdoc-method-get-border);
+            color: #1e40af;
+        }
+        .method-post { 
+            background-color: var(--flexdoc-method-post-bg);
+            border-color: var(--flexdoc-method-post-border);
+            color: #065f46;
+        }
+        .method-put { 
+            background-color: var(--flexdoc-method-put-bg);
+            border-color: var(--flexdoc-method-put-border);
+            color: #9a3412;
+        }
+        .method-delete { 
+            background-color: var(--flexdoc-method-delete-bg);
+            border-color: var(--flexdoc-method-delete-border);
+            color: #991b1b;
+        }
+        .method-patch { 
+            background-color: var(--flexdoc-method-patch-bg);
+            border-color: var(--flexdoc-method-patch-border);
+            color: #581c87;
+        }
+        .method-options {
+            background-color: var(--flexdoc-method-options-bg);
+            border-color: var(--flexdoc-method-options-border);
+            color: #4b5563;
+        }
+        .method-head { 
+            @apply bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600; 
+        }
+
+        /* Status code badges */
+        .status-2xx { @apply bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-200; }
+        .status-3xx { @apply bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-200; }
+        .status-4xx { @apply bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900 dark:text-orange-200; }
+        .status-5xx { @apply bg-red-100 text-red-800 border-red-200 dark:bg-red-900 dark:text-red-200; }
+
+        /* Hover effects */
+        .hover-lift {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .hover-lift:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .dark .hover-lift:hover {
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Animation for collapsible sections */
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapsible-content.expanded {
+            max-height: 2000px;
+        }
+
+        /* Sidebar styling */
+        .sidebar {
+            background-color: var(--flexdoc-sidebar-bg);
+            color: var(--flexdoc-sidebar-text);
+            border-color: var(--flexdoc-sidebar-border);
+        }
+
+        .sidebar .endpoint-item.active {
+            color: var(--flexdoc-sidebar-active);
+            background-color: rgba(59, 130, 246, 0.1);
+        }
+
+        /* Hide all endpoint details by default */
+        .endpoint-detail {
+            display: none;
+        }
+
+        .endpoint-detail.active {
+            display: block;
+        }
+
+        /* Overview is shown by default */
+        .overview-content {
+            display: block;
+        }
+
+        .overview-content.hidden {
+            display: none;
+        }
+
+        {{ customCss }}
+    </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
+    <div class="flex flex-col min-h-screen">
+        {% include "header.njk" %}
+        
+        <div class="flex flex-1 overflow-hidden">
+            {% include "sidebar.njk" %}
+            
+            <main class="flex-1 overflow-y-auto">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+    
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+        
+        // Global state
+        let currentEndpoint = null;
+        
+        // Copy to clipboard function
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                // Show success feedback
+                const event = new CustomEvent('clipboard-success');
+                document.dispatchEvent(event);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+        }
+        
+        // Setup event listeners when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Setup search functionality
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.addEventListener('input', (e) => {
+                    const searchTerm = e.target.value.toLowerCase();
+                    const endpoints = document.querySelectorAll('.endpoint-item');
+                    const tagSections = document.querySelectorAll('.tag-section');
+                    
+                    endpoints.forEach(endpoint => {
+                        const text = endpoint.textContent.toLowerCase();
+                        const parent = endpoint.closest('.tag-section');
+                        
+                        if (text.includes(searchTerm)) {
+                            endpoint.style.display = '';
+                            if (parent) parent.style.display = '';
+                        } else {
+                            endpoint.style.display = 'none';
+                        }
+                    });
+                    
+                    // Hide empty tag sections
+                    tagSections.forEach(section => {
+                        const visibleEndpoints = section.querySelectorAll('.endpoint-item:not([style*="display: none"])');
+                        section.style.display = visibleEndpoints.length > 0 ? '' : 'none';
+                    });
+                    
+                    lucide.createIcons();
+                });
+            }
+            
+            // Theme toggle functionality
+            const themeToggle = document.getElementById('theme-toggle');
+            if (themeToggle) {
+                themeToggle.addEventListener('click', () => {
+                    document.documentElement.classList.toggle('dark');
+                    lucide.createIcons();
+                    localStorage.setItem('flexdoc-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+                });
+            }
+            
+            // Check for saved theme preference
+            const savedTheme = localStorage.getItem('flexdoc-theme');
+            if (savedTheme === 'dark' && !document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.add('dark');
+            }
+            
+            // Setup endpoint navigation
+            setupEndpointNavigation();
+            
+            // Setup collapsible sections
+            setupCollapsibleSections();
+            
+            // Setup code tabs
+            setupCodeTabs();
+            
+            // Setup copy buttons
+            setupCopyButtons();
+            
+            // Setup tag toggles
+            setupTagToggles();
+        });
+        
+        // Endpoint navigation functionality
+        function setupEndpointNavigation() {
+            const endpointLinks = document.querySelectorAll('.endpoint-link');
+            const overviewContent = document.querySelector('.overview-content');
+            const endpointDetails = document.querySelectorAll('.endpoint-detail');
+            
+            endpointLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    const targetId = link.getAttribute('data-endpoint');
+                    
+                    // Remove active class from all links
+                    endpointLinks.forEach(l => l.classList.remove('active'));
+                    
+                    // Add active class to clicked link
+                    link.classList.add('active');
+                    
+                    // Hide overview
+                    if (overviewContent) {
+                        overviewContent.classList.add('hidden');
+                    }
+                    
+                    // Hide all endpoint details
+                    endpointDetails.forEach(detail => {
+                        detail.classList.remove('active');
+                    });
+                    
+                    // Show target endpoint detail
+                    const targetDetail = document.getElementById(targetId);
+                    if (targetDetail) {
+                        targetDetail.classList.add('active');
+                    }
+                    
+                    currentEndpoint = targetId;
+                });
+            });
+            
+            // Handle hash navigation
+            if (window.location.hash) {
+                const targetId = window.location.hash.substring(1);
+                const targetLink = document.querySelector(`[data-endpoint="${targetId}"]`);
+                if (targetLink) {
+                    targetLink.click();
+                }
+            }
+        }
+        
+        // Tag toggle functionality
+        function setupTagToggles() {
+            const tagToggles = document.querySelectorAll('.tag-toggle');
+            
+            tagToggles.forEach(toggle => {
+                toggle.addEventListener('click', () => {
+                    const targetId = toggle.getAttribute('data-target');
+                    const target = document.getElementById(targetId);
+                    const icon = toggle.querySelector('[data-lucide]');
+                    
+                    if (target) {
+                        target.classList.toggle('expanded');
+                        
+                        // Update icon
+                        if (target.classList.contains('expanded')) {
+                            icon.setAttribute('data-lucide', 'chevron-down');
+                        } else {
+                            icon.setAttribute('data-lucide', 'chevron-right');
+                        }
+                        
+                        lucide.createIcons();
+                    }
+                });
+            });
+        }
+        
+        // Collapsible sections functionality
+        function setupCollapsibleSections() {
+            const toggleButtons = document.querySelectorAll('[data-toggle]');
+            toggleButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const targetId = button.getAttribute('data-toggle');
+                    const target = document.getElementById(targetId);
+                    const icon = button.querySelector('[data-lucide]');
+                    
+                    if (target) {
+                        target.classList.toggle('expanded');
+                        
+                        // Update icon
+                        if (target.classList.contains('expanded')) {
+                            icon.setAttribute('data-lucide', 'chevron-down');
+                        } else {
+                            icon.setAttribute('data-lucide', 'chevron-right');
+                        }
+                        
+                        lucide.createIcons();
+                    }
+                });
+            });
+        }
+        
+        // Code tabs functionality
+        function setupCodeTabs() {
+            const codeTabs = document.querySelectorAll('.code-tab');
+            codeTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const targetId = tab.getAttribute('data-target');
+                    if (!targetId) return;
+                    
+                    const tabGroup = tab.closest('.code-tabs');
+                    if (!tabGroup) return;
+                    
+                    // Deactivate all tabs in this group
+                    const tabs = tabGroup.querySelectorAll('.code-tab');
+                    tabs.forEach(t => {
+                        t.classList.remove('border-primary-500', 'text-primary-600');
+                        t.classList.add('border-transparent', 'text-gray-500');
+                    });
+                    
+                    // Activate clicked tab
+                    tab.classList.remove('border-transparent', 'text-gray-500');
+                    tab.classList.add('border-primary-500', 'text-primary-600');
+                    
+                    // Hide all panels in this group
+                    const panels = tabGroup.querySelectorAll('.code-panel');
+                    panels.forEach(panel => panel.classList.add('hidden'));
+                    
+                    // Show target panel
+                    const targetPanel = document.getElementById(targetId);
+                    if (targetPanel) {
+                        targetPanel.classList.remove('hidden');
+                    }
+                });
+            });
+        }
+        
+        // Copy buttons functionality
+        function setupCopyButtons() {
+            const copyButtons = document.querySelectorAll('[data-copy]');
+            copyButtons.forEach(button => {
+                button.addEventListener('click', async () => {
+                    const text = button.getAttribute('data-copy');
+                    await copyToClipboard(text);
+                    
+                    // Visual feedback
+                    const originalText = button.textContent;
+                    const icon = button.querySelector('[data-lucide]');
+                    
+                    button.textContent = 'Copied!';
+                    if (icon) {
+                        icon.setAttribute('data-lucide', 'check');
+                        lucide.createIcons();
+                    }
+                    
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        if (icon) {
+                            icon.setAttribute('data-lucide', 'copy');
+                            lucide.createIcons();
+                        }
+                    }, 2000);
+                });
+            });
+        }
+        
+        {{ customJs }}
+    </script>
+</body>
+</html>
