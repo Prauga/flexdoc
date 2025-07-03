@@ -47,8 +47,8 @@ export class OpenAPIParser {
     return methods.filter((method) => pathItem[method]);
   }
 
-  static getMethodColor(method: string): string {
-    const colors: { [key: string]: string } = {
+  static getMethodColor(method: string, theme?: 'light' | 'dark'): string {
+    const lightColors: { [key: string]: string } = {
       get: 'text-blue-600 bg-blue-50 border-blue-200',
       post: 'text-green-600 bg-green-50 border-green-200',
       put: 'text-orange-600 bg-orange-50 border-orange-200',
@@ -58,9 +58,25 @@ export class OpenAPIParser {
       head: 'text-gray-600 bg-gray-50 border-gray-200',
       trace: 'text-gray-600 bg-gray-50 border-gray-200',
     };
-    return (
-      colors[method.toLowerCase()] || 'text-gray-600 bg-gray-50 border-gray-200'
-    );
+
+    const darkColors: { [key: string]: string } = {
+      get: 'text-blue-300 bg-blue-900/30 border-blue-700',
+      post: 'text-green-300 bg-green-900/30 border-green-700',
+      put: 'text-orange-300 bg-orange-900/30 border-orange-700',
+      delete: 'text-red-300 bg-red-900/30 border-red-700',
+      patch: 'text-purple-300 bg-purple-900/30 border-purple-700',
+      options: 'text-cyan-100 bg-cyan-800/50 border-cyan-500',
+      head: 'text-gray-300 bg-gray-700/50 border-gray-600',
+      trace: 'text-gray-300 bg-gray-700/50 border-gray-600',
+    };
+
+    const colors = theme === 'dark' ? darkColors : lightColors;
+    const defaultColor =
+      theme === 'dark'
+        ? 'text-gray-300 bg-gray-700/50 border-gray-600'
+        : 'text-gray-600 bg-gray-50 border-gray-200';
+
+    return colors[method.toLowerCase()] || defaultColor;
   }
 
   static resolveReference(spec: OpenAPISpec, ref: string): any {
@@ -88,4 +104,3 @@ export class OpenAPIParser {
     return typeof obj === 'object' && '$ref' in obj;
   }
 }
-
