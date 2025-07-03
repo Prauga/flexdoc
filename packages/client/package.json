@@ -2,10 +2,10 @@
   "name": "@bluejeans/flexdoc-client",
   "version": "1.0.2",
   "description": "FlexDoc client-side UI components for API documentation",
-  "type": "commonjs",
-  "main": "dist/flexdoc.umd.js",
-  "module": "dist/flexdoc.es.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "main": "./dist/flexdoc.umd.cjs",
+  "module": "./dist/flexdoc.es.js",
+  "types": "./dist/index.d.ts",
   "files": [
     "dist",
     "README.md"
@@ -17,7 +17,7 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/flexdoc.es.js",
-      "require": "./dist/flexdoc.umd.js"
+      "require": "./dist/flexdoc.umd.cjs"
     },
     "./styles.css": {
       "import": "./dist/assets/index.css",
@@ -78,4 +78,3 @@
     "vite": "^7.0.0"
   }
 }
-

@@ -4,11 +4,18 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  css: {
+    postcss: './postcss.config.cjs',
+  },
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
       name: 'FlexDoc',
-      fileName: (format) => `flexdoc.${format}.js`,
+      fileName: (format) => {
+        if (format === 'es') return 'flexdoc.es.js';
+        if (format === 'umd') return 'flexdoc.umd.cjs';
+        return `flexdoc.${format}.js`;
+      },
       formats: ['es', 'umd'],
     },
     rollupOptions: {
@@ -18,14 +25,13 @@ export default defineConfig({
           react: 'React',
           'react-dom': 'ReactDOM',
         },
-        // This ensures CSS is extracted to a separate file
-        assetFileNames: 'assets/[name][extname]',
+        assetFileNames: `assets/[name].[ext]`,
+        format: 'esm',
       },
     },
-    // This extracts CSS to a separate file
     cssCodeSplit: true,
-    // This ensures CSS is minified
     minify: true,
+    target: 'esnext',
+    sourcemap: true,
   },
 });
-
