@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FlexDoc } from './FlexDoc';
@@ -6,7 +5,7 @@ import { OpenAPISpec } from '../types/openapi';
 
 // Mock the child components to simplify testing
 jest.mock('./Sidebar', () => ({
-  Sidebar: ({ onEndpointSelect }: any) => (
+  Sidebar: () => (
     <div data-testid='sidebar-mock'>
       <span>Sidebar Mock</span>
     </div>
@@ -94,4 +93,3 @@ describe('FlexDoc', () => {
     expect(screen.getByTestId('sidebar-mock')).toBeInTheDocument();
   });
 });
-

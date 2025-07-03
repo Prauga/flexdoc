@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { Sidebar } from './Sidebar';
 import { OpenAPISpec } from '../types/openapi';
@@ -94,9 +94,7 @@ describe('Sidebar', () => {
     const mockSelectFn = jest.fn();
 
     // Render the component
-    const { container } = render(
-      <Sidebar spec={mockSpec} onEndpointSelect={mockSelectFn} />
-    );
+    render(<Sidebar spec={mockSpec} onEndpointSelect={mockSelectFn} />);
 
     // First, make sure the pets tag is visible
     const petsTag = screen.getByText('pets');
@@ -117,7 +115,7 @@ describe('Sidebar', () => {
 
   it('renders with a selected endpoint', () => {
     // Render with a selected endpoint
-    const { container } = render(
+    render(
       <Sidebar
         spec={mockSpec}
         onEndpointSelect={mockOnEndpointSelect}
@@ -169,8 +167,8 @@ describe('Sidebar', () => {
 
     // Get the initial state by checking if the chevron is down or right
     const initialChevron = petsTagButton?.querySelector('svg');
-    const initiallyExpanded =
-      initialChevron?.getAttribute('viewBox') === '0 0 24 24';
+
+    expect(initialChevron?.getAttribute('viewBox')).toBe('0 0 24 24');
 
     // Click the tag button to toggle
     if (petsTagButton) {
@@ -206,4 +204,3 @@ describe('Sidebar', () => {
     expect(screen.getByText('Staging server')).toBeInTheDocument();
   });
 });
-

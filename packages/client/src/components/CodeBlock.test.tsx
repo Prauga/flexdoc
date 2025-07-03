@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
@@ -83,4 +82,3 @@ describe('CodeBlock', () => {
     expect(screen.getByText('Example Code')).toBeInTheDocument();
   });
 });
-

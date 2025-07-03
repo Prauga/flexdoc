@@ -35,8 +35,6 @@ paths:
           description: "A list of pets"
 `;
 
-  const invalidSpec = '{ "invalid": "spec" }';
-
   describe('parseSpec', () => {
     it('should parse valid JSON spec', async () => {
       const result = await OpenAPIParser.parseSpec(validJsonSpec);
@@ -186,4 +184,3 @@ paths:
     });
   });
 });
-
