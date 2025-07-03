@@ -15,4 +15,3 @@ export { OpenAPIParser } from './utils/openapi-parser';
 
 // Export sample data
 export { sampleSpec } from './data/sample-spec';
-

@@ -2,11 +2,13 @@
   "name": "@bluejeans/flexdoc-client",
   "version": "1.0.0",
   "description": "FlexDoc client-side UI components for API documentation",
+  "type": "commonjs",
   "main": "dist/flexdoc.umd.js",
   "module": "dist/flexdoc.es.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "publishConfig": {
     "access": "public"
@@ -24,8 +26,8 @@
   },
   "style": "./dist/assets/index.css",
   "scripts": {
-    "build": "tsc && vite build",
     "dev": "vite",
+    "build": "tsc && vite build && tsc --emitDeclarationOnly --outDir dist",
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
