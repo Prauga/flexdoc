@@ -1,4 +1,4 @@
-name: Publish to npm Registry
+name: Publish Client to npm Registry
 
 on:
   release:
@@ -27,19 +27,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build packages
-        run: npm run build -w packages/backend
+      - name: Build client package
+        run: |
+          cd packages/client
+          npm run build
 
       - name: Update package.json for npm registry
         run: |
-          cd packages/backend
+          cd packages/client
           # Remove GitHub specific publishConfig if present
           sed -i '/"publishConfig": {/,/}/d' package.json
+          # Update main, module, and types fields for proper package publishing
+          node -e "
+            const pkg = require('./package.json');
+            pkg.main = 'dist/flexdoc.umd.js';
+            pkg.module = 'dist/flexdoc.es.js';
+            pkg.types = 'dist/index.d.ts';
+            pkg.files = ['dist', 'README.md'];
+            require('fs').writeFileSync('./package.json', JSON.stringify(pkg, null, 2));
+          "
 
       - name: Version and publish (on manual trigger)
         if: github.event_name == 'workflow_dispatch'
         run: |
-          cd packages/backend
+          cd packages/client
           # Only update version if it's different from current version
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           if [ "$CURRENT_VERSION" != "${{ github.event.inputs.version }}" ]; then
@@ -49,13 +60,10 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Publish (on release)
+      - name: Publish on release
         if: github.event_name == 'release'
         run: |
-          cd packages/backend
-          # Extract version from the release tag
-          VERSION=${GITHUB_REF#refs/tags/v}
-          npm version $VERSION --no-git-tag-version
+          cd packages/client
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
