@@ -156,7 +156,7 @@ const options = {
 FlexDoc comes with several built-in theme presets that you can use as a starting point:
 
 ```typescript
-import { themes } from '@flexdoc/client';
+import { themes } from '@bluejeans/flexdoc';
 
 const options = {
   // Other options...

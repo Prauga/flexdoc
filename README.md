@@ -19,11 +19,11 @@ FlexDoc is a beautiful, highly customizable OpenAPI documentation generator that
 ### React Component (Standalone)
 
 ```bash
-npm install @flexdoc/client
+npm install @bluejeans/flexdoc
 ```
 
 ```tsx
-import { FlexDoc } from '@flexdoc/client';
+import { FlexDoc } from '@bluejeans/flexdoc';
 import { openApiSpec } from './your-spec';
 
 function App() {

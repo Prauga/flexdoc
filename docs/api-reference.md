@@ -146,7 +146,7 @@ const token = generateToken(30, 'your-strong-secret-key');
 React component for rendering FlexDoc documentation.
 
 ```tsx
-import { FlexDoc } from '@flexdoc/client';
+import { FlexDoc } from '@bluejeans/flexdoc';
 import { openApiSpec } from './your-spec';
 
 function App() {
@@ -177,7 +177,7 @@ function App() {
 Object containing predefined themes.
 
 ```typescript
-import { FlexDoc, themes } from '@flexdoc/client';
+import { FlexDoc, themes } from '@bluejeans/flexdoc';
 
 function App() {
   return (

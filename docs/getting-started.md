@@ -17,7 +17,7 @@ npm install @bluejeans/flexdoc-backend
 If you want to use FlexDoc as a standalone component in your React application:
 
 ```bash
-npm install @flexdoc/client
+npm install @bluejeans/flexdoc
 ```
 
 ## Quick Setup
@@ -76,7 +76,7 @@ app.listen(3000, () => {
 ### React Component Integration
 
 ```tsx
-import { FlexDoc } from '@flexdoc/client';
+import { FlexDoc } from '@bluejeans/flexdoc';
 import { openApiSpec } from './your-spec';
 
 function App() {
