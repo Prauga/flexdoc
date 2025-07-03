@@ -3,8 +3,11 @@ import { OpenAPISpec } from '../types/openapi';
 import { Sidebar } from './Sidebar';
 import { EndpointDetail } from './EndpointDetail';
 import { Overview } from './Overview';
+import '../index.css'; // Import the CSS directly
+import { Footer } from './Footer';
+import { themeVariant } from '../utils/theme';
 
-interface FlexDocProps {
+export interface FlexDocProps {
   spec: OpenAPISpec;
   theme?: 'light' | 'dark';
   customStyles?: React.CSSProperties;
@@ -13,8 +16,8 @@ interface FlexDocProps {
 export const FlexDoc: React.FC<FlexDocProps> = ({
   spec,
   theme = 'light',
-  customStyles,
-}) => {
+  customStyles = {},
+}: FlexDocProps) => {
   const [selectedEndpoint, setSelectedEndpoint] = useState<{
     path: string;
     method: string;
@@ -24,30 +27,48 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
     setSelectedEndpoint({ path, method });
   };
 
-  return (
-    <div
-      className={`flex h-screen ${
-        theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'
-      }`}
-      style={customStyles}
-    >
-      <Sidebar
-        spec={spec}
-        onEndpointSelect={handleEndpointSelect}
-        selectedEndpoint={selectedEndpoint || undefined}
-      />
+  const footerClasses = themeVariant(
+    theme,
+    'border-t border-gray-200 bg-white text-gray-600',
+    'border-t border-gray-700 bg-gray-800 text-gray-300'
+  );
 
-      <div className='flex-1 flex flex-col'>
-        {selectedEndpoint ? (
-          <EndpointDetail
+  return (
+    <div className='flex flex-col min-h-screen'>
+      <div className='flex-1'>
+        <div
+          className={`flex h-screen ${
+            theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'
+          }`}
+          style={customStyles}
+        >
+          <Sidebar
             spec={spec}
-            path={selectedEndpoint.path}
-            method={selectedEndpoint.method}
+            onEndpointSelect={handleEndpointSelect}
+            theme={theme}
+            selectedEndpoint={selectedEndpoint || undefined}
           />
-        ) : (
-          <Overview spec={spec} onEndpointSelect={handleEndpointSelect} />
-        )}
+
+          <div className='flex-1 flex flex-col'>
+            {selectedEndpoint ? (
+              <EndpointDetail
+                spec={spec}
+                path={selectedEndpoint.path}
+                method={selectedEndpoint.method}
+                theme={theme}
+              />
+            ) : (
+              <Overview
+                spec={spec}
+                onEndpointSelect={handleEndpointSelect}
+                theme={theme}
+              />
+            )}
+          </div>
+        </div>
+        <Footer footerClasses={footerClasses} />
       </div>
     </div>
   );
 };
+
