@@ -1,0 +1,136 @@
+/* FlexDoc Component Styles */
+
+.flexdoc-container {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
+    Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  display: flex;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Sidebar styles */
+.sidebar {
+  width: 300px;
+  border-right: 1px solid #e5e7eb;
+  overflow-y: auto;
+  background-color: #f9fafb;
+  padding: 1rem;
+}
+
+/* Endpoint list styles */
+.endpoint-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.endpoint-item {
+  padding: 0.5rem 0.75rem;
+  margin: 0.25rem 0;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.endpoint-item:hover {
+  background-color: #e5e7eb;
+}
+
+.endpoint-item.active {
+  background-color: #3b82f6;
+  color: white;
+}
+
+/* Endpoint detail styles */
+.endpoint-detail {
+  flex: 1;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.endpoint-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.http-method {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  margin-right: 0.5rem;
+}
+
+.http-get {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.http-post {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.http-put {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.http-delete {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* Parameter and response styles */
+.param-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+.param-table th,
+.param-table td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.param-table th {
+  font-weight: 600;
+  color: #4b5563;
+  background-color: #f9fafb;
+}
+
+/* Dark mode support */
+.dark .sidebar {
+  background-color: #1f2937;
+  border-right-color: #374151;
+}
+
+.dark .endpoint-item:hover {
+  background-color: #374151;
+}
+
+.dark .endpoint-item.active {
+  background-color: #3b82f6;
+}
+
+.dark .endpoint-header {
+  border-bottom-color: #374151;
+}
+
+.dark .param-table th,
+.dark .param-table td {
+  border-bottom-color: #374151;
+}
+
+.dark .param-table th {
+  background-color: #1f2937;
+  color: #e5e7eb;
+}
+

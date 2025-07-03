@@ -2,14 +2,13 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/main.tsx'),
+      entry: resolve(__dirname, 'src/index.ts'),
       name: 'FlexDoc',
-      fileName: 'flexdoc',
+      fileName: (format) => `flexdoc.${format}.js`,
       formats: ['es', 'umd'],
     },
     rollupOptions: {
@@ -19,8 +18,14 @@ export default defineConfig({
           react: 'React',
           'react-dom': 'ReactDOM',
         },
+        // This ensures CSS is extracted to a separate file
+        assetFileNames: 'assets/[name][extname]',
       },
     },
+    // This extracts CSS to a separate file
+    cssCodeSplit: true,
+    // This ensures CSS is minified
+    minify: true,
   },
 });
 
