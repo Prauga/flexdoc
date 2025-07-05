@@ -22,16 +22,18 @@
     "generate:bearer": "npx ts-node src/scripts/generate-auth.ts bearer"
   },
   "keywords": [
-    "openapi",
-    "swagger",
+    "openapi-docs",
+    "api-explorer",
+    "swagger-ui",
     "documentation",
-    "api",
+    "api-docs",
+    "doc-generator",
     "nestjs",
     "express",
     "typescript"
   ],
   "author": "Vishnu R <vishnurajesh45@gmail.com>",
-  "license": "MIT",
+  "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
     "url": "https://github.com/bluejeans117/flexdoc.git",

@@ -19,6 +19,13 @@
     "gen:auth:basic": "npx ts-node ../../backend/src/scripts/generate-auth.ts basic",
     "gen:auth:bearer": "npx ts-node ../../backend/src/scripts/generate-auth.ts bearer"
   },
+  "author": "Vishnu R <vishnurajesh45@gmail.com>",
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bluejeans117/flexdoc.git",
+    "directory": "packages/examples/nestjs"
+  },
   "dependencies": {
     "@bluejeans/flexdoc-backend": "^1.0.2",
     "@nestjs/common": "^10.0.0",
