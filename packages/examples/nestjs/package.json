@@ -27,7 +27,7 @@
     "directory": "packages/examples/nestjs"
   },
   "dependencies": {
-    "@bluejeans/flexdoc-backend": "^1.0.2",
+    "@bluejeans/flexdoc-backend": "^1.0.3",
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",

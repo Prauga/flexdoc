@@ -1,6 +1,6 @@
 {
   "name": "@bluejeans/flexdoc-backend",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "FlexDoc backend integration for NestJS and other frameworks",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -17,7 +17,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "copy-templates": "copyfiles -u 2 src/templates/**/*.njk dist/templates/",
+    "copy-templates": "copyfiles -u 2 ../../templates/**/*.njk dist/",
     "generate:basic": "npx ts-node src/scripts/generate-auth.ts basic",
     "generate:bearer": "npx ts-node src/scripts/generate-auth.ts bearer"
   },
