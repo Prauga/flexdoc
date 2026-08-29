@@ -18,10 +18,22 @@ const mockSpec: OpenAPISpec = {
 };
 
 describe('FlexDoc', () => {
+  beforeEach(() => {
+    window.history.replaceState({}, '', '/');
+    document.body.style.overflow = '';
+  });
+
   it('renders navigation and overview initially', () => {
     render(<FlexDoc spec={mockSpec} />);
     expect(screen.getAllByTestId('sidebar-mock').length).toBeGreaterThan(0);
     expect(screen.getByTestId('overview-mock')).toBeInTheDocument();
+  });
+
+  it('restores an endpoint from a shareable hash', () => {
+    window.history.replaceState({}, '', '/#get-pets');
+    render(<FlexDoc spec={mockSpec} />);
+    expect(screen.getByTestId('endpoint-detail-mock')).toBeInTheDocument();
+    expect(screen.queryByTestId('overview-mock')).not.toBeInTheDocument();
   });
 
   it('supports dark mode and custom styles', () => {
@@ -32,9 +44,16 @@ describe('FlexDoc', () => {
   it('opens and closes the mobile navigation drawer', () => {
     render(<FlexDoc spec={mockSpec} />);
     fireEvent.click(screen.getByLabelText('Open API navigation'));
-    expect(screen.getByText('API navigation')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'API navigation' })).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('Close API navigation'));
-    expect(screen.queryByText('API navigation')).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'API navigation' })).not.toBeInTheDocument();
+  });
+
+  it('closes the mobile drawer with Escape', () => {
+    render(<FlexDoc spec={mockSpec} />);
+    fireEvent.click(screen.getByLabelText('Open API navigation'));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'API navigation' })).not.toBeInTheDocument();
   });
 
   it('honors topbar, hostname and download options', () => {
