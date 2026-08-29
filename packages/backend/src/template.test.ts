@@ -3,49 +3,39 @@ import { generateFlexDocHTML } from './template';
 
 describe('generateFlexDocHTML', () => {
   it('should generate HTML with embedded spec when provided', () => {
-    const spec = {
-      openapi: '3.0.0',
-      info: {
-        title: 'Test API',
-        version: '1.0.0',
-      },
-      paths: {},
-    };
-
+    const spec = { openapi: '3.1.0', info: { title: 'Test API', version: '1.0.0' }, paths: {} };
     const html = generateFlexDocHTML(spec);
-
-    // Check that the HTML contains key elements
     expect(html).toContain('<!DOCTYPE html>');
     expect(html).toContain('<title>Test API</title>');
     expect(html).toContain('window.__FLEXDOC_SPEC__');
     expect(html).toContain(JSON.stringify(spec));
+    expect(html).toContain('contractVersion');
   });
 
   it('should include specUrl when provided', () => {
     const specUrl = 'https://example.com/openapi.json';
-
     const html = generateFlexDocHTML(null, { specUrl });
-
     expect(html).toContain('window.__FLEXDOC_SPEC_URL__');
     expect(html).toContain(specUrl);
   });
 
-  it('should include theme options when provided', () => {
-    const options: FlexDocOptions = {
-      theme: 'dark',
-    };
-
+  it('should include renderer theme and product options', () => {
+    const options: FlexDocOptions = { theme: 'dark', tryIt: { enabled: true }, codeSamples: { languages: ['curl', 'go'] } };
     const html = generateFlexDocHTML(null, options);
-
     expect(html).toContain('window.__FLEXDOC_OPTIONS__');
-    expect(html).toContain(JSON.stringify(options));
+    expect(html).toContain('"theme":"dark"');
+    expect(html).toContain('"tryIt":{"enabled":true}');
+  });
+
+  it('never exposes route authentication secrets to the browser', () => {
+    const html = generateFlexDocHTML(null, { auth: { type: 'basic', secretKey: 'super-secret-do-not-ship' } });
+    expect(html).not.toContain('super-secret-do-not-ship');
+    expect(html).not.toContain('secretKey');
   });
 
   it('should handle null spec gracefully', () => {
     const html = generateFlexDocHTML(null);
-
     expect(html).toContain('<!DOCTYPE html>');
     expect(html).toContain('window.__FLEXDOC_SPEC__ = null');
   });
 });
-
