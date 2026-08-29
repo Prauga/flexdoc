@@ -1,49 +1,22 @@
 import { FlexDocOptions } from './interfaces';
 
 interface OpenAPISpec {
-  info?: {
-    title?: string;
-    description?: string;
-    version?: string;
-  };
+  info?: { title?: string; description?: string; version?: string };
   [key: string]: unknown;
 }
 
-interface RenderOptions extends FlexDocOptions {
-  specUrl?: string;
-  rendererBasePath?: string;
-}
+interface RenderOptions extends FlexDocOptions { specUrl?: string; rendererBasePath?: string; }
 
 function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
 function serializeForScript(value: unknown): string {
-  return JSON.stringify(value)
-    .replace(/</g, '\\u003c')
-    .replace(/>/g, '\\u003e')
-    .replace(/&/g, '\\u0026')
-    .replace(/\u2028/g, '\\u2028')
-    .replace(/\u2029/g, '\\u2029');
+  return JSON.stringify(value).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }
 
-/**
- * Produce the small host page used by every server-side FlexDoc adapter.
- *
- * The backend does not interpret or render OpenAPI anymore. It only publishes
- * the spec/config contract and loads the canonical browser renderer shipped by
- * @bluejeans/flexdoc-client. This same document contract can be emitted by Go,
- * Java, Rust, Python, or any other HTTP framework without porting UI logic.
- */
-export function generateFlexDocHTML(
-  spec: OpenAPISpec | null,
-  options: RenderOptions = {}
-): string {
+/** Produce the small, language-neutral host page used by server-side adapters. */
+export function generateFlexDocHTML(spec: OpenAPISpec | null, options: RenderOptions = {}): string {
   const {
     title,
     description,
@@ -53,13 +26,15 @@ export function generateFlexDocHTML(
     favicon = '',
     specUrl,
     rendererBasePath = './__flexdoc',
+    // Route auth is intentionally consumed server-side and must never be
+    // serialized into window.__FLEXDOC_OPTIONS__.
+    auth: _serverOnlyAuth,
     ...rendererOptions
   } = options;
 
-  const documentTitle =
-    title || spec?.info?.title || 'API Documentation';
-
+  const documentTitle = title || spec?.info?.title || 'API Documentation';
   const publicOptions = {
+    contractVersion: '1',
     ...rendererOptions,
     ...(title ? { title } : {}),
     ...(description ? { description } : {}),
@@ -70,7 +45,8 @@ export function generateFlexDocHTML(
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="color-scheme" content="light dark" />
   <title>${escapeHtml(documentTitle)}</title>
   ${favicon ? `<link rel="icon" href="${escapeHtml(favicon)}" />` : ''}
   <link rel="stylesheet" href="${escapeHtml(rendererBasePath)}/renderer.css" />
@@ -94,14 +70,9 @@ export function generateFlexDocHTML(
           if (!response.ok) throw new Error('Unable to load OpenAPI specification: HTTP ' + response.status);
           spec = await response.json();
         }
-
         if (!spec) throw new Error('No OpenAPI specification was provided');
         if (!window.FlexDocStandalone?.mount) throw new Error('FlexDoc renderer failed to load');
-
-        window.FlexDocStandalone.mount(root, {
-          spec,
-          options: window.__FLEXDOC_OPTIONS__ || {},
-        });
+        window.FlexDocStandalone.mount(root, { spec, options: window.__FLEXDOC_OPTIONS__ || {} });
       } catch (error) {
         root.innerHTML = '<pre style="padding:24px;color:#b91c1c;white-space:pre-wrap"></pre>';
         root.firstChild.textContent = error instanceof Error ? error.message : String(error);
