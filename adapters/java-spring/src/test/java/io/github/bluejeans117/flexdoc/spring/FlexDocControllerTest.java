@@ -8,7 +8,20 @@ import org.junit.jupiter.api.Test;
 
 class FlexDocControllerTest {
   @Test
-  void rendersHostPageWithoutLeakingScriptMarkup() throws Exception {
+  void defaultsToSameOriginSpringdocEndpoint() throws Exception {
+    FlexDocProperties properties = new FlexDocProperties();
+    FlexDocController controller = new FlexDocController(properties, null, new ObjectMapper());
+
+    String html = controller.documentation().getBody();
+
+    assertThat(html).contains("/docs/__flexdoc/renderer.js");
+    assertThat(html).contains("window.__FLEXDOC_SPEC__=null");
+    assertThat(html).contains("window.__FLEXDOC_SPEC_URL__=\"/v3/api-docs\"");
+    assertThat(html).contains("FlexDocStandalone.mountAsync");
+  }
+
+  @Test
+  void rendersEmbeddedProviderSpecWithoutLeakingScriptMarkup() throws Exception {
     FlexDocProperties properties = new FlexDocProperties();
     properties.setPath("/reference");
     properties.setTitle("Example <API>");
@@ -23,6 +36,7 @@ class FlexDocControllerTest {
 
     assertThat(html).contains("/reference/__flexdoc/renderer.js");
     assertThat(html).contains("Example &lt;API&gt;");
+    assertThat(html).contains("window.__FLEXDOC_SPEC_URL__=null");
     assertThat(html).doesNotContain("</script><script>alert(1)</script>");
     assertThat(html).contains("\\u003c/script\\u003e");
   }
