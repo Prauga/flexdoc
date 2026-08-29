@@ -59,7 +59,9 @@ export class OpenAPIParser {
   }
 
   static resolveReference(spec: OpenAPISpec | Record<string, unknown>, ref: string): any {
-    if (!ref.startsWith('#/')) throw new Error(`Reference must be bundled before synchronous resolution: ${ref}`);
+    if (!ref.startsWith('#/')) {
+      throw new Error(`Only local references are supported synchronously; bundle external references first: ${ref}`);
+    }
     const path = ref.substring(2).split('/').map(OpenAPIParser.decodePointerToken);
     let current: any = spec;
     for (const segment of path) {
