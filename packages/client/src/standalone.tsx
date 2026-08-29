@@ -2,6 +2,7 @@ import { createRoot, Root } from 'react-dom/client';
 import { FlexDoc } from './components/FlexDoc';
 import { OpenAPISpec } from './types/openapi';
 import { FlexDocRendererOptions } from './types/options';
+import { bundleExternalReferences, DocumentLoader } from './utils/openapi-resolver';
 import './styles.css';
 
 export type StandaloneFlexDocOptions = FlexDocRendererOptions;
@@ -9,6 +10,10 @@ export type StandaloneFlexDocOptions = FlexDocRendererOptions;
 export interface StandaloneFlexDocConfig {
   spec: OpenAPISpec;
   options?: StandaloneFlexDocOptions;
+  /** Absolute URI used to resolve relative external $refs. */
+  baseUri?: string;
+  /** Optional loader for external reference documents. */
+  documentLoader?: DocumentLoader;
 }
 
 export const FLEXDOC_CONTRACT_VERSION = '1' as const;
@@ -55,9 +60,8 @@ function resolveTheme(options: StandaloneFlexDocOptions): 'light' | 'dark' {
   return 'light';
 }
 
-export function mountFlexDoc(element: Element, config: StandaloneFlexDocConfig): () => void {
-  const options = { contractVersion: FLEXDOC_CONTRACT_VERSION, ...(config.options || {}) } as StandaloneFlexDocOptions;
-  const spec = prepareSpec(config.spec, options);
+function renderFlexDoc(element: Element, source: OpenAPISpec, options: StandaloneFlexDocOptions): () => void {
+  const spec = prepareSpec(source, options);
   const existingRoot = roots.get(element);
   if (existingRoot) existingRoot.unmount();
   const root = createRoot(element);
@@ -66,10 +70,33 @@ export function mountFlexDoc(element: Element, config: StandaloneFlexDocConfig):
   return () => { if (roots.get(element) === root) roots.delete(element); root.unmount(); };
 }
 
+export function mountFlexDoc(element: Element, config: StandaloneFlexDocConfig): () => void {
+  const options = { contractVersion: FLEXDOC_CONTRACT_VERSION, ...(config.options || {}) } as StandaloneFlexDocOptions;
+  return renderFlexDoc(element, config.spec, options);
+}
+
+export async function mountFlexDocAsync(element: Element, config: StandaloneFlexDocConfig): Promise<() => void> {
+  const options = { contractVersion: FLEXDOC_CONTRACT_VERSION, ...(config.options || {}) } as StandaloneFlexDocOptions;
+  const spec = config.baseUri
+    ? await bundleExternalReferences(config.spec, { baseUri: config.baseUri, load: config.documentLoader })
+    : config.spec;
+  return renderFlexDoc(element, spec, options);
+}
+
 declare global {
   interface Window {
-    FlexDocStandalone?: { mount: typeof mountFlexDoc; prepareSpec: typeof prepareSpec; contractVersion: typeof FLEXDOC_CONTRACT_VERSION };
+    FlexDocStandalone?: {
+      mount: typeof mountFlexDoc;
+      mountAsync: typeof mountFlexDocAsync;
+      prepareSpec: typeof prepareSpec;
+      contractVersion: typeof FLEXDOC_CONTRACT_VERSION;
+    };
   }
 }
 
-if (typeof window !== 'undefined') window.FlexDocStandalone = { mount: mountFlexDoc, prepareSpec, contractVersion: FLEXDOC_CONTRACT_VERSION };
+if (typeof window !== 'undefined') window.FlexDocStandalone = {
+  mount: mountFlexDoc,
+  mountAsync: mountFlexDocAsync,
+  prepareSpec,
+  contractVersion: FLEXDOC_CONTRACT_VERSION,
+};
