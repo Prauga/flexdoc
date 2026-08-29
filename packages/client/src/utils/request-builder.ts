@@ -35,9 +35,7 @@ export function operationFor(spec: OpenAPISpec, path: string, method: string): O
 export function parametersFor(spec: OpenAPISpec, path: string, method: string): Parameter[] {
   const pathItem = spec.paths[path];
   const operation = operationFor(spec, path, method);
-  const merged = [...(pathItem.parameters || []), ...(operation.parameters || [])].map((p) =>
-    resolveParameter(spec, p)
-  );
+  const merged = [...(pathItem.parameters || []), ...(operation.parameters || [])].map((p) => resolveParameter(spec, p));
   const byKey = new Map<string, Parameter>();
   for (const parameter of merged) byKey.set(`${parameter.in}:${parameter.name}`, parameter);
   return [...byKey.values()];
@@ -80,6 +78,11 @@ export function initialRequestValues(spec: OpenAPISpec, path: string, method: st
   return values;
 }
 
+function encodeBasicCredential(value: string): string {
+  if (typeof globalThis.btoa === 'function') return globalThis.btoa(unescape(encodeURIComponent(value)));
+  return value;
+}
+
 function applySecurity(spec: OpenAPISpec, operation: Operation, headers: Record<string, string>, query: URLSearchParams, auth: Record<string, string>) {
   const requirements = operation.security ?? spec.security ?? [];
   if (!requirements.length || !spec.components?.securitySchemes) return;
@@ -91,7 +94,7 @@ function applySecurity(spec: OpenAPISpec, operation: Operation, headers: Record<
     const value = auth[schemeName];
     if (!value) continue;
     if (scheme.type === 'http' && scheme.scheme === 'bearer') headers.Authorization = `Bearer ${value}`;
-    else if (scheme.type === 'http' && scheme.scheme === 'basic') headers.Authorization = `Basic ${value}`;
+    else if (scheme.type === 'http' && scheme.scheme === 'basic') headers.Authorization = `Basic ${encodeBasicCredential(value)}`;
     else if (scheme.type === 'apiKey' && scheme.in === 'header' && scheme.name) headers[scheme.name] = value;
     else if (scheme.type === 'apiKey' && scheme.in === 'query' && scheme.name) query.set(scheme.name, value);
     else if (scheme.type === 'oauth2' || scheme.type === 'openIdConnect') headers.Authorization = `Bearer ${value}`;
