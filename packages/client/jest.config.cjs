@@ -12,7 +12,7 @@ module.exports = {
     '<rootDir>/jest.setup.cjs',
     '<rootDir>/src/setupTests.ts',
   ],
-  collectCoverage: true,
+  collectCoverage: false,
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
