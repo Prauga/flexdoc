@@ -24,6 +24,10 @@ export interface FastifyLikeApplication {
   get(path: string, options: Record<string, unknown>, handler: (req: FastifyLikeRequest, reply: FastifyLikeReply) => any | Promise<any>): void;
 }
 
+export interface NestLikeApplication {
+  getHttpAdapter(): { getType?: () => string; getInstance: () => any };
+}
+
 export function setupExpressFlexDoc(app: ExpressLikeApplication, path: string, options: Omit<FlexDocModuleOptions, 'path'>): void {
   setupFlexDoc(app, path, options);
 }
@@ -111,4 +115,31 @@ export function setupFastifyFlexDoc(app: FastifyLikeApplication, path: string, o
       return reply.code(502).type('text/plain; charset=utf-8').send(`Unable to load OpenAPI specification: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   });
+}
+
+/**
+ * Convenience integration for NestJS applications using @nestjs/swagger.
+ * @nestjs/swagger remains optional; it is only resolved when this helper is called.
+ */
+export function setupNestFlexDoc(
+  app: NestLikeApplication,
+  path: string,
+  swaggerDocumentOptions: Record<string, unknown>,
+  options: Omit<FlexDocModuleOptions, 'path' | 'spec' | 'specUrl'> = {}
+): void {
+  let SwaggerModule: any;
+  try {
+    SwaggerModule = require('@nestjs/swagger').SwaggerModule;
+  } catch {
+    throw new Error('setupNestFlexDoc requires @nestjs/swagger to be installed');
+  }
+  const spec = SwaggerModule.createDocument(app, swaggerDocumentOptions);
+  const adapter = app.getHttpAdapter();
+  const instance = adapter.getInstance();
+  const type = adapter.getType?.();
+  if (type === 'fastify' || (!instance.use && typeof instance.get === 'function')) {
+    setupFastifyFlexDoc(instance, path, { ...options, spec });
+  } else {
+    setupExpressFlexDoc(instance, path, { ...options, spec });
+  }
 }
