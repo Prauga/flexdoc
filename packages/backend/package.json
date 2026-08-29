@@ -11,13 +11,12 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && npm run copy-templates",
+    "build": "tsc && node scripts/copy-renderer.js",
     "dev": "tsc --watch",
     "prepublishOnly": "npm run build",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "copy-templates": "copyfiles -u 2 ../../templates/**/*.njk dist/",
     "generate:basic": "npx ts-node src/scripts/generate-auth.ts basic",
     "generate:bearer": "npx ts-node src/scripts/generate-auth.ts bearer"
   },
@@ -53,7 +52,6 @@
   },
   "dependencies": {
     "jsonwebtoken": "^9.0.2",
-    "nunjucks": "^3.2.4",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
@@ -63,9 +61,7 @@
     "@types/jest": "^29.5.0",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20.0.0",
-    "@types/nunjucks": "^3.2.6",
     "@types/yargs": "^17.0.32",
-    "copyfiles": "^2.4.1",
     "jest": "^29.5.0",
     "ts-jest": "^29.1.0",
     "ts-node": "^10.9.2",
