@@ -15,12 +15,13 @@ interface Props {
 }
 
 export const RequestPlayground: React.FC<Props> = ({ spec, path, method, theme, options, onRequestChange }) => {
-  const operation = spec.paths[path]?.[method.toLowerCase() as keyof typeof spec.paths[string]] as Operation | undefined;
-  const servers = operation?.servers || spec.paths[path]?.servers || spec.servers || [];
+  const pathItem = spec.paths[path];
+  const operation = pathItem?.[method.toLowerCase() as keyof typeof pathItem] as Operation | undefined;
+  const servers = operation?.servers || pathItem?.servers || spec.servers || [];
   const defaults = useMemo(() => ({
     ...initialRequestValues(spec, path, method),
-    serverUrl: options?.tryIt?.defaultServer || operation?.servers?.[0]?.url || spec.paths[path]?.servers?.[0]?.url || spec.servers?.[0]?.url,
-  }), [spec, path, method, options?.tryIt?.defaultServer, operation?.servers]);
+    serverUrl: options?.tryIt?.defaultServer || operation?.servers?.[0]?.url || pathItem?.servers?.[0]?.url || spec.servers?.[0]?.url,
+  }), [spec, path, method, options?.tryIt?.defaultServer, operation?.servers, pathItem?.servers]);
   const [values, setValues] = useState(defaults);
   const [response, setResponse] = useState<{ status: number; statusText: string; headers: string; body: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
