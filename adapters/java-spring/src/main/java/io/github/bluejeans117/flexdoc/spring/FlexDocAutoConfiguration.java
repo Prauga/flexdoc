@@ -1,6 +1,7 @@
 package io.github.bluejeans117.flexdoc.spring;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -15,11 +16,9 @@ import org.springframework.core.io.ResourceLoader;
 public class FlexDocAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean
+  @ConditionalOnProperty(prefix = "flexdoc", name = "spec-location")
   FlexDocSpecProvider flexDocSpecProvider(FlexDocProperties properties, ResourceLoader resourceLoader, ObjectMapper objectMapper) {
     return () -> {
-      if (properties.getSpecLocation() == null || properties.getSpecLocation().isBlank()) {
-        throw new IllegalStateException("Set flexdoc.spec-location or provide a FlexDocSpecProvider bean");
-      }
       Resource resource = resourceLoader.getResource(properties.getSpecLocation());
       try (var input = resource.getInputStream()) {
         return objectMapper.readValue(input, Object.class);
@@ -28,7 +27,10 @@ public class FlexDocAutoConfiguration {
   }
 
   @Bean
-  FlexDocController flexDocController(FlexDocProperties properties, FlexDocSpecProvider provider, ObjectMapper objectMapper) {
-    return new FlexDocController(properties, provider, objectMapper);
+  FlexDocController flexDocController(
+      FlexDocProperties properties,
+      ObjectProvider<FlexDocSpecProvider> provider,
+      ObjectMapper objectMapper) {
+    return new FlexDocController(properties, provider.getIfAvailable(), objectMapper);
   }
 }
