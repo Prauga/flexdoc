@@ -41,6 +41,11 @@ jobs:
           test -s packages/client/dist/standalone/flexdoc.standalone.js
           test -s packages/client/dist/standalone/flexdoc.standalone.css
 
+      - name: Verify language-neutral renderer contract
+        run: |
+          test -s packages/renderer-contract/flexdoc-renderer.schema.json
+          node -e "JSON.parse(require('fs').readFileSync('packages/renderer-contract/flexdoc-renderer.schema.json', 'utf8'))"
+
       - name: Test backend
         run: npm test -w packages/backend -- --runInBand
 
