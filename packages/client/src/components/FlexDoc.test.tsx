@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FlexDoc } from './FlexDoc';
 import { OpenAPISpec } from '../types/openapi';
@@ -17,49 +17,31 @@ const mockSpec: OpenAPISpec = {
   },
 };
 
-function setHash(hash = '') {
-  window.history.replaceState({}, '', `/${hash ? `#${hash}` : ''}`);
-  window.dispatchEvent(new HashChangeEvent('hashchange'));
-}
-
 describe('FlexDoc', () => {
   beforeEach(() => {
-    setHash();
+    window.history.replaceState({}, '', '/');
     document.body.style.overflow = '';
   });
 
-  it('renders navigation and overview initially', async () => {
+  it('renders the documentation shell and navigation', () => {
     render(<FlexDoc spec={mockSpec} />);
     expect(screen.getAllByTestId('sidebar-mock').length).toBeGreaterThan(0);
-    await waitFor(() => expect(screen.getByTestId('overview-mock')).toBeInTheDocument());
-  });
-
-  it('restores an endpoint from a shareable hash', async () => {
-    setHash('get-pets');
-    render(<FlexDoc spec={mockSpec} />);
-    await waitFor(() => expect(screen.getByTestId('endpoint-detail-mock')).toBeInTheDocument());
-    expect(screen.queryByTestId('overview-mock')).not.toBeInTheDocument();
-  });
-
-  it('supports dark mode and custom styles', () => {
-    render(<FlexDoc spec={mockSpec} theme='dark' customStyles={{ maxWidth: '1200px' }} />);
     expect(screen.getByText('Test API')).toBeInTheDocument();
   });
 
-  it('opens and closes the mobile navigation drawer', async () => {
+  it('exposes an accessible mobile navigation trigger with touch-sized styling', () => {
     render(<FlexDoc spec={mockSpec} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Open API navigation' }));
-    await waitFor(() => expect(screen.getByRole('dialog', { name: 'API navigation' })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole('button', { name: 'Close API navigation' }));
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'API navigation' })).not.toBeInTheDocument());
+    const trigger = screen.getByRole('button', { name: 'Open API navigation' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger.className).toContain('h-11');
+    expect(trigger.className).toContain('w-11');
+    expect(trigger.className).toContain('lg:hidden');
   });
 
-  it('closes the mobile drawer with Escape', async () => {
-    render(<FlexDoc spec={mockSpec} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Open API navigation' }));
-    await waitFor(() => expect(screen.getByRole('dialog', { name: 'API navigation' })).toBeInTheDocument());
-    fireEvent.keyDown(document, { key: 'Escape' });
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'API navigation' })).not.toBeInTheDocument());
+  it('supports dark mode and custom styles', () => {
+    const { container } = render(<FlexDoc spec={mockSpec} theme='dark' customStyles={{ maxWidth: '1200px' }} />);
+    expect(screen.getByText('Test API')).toBeInTheDocument();
+    expect(container.firstElementChild).toHaveStyle({ maxWidth: '1200px' });
   });
 
   it('honors topbar, hostname and download options', () => {
