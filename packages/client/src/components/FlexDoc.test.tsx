@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FlexDoc } from './FlexDoc';
 import { OpenAPISpec } from '../types/openapi';
@@ -17,22 +17,27 @@ const mockSpec: OpenAPISpec = {
   },
 };
 
+function setHash(hash = '') {
+  window.history.replaceState({}, '', `/${hash ? `#${hash}` : ''}`);
+  window.dispatchEvent(new HashChangeEvent('hashchange'));
+}
+
 describe('FlexDoc', () => {
   beforeEach(() => {
-    window.history.replaceState({}, '', '/');
+    setHash();
     document.body.style.overflow = '';
   });
 
-  it('renders navigation and overview initially', () => {
+  it('renders navigation and overview initially', async () => {
     render(<FlexDoc spec={mockSpec} />);
     expect(screen.getAllByTestId('sidebar-mock').length).toBeGreaterThan(0);
-    expect(screen.getByTestId('overview-mock')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('overview-mock')).toBeInTheDocument());
   });
 
-  it('restores an endpoint from a shareable hash', () => {
-    window.history.replaceState({}, '', '/#get-pets');
+  it('restores an endpoint from a shareable hash', async () => {
+    setHash('get-pets');
     render(<FlexDoc spec={mockSpec} />);
-    expect(screen.getByTestId('endpoint-detail-mock')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('endpoint-detail-mock')).toBeInTheDocument());
     expect(screen.queryByTestId('overview-mock')).not.toBeInTheDocument();
   });
 
@@ -41,19 +46,20 @@ describe('FlexDoc', () => {
     expect(screen.getByText('Test API')).toBeInTheDocument();
   });
 
-  it('opens and closes the mobile navigation drawer', () => {
+  it('opens and closes the mobile navigation drawer', async () => {
     render(<FlexDoc spec={mockSpec} />);
-    fireEvent.click(screen.getByLabelText('Open API navigation'));
-    expect(screen.getByRole('dialog', { name: 'API navigation' })).toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText('Close API navigation'));
-    expect(screen.queryByRole('dialog', { name: 'API navigation' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open API navigation' }));
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'API navigation' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Close API navigation' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'API navigation' })).not.toBeInTheDocument());
   });
 
-  it('closes the mobile drawer with Escape', () => {
+  it('closes the mobile drawer with Escape', async () => {
     render(<FlexDoc spec={mockSpec} />);
-    fireEvent.click(screen.getByLabelText('Open API navigation'));
+    fireEvent.click(screen.getByRole('button', { name: 'Open API navigation' }));
+    await waitFor(() => expect(screen.getByRole('dialog', { name: 'API navigation' })).toBeInTheDocument());
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'API navigation' })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'API navigation' })).not.toBeInTheDocument());
   });
 
   it('honors topbar, hostname and download options', () => {
