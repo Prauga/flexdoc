@@ -20,7 +20,9 @@ interface EndpointDetailProps {
 const DEFAULT_LANGUAGES: CodeSampleLanguage[] = ['curl', 'javascript', 'python', 'go', 'java'];
 
 export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, method, theme = 'light', options = {} }) => {
-  const [expandedSections, setExpandedSections] = useState(new Set(['parameters', 'requestBody', 'responses', 'tryIt', 'examples']));
+  const defaultExpanded = ['parameters', 'requestBody', 'tryIt', 'examples'];
+  if (options.expandResponses !== 'none') defaultExpanded.push('responses');
+  const [expandedSections, setExpandedSections] = useState(new Set(defaultExpanded));
   const [sampleLanguage, setSampleLanguage] = useState<CodeSampleLanguage>((options.codeSamples?.languages?.[0] as CodeSampleLanguage) || 'curl');
   const initialBuiltRequest = useMemo(() => buildRequest(spec, path, method, initialRequestValues(spec, path, method)), [spec, path, method]);
   const [sampleRequest, setSampleRequest] = useState(initialBuiltRequest);
@@ -35,9 +37,10 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
   const surface = theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900';
   const languages = (options.codeSamples?.languages?.length ? options.codeSamples.languages : DEFAULT_LANGUAGES) as CodeSampleLanguage[];
   const security = operation.security ?? spec.security;
+  const schemaOptions = { requiredPropsFirst: options.requiredPropsFirst, sortPropsAlphabetically: options.sortPropsAlphabetically };
 
-  const toggle = (section: string) => setExpandedSections((current) => {
-    const next = new Set(current); next.has(section) ? next.delete(section) : next.add(section); return next;
+  const toggle = (id: string) => setExpandedSections((current) => {
+    const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next;
   });
 
   const section = (title: string, id: string, children: React.ReactNode) => (
@@ -55,11 +58,14 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
       : operation.requestBody
     : undefined;
 
+  const extensionEntries = Object.entries(operation).filter(([key]) => key.startsWith('x-'));
+  const methodTheme = typeof options.theme === 'object' ? options.theme.methodColors?.[method.toLowerCase()] : undefined;
+
   return <div className={`h-full overflow-y-auto ${surface}`}>
     <article className='mx-auto w-full max-w-6xl p-4 sm:p-6 lg:p-8'>
       <header className='mb-8'>
         <div className='mb-4 flex min-w-0 flex-wrap items-center gap-2 sm:gap-3'>
-          <span className={`shrink-0 rounded border px-2.5 py-1 text-xs font-bold sm:text-sm ${OpenAPIParser.getMethodColor(method, theme)}`}>{method.toUpperCase()}</span>
+          <span className={`shrink-0 rounded border px-2.5 py-1 text-xs font-bold sm:text-sm ${OpenAPIParser.getMethodColor(method, theme)}`} style={{ background: methodTheme?.bg, borderColor: methodTheme?.border }}>{method.toUpperCase()}</span>
           <code className={`min-w-0 max-w-full overflow-x-auto rounded px-2.5 py-1 font-mono text-sm sm:text-base ${theme === 'dark' ? 'bg-gray-800 text-blue-300' : 'bg-gray-100 text-gray-900'}`}>{path}</code>
         </div>
         {operation.summary && <h1 className='mb-2 text-2xl font-bold tracking-tight sm:text-3xl'>{operation.summary}</h1>}
@@ -69,6 +75,9 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
           {security?.length ? <span className='inline-flex items-center gap-1 text-red-600'><Lock className='h-4 w-4' />Authentication required</span> : <span className='inline-flex items-center gap-1 text-green-600'><Unlock className='h-4 w-4' />No authentication required</span>}
           {operation.operationId && <span className={muted}>operationId: <code>{operation.operationId}</code></span>}
         </div>
+        {(options.showExtensions || options.showCommonExtensions) && extensionEntries.length > 0 && <div className={`mt-4 rounded-lg border p-3 text-xs ${card}`}>
+          {extensionEntries.map(([key, value]) => <div key={key}><code>{key}</code>: {typeof value === 'string' ? value : JSON.stringify(value)}</div>)}
+        </div>}
       </header>
 
       {parameters.length > 0 && section('Parameters', 'parameters', <div className='space-y-3'>
@@ -79,7 +88,7 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
             {parameter.deprecated && <span className='rounded bg-orange-100 px-2 py-0.5 text-xs text-orange-700'>deprecated</span>}
           </div>
           {parameter.description && <p className={`mb-3 text-sm ${muted}`}>{parameter.description}</p>}
-          {parameter.schema && <SchemaView spec={spec} schema={parameter.schema} theme={theme} required={parameter.required} />}
+          {parameter.schema && <SchemaView spec={spec} schema={parameter.schema} theme={theme} required={parameter.required} {...schemaOptions} />}
         </div>)}
       </div>)}
 
@@ -87,7 +96,7 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
         {requestBody.description && <p className={muted}>{requestBody.description}</p>}
         {Object.entries(requestBody.content || {}).map(([mediaType, media]: [string, any]) => <div key={mediaType} className={`rounded-lg border p-4 ${card}`}>
           <div className='mb-3 flex flex-wrap items-center gap-2'><code className='rounded bg-gray-100 px-2 py-1 text-xs text-gray-700'>{mediaType}</code>{requestBody.required && <span className='rounded bg-red-100 px-2 py-0.5 text-xs text-red-700'>required</span>}</div>
-          {media.schema && <SchemaView spec={spec} schema={media.schema} theme={theme} />}
+          {media.schema && <SchemaView spec={spec} schema={media.schema} theme={theme} {...schemaOptions} />}
           {media.example !== undefined && <div className='mt-3'><CodeBlock code={JSON.stringify(media.example, null, 2)} language='json' title='Example payload' theme={theme} wrap /></div>}
         </div>)}
       </div>)}
@@ -100,8 +109,9 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
             {response.headers && options.showRequestHeaders && <div className='mb-3 text-sm'><span className='font-medium'>Headers:</span> {Object.keys(response.headers).join(', ')}</div>}
             {response.content && Object.entries(response.content).map(([mediaType, media]: [string, any]) => <div key={mediaType} className='mt-3'>
               <code className='text-xs opacity-70'>{mediaType}</code>
-              {media.schema && <div className='mt-2'><SchemaView spec={spec} schema={media.schema} theme={theme} /></div>}
+              {media.schema && <div className='mt-2'><SchemaView spec={spec} schema={media.schema} theme={theme} {...schemaOptions} /></div>}
               {media.example !== undefined && <div className='mt-3'><CodeBlock code={JSON.stringify(media.example, null, 2)} language='json' title='Example response' theme={theme} wrap /></div>}
+              {media.examples && Object.values(media.examples)[options.payloadSampleIdx || 0] && <div className='mt-3'><CodeBlock code={JSON.stringify((Object.values(media.examples)[options.payloadSampleIdx || 0] as any).value ?? Object.values(media.examples)[options.payloadSampleIdx || 0], null, 2)} language='json' title='Example response' theme={theme} wrap /></div>}
             </div>)}
           </div>;
         })}
