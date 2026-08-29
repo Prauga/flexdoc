@@ -26,8 +26,6 @@ export function generateFlexDocHTML(spec: OpenAPISpec | null, options: RenderOpt
     favicon = '',
     specUrl,
     rendererBasePath = './__flexdoc',
-    // Route auth is intentionally consumed server-side and must never be
-    // serialized into window.__FLEXDOC_OPTIONS__.
     auth: _serverOnlyAuth,
     ...rendererOptions
   } = options;
@@ -72,7 +70,9 @@ export function generateFlexDocHTML(spec: OpenAPISpec | null, options: RenderOpt
         }
         if (!spec) throw new Error('No OpenAPI specification was provided');
         if (!window.FlexDocStandalone?.mount) throw new Error('FlexDoc renderer failed to load');
-        window.FlexDocStandalone.mount(root, { spec, options: window.__FLEXDOC_OPTIONS__ || {} });
+        const config = { spec, options: window.__FLEXDOC_OPTIONS__ || {}, baseUri: window.__FLEXDOC_SPEC_URL__ || undefined };
+        if (window.FlexDocStandalone.mountAsync && config.baseUri) await window.FlexDocStandalone.mountAsync(root, config);
+        else window.FlexDocStandalone.mount(root, config);
       } catch (error) {
         root.innerHTML = '<pre style="padding:24px;color:#b91c1c;white-space:pre-wrap"></pre>';
         root.firstChild.textContent = error instanceof Error ? error.message : String(error);
