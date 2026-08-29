@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class FlexDocProperties {
   private boolean enabled = true;
   private String path = "/docs";
+  private String specUrl = "/v3/api-docs";
   private String specLocation = "";
   private String title = "API Documentation";
   private String theme = "light";
@@ -15,6 +16,8 @@ public class FlexDocProperties {
   public void setEnabled(boolean enabled) { this.enabled = enabled; }
   public String getPath() { return path; }
   public void setPath(String path) { this.path = path; }
+  public String getSpecUrl() { return specUrl; }
+  public void setSpecUrl(String specUrl) { this.specUrl = specUrl; }
   public String getSpecLocation() { return specLocation; }
   public void setSpecLocation(String specLocation) { this.specLocation = specLocation; }
   public String getTitle() { return title; }
