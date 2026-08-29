@@ -1,23 +1,19 @@
 import * as yaml from 'js-yaml';
-import { OpenAPISpec } from '../types/openapi';
+import { OpenAPISpec, Reference } from '../types/openapi';
 
 export class OpenAPIParser {
   static async parseSpec(input: string | object): Promise<OpenAPISpec> {
     let spec: any;
 
     if (typeof input === 'string') {
-      // Trim the input string to remove any leading/trailing whitespace
       const trimmedInput = input.trim();
 
       try {
-        // Try parsing as JSON first
         spec = JSON.parse(trimmedInput);
       } catch {
         try {
-          // Try parsing as YAML
           spec = yaml.load(trimmedInput);
-        } catch (error) {
-          // If both JSON and YAML parsing fail, throw an error
+        } catch {
           throw new Error('Invalid OpenAPI specification format');
         }
       }
@@ -25,7 +21,6 @@ export class OpenAPIParser {
       spec = input;
     }
 
-    // Validate basic structure
     if (!spec.openapi || !spec.info || !spec.paths) {
       throw new Error('Invalid OpenAPI specification: missing required fields');
     }
@@ -34,16 +29,7 @@ export class OpenAPIParser {
   }
 
   static getHttpMethods(pathItem: any): string[] {
-    const methods = [
-      'get',
-      'post',
-      'put',
-      'delete',
-      'patch',
-      'options',
-      'head',
-      'trace',
-    ];
+    const methods = ['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'];
     return methods.filter((method) => pathItem[method]);
   }
 
@@ -71,15 +57,14 @@ export class OpenAPIParser {
     };
 
     const colors = theme === 'dark' ? darkColors : lightColors;
-    const defaultColor =
-      theme === 'dark'
-        ? 'text-gray-300 bg-gray-700/50 border-gray-600'
-        : 'text-gray-600 bg-gray-50 border-gray-200';
+    const defaultColor = theme === 'dark'
+      ? 'text-gray-300 bg-gray-700/50 border-gray-600'
+      : 'text-gray-600 bg-gray-50 border-gray-200';
 
     return colors[method.toLowerCase()] || defaultColor;
   }
 
-  static resolveReference(spec: OpenAPISpec, ref: string): any {
+  static resolveReference<T = any>(spec: OpenAPISpec, ref: string): T {
     if (!ref.startsWith('#/')) {
       throw new Error('Only local references are supported');
     }
@@ -94,13 +79,10 @@ export class OpenAPIParser {
       current = current[segment];
     }
 
-    return current;
+    return current as T;
   }
 
-  static isReference(obj: any): boolean {
-    if (obj === null || obj === undefined) {
-      return false;
-    }
-    return typeof obj === 'object' && '$ref' in obj;
+  static isReference(obj: unknown): obj is Reference {
+    return !!obj && typeof obj === 'object' && '$ref' in obj;
   }
 }
