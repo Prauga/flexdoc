@@ -1,4 +1,3 @@
-import React from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { FlexDoc } from './components/FlexDoc';
 import { OpenAPISpec } from './types/openapi';
