@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Play, Loader2, AlertCircle } from 'lucide-react';
-import { OpenAPISpec } from '../types/openapi';
+import { OpenAPISpec, Operation } from '../types/openapi';
 import { FlexDocRendererOptions } from '../types/options';
 import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
 import { CodeBlock } from './CodeBlock';
@@ -15,15 +15,23 @@ interface Props {
 }
 
 export const RequestPlayground: React.FC<Props> = ({ spec, path, method, theme, options, onRequestChange }) => {
-  const defaults = useMemo(() => initialRequestValues(spec, path, method), [spec, path, method]);
+  const operation = spec.paths[path]?.[method.toLowerCase() as keyof typeof spec.paths[string]] as Operation | undefined;
+  const servers = operation?.servers || spec.paths[path]?.servers || spec.servers || [];
+  const defaults = useMemo(() => ({
+    ...initialRequestValues(spec, path, method),
+    serverUrl: options?.tryIt?.defaultServer || operation?.servers?.[0]?.url || spec.paths[path]?.servers?.[0]?.url || spec.servers?.[0]?.url,
+  }), [spec, path, method, options?.tryIt?.defaultServer, operation?.servers]);
   const [values, setValues] = useState(defaults);
   const [response, setResponse] = useState<{ status: number; statusText: string; headers: string; body: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const parameters = parametersFor(spec, path, method);
-  const security = spec.paths[path]?.[method.toLowerCase() as keyof (typeof spec.paths)[string]] as any;
-  const securityNames = Object.keys((security?.security ?? spec.security ?? [])[0] || {});
-  const servers = security?.servers || spec.paths[path]?.servers || spec.servers || [];
+  const parameters = useMemo(() => parametersFor(spec, path, method), [spec, path, method]);
+  const securityNames = options?.noAutoAuth ? [] : Object.keys((operation?.security ?? spec.security ?? [])[0] || {});
+
+  useEffect(() => setValues(defaults), [defaults]);
+  useEffect(() => {
+    try { onRequestChange?.(buildRequest(spec, path, method, values)); } catch { /* incomplete required values are valid while editing */ }
+  }, [spec, path, method, values, onRequestChange]);
 
   const update = (group: 'parameters' | 'headers' | 'cookies' | 'auth', key: string, value: string) => {
     setValues((current) => ({ ...current, [group]: { ...(current[group] || {}), [key]: value } }));
@@ -32,9 +40,8 @@ export const RequestPlayground: React.FC<Props> = ({ spec, path, method, theme, 
   const execute = async () => {
     setLoading(true); setError(null); setResponse(null);
     try {
-      let request = buildRequest(spec, path, method, values);
-      onRequestChange?.(request);
-      let initWithUrl: any = { ...request.init, url: request.url, credentials: options?.tryIt?.credentials || 'same-origin' };
+      const request = buildRequest(spec, path, method, values);
+      let initWithUrl: RequestInit & { url: string } = { ...request.init, url: request.url, credentials: options?.tryIt?.credentials || 'same-origin' };
       if (options?.tryIt?.requestInterceptor) initWithUrl = await options.tryIt.requestInterceptor(initWithUrl);
       const { url, ...init } = initWithUrl;
       const result = await fetch(url, init);
@@ -52,7 +59,7 @@ export const RequestPlayground: React.FC<Props> = ({ spec, path, method, theme, 
     <div className='flex flex-col gap-4'>
       {servers.length > 0 && <label className={labelClass}>Server
         <select className={`mt-1 w-full rounded-md border px-3 py-2 text-sm ${inputClass}`} value={values.serverUrl || servers[0].url} onChange={(e) => setValues({ ...values, serverUrl: e.target.value })}>
-          {servers.map((server: any) => <option key={server.url} value={server.url}>{server.description ? `${server.description} — ` : ''}{server.url}</option>)}
+          {servers.map((server) => <option key={server.url} value={server.url}>{server.description ? `${server.description} — ` : ''}{server.url}</option>)}
         </select>
       </label>}
 
@@ -67,23 +74,19 @@ export const RequestPlayground: React.FC<Props> = ({ spec, path, method, theme, 
       </label>)}
 
       {defaults.contentType && <>
-        <label className={labelClass}>Content type
-          <input className={`mt-1 w-full rounded-md border px-3 py-2 text-sm ${inputClass}`} value={values.contentType || ''} onChange={(e) => setValues({ ...values, contentType: e.target.value })} />
-        </label>
-        <label className={labelClass}>Request body
-          <textarea aria-label='Request body' rows={8} className={`mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} value={values.body || ''} onChange={(e) => setValues({ ...values, body: e.target.value })} />
-        </label>
+        <label className={labelClass}>Content type<input className={`mt-1 w-full rounded-md border px-3 py-2 text-sm ${inputClass}`} value={values.contentType || ''} onChange={(e) => setValues({ ...values, contentType: e.target.value })} /></label>
+        <label className={labelClass}>Request body<textarea aria-label='Request body' rows={8} className={`mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} value={values.body || ''} onChange={(e) => setValues({ ...values, body: e.target.value })} /></label>
       </>}
 
       <button onClick={execute} disabled={loading} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60'>
         {loading ? <Loader2 className='h-4 w-4 animate-spin' /> : <Play className='h-4 w-4' />} {loading ? 'Sending…' : 'Send request'}
       </button>
 
-      {error && <div role='alert' className='flex gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700'><AlertCircle className='h-4 w-4 shrink-0 mt-0.5' />{error}</div>}
+      {error && <div role='alert' className='flex gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700'><AlertCircle className='mt-0.5 h-4 w-4 shrink-0' />{error}</div>}
       {response && <div className='space-y-3'>
         <div className='font-semibold'>Response <span className={response.status >= 400 ? 'text-red-600' : 'text-green-600'}>{response.status} {response.statusText}</span></div>
-        {response.headers && <CodeBlock code={response.headers} language='text' title='Headers' theme={theme} />}
-        <CodeBlock code={response.body || '(empty response)'} language='json' title='Body' theme={theme} />
+        {response.headers && <CodeBlock code={response.headers} language='text' title='Headers' theme={theme} wrap />}
+        <CodeBlock code={response.body || '(empty response)'} language='json' title='Body' theme={theme} wrap />
       </div>}
     </div>
   </div>;
