@@ -2,7 +2,6 @@ import { FlexDocOptions } from './interfaces';
 import { setupFlexDoc } from './setup';
 import { generateFlexDocHTML } from './template';
 
-// Mock the template module
 jest.mock('./template', () => ({
   generateFlexDocHTML: jest.fn().mockReturnValue('<html>Mocked HTML</html>'),
 }));
@@ -11,24 +10,23 @@ describe('setupFlexDoc', () => {
   let mockApp: any;
   let mockReq: any;
   let mockRes: any;
-  let handler: (req: any, res: any) => void;
+  let handler: (req: any, res: any) => void | Promise<void>;
 
   beforeEach(() => {
-    // Reset mocks
     jest.clearAllMocks();
 
-    // Mock Express/NestJS app
     mockApp = {
-      use: jest.fn().mockImplementation((path, middleware) => {
+      use: jest.fn().mockImplementation((_path, middleware) => {
         handler = middleware;
       }),
     };
 
-    // Mock request and response objects
-    mockReq = {};
+    mockReq = { headers: {} };
     mockRes = {
       setHeader: jest.fn(),
       send: jest.fn(),
+      end: jest.fn(),
+      statusCode: 200,
     };
   });
 
@@ -42,38 +40,39 @@ describe('setupFlexDoc', () => {
     expect(mockApp.use).toHaveBeenCalledWith('/docs', expect.any(Function));
   });
 
-  it('should generate HTML with spec when middleware is called', () => {
+  it('should generate HTML with spec when middleware is called', async () => {
     const spec = {
       openapi: '3.0.0',
       info: { title: 'Test API', version: '1.0.0' },
     };
     setupFlexDoc(mockApp, '/docs', { spec });
 
-    // Call the middleware handler
-    handler(mockReq, mockRes);
+    await handler(mockReq, mockRes);
 
     expect(generateFlexDocHTML).toHaveBeenCalledWith(spec, expect.any(Object));
     expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'text/html');
     expect(mockRes.send).toHaveBeenCalledWith('<html>Mocked HTML</html>');
   });
 
-  it('should pass null when spec is undefined', () => {
+  it('should return a gateway error when specUrl cannot be loaded', async () => {
     setupFlexDoc(mockApp, '/docs', {
-      specUrl: 'https://example.com/openapi.json',
+      specUrl: 'file:///tmp/openapi.json',
     });
 
-    // Call the middleware handler
-    handler(mockReq, mockRes);
+    await handler(mockReq, mockRes);
 
-    expect(generateFlexDocHTML).toHaveBeenCalledWith(
-      null,
-      expect.objectContaining({
-        specUrl: 'https://example.com/openapi.json',
-      })
+    expect(generateFlexDocHTML).not.toHaveBeenCalled();
+    expect(mockRes.statusCode).toBe(502);
+    expect(mockRes.setHeader).toHaveBeenCalledWith(
+      'Content-Type',
+      'text/plain; charset=utf-8'
+    );
+    expect(mockRes.end).toHaveBeenCalledWith(
+      expect.stringContaining('Unsupported OpenAPI spec URL protocol')
     );
   });
 
-  it('should pass flexDocOptions to generateFlexDocHTML', () => {
+  it('should pass flexDocOptions to generateFlexDocHTML', async () => {
     const flexDocOptions: FlexDocOptions = {
       theme: 'dark',
     };
@@ -83,8 +82,7 @@ describe('setupFlexDoc', () => {
       options: flexDocOptions,
     });
 
-    // Call the middleware handler
-    handler(mockReq, mockRes);
+    await handler(mockReq, mockRes);
 
     expect(generateFlexDocHTML).toHaveBeenCalledWith(
       expect.any(Object),
@@ -92,4 +90,3 @@ describe('setupFlexDoc', () => {
     );
   });
 });
-
