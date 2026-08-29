@@ -1,14 +1,18 @@
-import { OpenAPISpec, Operation, Parameter, Reference, Schema } from '../types/openapi';
+import { OpenAPISpec, Parameter, Schema, SecurityScheme } from '../types/openapi';
 import { OpenAPIParser } from './openapi-parser';
+import { normalizeOperation, resolveObject, resolveServerVariables } from './openapi-normalizer';
+
+export type RequestValue = string | number | boolean | string[] | number[] | Record<string, unknown>;
 
 export interface RequestValues {
-  parameters?: Record<string, string>;
+  parameters?: Record<string, RequestValue>;
   headers?: Record<string, string>;
-  cookies?: Record<string, string>;
+  cookies?: Record<string, RequestValue>;
   body?: string;
   contentType?: string;
   auth?: Record<string, string>;
   serverUrl?: string;
+  serverVariables?: Record<string, string>;
 }
 
 export interface BuiltRequest {
@@ -17,65 +21,131 @@ export interface BuiltRequest {
   method: string;
   headers: Record<string, string>;
   body?: string;
+  bodyKind?: 'json' | 'text' | 'form' | 'multipart';
 }
 
-function resolveParameter(spec: OpenAPISpec, parameter: Parameter | Reference): Parameter {
-  return OpenAPIParser.isReference(parameter)
-    ? (OpenAPIParser.resolveReference(spec, parameter.$ref) as Parameter)
-    : parameter;
-}
-
-export function operationFor(spec: OpenAPISpec, path: string, method: string): Operation {
-  const pathItem = spec.paths[path];
-  const operation = pathItem?.[method.toLowerCase() as keyof typeof pathItem] as Operation | undefined;
-  if (!operation) throw new Error(`Operation not found: ${method.toUpperCase()} ${path}`);
-  return operation;
+export function operationFor(spec: OpenAPISpec, path: string, method: string) {
+  return normalizeOperation(spec, path, method).operation;
 }
 
 export function parametersFor(spec: OpenAPISpec, path: string, method: string): Parameter[] {
-  const pathItem = spec.paths[path];
-  const operation = operationFor(spec, path, method);
-  const merged = [...(pathItem.parameters || []), ...(operation.parameters || [])].map((p) => resolveParameter(spec, p));
-  const byKey = new Map<string, Parameter>();
-  for (const parameter of merged) byKey.set(`${parameter.in}:${parameter.name}`, parameter);
-  return [...byKey.values()];
+  return normalizeOperation(spec, path, method).parameters;
 }
 
-function encode(value: string, allowReserved = false): string {
-  return allowReserved ? value : encodeURIComponent(value);
+function schemaFor(spec: OpenAPISpec, parameter: Parameter): Schema | undefined {
+  return resolveObject<Schema>(spec, parameter.schema);
 }
 
-function parameterExample(parameter: Parameter): string {
-  if (parameter.example !== undefined) return String(parameter.example);
-  const schema = parameter.schema as Schema | undefined;
-  if (schema?.example !== undefined) return String(schema.example);
-  if (schema?.default !== undefined) return String(schema.default);
-  if (schema?.enum?.length) return String(schema.enum[0]);
-  if (schema?.type === 'integer' || schema?.type === 'number') return '1';
-  if (schema?.type === 'boolean') return 'true';
+function parameterExample(spec: OpenAPISpec, parameter: Parameter): RequestValue {
+  if (parameter.example !== undefined) return parameter.example;
+  const schema = schemaFor(spec, parameter);
+  if (schema?.example !== undefined) return schema.example;
+  if (schema?.examples?.length) return schema.examples[0];
+  if (schema?.default !== undefined) return schema.default;
+  if (schema?.enum?.length) return schema.enum[0];
+  if (schema?.type === 'array') return [];
+  if (schema?.type === 'object') return {};
+  if (schema?.type === 'integer' || schema?.type === 'number') return 1;
+  if (schema?.type === 'boolean') return true;
   return '';
 }
 
 export function initialRequestValues(spec: OpenAPISpec, path: string, method: string): RequestValues {
+  const normalized = normalizeOperation(spec, path, method);
   const values: RequestValues = { parameters: {}, headers: {}, cookies: {}, auth: {} };
-  for (const parameter of parametersFor(spec, path, method)) {
+  for (const parameter of normalized.parameters) {
     const target = parameter.in === 'header' ? values.headers : parameter.in === 'cookie' ? values.cookies : values.parameters;
-    target![parameter.name] = parameterExample(parameter);
+    (target as Record<string, RequestValue>)[parameter.name] = parameterExample(spec, parameter);
   }
-  const operation = operationFor(spec, path, method);
-  const requestBody = operation.requestBody && !OpenAPIParser.isReference(operation.requestBody)
-    ? operation.requestBody
-    : operation.requestBody && OpenAPIParser.isReference(operation.requestBody)
-      ? (OpenAPIParser.resolveReference(spec, operation.requestBody.$ref) as any)
-      : undefined;
+  const requestBody = normalized.requestBody;
   const contentType = requestBody ? Object.keys(requestBody.content || {})[0] : undefined;
   if (contentType) {
     values.contentType = contentType;
-    const media = requestBody.content[contentType];
-    const example = media.example ?? (media.schema && !OpenAPIParser.isReference(media.schema) ? media.schema.example : undefined);
+    const media = requestBody!.content[contentType];
+    const schema = resolveObject<Schema>(spec, media.schema);
+    const namedExample = media.examples ? Object.values(media.examples)[0] : undefined;
+    const resolvedNamedExample = resolveObject<any>(spec, namedExample as any);
+    const example = media.example ?? resolvedNamedExample?.value ?? schema?.example ?? schema?.examples?.[0] ?? schema?.default;
     values.body = example !== undefined ? JSON.stringify(example, null, 2) : '';
   }
   return values;
+}
+
+function primitive(value: unknown): string {
+  if (value === null) return 'null';
+  if (typeof value === 'object') return JSON.stringify(value);
+  return String(value);
+}
+
+function asStructured(value: RequestValue): RequestValue {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  if (!trimmed || (!trimmed.startsWith('[') && !trimmed.startsWith('{'))) return value;
+  try { return JSON.parse(trimmed); } catch { return value; }
+}
+
+function entries(value: RequestValue): [string, unknown][] {
+  const structured = asStructured(value);
+  return structured && typeof structured === 'object' && !Array.isArray(structured)
+    ? Object.entries(structured)
+    : [];
+}
+
+function array(value: RequestValue): unknown[] {
+  const structured = asStructured(value);
+  return Array.isArray(structured) ? structured : [structured];
+}
+
+function encodePart(value: unknown, allowReserved = false): string {
+  const text = primitive(value);
+  return allowReserved ? encodeURI(text).replace(/%5B/g, '[').replace(/%5D/g, ']') : encodeURIComponent(text);
+}
+
+function serializeSimple(value: RequestValue, explode = false): string {
+  const structured = asStructured(value);
+  if (Array.isArray(structured)) return structured.map(primitive).join(',');
+  if (structured && typeof structured === 'object') {
+    const pairs = Object.entries(structured);
+    return explode ? pairs.map(([k, v]) => `${k}=${primitive(v)}`).join(',') : pairs.flatMap(([k, v]) => [k, primitive(v)]).join(',');
+  }
+  return primitive(structured);
+}
+
+function serializePath(parameter: Parameter, value: RequestValue): string {
+  const style = parameter.style || 'simple';
+  const explode = parameter.explode ?? false;
+  const simple = serializeSimple(value, explode);
+  if (style === 'label') return `.${simple}`;
+  if (style === 'matrix') {
+    const structured = asStructured(value);
+    if (Array.isArray(structured)) return explode
+      ? structured.map((item) => `;${parameter.name}=${primitive(item)}`).join('')
+      : `;${parameter.name}=${structured.map(primitive).join(',')}`;
+    if (structured && typeof structured === 'object' && explode) return Object.entries(structured).map(([k, v]) => `;${k}=${primitive(v)}`).join('');
+    return `;${parameter.name}=${simple}`;
+  }
+  return simple;
+}
+
+function serializeQuery(parameter: Parameter, value: RequestValue): Array<[string, string]> {
+  const style = parameter.style || 'form';
+  const explode = parameter.explode ?? (style === 'form');
+  const structured = asStructured(value);
+  if (style === 'deepObject' && structured && typeof structured === 'object' && !Array.isArray(structured)) {
+    return Object.entries(structured).map(([key, item]) => [`${parameter.name}[${key}]`, primitive(item)]);
+  }
+  if (Array.isArray(structured)) {
+    if (style === 'spaceDelimited') return [[parameter.name, structured.map(primitive).join(' ')]];
+    if (style === 'pipeDelimited') return [[parameter.name, structured.map(primitive).join('|')]];
+    return explode ? structured.map((item) => [parameter.name, primitive(item)]) : [[parameter.name, structured.map(primitive).join(',')]];
+  }
+  if (structured && typeof structured === 'object') {
+    const objectEntries = Object.entries(structured);
+    return explode
+      ? objectEntries.map(([key, item]) => [key, primitive(item)])
+      : [[parameter.name, objectEntries.flatMap(([key, item]) => [key, primitive(item)]).join(',')]];
+  }
+  return [[parameter.name, primitive(structured)]];
 }
 
 function encodeBasicCredential(value: string): string {
@@ -83,54 +153,100 @@ function encodeBasicCredential(value: string): string {
   return value;
 }
 
-function applySecurity(spec: OpenAPISpec, operation: Operation, headers: Record<string, string>, query: URLSearchParams, auth: Record<string, string>) {
-  const requirements = operation.security ?? spec.security ?? [];
+function authRequirementSatisfied(requirement: Record<string, string[]>, auth: Record<string, string>): boolean {
+  return Object.keys(requirement).every((name) => !!auth[name]);
+}
+
+function applySecurity(spec: OpenAPISpec, requirements: Record<string, string[]>[], headers: Record<string, string>, query: string[], cookies: string[], auth: Record<string, string>) {
   if (!requirements.length || !spec.components?.securitySchemes) return;
-  const requirement = requirements[0];
+  const requirement = requirements.find((candidate) => Object.keys(candidate).length === 0 || authRequirementSatisfied(candidate, auth)) || requirements[0];
   for (const schemeName of Object.keys(requirement)) {
-    const raw = spec.components.securitySchemes[schemeName];
-    if (!raw) continue;
-    const scheme: any = OpenAPIParser.isReference(raw) ? OpenAPIParser.resolveReference(spec, raw.$ref) : raw;
+    const scheme = resolveObject<SecurityScheme>(spec, spec.components.securitySchemes[schemeName]);
     const value = auth[schemeName];
-    if (!value) continue;
-    if (scheme.type === 'http' && scheme.scheme === 'bearer') headers.Authorization = `Bearer ${value}`;
-    else if (scheme.type === 'http' && scheme.scheme === 'basic') headers.Authorization = `Basic ${encodeBasicCredential(value)}`;
+    if (!scheme || !value) continue;
+    if (scheme.type === 'http' && scheme.scheme?.toLowerCase() === 'bearer') headers.Authorization = `Bearer ${value}`;
+    else if (scheme.type === 'http' && scheme.scheme?.toLowerCase() === 'basic') headers.Authorization = `Basic ${encodeBasicCredential(value)}`;
     else if (scheme.type === 'apiKey' && scheme.in === 'header' && scheme.name) headers[scheme.name] = value;
-    else if (scheme.type === 'apiKey' && scheme.in === 'query' && scheme.name) query.set(scheme.name, value);
+    else if (scheme.type === 'apiKey' && scheme.in === 'query' && scheme.name) query.push(`${encodeURIComponent(scheme.name)}=${encodeURIComponent(value)}`);
+    else if (scheme.type === 'apiKey' && scheme.in === 'cookie' && scheme.name) cookies.push(`${scheme.name}=${encodeURIComponent(value)}`);
     else if (scheme.type === 'oauth2' || scheme.type === 'openIdConnect') headers.Authorization = `Bearer ${value}`;
   }
 }
 
+function parseBodyObject(body: string): Record<string, unknown> | undefined {
+  try {
+    const value = JSON.parse(body);
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function buildRequest(spec: OpenAPISpec, path: string, method: string, values: RequestValues = {}): BuiltRequest {
-  const operation = operationFor(spec, path, method);
-  const params = parametersFor(spec, path, method);
-  const server = values.serverUrl || operation.servers?.[0]?.url || spec.paths[path]?.servers?.[0]?.url || spec.servers?.[0]?.url || '';
+  const normalized = normalizeOperation(spec, path, method);
+  const serverObject = normalized.servers[0];
+  const server = values.serverUrl || (serverObject ? resolveServerVariables(serverObject, values.serverVariables) : '');
   let resolvedPath = path;
-  const query = new URLSearchParams();
+  const query: string[] = [];
   const headers: Record<string, string> = { ...(values.headers || {}) };
   const cookies: string[] = [];
 
-  for (const parameter of params) {
+  for (const parameter of normalized.parameters) {
     const value = parameter.in === 'header'
       ? values.headers?.[parameter.name]
       : parameter.in === 'cookie'
         ? values.cookies?.[parameter.name]
         : values.parameters?.[parameter.name];
     if (value === undefined || value === '') continue;
-    if (parameter.in === 'path') resolvedPath = resolvedPath.replace(`{${parameter.name}}`, encode(value, parameter.allowReserved));
-    else if (parameter.in === 'query') query.append(parameter.name, value);
-    else if (parameter.in === 'header') headers[parameter.name] = value;
-    else if (parameter.in === 'cookie') cookies.push(`${parameter.name}=${encode(value)}`);
+    if (parameter.in === 'path') {
+      const serialized = serializePath(parameter, value);
+      resolvedPath = resolvedPath.replace(`{${parameter.name}}`, encodePart(serialized, parameter.allowReserved));
+    } else if (parameter.in === 'query') {
+      for (const [key, item] of serializeQuery(parameter, value)) {
+        query.push(`${encodeURIComponent(key)}=${encodePart(item, parameter.allowReserved)}`);
+      }
+    } else if (parameter.in === 'header') headers[parameter.name] = serializeSimple(value, parameter.explode);
+    else if (parameter.in === 'cookie') cookies.push(`${parameter.name}=${encodeURIComponent(serializeSimple(value, parameter.explode))}`);
   }
 
-  applySecurity(spec, operation, headers, query, values.auth || {});
+  applySecurity(spec, normalized.security, headers, query, cookies, values.auth || {});
   if (cookies.length) headers.Cookie = cookies.join('; ');
+
   let body: string | undefined;
-  if (values.body && !['GET', 'HEAD'].includes(method.toUpperCase())) {
+  let bodyKind: BuiltRequest['bodyKind'];
+  let requestBody: BodyInit | undefined;
+  if (values.body && !['GET', 'HEAD'].includes(normalized.method)) {
+    const contentType = values.contentType || 'application/json';
     body = values.body;
-    headers['Content-Type'] = values.contentType || 'application/json';
+    if (contentType === 'application/x-www-form-urlencoded') {
+      const object = parseBodyObject(values.body);
+      body = object
+        ? Object.entries(object).flatMap(([key, item]) => Array.isArray(item)
+          ? item.map((entry) => `${encodeURIComponent(key)}=${encodeURIComponent(primitive(entry))}`)
+          : [`${encodeURIComponent(key)}=${encodeURIComponent(primitive(item))}`]).join('&')
+        : values.body;
+      requestBody = body;
+      bodyKind = 'form';
+      headers['Content-Type'] = contentType;
+    } else if (contentType.startsWith('multipart/form-data')) {
+      const object = parseBodyObject(values.body);
+      if (object && typeof FormData !== 'undefined') {
+        const form = new FormData();
+        for (const [key, item] of Object.entries(object)) {
+          if (Array.isArray(item)) item.forEach((entry) => form.append(key, primitive(entry)));
+          else form.append(key, primitive(item));
+        }
+        requestBody = form;
+      } else requestBody = values.body;
+      bodyKind = 'multipart';
+    } else {
+      requestBody = values.body;
+      bodyKind = contentType.includes('json') ? 'json' : 'text';
+      headers['Content-Type'] = contentType;
+    }
   }
-  const queryString = query.toString();
+
+  const queryString = query.join('&');
   const url = `${server.replace(/\/$/, '')}${resolvedPath}${queryString ? `?${queryString}` : ''}`;
-  return { url, method: method.toUpperCase(), headers, body, init: { method: method.toUpperCase(), headers, body } };
+  return { url, method: normalized.method, headers, body, bodyKind, init: { method: normalized.method, headers, body: requestBody } };
 }
