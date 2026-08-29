@@ -7,7 +7,6 @@ export class OpenAPIParser {
 
     if (typeof input === 'string') {
       const trimmedInput = input.trim();
-
       try {
         spec = JSON.parse(trimmedInput);
       } catch {
@@ -35,54 +34,44 @@ export class OpenAPIParser {
 
   static getMethodColor(method: string, theme?: 'light' | 'dark'): string {
     const lightColors: { [key: string]: string } = {
-      get: 'text-blue-600 bg-blue-50 border-blue-200',
-      post: 'text-green-600 bg-green-50 border-green-200',
-      put: 'text-orange-600 bg-orange-50 border-orange-200',
-      delete: 'text-red-600 bg-red-50 border-red-200',
-      patch: 'text-purple-600 bg-purple-50 border-purple-200',
-      options: 'text-gray-600 bg-gray-50 border-gray-200',
-      head: 'text-gray-600 bg-gray-50 border-gray-200',
-      trace: 'text-gray-600 bg-gray-50 border-gray-200',
+      get: 'text-blue-600 bg-blue-50 border-blue-200', post: 'text-green-600 bg-green-50 border-green-200',
+      put: 'text-orange-600 bg-orange-50 border-orange-200', delete: 'text-red-600 bg-red-50 border-red-200',
+      patch: 'text-purple-600 bg-purple-50 border-purple-200', options: 'text-gray-600 bg-gray-50 border-gray-200',
+      head: 'text-gray-600 bg-gray-50 border-gray-200', trace: 'text-gray-600 bg-gray-50 border-gray-200',
     };
-
     const darkColors: { [key: string]: string } = {
-      get: 'text-blue-300 bg-blue-900/30 border-blue-700',
-      post: 'text-green-300 bg-green-900/30 border-green-700',
-      put: 'text-orange-300 bg-orange-900/30 border-orange-700',
-      delete: 'text-red-300 bg-red-900/30 border-red-700',
-      patch: 'text-purple-300 bg-purple-900/30 border-purple-700',
-      options: 'text-cyan-100 bg-cyan-800/50 border-cyan-500',
-      head: 'text-gray-300 bg-gray-700/50 border-gray-600',
-      trace: 'text-gray-300 bg-gray-700/50 border-gray-600',
+      get: 'text-blue-300 bg-blue-900/30 border-blue-700', post: 'text-green-300 bg-green-900/30 border-green-700',
+      put: 'text-orange-300 bg-orange-900/30 border-orange-700', delete: 'text-red-300 bg-red-900/30 border-red-700',
+      patch: 'text-purple-300 bg-purple-900/30 border-purple-700', options: 'text-cyan-100 bg-cyan-800/50 border-cyan-500',
+      head: 'text-gray-300 bg-gray-700/50 border-gray-600', trace: 'text-gray-300 bg-gray-700/50 border-gray-600',
     };
-
     const colors = theme === 'dark' ? darkColors : lightColors;
-    const defaultColor = theme === 'dark'
-      ? 'text-gray-300 bg-gray-700/50 border-gray-600'
-      : 'text-gray-600 bg-gray-50 border-gray-200';
-
+    const defaultColor = theme === 'dark' ? 'text-gray-300 bg-gray-700/50 border-gray-600' : 'text-gray-600 bg-gray-50 border-gray-200';
     return colors[method.toLowerCase()] || defaultColor;
   }
 
-  static resolveReference<T = any>(spec: OpenAPISpec, ref: string): T {
-    if (!ref.startsWith('#/')) {
-      throw new Error('Only local references are supported');
-    }
+  static decodePointerToken(token: string): string {
+    return decodeURIComponent(token).replace(/~1/g, '/').replace(/~0/g, '~');
+  }
 
-    const path = ref.substring(2).split('/');
+  static encodePointerToken(token: string): string {
+    return token.replace(/~/g, '~0').replace(/\//g, '~1');
+  }
+
+  static resolveReference(spec: OpenAPISpec | Record<string, unknown>, ref: string): any {
+    if (!ref.startsWith('#/')) throw new Error(`Reference must be bundled before synchronous resolution: ${ref}`);
+    const path = ref.substring(2).split('/').map(OpenAPIParser.decodePointerToken);
     let current: any = spec;
-
     for (const segment of path) {
-      if (!current[segment]) {
+      if (current === null || typeof current !== 'object' || !(segment in current)) {
         throw new Error(`Reference not found: ${ref}`);
       }
       current = current[segment];
     }
-
-    return current as T;
+    return current;
   }
 
   static isReference(obj: unknown): obj is Reference {
-    return !!obj && typeof obj === 'object' && '$ref' in obj;
+    return !!obj && typeof obj === 'object' && '$ref' in obj && typeof (obj as Reference).$ref === 'string';
   }
 }
