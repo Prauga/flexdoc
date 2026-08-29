@@ -1,5 +1,4 @@
 import { OpenAPISpec, Parameter, Schema, SecurityScheme } from '../types/openapi';
-import { OpenAPIParser } from './openapi-parser';
 import { normalizeOperation, resolveObject, resolveServerVariables } from './openapi-normalizer';
 
 export type RequestValue = string | number | boolean | string[] | number[] | Record<string, unknown>;
@@ -82,18 +81,6 @@ function asStructured(value: RequestValue): RequestValue {
   const trimmed = value.trim();
   if (!trimmed || (!trimmed.startsWith('[') && !trimmed.startsWith('{'))) return value;
   try { return JSON.parse(trimmed); } catch { return value; }
-}
-
-function entries(value: RequestValue): [string, unknown][] {
-  const structured = asStructured(value);
-  return structured && typeof structured === 'object' && !Array.isArray(structured)
-    ? Object.entries(structured)
-    : [];
-}
-
-function array(value: RequestValue): unknown[] {
-  const structured = asStructured(value);
-  return Array.isArray(structured) ? structured : [structured];
 }
 
 function encodePart(value: unknown, allowReserved = false): string {
