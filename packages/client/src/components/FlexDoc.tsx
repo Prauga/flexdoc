@@ -7,6 +7,7 @@ import { Overview } from './Overview';
 import '../index.css';
 import { Footer } from './Footer';
 import { themeVariant } from '../utils/theme';
+import { OpenAPIParser } from '../utils/openapi-parser';
 import { FlexDocRendererOptions, LogoOptions, ThemeConfig } from '../types/options';
 
 export interface FlexDocProps {
@@ -25,17 +26,41 @@ function themeStyles(theme: 'light' | 'dark', config?: ThemeConfig): React.CSSPr
   if (!config) return {};
   const colors = config.colors || {};
   const typography = config.typography || {};
+  const sidebar = config.sidebar || {};
   return {
     '--flexdoc-primary': colors.primary?.main,
     '--flexdoc-text': colors.text?.primary,
     '--flexdoc-text-muted': colors.text?.secondary,
     '--flexdoc-border': theme === 'dark' ? colors.border?.dark : colors.border?.light,
-    '--flexdoc-sidebar-bg': theme === 'dark' ? config.sidebar?.backgroundColorDark : config.sidebar?.backgroundColor,
-    '--flexdoc-sidebar-text': theme === 'dark' ? config.sidebar?.textColorDark : config.sidebar?.textColor,
+    '--flexdoc-sidebar-bg': theme === 'dark' ? sidebar.backgroundColorDark : sidebar.backgroundColor,
+    '--flexdoc-sidebar-text': theme === 'dark' ? sidebar.textColorDark : sidebar.textColor,
+    '--flexdoc-sidebar-active-text': theme === 'dark' ? sidebar.activeTextColorDark : sidebar.activeTextColor,
+    '--flexdoc-heading-font': typography.headings?.fontFamily,
+    '--flexdoc-heading-weight': typography.headings?.fontWeight,
+    '--flexdoc-code-font': typography.code?.fontFamily,
+    '--flexdoc-code-size': typography.code?.fontSize,
+    '--flexdoc-code-line-height': typography.code?.lineHeight,
+    '--flexdoc-code-color': typography.code?.color,
+    '--flexdoc-code-bg': typography.code?.backgroundColor,
     fontFamily: typography.fontFamily,
     fontSize: typography.fontSize,
     lineHeight: typography.lineHeight,
   } as React.CSSProperties;
+}
+
+function endpointHash(path: string, method: string): string {
+  return `${method.toLowerCase()}-${path.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+}
+
+function endpointFromHash(spec: OpenAPISpec, hash: string): { path: string; method: string } | null {
+  const normalized = hash.replace(/^#/, '');
+  if (!normalized) return null;
+  for (const [path, pathItem] of Object.entries(spec.paths)) {
+    for (const method of OpenAPIParser.getHttpMethods(pathItem)) {
+      if (endpointHash(path, method) === normalized) return { path, method };
+    }
+  }
+  return null;
 }
 
 function Logo({ logo }: { logo: string | LogoOptions }) {
@@ -55,7 +80,9 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
   customStyles = {},
   options = {},
 }: FlexDocProps) => {
-  const [selectedEndpoint, setSelectedEndpoint] = useState<{ path: string; method: string } | null>(null);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<{ path: string; method: string } | null>(() =>
+    typeof window === 'undefined' ? null : endpointFromHash(spec, window.location.hash)
+  );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const themeConfig = typeof options.theme === 'object' ? options.theme : undefined;
   const mergedStyles = useMemo(() => ({ ...themeStyles(theme, themeConfig), ...customStyles }), [theme, themeConfig, customStyles]);
@@ -69,20 +96,40 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
     return () => element.remove();
   }, [options.customCss]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncHash = () => setSelectedEndpoint(endpointFromHash(spec, window.location.hash));
+    syncHash();
+    window.addEventListener('hashchange', syncHash);
+    return () => window.removeEventListener('hashchange', syncHash);
+  }, [spec]);
+
+  useEffect(() => {
+    if (!mobileNavOpen || typeof document === 'undefined') return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') setMobileNavOpen(false); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [mobileNavOpen]);
+
   const handleEndpointSelect = (path: string, method: string) => {
     setSelectedEndpoint({ path, method });
     setMobileNavOpen(false);
-    if (typeof window !== 'undefined') window.location.hash = `${method.toLowerCase()}-${path.replace(/[^a-zA-Z0-9]+/g, '-')}`;
+    if (typeof window !== 'undefined') window.location.hash = endpointHash(path, method);
   };
 
   const footerClasses = themeVariant(theme, 'border-gray-200 bg-white text-gray-600', 'border-gray-700 bg-gray-800 text-gray-300');
   const rootClasses = theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900';
 
   return (
-    <div className={`flex min-h-screen flex-col ${rootClasses}`} style={mergedStyles}>
+    <div className={`flexdoc-root flex min-h-screen flex-col ${rootClasses}`} style={mergedStyles}>
       {!options.hideTopbar && (
         <header className={`sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b px-3 sm:px-5 ${theme === 'dark' ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-white'}`}>
-          <button className='inline-flex h-10 w-10 items-center justify-center rounded-md lg:hidden' aria-label='Open API navigation' onClick={() => setMobileNavOpen(true)}><Menu className='h-5 w-5' /></button>
+          <button className='inline-flex h-11 w-11 items-center justify-center rounded-md lg:hidden' aria-label='Open API navigation' aria-expanded={mobileNavOpen} onClick={() => setMobileNavOpen(true)}><Menu className='h-5 w-5' /></button>
           {options.logo && <Logo logo={options.logo} />}
           <div className='min-w-0 flex-1'>
             <div className='truncate font-semibold'>{spec.info.title}</div>
@@ -93,16 +140,16 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
       )}
 
       <div className='relative flex min-h-0 flex-1 overflow-hidden'>
-        <aside className='hidden w-72 shrink-0 lg:block' style={{ background: 'var(--flexdoc-sidebar-bg)', color: 'var(--flexdoc-sidebar-text)' }}>
+        <aside className='hidden w-80 shrink-0 lg:block' style={{ background: 'var(--flexdoc-sidebar-bg)', color: 'var(--flexdoc-sidebar-text)' }}>
           <Sidebar spec={spec} onEndpointSelect={handleEndpointSelect} theme={theme} selectedEndpoint={selectedEndpoint || undefined} />
         </aside>
 
-        {mobileNavOpen && <div className='fixed inset-0 z-50 lg:hidden'>
+        {mobileNavOpen && <div className='fixed inset-0 z-50 lg:hidden' role='dialog' aria-modal='true' aria-label='API navigation'>
           <button aria-label='Close navigation backdrop' className='absolute inset-0 bg-black/40' onClick={() => setMobileNavOpen(false)} />
           <aside className={`absolute inset-y-0 left-0 flex w-[min(88vw,22rem)] flex-col shadow-2xl ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'}`}>
             <div className='flex h-14 items-center justify-between border-b px-4'>
               <span className='font-semibold'>API navigation</span>
-              <button className='inline-flex h-10 w-10 items-center justify-center rounded-md' aria-label='Close API navigation' onClick={() => setMobileNavOpen(false)}><X className='h-5 w-5' /></button>
+              <button className='inline-flex h-11 w-11 items-center justify-center rounded-md' aria-label='Close API navigation' onClick={() => setMobileNavOpen(false)}><X className='h-5 w-5' /></button>
             </div>
             <div className='min-h-0 flex-1 overflow-y-auto'><Sidebar spec={spec} onEndpointSelect={handleEndpointSelect} theme={theme} selectedEndpoint={selectedEndpoint || undefined} /></div>
           </aside>
