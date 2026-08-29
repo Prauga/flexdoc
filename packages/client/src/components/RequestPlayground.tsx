@@ -14,6 +14,14 @@ interface Props {
   onRequestChange?: (request: ReturnType<typeof buildRequest>) => void;
 }
 
+function displayValue(value: unknown): string | number | readonly string[] {
+  if (value === undefined || value === null) return '';
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value === 'object') return JSON.stringify(value);
+  if (typeof value === 'boolean') return String(value);
+  return value as string | number;
+}
+
 export const RequestPlayground: React.FC<Props> = ({ spec, path, method, theme, options, onRequestChange }) => {
   const pathItem = spec.paths[path];
   const operation = pathItem?.[method.toLowerCase() as keyof typeof pathItem] as Operation | undefined;
@@ -64,10 +72,17 @@ export const RequestPlayground: React.FC<Props> = ({ spec, path, method, theme, 
         </select>
       </label>}
 
-      {parameters.map((parameter) => <label key={`${parameter.in}:${parameter.name}`} className={labelClass}>
-        <span className='text-sm font-medium'>{parameter.name} <span className='text-xs opacity-70'>({parameter.in})</span>{parameter.required ? ' *' : ''}</span>
-        <input aria-label={`${parameter.in} ${parameter.name}`} className={`mt-1 w-full rounded-md border px-3 py-2 text-sm ${inputClass}`} value={(parameter.in === 'header' ? values.headers?.[parameter.name] : parameter.in === 'cookie' ? values.cookies?.[parameter.name] : values.parameters?.[parameter.name]) || ''} onChange={(e) => update(parameter.in === 'header' ? 'headers' : parameter.in === 'cookie' ? 'cookies' : 'parameters', parameter.name, e.target.value)} placeholder={parameter.description || parameter.name} />
-      </label>)}
+      {parameters.map((parameter) => {
+        const currentValue = parameter.in === 'header'
+          ? values.headers?.[parameter.name]
+          : parameter.in === 'cookie'
+            ? values.cookies?.[parameter.name]
+            : values.parameters?.[parameter.name];
+        return <label key={`${parameter.in}:${parameter.name}`} className={labelClass}>
+          <span className='text-sm font-medium'>{parameter.name} <span className='text-xs opacity-70'>({parameter.in})</span>{parameter.required ? ' *' : ''}</span>
+          <input aria-label={`${parameter.in} ${parameter.name}`} className={`mt-1 w-full rounded-md border px-3 py-2 text-sm ${inputClass}`} value={displayValue(currentValue)} onChange={(e) => update(parameter.in === 'header' ? 'headers' : parameter.in === 'cookie' ? 'cookies' : 'parameters', parameter.name, e.target.value)} placeholder={parameter.description || parameter.name} />
+        </label>;
+      })}
 
       {securityNames.map((name) => <label key={name} className={labelClass}>
         <span className='text-sm font-medium'>{name} credential</span>
