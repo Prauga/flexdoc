@@ -19,16 +19,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           cache: npm
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -69,5 +69,8 @@ jobs:
 
       - name: Verify Java adapter packages renderer assets
         run: |
-          jar tf adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-SNAPSHOT.jar | grep 'META-INF/flexdoc/flexdoc.standalone.js'
-          jar tf adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-SNAPSHOT.jar | grep 'META-INF/flexdoc/flexdoc.standalone.css'
+          JAR=adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0.jar
+          jar tf "$JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.js'
+          jar tf "$JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.css'
+          test -s adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-sources.jar
+          test -s adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-javadoc.jar
