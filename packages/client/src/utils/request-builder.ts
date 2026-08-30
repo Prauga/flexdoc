@@ -101,17 +101,35 @@ function serializeSimple(value: RequestValue, explode = false): string {
 function serializePath(parameter: Parameter, value: RequestValue): string {
   const style = parameter.style || 'simple';
   const explode = parameter.explode ?? false;
-  const simple = serializeSimple(value, explode);
-  if (style === 'label') return `.${simple}`;
-  if (style === 'matrix') {
-    const structured = asStructured(value);
-    if (Array.isArray(structured)) return explode
-      ? structured.map((item) => `;${parameter.name}=${primitive(item)}`).join('')
-      : `;${parameter.name}=${structured.map(primitive).join(',')}`;
-    if (structured && typeof structured === 'object' && explode) return Object.entries(structured).map(([k, v]) => `;${k}=${primitive(v)}`).join('');
-    return `;${parameter.name}=${simple}`;
+  const structured = asStructured(value);
+  const encode = (item: unknown) => encodePart(item, parameter.allowReserved);
+
+  if (Array.isArray(structured)) {
+    const items = structured.map(encode);
+    if (style === 'label') return `.${items.join(explode ? '.' : ',')}`;
+    if (style === 'matrix') return explode
+      ? items.map((item) => `;${parameter.name}=${item}`).join('')
+      : `;${parameter.name}=${items.join(',')}`;
+    return items.join(',');
   }
-  return simple;
+
+  if (structured && typeof structured === 'object') {
+    const entries = Object.entries(structured).map(([key, item]) => [encode(key), encode(item)] as const);
+    if (style === 'label') return explode
+      ? `.${entries.map(([key, item]) => `${key}=${item}`).join('.')}`
+      : `.${entries.flatMap(([key, item]) => [key, item]).join(',')}`;
+    if (style === 'matrix') return explode
+      ? entries.map(([key, item]) => `;${key}=${item}`).join('')
+      : `;${parameter.name}=${entries.flatMap(([key, item]) => [key, item]).join(',')}`;
+    return explode
+      ? entries.map(([key, item]) => `${key}=${item}`).join(',')
+      : entries.flatMap(([key, item]) => [key, item]).join(',');
+  }
+
+  const item = encode(structured);
+  if (style === 'label') return `.${item}`;
+  if (style === 'matrix') return `;${parameter.name}=${item}`;
+  return item;
 }
 
 function serializeQuery(parameter: Parameter, value: RequestValue): Array<[string, string]> {
@@ -186,8 +204,7 @@ export function buildRequest(spec: OpenAPISpec, path: string, method: string, va
         : values.parameters?.[parameter.name];
     if (value === undefined || value === '') continue;
     if (parameter.in === 'path') {
-      const serialized = serializePath(parameter, value);
-      resolvedPath = resolvedPath.replace(`{${parameter.name}}`, encodePart(serialized, parameter.allowReserved));
+      resolvedPath = resolvedPath.replace(`{${parameter.name}}`, serializePath(parameter, value));
     } else if (parameter.in === 'query') {
       for (const [key, item] of serializeQuery(parameter, value)) {
         query.push(`${encodeURIComponent(key)}=${encodePart(item, parameter.allowReserved)}`);
