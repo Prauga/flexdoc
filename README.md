@@ -29,7 +29,7 @@ Browser-side loading of cross-origin external OpenAPI references is subject to t
 | --- | --- | --- |
 | `@bluejeans/flexdoc-client` | `2.0.2` | React components plus the canonical standalone renderer |
 | `@bluejeans/flexdoc-backend` | `2.0.2` | Thin Express, Fastify and NestJS integrations |
-| `@bluejeans/flexdoc-cli` | `0.1.0` source | CLI serving/static export; npm publication follows this change |
+| `@bluejeans/flexdoc-cli` | `0.1.0` source | CLI serving/static export; npm release workflow is prepared |
 | `io.github.bluejeans117.flexdoc:flexdoc-spring-boot-starter` | `0.1.0` | Spring Boot adapter published on Maven Central |
 
 Language adapters have independent ecosystem versions. Compatibility is governed by the renderer contract rather than forcing npm, Maven, PyPI, crates.io and Go modules to share one version number. See [Distribution and versioning](./docs/distribution.md).
@@ -55,6 +55,8 @@ npx @bluejeans/flexdoc-cli build openapi.yaml --out ./docs
 ```
 
 The static export contains `index.html`, `flexdoc.js`, `flexdoc.css`, and a bundled `openapi.json`. External `$ref` documents are resolved and bundled at build time, so the deployed site does not need the original external spec files. Use `--base-path /repository-name/` for GitHub Pages project sites or other sub-path deployments.
+
+The CLI has an independent `0.x` release line. Once the package is bootstrapped on npm and its Trusted Publisher is configured, GitHub Releases named `cli/v<version>` publish it through `.github/workflows/publish-cli.yml`. The workflow validates the tag, tests the CLI, installs the packed tarball into a clean consumer, exercises an actual static build, and then publishes with GitHub OIDC.
 
 ## React
 
@@ -179,7 +181,7 @@ The JavaScript renderer/backend packages are released as a coordinated `2.x` lin
 
 Publication credentials must never be committed to this repository. npm, Maven Central, PyPI and other registry credentials/trusted-publishing configuration belong in the registry and GitHub Actions environment configuration.
 
-See [Distribution and versioning](./docs/distribution.md) for the release model, Maven Central setup, and the planned Python/Rust/Go distribution paths.
+See [Distribution and versioning](./docs/distribution.md) for the release model, CLI publishing, Maven Central setup, and the planned Python/Rust/Go distribution paths.
 
 ## Documentation
 
