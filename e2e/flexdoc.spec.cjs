@@ -23,12 +23,13 @@ test('desktop search, Try It, response viewer, and code samples work together', 
 
   await page.goto('/e2e/index.html');
   const search = page.getByPlaceholder('Search endpoints...');
+  const sidebar = page.locator('aside').filter({ has: search }).first();
   await search.fill('payload');
-  await expect(page.getByText('/payload', { exact: true })).toBeVisible();
-  await expect(page.getByText('/pets/{id}', { exact: true })).toHaveCount(0);
+  await expect(sidebar.getByText('/payload', { exact: true })).toBeVisible();
+  await expect(sidebar.getByText('/pets/{id}', { exact: true })).toHaveCount(0);
   await search.clear();
 
-  await page.locator('button').filter({ hasText: '/pets/{id}' }).click();
+  await sidebar.locator('button').filter({ hasText: '/pets/{id}' }).click();
   await expect(page).toHaveURL(/#get-pets-id$/);
   await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
 
