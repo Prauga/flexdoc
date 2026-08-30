@@ -19,16 +19,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: npm
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -64,10 +64,13 @@ jobs:
           test -s packages/backend/dist/renderer/flexdoc.standalone.js
           test -s packages/backend/dist/renderer/flexdoc.standalone.css
 
-      - name: Test and package Java Spring adapter
-        run: mvn -f adapters/java-spring/pom.xml --batch-mode verify
+      - name: Test Java Spring adapter with release profile
+        run: mvn -f adapters/java-spring/pom.xml --batch-mode -Prelease -Dgpg.skip=true verify
 
       - name: Verify Java adapter packages renderer assets
         run: |
-          jar tf adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-SNAPSHOT.jar | grep 'META-INF/flexdoc/flexdoc.standalone.js'
-          jar tf adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-SNAPSHOT.jar | grep 'META-INF/flexdoc/flexdoc.standalone.css'
+          JAR=adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0.jar
+          jar tf "$JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.js'
+          jar tf "$JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.css'
+          test -s adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-sources.jar
+          test -s adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-javadoc.jar
