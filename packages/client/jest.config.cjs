@@ -2,6 +2,7 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
   moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
     '\\.(css|less|scss|sass)$': '<rootDir>/__mocks__/styleMock.cjs',
     '\\.(jpg|jpeg|png|gif|webp|svg)$': '<rootDir>/__mocks__/fileMock.cjs',
     '^prismjs$': '<rootDir>/__mocks__/prismjs.cjs',
