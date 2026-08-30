@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { buildSite, serveSite } from '../src/cli.js';
 
-const fixture = resolve('tools/flexdoc-cli/test/fixtures/openapi.yaml');
-const clientDir = resolve('packages/client');
-process.env.FLEXDOC_CLIENT_DIR = clientDir;
+const testDir = dirname(fileURLToPath(import.meta.url));
+const cliDir = resolve(testDir, '..');
+const repoRoot = resolve(cliDir, '../..');
+const fixture = join(testDir, 'fixtures/openapi.yaml');
+process.env.FLEXDOC_CLIENT_DIR = join(repoRoot, 'packages/client');
 
 async function temp(name) {
   const root = join(tmpdir(), `flexdoc-cli-${process.pid}-${name}`);
