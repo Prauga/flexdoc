@@ -1,23 +1,32 @@
 import { FlexDocOptions } from './interfaces';
 import { setupFlexDoc } from './setup';
 import { generateFlexDocHTML } from './template';
+import { getRendererAssets } from './renderer-assets';
 
 jest.mock('./template', () => ({
   generateFlexDocHTML: jest.fn().mockReturnValue('<html>Mocked HTML</html>'),
+}));
+
+jest.mock('./renderer-assets', () => ({
+  getRendererAssets: jest.fn().mockReturnValue({
+    javascript: 'window.renderer = true;',
+    css: '.renderer { display: block; }',
+  }),
 }));
 
 describe('setupFlexDoc', () => {
   let mockApp: any;
   let mockReq: any;
   let mockRes: any;
-  let handler: (req: any, res: any) => void | Promise<void>;
+  let handlers: Map<string, (req: any, res: any) => void | Promise<void>>;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    handlers = new Map();
 
     mockApp = {
-      use: jest.fn().mockImplementation((_path, middleware) => {
-        handler = middleware;
+      use: jest.fn().mockImplementation((path, middleware) => {
+        handlers.set(path, middleware);
       }),
     };
 
@@ -30,36 +39,58 @@ describe('setupFlexDoc', () => {
     };
   });
 
-  it('should register middleware at the specified path', () => {
+  it('registers the page and canonical renderer asset routes', () => {
     setupFlexDoc(mockApp, '/docs', { spec: { openapi: '3.0.0' } });
-    expect(mockApp.use).toHaveBeenCalledWith('/docs', expect.any(Function));
+
+    expect(handlers.has('/docs')).toBe(true);
+    expect(handlers.has('/docs/__flexdoc/renderer.js')).toBe(true);
+    expect(handlers.has('/docs/__flexdoc/renderer.css')).toBe(true);
   });
 
-  it('should normalize path to include leading slash', () => {
+  it('normalizes path to include a leading slash', () => {
     setupFlexDoc(mockApp, 'docs', { spec: { openapi: '3.0.0' } });
-    expect(mockApp.use).toHaveBeenCalledWith('/docs', expect.any(Function));
+    expect(handlers.has('/docs')).toBe(true);
   });
 
-  it('should generate HTML with spec when middleware is called', async () => {
+  it('serves the shared renderer bundle locally', async () => {
+    setupFlexDoc(mockApp, '/docs', { spec: { openapi: '3.0.0' } });
+
+    await handlers.get('/docs/__flexdoc/renderer.js')!(mockReq, mockRes);
+
+    expect(getRendererAssets).toHaveBeenCalled();
+    expect(mockRes.setHeader).toHaveBeenCalledWith(
+      'Content-Type',
+      'application/javascript; charset=utf-8'
+    );
+    expect(mockRes.send).toHaveBeenCalledWith('window.renderer = true;');
+  });
+
+  it('generates HTML with the spec and renderer base path', async () => {
     const spec = {
       openapi: '3.0.0',
       info: { title: 'Test API', version: '1.0.0' },
     };
     setupFlexDoc(mockApp, '/docs', { spec });
 
-    await handler(mockReq, mockRes);
+    await handlers.get('/docs')!(mockReq, mockRes);
 
-    expect(generateFlexDocHTML).toHaveBeenCalledWith(spec, expect.any(Object));
-    expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Type', 'text/html');
+    expect(generateFlexDocHTML).toHaveBeenCalledWith(
+      spec,
+      expect.objectContaining({ rendererBasePath: '/docs/__flexdoc' })
+    );
+    expect(mockRes.setHeader).toHaveBeenCalledWith(
+      'Content-Type',
+      'text/html; charset=utf-8'
+    );
     expect(mockRes.send).toHaveBeenCalledWith('<html>Mocked HTML</html>');
   });
 
-  it('should return a gateway error when specUrl cannot be loaded', async () => {
+  it('returns a gateway error when specUrl cannot be loaded', async () => {
     setupFlexDoc(mockApp, '/docs', {
       specUrl: 'file:///tmp/openapi.json',
     });
 
-    await handler(mockReq, mockRes);
+    await handlers.get('/docs')!(mockReq, mockRes);
 
     expect(generateFlexDocHTML).not.toHaveBeenCalled();
     expect(mockRes.statusCode).toBe(502);
@@ -72,7 +103,7 @@ describe('setupFlexDoc', () => {
     );
   });
 
-  it('should pass flexDocOptions to generateFlexDocHTML', async () => {
+  it('passes FlexDoc options to the shared renderer host page', async () => {
     const flexDocOptions: FlexDocOptions = {
       theme: 'dark',
     };
@@ -82,11 +113,14 @@ describe('setupFlexDoc', () => {
       options: flexDocOptions,
     });
 
-    await handler(mockReq, mockRes);
+    await handlers.get('/docs')!(mockReq, mockRes);
 
     expect(generateFlexDocHTML).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining(flexDocOptions)
+      expect.objectContaining({
+        ...flexDocOptions,
+        rendererBasePath: '/docs/__flexdoc',
+      })
     );
   });
 });

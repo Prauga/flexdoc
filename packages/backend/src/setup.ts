@@ -1,11 +1,11 @@
 import { FlexDocModuleOptions } from './interfaces';
 import { generateFlexDocHTML } from './template';
+import { getRendererAssets } from './renderer-assets';
 import * as crypto from 'crypto';
 import * as jwt from 'jsonwebtoken';
 import * as http from 'http';
 import * as https from 'https';
 
-// Using a more generic type to avoid version conflicts
 interface AppWithUse {
   use: (
     path: string,
@@ -13,10 +13,6 @@ interface AppWithUse {
   ) => void;
 }
 
-/**
- * Generate a deterministic password based on username and secret
- * Similar to the CLI tool but embedded in the middleware
- */
 function generatePassword(username: string, secret: string): string {
   const hmac = crypto.createHmac('sha256', secret);
   hmac.update(username);
@@ -32,27 +28,22 @@ function generatePassword(username: string, secret: string): string {
   return password;
 }
 
-/**
- * Authentication middleware for FlexDoc
- */
 function createAuthMiddleware(authOptions: {
   secretKey: string;
   type: 'basic' | 'bearer';
 }) {
   return (req: any, res: any, next: any) => {
     const { type, secretKey } = authOptions;
+    const authHeader = req.headers.authorization;
 
     if (type === 'basic') {
-      const authHeader = req.headers.authorization;
-
       if (!authHeader || !authHeader.startsWith('Basic ')) {
         res.statusCode = 401;
         res.setHeader('WWW-Authenticate', 'Basic');
         return res.end('Authentication required');
       }
 
-      const base64Credentials = authHeader.split(' ')[1];
-      const credentials = Buffer.from(base64Credentials, 'base64').toString(
+      const credentials = Buffer.from(authHeader.split(' ')[1], 'base64').toString(
         'ascii'
       );
       const separatorIndex = credentials.indexOf(':');
@@ -61,9 +52,7 @@ function createAuthMiddleware(authOptions: {
       const password =
         separatorIndex === -1 ? '' : credentials.slice(separatorIndex + 1);
 
-      const expectedPassword = generatePassword(username, secretKey);
-
-      if (password !== expectedPassword) {
+      if (password !== generatePassword(username, secretKey)) {
         res.statusCode = 401;
         res.setHeader('WWW-Authenticate', 'Basic');
         return res.end('Invalid credentials');
@@ -73,50 +62,31 @@ function createAuthMiddleware(authOptions: {
     }
 
     if (type === 'bearer') {
-      const authHeader = req.headers.authorization;
+      let token: string | undefined;
 
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
-        try {
-          jwt.verify(token, secretKey);
-          return next();
-        } catch (err) {
-          res.statusCode = 401;
-          res.setHeader(
-            'WWW-Authenticate',
-            'Basic realm="Enter token as password"'
-          );
-          return res.end('Invalid or expired token');
-        }
-      }
-
-      if (authHeader && authHeader.startsWith('Basic ')) {
-        const base64Credentials = authHeader.split(' ')[1];
-        const credentials = Buffer.from(base64Credentials, 'base64').toString(
+      if (authHeader?.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+      } else if (authHeader?.startsWith('Basic ')) {
+        const credentials = Buffer.from(authHeader.split(' ')[1], 'base64').toString(
           'ascii'
         );
         const separatorIndex = credentials.indexOf(':');
-        const token =
-          separatorIndex === -1 ? '' : credentials.slice(separatorIndex + 1);
+        token = separatorIndex === -1 ? undefined : credentials.slice(separatorIndex + 1);
+      }
 
+      if (token) {
         try {
           jwt.verify(token, secretKey);
           return next();
-        } catch (err) {
+        } catch {
           res.statusCode = 401;
-          res.setHeader(
-            'WWW-Authenticate',
-            'Basic realm="Enter token as password"'
-          );
+          res.setHeader('WWW-Authenticate', 'Basic realm="Enter token as password"');
           return res.end('Invalid or expired token');
         }
       }
 
       res.statusCode = 401;
-      res.setHeader(
-        'WWW-Authenticate',
-        'Basic realm="Enter token as password"'
-      );
+      res.setHeader('WWW-Authenticate', 'Basic realm="Enter token as password"');
       return res.end('Authentication required');
     }
 
@@ -129,12 +99,13 @@ function fetchJson(urlString: string, redirectsRemaining = 3): Promise<any> {
     let url: URL;
     try {
       url = new URL(urlString);
-    } catch (error) {
+    } catch {
       reject(new Error(`Invalid OpenAPI spec URL: ${urlString}`));
       return;
     }
 
-    const client = url.protocol === 'https:' ? https : url.protocol === 'http:' ? http : null;
+    const client =
+      url.protocol === 'https:' ? https : url.protocol === 'http:' ? http : null;
     if (!client) {
       reject(new Error(`Unsupported OpenAPI spec URL protocol: ${url.protocol}`));
       return;
@@ -150,16 +121,16 @@ function fetchJson(urlString: string, redirectsRemaining = 3): Promise<any> {
           reject(new Error('Too many redirects while loading OpenAPI spec'));
           return;
         }
-        const redirectedUrl = new URL(location, url).toString();
-        fetchJson(redirectedUrl, redirectsRemaining - 1).then(resolve, reject);
+        fetchJson(new URL(location, url).toString(), redirectsRemaining - 1).then(
+          resolve,
+          reject
+        );
         return;
       }
 
       if (statusCode < 200 || statusCode >= 300) {
         response.resume();
-        reject(
-          new Error(`Failed to load OpenAPI spec: HTTP ${statusCode || 'unknown'}`)
-        );
+        reject(new Error(`Failed to load OpenAPI spec: HTTP ${statusCode || 'unknown'}`));
         return;
       }
 
@@ -168,7 +139,7 @@ function fetchJson(urlString: string, redirectsRemaining = 3): Promise<any> {
       response.on('end', () => {
         try {
           resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-        } catch (error) {
+        } catch {
           reject(new Error('OpenAPI spec URL did not return valid JSON'));
         }
       });
@@ -188,15 +159,39 @@ export function setupFlexDoc(
   options: Omit<FlexDocModuleOptions, 'path'>
 ): void {
   const { spec, specUrl, options: flexDocOptions } = options;
-
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const rendererBasePath = `${normalizedPath}/__flexdoc`;
 
+  // Register auth at the documentation root first so it also protects the
+  // renderer assets mounted beneath the same path.
   if (flexDocOptions?.auth) {
     app.use(normalizedPath, createAuthMiddleware(flexDocOptions.auth));
   }
 
-  // Resolve a remote specification once and reuse it for subsequent requests.
-  // A rejected promise is cleared so a temporary upstream failure can recover.
+  app.use(`${rendererBasePath}/renderer.js`, (_req: any, res: any) => {
+    try {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.send(getRendererAssets().javascript);
+    } catch (error) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.end(error instanceof Error ? error.message : 'Renderer asset unavailable');
+    }
+  });
+
+  app.use(`${rendererBasePath}/renderer.css`, (_req: any, res: any) => {
+    try {
+      res.setHeader('Content-Type', 'text/css; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.send(getRendererAssets().css);
+    } catch (error) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+      res.end(error instanceof Error ? error.message : 'Renderer asset unavailable');
+    }
+  });
+
   let remoteSpecPromise: Promise<any> | null = null;
   const getSpec = async () => {
     if (spec) return spec;
@@ -215,8 +210,11 @@ export function setupFlexDoc(
   app.use(normalizedPath, async (_req: any, res: any) => {
     try {
       const resolvedSpec = await getSpec();
-      const html = generateFlexDocHTML(resolvedSpec, flexDocOptions || {});
-      res.setHeader('Content-Type', 'text/html');
+      const html = generateFlexDocHTML(resolvedSpec, {
+        ...(flexDocOptions || {}),
+        rendererBasePath,
+      });
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(html);
     } catch (error) {
       res.statusCode = 502;

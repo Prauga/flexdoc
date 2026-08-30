@@ -1,4 +1,3 @@
-// Mock for Prism.js
 const Prism = {
   languages: {
     javascript: {},
@@ -8,9 +7,8 @@ const Prism = {
     markup: {},
     css: {},
   },
-  highlight: jest.fn((code, language) => code),
+  highlight: jest.fn((code) => code),
   highlightAll: jest.fn(),
 };
 
 module.exports = Prism;
-
