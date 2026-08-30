@@ -1,5 +1,5 @@
 import { cpSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 
 const packageDir = resolve(process.cwd());
 const rawDir = join(packageDir, 'dist/types');
@@ -24,21 +24,23 @@ function walk(dir, visit) {
   }
 }
 
-function addJsExtensions(source) {
+function addExtension(source, extension) {
   return source.replace(/(from\s+['"]|export\s+\*\s+from\s+['"]|import\s*\(\s*['"])(\.{1,2}\/[^'"]+)(['"])/g, (match, prefix, specifier, suffix) => {
     if (/\.(?:js|mjs|cjs|json)$/.test(specifier)) return match;
-    return `${prefix}${specifier}.js${suffix}`;
+    return `${prefix}${specifier}${extension}${suffix}`;
   });
 }
 
 walk(esmDir, (path) => {
   if (!path.endsWith('.d.ts')) return;
-  writeFileSync(path, addJsExtensions(readFileSync(path, 'utf8')));
+  writeFileSync(path, addExtension(readFileSync(path, 'utf8'), '.js'));
 });
 
 const cjsFiles = [];
 walk(cjsDir, (path) => {
-  if (path.endsWith('.d.ts')) cjsFiles.push(path);
+  if (!path.endsWith('.d.ts')) return;
+  writeFileSync(path, addExtension(readFileSync(path, 'utf8'), '.cjs'));
+  cjsFiles.push(path);
 });
 for (const path of cjsFiles.sort((a, b) => b.length - a.length)) {
   renameSync(path, path.replace(/\.d\.ts$/, '.d.cts'));
