@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   build-and-publish:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'js/v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -34,11 +35,11 @@ jobs:
       - name: Build backend package
         run: npm run build -w packages/backend
 
-      - name: Verify release tag matches package version
+      - name: Verify JavaScript release tag matches package version
         if: github.event_name == 'release'
         run: |
           VERSION=$(node -p "require('./packages/backend/package.json').version")
-          test "${{ github.event.release.tag_name }}" = "v${VERSION}"
+          test "${{ github.event.release.tag_name }}" = "js/v${VERSION}"
 
       - name: Verify packaged renderer assets
         run: |
