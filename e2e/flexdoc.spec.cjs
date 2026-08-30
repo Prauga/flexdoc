@@ -1,4 +1,10 @@
+const { createHash } = require('node:crypto');
 const { test, expect } = require('@playwright/test');
+
+const overviewDigests = {
+  'chromium-desktop': '3b1db4cc58e169c89cf179a05d0412af49556c7c42554d571a4c917c275eca7c',
+  'chromium-mobile': '244c39f50f4ab2f44a664bf4b2637dfc596d239e62b9f005cc9802521e3af750',
+};
 
 test('deep links directly to an operation', async ({ page }) => {
   await page.goto('/e2e/index.html#get-pets-id');
@@ -73,12 +79,11 @@ test('mobile navigation is accessible and closes after endpoint selection', asyn
   await expect(page).toHaveURL(/#get-pets-id$/);
 });
 
-test('canonical overview visual remains stable', async ({ page }) => {
+test('canonical overview visual remains stable', async ({ page }, testInfo) => {
   await page.goto('/e2e/index.html');
   await expect(page.getByText('FlexDoc Browser Fixture', { exact: true }).first()).toBeVisible();
-  await expect(page).toHaveScreenshot('overview.png', {
-    fullPage: true,
-    animations: 'disabled',
-    caret: 'hide',
-  });
+  const screenshot = await page.screenshot({ fullPage: true, animations: 'disabled', caret: 'hide' });
+  await testInfo.attach('overview.png', { body: screenshot, contentType: 'image/png' });
+  const digest = createHash('sha256').update(screenshot).digest('hex');
+  expect(digest).toBe(overviewDigests[testInfo.project.name]);
 });
