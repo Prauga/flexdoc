@@ -21,7 +21,7 @@
   "author": "Vishnu R <vishnurajesh45@gmail.com>",
   "license": "AGPL-3.0-or-later",
   "repository": { "type": "git", "url": "https://github.com/bluejeans117/flexdoc.git", "directory": "packages/backend" },
-  "peerDependencies": { "@nestjs/common": "^10.0.0 || ^11.0.0", "@nestjs/core": "^10.0.0 || ^11.0.0" },
+  "peerDependencies": { "@nestjs/common": "^10.0.0", "@nestjs/core": "^10.0.0" },
   "peerDependenciesMeta": { "@nestjs/common": { "optional": true }, "@nestjs/core": { "optional": true } },
   "dependencies": { "jsonwebtoken": "^9.0.2", "nunjucks": "^3.2.4", "yargs": "^17.7.2" },
   "devDependencies": {
