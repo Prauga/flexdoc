@@ -1,18 +1,23 @@
 {
   "name": "@bluejeans/flexdoc-client",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "FlexDoc's canonical OpenAPI renderer, API explorer, and React components",
   "type": "module",
   "main": "./dist/flexdoc.umd.cjs",
   "module": "./dist/flexdoc.es.js",
-  "types": "./dist/types/index.d.ts",
+  "types": "./dist/types/esm/index.d.ts",
   "files": ["dist", "README.md"],
   "publishConfig": { "access": "public" },
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
-      "import": "./dist/flexdoc.es.js",
-      "require": "./dist/flexdoc.umd.cjs"
+      "import": {
+        "types": "./dist/types/esm/index.d.ts",
+        "default": "./dist/flexdoc.es.js"
+      },
+      "require": {
+        "types": "./dist/types/cjs/index.d.cts",
+        "default": "./dist/flexdoc.umd.cjs"
+      }
     },
     "./styles.css": { "import": "./dist/assets/index.css", "require": "./dist/assets/index.css" },
     "./standalone.js": "./dist/standalone/flexdoc.standalone.js",
@@ -21,7 +26,7 @@
   "style": "./dist/assets/index.css",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && vite build --config vite.standalone.config.ts && tsc --emitDeclarationOnly",
+    "build": "vite build && vite build --config vite.standalone.config.ts && tsc --emitDeclarationOnly && node ../../scripts/prepare-client-types.mjs",
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",

@@ -1,6 +1,6 @@
 {
   "name": "@bluejeans/flexdoc-backend",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Thin self-hosted FlexDoc integrations for Express, Fastify, and NestJS",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
