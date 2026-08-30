@@ -21,7 +21,7 @@
   "style": "./dist/assets/index.css",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && vite build --config vite.standalone.config.ts",
+    "build": "vite build && vite build --config vite.standalone.config.ts && tsc --emitDeclarationOnly",
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
