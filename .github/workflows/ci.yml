@@ -41,10 +41,12 @@ jobs:
         run: npm install --prefix core --ignore-scripts --no-audit --no-fund
 
       - name: Test framework-neutral core
-        run: npm test --prefix core
+        run: npm test
+        working-directory: core
 
       - name: Verify core package contents
-        run: npm pack --dry-run --prefix core
+        run: npm pack --dry-run
+        working-directory: core
 
       - name: Test client
         run: npm test -w packages/client -- --runInBand
