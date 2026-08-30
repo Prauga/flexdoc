@@ -1,0 +1,4 @@
+$defs:
+  Tag:
+    type: string
+    enum: [friendly, adopted]
