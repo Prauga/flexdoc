@@ -17,10 +17,11 @@
     "build": "npm run build:client && npm run build:backend",
     "dev:client": "npm run dev -w packages/client",
     "dev:backend": "npm run dev -w packages/backend",
-    "build:client": "npm run build -w packages/client",
+    "build:core": "npm install --prefix core --ignore-scripts --no-audit --no-fund && npm run build --prefix core",
+    "build:client": "npm run build:core && npm run build -w packages/client",
     "build:backend": "npm run build -w packages/backend",
     "example:nestjs": "cd packages/examples/nestjs && npm install && npm run start:dev",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run build:core && npm run test --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present"
   },
   "keywords": [
