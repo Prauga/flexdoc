@@ -31,15 +31,16 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run browser E2E and generate initial visual baselines
-        run: npx playwright test --update-snapshots
+      - name: Run browser E2E and visual regression checks
+        run: npx playwright test
 
-      - name: Upload visual baselines
+      - name: Upload Playwright test output
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-visual-baselines
-          path: e2e/**/*-snapshots/*.png
-          if-no-files-found: error
+          name: playwright-test-results
+          path: test-results/
+          if-no-files-found: ignore
 
       - name: Upload Playwright report
         if: always()
