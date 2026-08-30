@@ -3,93 +3,59 @@ import '@testing-library/jest-dom';
 import { FlexDoc } from './FlexDoc';
 import { OpenAPISpec } from '../types/openapi';
 
-// Mock the child components to simplify testing
-jest.mock('./Sidebar', () => ({
-  Sidebar: () => (
-    <div data-testid='sidebar-mock'>
-      <span>Sidebar Mock</span>
-    </div>
-  ),
-}));
+jest.mock('./Sidebar', () => ({ Sidebar: () => <div data-testid='sidebar-mock'>Sidebar Mock</div> }));
+jest.mock('./EndpointDetail', () => ({ EndpointDetail: () => <div data-testid='endpoint-detail-mock'>EndpointDetail Mock</div> }));
+jest.mock('./Overview', () => ({ Overview: () => <div data-testid='overview-mock'>Overview Mock</div> }));
 
-jest.mock('./EndpointDetail', () => ({
-  EndpointDetail: (_props: any) => (
-    <div data-testid='endpoint-detail-mock'>
-      <span>EndpointDetail Mock</span>
-    </div>
-  ),
-}));
-
-jest.mock('./Overview', () => ({
-  Overview: () => (
-    <div data-testid='overview-mock'>
-      <span>Overview Mock</span>
-    </div>
-  ),
-}));
+const mockSpec: OpenAPISpec = {
+  openapi: '3.1.0',
+  info: { title: 'Test API', version: '1.0.0' },
+  servers: [{ url: 'https://api.example.com' }],
+  paths: {
+    '/pets': { get: { summary: 'List all pets', responses: { '200': { description: 'A list of pets' } } } },
+    '/users': { post: { summary: 'Create user', responses: { '201': { description: 'User created' } } } },
+  },
+};
 
 describe('FlexDoc', () => {
-  const mockSpec: OpenAPISpec = {
-    openapi: '3.0.0',
-    info: {
-      title: 'Test API',
-      version: '1.0.0',
-    },
-    paths: {
-      '/pets': {
-        get: {
-          summary: 'List all pets',
-          responses: {
-            '200': {
-              description: 'A list of pets',
-            },
-          },
-        },
-      },
-      '/users': {
-        post: {
-          summary: 'Create user',
-          responses: {
-            '201': {
-              description: 'User created',
-            },
-          },
-        },
-      },
-    },
-  };
+  beforeEach(() => {
+    window.history.replaceState({}, '', '/');
+    document.body.style.overflow = '';
+  });
 
-  it('renders with Sidebar component', () => {
+  it('renders the documentation shell and navigation', () => {
     render(<FlexDoc spec={mockSpec} />);
-    expect(screen.getByTestId('sidebar-mock')).toBeInTheDocument();
+    expect(screen.getAllByTestId('sidebar-mock').length).toBeGreaterThan(0);
+    expect(screen.getByText('Test API')).toBeInTheDocument();
   });
 
-  it('renders with Overview component initially', () => {
+  it('exposes an accessible mobile navigation trigger with touch-sized styling', () => {
     render(<FlexDoc spec={mockSpec} />);
-    expect(screen.getByTestId('overview-mock')).toBeInTheDocument();
-    expect(
-      screen.queryByTestId('endpoint-detail-mock')
-    ).not.toBeInTheDocument();
+    const trigger = screen.getByRole('button', { name: 'Open API navigation' });
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger.className).toContain('h-11');
+    expect(trigger.className).toContain('w-11');
+    expect(trigger.className).toContain('lg:hidden');
   });
 
-  it('passes the spec to child components', () => {
-    // This is more of a smoke test since we're mocking the components
-    render(<FlexDoc spec={mockSpec} />);
-    // If the component renders without errors, the spec was passed correctly
-    expect(screen.getByTestId('sidebar-mock')).toBeInTheDocument();
-    expect(screen.getByTestId('overview-mock')).toBeInTheDocument();
+  it('supports dark mode and custom styles', () => {
+    const { container } = render(<FlexDoc spec={mockSpec} theme='dark' customStyles={{ maxWidth: '1200px' }} />);
+    expect(screen.getByText('Test API')).toBeInTheDocument();
+    expect(container.firstElementChild).toHaveStyle({ maxWidth: '1200px' });
   });
 
-  it('renders with custom theme when provided', () => {
-    render(<FlexDoc spec={mockSpec} theme='dark' />);
-    // If the component renders without errors with the theme prop, it's working
-    expect(screen.getByTestId('sidebar-mock')).toBeInTheDocument();
+  it('honors topbar, hostname and download options', () => {
+    const { rerender } = render(<FlexDoc spec={mockSpec} options={{ hideHostname: true, hideDownloadButton: true }} />);
+    expect(screen.queryByText('https://api.example.com')).not.toBeInTheDocument();
+    expect(screen.queryByText('Download spec')).not.toBeInTheDocument();
+    rerender(<FlexDoc spec={mockSpec} options={{ hideTopbar: true }} />);
+    expect(screen.queryByLabelText('Open API navigation')).not.toBeInTheDocument();
   });
 
-  it('renders with custom styles when provided', () => {
-    const customStyles = { maxWidth: '1200px', margin: '0 auto' };
-    render(<FlexDoc spec={mockSpec} customStyles={customStyles} />);
-    // If the component renders without errors with the customStyles prop, it's working
-    expect(screen.getByTestId('sidebar-mock')).toBeInTheDocument();
+  it('renders a configured logo and footer', () => {
+    render(<FlexDoc spec={mockSpec} options={{ logo: { url: '/logo.svg', alt: 'Acme docs' }, footer: { copyright: '© Acme', link: [{ text: 'Support', url: 'https://example.com' }] } }} />);
+    expect(screen.getByAltText('Acme docs')).toBeInTheDocument();
+    expect(screen.getByText('© Acme')).toBeInTheDocument();
+    expect(screen.getByText('Support')).toBeInTheDocument();
   });
 });

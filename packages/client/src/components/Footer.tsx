@@ -1,22 +1,21 @@
+import { FlexDocRendererOptions } from '../types/options';
+
 interface FooterProps {
   footerClasses: string;
+  footer?: FlexDocRendererOptions['footer'];
 }
 
-export const Footer = ({ footerClasses }: FooterProps) => {
+export const Footer = ({ footerClasses, footer }: FooterProps) => {
+  const copyright = footer?.copyright;
+  const links = footer?.link || [];
+
   return (
-    <footer className={`${footerClasses} h-10 w-full flex items-center`}>
-      <div className='w-full px-6 text-sm'>
-        <p>
-          Powered by{' '}
-          <a
-            href='https://bluejeans117.github.io/flexdoc'
-            target='_blank'
-            rel='noopener noreferrer'
-            className='hover:opacity-80 transition-opacity'
-          >
-            <span className='font-semibold'>FlexDoc</span>
-          </a>
-        </p>
+    <footer className={`${footerClasses} w-full border-t`}>
+      <div className='mx-auto flex min-h-12 w-full max-w-[1600px] flex-col gap-2 px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:text-sm'>
+        <p>{copyright || <>Powered by <a href='https://bluejeans117.github.io/flexdoc' target='_blank' rel='noopener noreferrer' className='font-semibold hover:opacity-80 transition-opacity'>FlexDoc</a></>}</p>
+        {links.length > 0 && <nav aria-label='Footer links' className='flex flex-wrap gap-x-4 gap-y-2'>
+          {links.map((link) => <a key={`${link.text}:${link.url}`} href={link.url} target='_blank' rel='noopener noreferrer' className='hover:opacity-80'>{link.text}</a>)}
+        </nav>}
       </div>
     </footer>
   );

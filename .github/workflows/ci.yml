@@ -27,6 +27,13 @@ jobs:
           node-version: '20'
           cache: npm
 
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
       - name: Install dependencies
         run: npm ci
 
@@ -41,6 +48,11 @@ jobs:
           test -s packages/client/dist/standalone/flexdoc.standalone.js
           test -s packages/client/dist/standalone/flexdoc.standalone.css
 
+      - name: Verify language-neutral renderer contract
+        run: |
+          test -s packages/renderer-contract/flexdoc-renderer.schema.json
+          node -e "JSON.parse(require('fs').readFileSync('packages/renderer-contract/flexdoc-renderer.schema.json', 'utf8'))"
+
       - name: Test backend
         run: npm test -w packages/backend -- --runInBand
 
@@ -51,3 +63,11 @@ jobs:
         run: |
           test -s packages/backend/dist/renderer/flexdoc.standalone.js
           test -s packages/backend/dist/renderer/flexdoc.standalone.css
+
+      - name: Test and package Java Spring adapter
+        run: mvn -f adapters/java-spring/pom.xml --batch-mode verify
+
+      - name: Verify Java adapter packages renderer assets
+        run: |
+          jar tf adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-SNAPSHOT.jar | grep 'META-INF/flexdoc/flexdoc.standalone.js'
+          jar tf adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-SNAPSHOT.jar | grep 'META-INF/flexdoc/flexdoc.standalone.css'

@@ -1,492 +1,132 @@
-import React, { useState } from 'react';
-import {
-  ChevronDown,
-  ChevronRight,
-  Lock,
-  Unlock,
-  AlertCircle,
-} from 'lucide-react';
-import { OpenAPISpec, Operation, Schema } from '../types/openapi';
+import React, { useMemo, useState } from 'react';
+import { AlertCircle, ChevronDown, ChevronRight, Lock, Unlock } from 'lucide-react';
+import { OpenAPISpec, Operation } from '../types/openapi';
+import { FlexDocRendererOptions } from '../types/options';
 import { OpenAPIParser } from '../utils/openapi-parser';
-import { isRequestBody } from '../utils/type-guards';
+import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
+import { CodeSampleLanguage, generateCodeSample, languageLabel } from '../utils/code-samples';
 import { CodeBlock } from './CodeBlock';
+import { RequestPlayground } from './RequestPlayground';
+import { SchemaView } from './SchemaView';
 
 interface EndpointDetailProps {
   spec: OpenAPISpec;
   path: string;
   method: string;
   theme?: 'light' | 'dark';
+  options?: FlexDocRendererOptions;
 }
 
-export const EndpointDetail: React.FC<EndpointDetailProps> = ({
-  spec,
-  path,
-  method,
-  theme = 'light',
-}) => {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(
-    new Set(['overview', 'parameters', 'responses'])
-  );
+const DEFAULT_LANGUAGES: CodeSampleLanguage[] = ['curl', 'javascript', 'python', 'go', 'java'];
 
-  // Theme classes
-  const containerClasses =
-    theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-800';
-
-  const sectionTitleClasses =
-    theme === 'dark'
-      ? 'text-gray-100 hover:text-blue-400'
-      : 'text-gray-900 hover:text-blue-600';
-
-  const cardClasses =
-    theme === 'dark'
-      ? 'bg-gray-800 border-gray-700'
-      : 'bg-white border-gray-200';
-
-  const textMutedClasses = theme === 'dark' ? 'text-gray-400' : 'text-gray-600';
-
+export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, method, theme = 'light', options = {} }) => {
+  const defaultExpanded = ['parameters', 'requestBody', 'tryIt', 'examples'];
+  if (options.expandResponses !== 'none') defaultExpanded.push('responses');
+  const [expandedSections, setExpandedSections] = useState(new Set(defaultExpanded));
+  const [sampleLanguage, setSampleLanguage] = useState<CodeSampleLanguage>((options.codeSamples?.languages?.[0] as CodeSampleLanguage) || 'curl');
+  const initialBuiltRequest = useMemo(() => buildRequest(spec, path, method, initialRequestValues(spec, path, method)), [spec, path, method]);
+  const [sampleRequest, setSampleRequest] = useState(initialBuiltRequest);
   const pathItem = spec.paths[path];
-  const operation = pathItem[method as keyof typeof pathItem] as Operation;
+  const operation = pathItem?.[method.toLowerCase() as keyof typeof pathItem] as Operation | undefined;
+  const parameters = useMemo(() => parametersFor(spec, path, method), [spec, path, method]);
 
-  if (!operation) {
-    return <div>Operation not found</div>;
-  }
+  if (!operation) return <div className='p-6'>Operation not found.</div>;
 
-  const toggleSection = (section: string) => {
-    const newExpanded = new Set(expandedSections);
-    if (newExpanded.has(section)) {
-      newExpanded.delete(section);
-    } else {
-      newExpanded.add(section);
-    }
-    setExpandedSections(newExpanded);
-  };
+  const muted = theme === 'dark' ? 'text-gray-400' : 'text-gray-600';
+  const card = theme === 'dark' ? 'border-gray-700 bg-gray-800/60' : 'border-gray-200 bg-white';
+  const surface = theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-white text-gray-900';
+  const languages = (options.codeSamples?.languages?.length ? options.codeSamples.languages : DEFAULT_LANGUAGES) as CodeSampleLanguage[];
+  const security = operation.security ?? spec.security;
+  const schemaOptions = { requiredPropsFirst: options.requiredPropsFirst, sortPropsAlphabetically: options.sortPropsAlphabetically };
 
-  const renderSchema = (schema: Schema | any, level = 0): React.ReactNode => {
-    if (OpenAPIParser.isReference(schema)) {
-      const resolved = OpenAPIParser.resolveReference(spec, schema.$ref);
-      return renderSchema(resolved, level);
-    }
+  const toggle = (id: string) => setExpandedSections((current) => {
+    const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next;
+  });
 
-    const indent = level * 16;
-    const typeColor = theme === 'dark' ? 'text-blue-300' : 'text-blue-600';
-    const bgRequired =
-      theme === 'dark'
-        ? 'bg-red-900/30 text-red-300'
-        : 'bg-red-100 text-red-700';
-    const bgNullable =
-      theme === 'dark'
-        ? 'bg-gray-700 text-gray-300'
-        : 'bg-gray-100 text-gray-700';
-
-    return (
-      <div style={{ marginLeft: indent }}>
-        <div className='flex items-center gap-2 py-1 flex-wrap'>
-          <span className={`text-sm ${typeColor}`}>
-            {schema.type || 'any'}
-            {schema.format && ` (${schema.format})`}
-          </span>
-          {schema.required && (
-            <span className={`text-xs px-2 py-0.5 rounded ${bgRequired}`}>
-              required
-            </span>
-          )}
-          {schema.nullable && (
-            <span className={`text-xs px-2 py-0.5 rounded ${bgNullable}`}>
-              nullable
-            </span>
-          )}
-        </div>
-
-        {schema.description && (
-          <p className={`text-sm mt-1 ${textMutedClasses}`}>
-            {schema.description}
-          </p>
-        )}
-
-        {schema.example !== undefined && (
-          <div className='mt-2'>
-            <CodeBlock
-              code={JSON.stringify(schema.example, null, 2)}
-              language='json'
-              title='Example'
-              showCopy={false}
-              theme={theme}
-            />
-          </div>
-        )}
-
-        {schema.properties && (
-          <div className='mt-2'>
-            {Object.entries(schema.properties).map(([propName, propSchema]) => {
-              const borderColor =
-                theme === 'dark' ? 'border-gray-700' : 'border-gray-200';
-              const textColor =
-                theme === 'dark' ? 'text-gray-100' : 'text-gray-900';
-
-              return (
-                <div
-                  key={propName}
-                  className={`border-l-2 ${borderColor} pl-3 mt-2`}
-                >
-                  <div className={`font-mono text-sm font-medium ${textColor}`}>
-                    {propName}
-                  </div>
-                  {renderSchema(propSchema, level + 1)}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const getStatusColor = (status: string) => {
-    const code = parseInt(status);
-    if (theme === 'dark') {
-      if (code >= 200 && code < 300)
-        return 'text-green-400 bg-green-900/30 border-green-800';
-      if (code >= 300 && code < 400)
-        return 'text-blue-400 bg-blue-900/30 border-blue-800';
-      if (code >= 400 && code < 500)
-        return 'text-orange-400 bg-orange-900/30 border-orange-800';
-      if (code >= 500) return 'text-red-400 bg-red-900/30 border-red-800';
-      return 'text-gray-400 bg-gray-800/50 border-gray-700';
-    } else {
-      if (code >= 200 && code < 300)
-        return 'text-green-600 bg-green-50 border-green-200';
-      if (code >= 300 && code < 400)
-        return 'text-blue-600 bg-blue-50 border-blue-200';
-      if (code >= 400 && code < 500)
-        return 'text-orange-600 bg-orange-50 border-orange-200';
-      if (code >= 500) return 'text-red-600 bg-red-50 border-red-200';
-      return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
-  };
-
-  const getParamColor = (inType: string) => {
-    if (theme === 'dark') {
-      switch (inType) {
-        case 'path':
-          return 'bg-purple-900/30 text-purple-300';
-        case 'query':
-          return 'bg-blue-900/30 text-blue-300';
-        case 'header':
-          return 'bg-green-900/30 text-green-300';
-        default:
-          return 'bg-gray-800 text-gray-300';
-      }
-    } else {
-      switch (inType) {
-        case 'path':
-          return 'bg-purple-100 text-purple-700';
-        case 'query':
-          return 'bg-blue-100 text-blue-700';
-        case 'header':
-          return 'bg-green-100 text-green-700';
-        default:
-          return 'bg-gray-100 text-gray-700';
-      }
-    }
-  };
-
-  const generateCurlExample = () => {
-    let curl = `curl -X ${method.toUpperCase()} `;
-    const baseUrl = spec.servers?.[0]?.url || 'https://api.example.com';
-    curl += `"${baseUrl}${path}"`;
-    curl += ` \\n  -H "Content-Type: application/json"`;
-
-    if (operation.security) {
-      curl += ` \\n  -H "Authorization: Bearer YOUR_TOKEN"`;
-    }
-
-    if (
-      ['post', 'put', 'patch'].includes(method.toLowerCase()) &&
-      operation.requestBody
-    ) {
-      curl += ` \\n  -d '{}'`;
-    }
-
-    return curl;
-  };
-
-  const renderSection = (
-    title: string,
-    section: string,
-    children: React.ReactNode
-  ) => (
-    <div className='mb-8'>
-      <button
-        onClick={() => toggleSection(section)}
-        className={`flex items-center gap-2 text-lg font-semibold mb-4 transition-colors ${sectionTitleClasses}`}
-      >
-        {expandedSections.has(section) ? (
-          <ChevronDown className='w-5 h-5' />
-        ) : (
-          <ChevronRight className='w-5 h-5' />
-        )}
-        {title}
+  const section = (title: string, id: string, children: React.ReactNode) => (
+    <section className='mb-8' aria-labelledby={`${id}-heading`}>
+      <button id={`${id}-heading`} onClick={() => toggle(id)} className='mb-4 flex min-h-10 w-full items-center gap-2 text-left text-base font-semibold sm:text-lg'>
+        {expandedSections.has(id) ? <ChevronDown className='h-5 w-5 shrink-0' /> : <ChevronRight className='h-5 w-5 shrink-0' />}{title}
       </button>
-
-      {expandedSections.has(section) && children}
-    </div>
+      {expandedSections.has(id) && children}
+    </section>
   );
 
-  return (
-    <div className={`flex-1 overflow-y-auto ${containerClasses}`}>
-      <div className='p-8'>
-        {/* Header */}
-        <div className='mb-8'>
-          <div className='flex items-center gap-3 mb-4'>
-            <span
-              className={`text-sm font-bold px-3 py-1 rounded border ${OpenAPIParser.getMethodColor(
-                method,
-                theme
-              )}`}
-            >
-              {method.toUpperCase()}
-            </span>
-            <code
-              className={`text-lg font-mono font-medium px-3 py-1 rounded ${
-                theme === 'dark'
-                  ? 'bg-gray-800 text-blue-300'
-                  : 'bg-gray-100 text-gray-900'
-              }`}
-            >
-              {path}
-            </code>
-          </div>
+  const requestBody = operation.requestBody
+    ? OpenAPIParser.isReference(operation.requestBody)
+      ? OpenAPIParser.resolveReference(spec, operation.requestBody.$ref)
+      : operation.requestBody
+    : undefined;
 
-          {operation.summary && (
-            <h1
-              className={`text-2xl font-bold mb-2 ${
-                theme === 'dark' ? 'text-white' : 'text-gray-900'
-              }`}
-            >
-              {operation.summary}
-            </h1>
-          )}
+  const extensionEntries = Object.entries(operation).filter(([key]) => key.startsWith('x-'));
+  const methodTheme = typeof options.theme === 'object' ? options.theme.methodColors?.[method.toLowerCase()] : undefined;
 
-          {operation.description && (
-            <p className={`${textMutedClasses} leading-relaxed`}>
-              {operation.description}
-            </p>
-          )}
-
-          <div className='flex items-center gap-4 mt-4'>
-            {operation.deprecated && (
-              <div
-                className={`flex items-center gap-1 ${
-                  theme === 'dark' ? 'text-orange-400' : 'text-orange-600'
-                }`}
-              >
-                <AlertCircle className='w-4 h-4' />
-                <span className='text-sm font-medium'>Deprecated</span>
-              </div>
-            )}
-
-            {operation.security ? (
-              <div
-                className={`flex items-center gap-1 ${
-                  theme === 'dark' ? 'text-red-400' : 'text-red-600'
-                }`}
-              >
-                <Lock className='w-4 h-4' />
-                <span className='text-sm'>Authentication required</span>
-              </div>
-            ) : (
-              <div
-                className={`flex items-center gap-1 ${
-                  theme === 'dark' ? 'text-green-400' : 'text-green-600'
-                }`}
-              >
-                <Unlock className='w-4 h-4' />
-                <span className='text-sm'>No authentication required</span>
-              </div>
-            )}
-          </div>
+  return <div className={`h-full overflow-y-auto ${surface}`}>
+    <article className='mx-auto w-full max-w-6xl p-4 sm:p-6 lg:p-8'>
+      <header className='mb-8'>
+        <div className='mb-4 flex min-w-0 flex-wrap items-center gap-2 sm:gap-3'>
+          <span className={`shrink-0 rounded border px-2.5 py-1 text-xs font-bold sm:text-sm ${OpenAPIParser.getMethodColor(method, theme)}`} style={{ background: methodTheme?.bg, borderColor: methodTheme?.border }}>{method.toUpperCase()}</span>
+          <code className={`min-w-0 max-w-full overflow-x-auto rounded px-2.5 py-1 font-mono text-sm sm:text-base ${theme === 'dark' ? 'bg-gray-800 text-blue-300' : 'bg-gray-100 text-gray-900'}`}>{path}</code>
         </div>
+        {operation.summary && <h1 className='mb-2 text-2xl font-bold tracking-tight sm:text-3xl'>{operation.summary}</h1>}
+        {operation.description && <p className={`max-w-3xl whitespace-pre-wrap leading-relaxed ${muted}`}>{operation.description}</p>}
+        <div className='mt-4 flex flex-wrap gap-3 text-sm'>
+          {operation.deprecated && <span className='inline-flex items-center gap-1 text-orange-600'><AlertCircle className='h-4 w-4' />Deprecated</span>}
+          {security?.length ? <span className='inline-flex items-center gap-1 text-red-600'><Lock className='h-4 w-4' />Authentication required</span> : <span className='inline-flex items-center gap-1 text-green-600'><Unlock className='h-4 w-4' />No authentication required</span>}
+          {operation.operationId && <span className={muted}>operationId: <code>{operation.operationId}</code></span>}
+        </div>
+        {(options.showExtensions || options.showCommonExtensions) && extensionEntries.length > 0 && <div className={`mt-4 rounded-lg border p-3 text-xs ${card}`}>
+          {extensionEntries.map(([key, value]) => <div key={key}><code>{key}</code>: {typeof value === 'string' ? value : JSON.stringify(value)}</div>)}
+        </div>}
+      </header>
 
-        {/* Parameters Section */}
-        {(operation.parameters || pathItem.parameters) &&
-          renderSection(
-            'Parameters',
-            'parameters',
-            <div className='space-y-4'>
-              {[
-                ...(pathItem.parameters || []),
-                ...(operation.parameters || []),
-              ].map((param: any, index) => {
-                const parameter = OpenAPIParser.isReference(param)
-                  ? OpenAPIParser.resolveReference(spec, param.$ref)
-                  : param;
-
-                return (
-                  <div
-                    key={index}
-                    className={`border rounded-lg p-4 ${cardClasses} ${
-                      theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
-                    }`}
-                  >
-                    <div className='flex items-center gap-2 mb-2 flex-wrap'>
-                      <code
-                        className={`font-mono font-medium ${
-                          theme === 'dark' ? 'text-gray-100' : 'text-gray-900'
-                        }`}
-                      >
-                        {parameter.name}
-                      </code>
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded ${getParamColor(parameter.in)}`}
-                      >
-                        {parameter.in}
-                      </span>
-                      {parameter.required && (
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded ${
-                            theme === 'dark'
-                              ? 'bg-red-900/30 text-red-300'
-                              : 'bg-red-100 text-red-700'
-                          }`}
-                        >
-                          required
-                        </span>
-                      )}
-                    </div>
-
-                    {parameter.description && (
-                      <p className={`text-sm mb-3 ${textMutedClasses}`}>
-                        {parameter.description}
-                      </p>
-                    )}
-
-                    {parameter.schema && renderSchema(parameter.schema)}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-        {/* Request Body Section */}
-        {operation.requestBody &&
-          renderSection(
-            'Request Body',
-            'requestBody',
-            operation.requestBody && isRequestBody(operation.requestBody) && (
-              <div className='space-y-4'>
-                {Object.entries(operation.requestBody.content || {}).map(
-                  ([mediaType, content]: [string, any]) => (
-                    <div
-                      key={mediaType}
-                      className={`border rounded-lg p-4 ${cardClasses} ${
-                        theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
-                      }`}
-                    >
-                      <div className='flex items-center gap-2 mb-3'>
-                        <code
-                          className={`text-sm px-2 py-1 rounded ${
-                            theme === 'dark'
-                              ? 'bg-gray-700 text-blue-300'
-                              : 'bg-gray-100 text-gray-700'
-                          }`}
-                        >
-                          {mediaType}
-                        </code>
-                        {operation.requestBody &&
-                          isRequestBody(operation.requestBody) &&
-                          operation.requestBody.required && (
-                            <span
-                              className={`text-xs px-2 py-1 rounded ${
-                                theme === 'dark'
-                                  ? 'bg-red-900/30 text-red-300'
-                                  : 'bg-red-100 text-red-700'
-                              }`}
-                            >
-                              required
-                            </span>
-                          )}
-                      </div>
-
-                      {content.schema && renderSchema(content.schema)}
-                    </div>
-                  )
-                )}
-              </div>
-            )
-          )}
-
-        {/* Responses Section */}
-        {renderSection(
-          'Responses',
-          'responses',
-          <div className='space-y-4'>
-            {Object.entries(operation.responses).map(
-              ([statusCode, response]: [string, any]) => {
-                const resolvedResponse = OpenAPIParser.isReference(response)
-                  ? OpenAPIParser.resolveReference(spec, response.$ref)
-                  : response;
-
-                return (
-                  <div
-                    key={statusCode}
-                    className={`border rounded-lg p-4 ${cardClasses} ${
-                      theme === 'dark' ? 'border-gray-700' : 'border-gray-200'
-                    }`}
-                  >
-                    <div className='flex items-center gap-2 mb-3 flex-wrap'>
-                      <span
-                        className={`text-sm font-bold px-3 py-1 rounded border ${getStatusColor(statusCode)}`}
-                      >
-                        {statusCode}
-                      </span>
-                      <span className={`text-sm ${textMutedClasses}`}>
-                        {resolvedResponse.description}
-                      </span>
-                    </div>
-
-                    {resolvedResponse.content &&
-                      Object.entries(resolvedResponse.content).map(
-                        ([mediaType, content]: [string, any]) => (
-                          <div key={mediaType} className='mt-3'>
-                            <code
-                              className={`text-sm px-2 py-1 rounded ${
-                                theme === 'dark'
-                                  ? 'bg-gray-700 text-blue-300'
-                                  : 'bg-gray-100 text-gray-700'
-                              }`}
-                            >
-                              {mediaType}
-                            </code>
-                            {content.schema && (
-                              <div className='mt-2'>
-                                {renderSchema(content.schema)}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      )}
-                  </div>
-                );
-              }
-            )}
+      {parameters.length > 0 && section('Parameters', 'parameters', <div className='space-y-3'>
+        {parameters.map((parameter) => <div key={`${parameter.in}:${parameter.name}`} className={`rounded-lg border p-4 ${card}`}>
+          <div className='mb-2 flex flex-wrap items-center gap-2'>
+            <code className='font-medium'>{parameter.name}</code><span className='rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-700'>{parameter.in}</span>
+            {parameter.required && <span className='rounded bg-red-100 px-2 py-0.5 text-xs text-red-700'>required</span>}
+            {parameter.deprecated && <span className='rounded bg-orange-100 px-2 py-0.5 text-xs text-orange-700'>deprecated</span>}
           </div>
-        )}
+          {parameter.description && <p className={`mb-3 text-sm ${muted}`}>{parameter.description}</p>}
+          {parameter.schema && <SchemaView spec={spec} schema={parameter.schema} theme={theme} required={parameter.required} {...schemaOptions} />}
+        </div>)}
+      </div>)}
 
-        {/* Code Examples Section */}
-        {renderSection(
-          'Code Examples',
-          'examples',
-          <div className='space-y-4'>
-            <CodeBlock
-              code={generateCurlExample()}
-              language='bash'
-              title='cURL'
-              theme={theme}
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
+      {requestBody && section('Request Body', 'requestBody', <div className='space-y-4'>
+        {requestBody.description && <p className={muted}>{requestBody.description}</p>}
+        {Object.entries(requestBody.content || {}).map(([mediaType, media]: [string, any]) => <div key={mediaType} className={`rounded-lg border p-4 ${card}`}>
+          <div className='mb-3 flex flex-wrap items-center gap-2'><code className='rounded bg-gray-100 px-2 py-1 text-xs text-gray-700'>{mediaType}</code>{requestBody.required && <span className='rounded bg-red-100 px-2 py-0.5 text-xs text-red-700'>required</span>}</div>
+          {media.schema && <SchemaView spec={spec} schema={media.schema} theme={theme} {...schemaOptions} />}
+          {media.example !== undefined && <div className='mt-3'><CodeBlock code={JSON.stringify(media.example, null, 2)} language='json' title='Example payload' theme={theme} wrap /></div>}
+        </div>)}
+      </div>)}
+
+      {section('Responses', 'responses', <div className='space-y-4'>
+        {Object.entries(operation.responses || {}).map(([status, raw]: [string, any]) => {
+          const response = OpenAPIParser.isReference(raw) ? OpenAPIParser.resolveReference(spec, raw.$ref) : raw;
+          return <div key={status} className={`rounded-lg border p-4 ${card}`}>
+            <div className='mb-3 flex flex-wrap items-center gap-2'><span className='rounded border px-2.5 py-1 text-sm font-bold'>{status}</span><span className={`text-sm ${muted}`}>{response.description}</span></div>
+            {response.headers && options.showRequestHeaders && <div className='mb-3 text-sm'><span className='font-medium'>Headers:</span> {Object.keys(response.headers).join(', ')}</div>}
+            {response.content && Object.entries(response.content).map(([mediaType, media]: [string, any]) => <div key={mediaType} className='mt-3'>
+              <code className='text-xs opacity-70'>{mediaType}</code>
+              {media.schema && <div className='mt-2'><SchemaView spec={spec} schema={media.schema} theme={theme} {...schemaOptions} /></div>}
+              {media.example !== undefined && <div className='mt-3'><CodeBlock code={JSON.stringify(media.example, null, 2)} language='json' title='Example response' theme={theme} wrap /></div>}
+              {media.examples && Object.values(media.examples)[options.payloadSampleIdx || 0] && <div className='mt-3'><CodeBlock code={JSON.stringify((Object.values(media.examples)[options.payloadSampleIdx || 0] as any).value ?? Object.values(media.examples)[options.payloadSampleIdx || 0], null, 2)} language='json' title='Example response' theme={theme} wrap /></div>}
+            </div>)}
+          </div>;
+        })}
+      </div>)}
+
+      {options.tryIt?.enabled !== false && section('Try It', 'tryIt', <RequestPlayground spec={spec} path={path} method={method} theme={theme} options={options} onRequestChange={setSampleRequest} />)}
+
+      {options.codeSamples?.enabled !== false && section('Code Examples', 'examples', <div className='min-w-0'>
+        <div className='mb-3 flex max-w-full gap-1 overflow-x-auto pb-1' role='tablist' aria-label='Code example language'>
+          {languages.map((language) => <button key={language} role='tab' aria-selected={sampleLanguage === language} onClick={() => setSampleLanguage(language)} className={`shrink-0 rounded-md px-3 py-2 text-sm ${sampleLanguage === language ? 'bg-blue-600 text-white' : theme === 'dark' ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700'}`}>{languageLabel(language)}</button>)}
+        </div>
+        <CodeBlock code={generateCodeSample(sampleRequest, sampleLanguage)} language={sampleLanguage === 'curl' ? 'bash' : sampleLanguage} title={languageLabel(sampleLanguage)} theme={theme} wrap={Boolean(typeof options.theme === 'object' && options.theme.typography?.code?.wrap)} />
+      </div>)}
+
+      {operation.externalDocs && <p className='pb-4 text-sm'><a className='text-blue-600 underline' href={operation.externalDocs.url} target='_blank' rel='noopener noreferrer'>{operation.externalDocs.description || 'External documentation'}</a></p>}
+    </article>
+  </div>;
 };
-

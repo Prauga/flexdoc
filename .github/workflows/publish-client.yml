@@ -10,10 +10,12 @@ on:
         required: true
         default: 'patch'
 
+permissions:
+  contents: write
+
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,12 +35,32 @@ jobs:
       - name: Build client package
         run: npm run build -w packages/client
 
+      - name: Assemble language-neutral renderer bundle
+        run: |
+          mkdir -p renderer-release
+          cp packages/client/dist/standalone/flexdoc.standalone.js renderer-release/
+          cp packages/client/dist/standalone/flexdoc.standalone.css renderer-release/
+          cp packages/renderer-contract/flexdoc-renderer.schema.json renderer-release/
+          printf '%s\n' '{"contractVersion":"1"}' > renderer-release/manifest.json
+          tar -czf flexdoc-renderer.tar.gz -C renderer-release .
+
+      - name: Upload renderer workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flexdoc-renderer
+          path: flexdoc-renderer.tar.gz
+          if-no-files-found: error
+
+      - name: Attach renderer bundle to GitHub release
+        if: github.event_name == 'release'
+        run: gh release upload "${{ github.event.release.tag_name }}" flexdoc-renderer.tar.gz --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Update package.json for npm registry
         run: |
           cd packages/client
-          # Remove GitHub specific publishConfig if present
           sed -i '/"publishConfig": {/,/}/d' package.json
-          # Keep publish entrypoints aligned with Vite output.
           node -e "
             const pkg = require('./package.json');
             pkg.main = './dist/flexdoc.umd.cjs';
