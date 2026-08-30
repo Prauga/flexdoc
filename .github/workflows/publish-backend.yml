@@ -3,7 +3,6 @@ name: Publish Backend to npm Registry
 on:
   release:
     types: [published]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,7 +10,7 @@ permissions:
 
 jobs:
   build-and-publish:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'js/v')
+    if: startsWith(github.event.release.tag_name, 'js/v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -36,7 +35,6 @@ jobs:
         run: npm run build -w packages/backend
 
       - name: Verify JavaScript release tag matches package version
-        if: github.event_name == 'release'
         run: |
           VERSION=$(node -p "require('./packages/backend/package.json').version")
           test "${{ github.event.release.tag_name }}" = "js/v${VERSION}"
