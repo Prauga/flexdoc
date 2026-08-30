@@ -1,5 +1,5 @@
 import type { OpenAPISpec, Reference } from '../types/openapi';
-import { OpenAPIParser as CoreOpenAPIParser } from '../../../core/src/openapi-parser';
+import { OpenAPIParser as CoreOpenAPIParser } from '../../../../core/src/openapi-parser';
 
 export class OpenAPIParser {
   static async parseSpec(input: string | object): Promise<OpenAPISpec> {

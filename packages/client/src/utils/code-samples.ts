@@ -1,5 +1,5 @@
 import type { BuiltRequest } from './request-builder';
-import { generateCodeSample as coreGenerateCodeSample, languageLabel as coreLanguageLabel } from '../../../core/src/code-samples';
+import { generateCodeSample as coreGenerateCodeSample, languageLabel as coreLanguageLabel } from '../../../../core/src/code-samples';
 
 export type CodeSampleLanguage = 'curl' | 'javascript' | 'python' | 'go' | 'java';
 export function generateCodeSample(request: BuiltRequest, language: CodeSampleLanguage): string { return coreGenerateCodeSample(request, language); }

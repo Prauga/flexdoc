@@ -4,7 +4,7 @@ import {
   initialRequestValues as coreInitialRequestValues,
   operationFor as coreOperationFor,
   parametersFor as coreParametersFor,
-} from '../../../core/src/request-builder';
+} from '../../../../core/src/request-builder';
 
 export type RequestValue = string | number | boolean | string[] | number[] | Record<string, unknown>;
 export interface RequestValues {

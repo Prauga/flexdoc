@@ -23,5 +23,5 @@
   "keywords": ["openapi", "api", "serialization", "api-client", "documentation"],
   "author": "Vishnu R <vishnurajesh45@gmail.com>",
   "license": "AGPL-3.0-or-later",
-  "repository": { "type": "git", "url": "https://github.com/bluejeans117/flexdoc.git", "directory": "packages/core" }
+  "repository": { "type": "git", "url": "https://github.com/bluejeans117/flexdoc.git", "directory": "core" }
 }
