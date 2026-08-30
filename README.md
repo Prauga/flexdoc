@@ -1,361 +1,172 @@
-# FlexDoc - OpenAPI Documentation Generator
+# FlexDoc
 
-FlexDoc is a beautiful, highly customizable OpenAPI documentation generator that can be easily integrated into backend applications. It provides a modern, interactive interface for API documentation with advanced features and customization options.
+FlexDoc is an open-source, self-hosted OpenAPI documentation renderer and API explorer. It ships one canonical browser renderer and thin framework adapters, so React, Node backends, and Spring Boot all use the same OpenAPI behavior and UI.
 
-## Features
+FlexDoc is designed to live with your API: no FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is required.
 
-- 🎨 **Beautiful UI**: Modern, responsive design with smooth animations and micro-interactions
-- 📱 **Mobile-First**: Fully responsive design that works on all devices
-- 🎯 **Interactive**: Live API explorer with request/response examples
-- 🔍 **Advanced Search**: Powerful search and filtering capabilities
-- 🎨 **Customizable**: Extensive theming and styling options
-- 🔒 **Authentication**: Secure your documentation with Basic or Bearer token authentication
-- ⚡ **Fast**: Optimized performance with lazy loading and efficient rendering
-- 🔧 **Easy Integration**: Simple setup for NestJS and other frameworks
-- 📖 **OpenAPI 3.0**: Full support for OpenAPI 3.0 specifications
+## What is in FlexDoc 2.0
 
-## Quick Start
+- OpenAPI 3.0/3.1 normalization and reference resolution, including relative external references
+- responsive API reference UI with search and deep links
+- interactive **Try It** request execution and response inspection
+- server selection and OpenAPI server variables
+- API key, Basic, Bearer, OAuth2/OpenID bearer request authentication
+- OpenAPI parameter serialization including deepObject, matrix, label, pipe/space-delimited and explode semantics
+- JSON, form-urlencoded and multipart request bodies
+- code examples for cURL, JavaScript, Python, Go and Java generated from the same canonical request model
+- schema composition and recursive-reference rendering
+- light/dark theming and renderer options
+- standalone browser JS/CSS artifacts with no runtime CDN dependency
+- Express, Fastify and NestJS integrations
+- Spring Boot adapter that packages the same canonical renderer assets
 
-### React Component (Standalone)
+Browser-side loading of cross-origin external OpenAPI references is subject to the target server's CORS policy. Server-side/CLI bundling can avoid that constraint.
+
+## Packages
+
+| Package | Version | Purpose |
+| --- | --- | --- |
+| `@bluejeans/flexdoc-client` | `2.0.0` | React components plus the canonical standalone renderer |
+| `@bluejeans/flexdoc-backend` | `2.0.0` | Thin Express, Fastify and NestJS integrations |
+| `io.github.bluejeans117.flexdoc:flexdoc-spring-boot-starter` | `0.1.0` | Spring Boot adapter; Maven Central publication is prepared separately |
+
+Language adapters have independent ecosystem versions. Compatibility is governed by the renderer contract rather than forcing npm, Maven, PyPI, crates.io and Go modules to share one version number. See [Distribution and versioning](./docs/distribution.md).
+
+## React
 
 ```bash
-npm install @bluejeans/flexdoc
+npm install @bluejeans/flexdoc-client@^2
 ```
 
 ```tsx
-import { FlexDoc } from '@bluejeans/flexdoc';
-import { openApiSpec } from './your-spec';
+import { FlexDoc } from '@bluejeans/flexdoc-client';
+import '@bluejeans/flexdoc-client/styles.css';
 
-function App() {
-  return (
-    <FlexDoc
-      spec={openApiSpec}
-      theme='light'
-      customStyles={{ fontFamily: 'Inter' }}
-    />
-  );
+export function Docs({ spec }) {
+  return <FlexDoc spec={spec} theme="light" tryItEnabled />;
 }
 ```
 
-### NestJS Integration
+The package also exports the standalone renderer used by non-React adapters.
+
+## Express
 
 ```bash
-npm install @bluejeans/flexdoc-backend
+npm install @bluejeans/flexdoc-backend@^2
 ```
 
-```typescript
-// app.module.ts
-import { Module } from '@nestjs/common';
-import { FlexDocModule } from '@bluejeans/flexdoc-backend';
-
-@Module({
-  imports: [
-    // Your other modules...
-    FlexDocModule.forRoot({
-      path: 'api-docs',
-      options: {
-        title: 'My API Documentation',
-        hideHostname: true,
-        pathInMiddlePanel: true,
-        // Enable authentication (optional)
-        auth: {
-          type: 'basic', // or 'bearer'
-          secretKey: process.env.FLEXDOC_SECRET_KEY || 'your-strong-secret-key',
-        },
-      },
-    }),
-  ],
-})
-export class AppModule {}
-```
-
-### Express Integration
-
-```typescript
+```ts
 import express from 'express';
-import { setupFlexDoc } from '@bluejeans/flexdoc-backend';
+import { setupExpressFlexDoc } from '@bluejeans/flexdoc-backend';
 
 const app = express();
 
-// Your other routes and middleware...
-
-// Set up FlexDoc
-setupFlexDoc(app, {
-  path: 'api-docs',
-  options: {
-    title: 'My API Documentation',
-    hideHostname: true,
-    pathInMiddlePanel: true,
-    // Enable authentication (optional)
-    auth: {
-      type: 'basic', // or 'bearer'
-      secretKey: process.env.FLEXDOC_SECRET_KEY || 'your-strong-secret-key',
-    },
-  },
+setupExpressFlexDoc(app, {
+  path: '/docs',
+  specUrl: 'https://example.com/openapi.json',
+  options: { title: 'Example API' },
 });
 
-app.listen(3000, () => {
-  console.log('Server running on http://localhost:3000');
+app.listen(3000);
+```
+
+`setupFlexDoc` remains available for the existing Express integration. Native `setupFastifyFlexDoc` and `setupNestFlexDoc` helpers are also exported.
+
+## NestJS
+
+If you use `@nestjs/swagger`, FlexDoc can generate the document through Nest's `SwaggerModule.createDocument` and then serve it with the same renderer:
+
+```ts
+import { setupNestFlexDoc } from '@bluejeans/flexdoc-backend';
+
+await setupNestFlexDoc(app, {
+  path: '/docs',
+  options: { title: 'My API' },
 });
 ```
 
-## Authentication
+`@nestjs/swagger` is optional and is only required when using the automatic Nest document helper.
 
-FlexDoc supports two authentication methods to secure your API documentation:
+## Spring Boot
 
-### Basic Authentication
+The Java adapter is currently built from this repository and is prepared for Maven Central publication. Once published, applications using springdoc can use `/v3/api-docs` without custom spec plumbing:
 
-```typescript
-// In your configuration
-options: {
-  auth: {
-    type: 'basic',
-    secretKey: process.env.FLEXDOC_SECRET_KEY
-  }
-}
+```yaml
+flexdoc:
+  path: /docs
+  spec-url: /v3/api-docs
+  title: My API
+  theme: dark
 ```
 
-Generate credentials for users:
+See [`adapters/java-spring`](./adapters/java-spring/README.md) for the complete integration and current publication status.
+
+## Architecture
+
+FlexDoc deliberately has one renderer implementation:
+
+```text
+OpenAPI document
+      |
+      v
+normalization / resolution
+      |
+      v
+canonical renderer + request model
+      |
+      +--> React
+      +--> standalone static assets
+      +--> Node framework adapters
+      +--> Spring Boot adapter
+      +--> future Python / Rust / Go adapters
+```
+
+Framework adapters obtain or generate the OpenAPI document, serve a small host page, and serve version-matched renderer assets. They do not reimplement parsing, request construction, code generation, Try It, schemas, or theming.
+
+The language-neutral contract is in [`packages/renderer-contract`](./packages/renderer-contract/).
+
+## Development
 
 ```bash
-# Using the CLI tool
-npx ts-node generate-auth.ts basic --username admin --secret your-strong-secret-key
+npm ci
+npm test --workspace=@bluejeans/flexdoc-client
+npm run build --workspace=@bluejeans/flexdoc-client
+npm test --workspace=@bluejeans/flexdoc-backend
+npm run build --workspace=@bluejeans/flexdoc-backend
+mvn -f adapters/java-spring/pom.xml verify
 ```
 
-### Bearer Authentication (JWT)
+CI additionally verifies that backend and Java artifacts contain the canonical standalone renderer assets.
 
-```typescript
-// In your configuration
-options: {
-  auth: {
-    type: 'bearer',
-    secretKey: process.env.FLEXDOC_SECRET_KEY
-  }
-}
-```
+## Release and distribution
 
-Generate JWT tokens:
+The JavaScript packages are released as a coordinated `2.x` line. New language adapters start with their own ecosystem-native versions and declare/document renderer-contract compatibility.
 
-```bash
-# Using the CLI tool
-npx ts-node generate-auth.ts bearer --expiry 30 --secret your-strong-secret-key
-```
+Publication credentials must never be committed to this repository. npm, Maven Central, PyPI and other registry credentials/trusted-publishing configuration belong in the registry and GitHub Actions environment configuration.
 
-For more details, see the [Authentication Guide](./packages/backend/docs/authentication.md).
-
-## Configuration Options
-
-### FlexDocOptions
-
-```typescript
-interface FlexDocOptions {
-  title?: string; // Page title
-  description?: string; // Page description
-  theme?: 'light' | 'dark' | ThemeOptions; // Color theme
-  customCss?: string; // Custom CSS styles
-  customJs?: string; // Custom JavaScript
-  favicon?: string; // Custom favicon URL
-  logo?: string; // Custom logo URL
-  hideHostname?: boolean; // Hide hostname in API endpoints
-  pathInMiddlePanel?: boolean; // Show path in middle panel
-
-  // Authentication
-  auth?: {
-    type: 'basic' | 'bearer';
-    secretKey: string;
-  };
-
-  // Advanced theming
-  theme_?: {
-    colors?: {
-      primary?: string; // Primary brand color
-      secondary?: string; // Secondary color
-      accent?: string; // Accent color
-      background?: string; // Background color
-      surface?: string; // Surface color
-      text?: string; // Text color
-      textSecondary?: string; // Secondary text color
-      border?: string; // Border color
-    };
-    typography?: {
-      fontSize?: string; // Base font size
-      fontFamily?: string; // Font family
-      lineHeight?: string; // Line height
-    };
-    spacing?: {
-      unit?: number; // Base spacing unit
-    };
-  };
-}
-```
-
-For a complete list of configuration options, see the [Configuration Guide](./docs/configuration.md).
-
-## Examples
-
-### Basic Usage
-
-```typescript
-FlexDocModule.forRoot({
-  path: 'api-docs',
-  options: {
-    title: 'Pet Store API',
-    description: 'Beautiful API documentation',
-    theme: 'light',
-  },
-});
-```
-
-### Custom Theming
-
-```typescript
-FlexDocModule.forRoot({
-  path: 'api-docs',
-  options: {
-    title: 'My API',
-    theme: {
-      primaryColor: '#6366f1',
-      secondaryColor: '#10b981',
-      backgroundColor: '#ffffff',
-      textColor: '#333333',
-    },
-    customCss: `
-      .flexdoc-container {
-        --border-radius: 12px;
-      }
-      .method-badge {
-        border-radius: var(--border-radius);
-      }
-    `,
-  },
-});
-```
-
-### Secured Documentation with Authentication
-
-```typescript
-FlexDocModule.forRoot({
-  path: 'api-docs',
-  options: {
-    title: 'Internal API Documentation',
-    theme: 'dark',
-    auth: {
-      type: 'basic', // or 'bearer'
-      secretKey: process.env.FLEXDOC_SECRET_KEY,
-    },
-  },
-});
-```
-
-### Multiple Documentation Sites
-
-```typescript
-// Public API docs
-FlexDocModule.forRoot({
-  path: 'public-docs',
-  options: { title: 'Public API' },
-});
-
-// Internal API docs (with authentication)
-FlexDocModule.forRoot({
-  path: 'internal-docs',
-  options: {
-    title: 'Internal API',
-    theme: 'dark',
-    auth: {
-      type: 'basic',
-      secretKey: process.env.FLEXDOC_SECRET_KEY,
-    },
-  },
-});
-```
-
-## Running the Example
-
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Navigate to the NestJS example:
-   ```bash
-   cd packages/examples/nestjs
-   npm run start:dev
-   ```
-4. Open your browser:
-   - FlexDoc: http://localhost:3000/api-docs
-
-## Comparison with Other Tools
-
-| Feature              | FlexDoc | Redoc | Swagger UI |
-| -------------------- | ------- | ----- | ---------- |
-| Modern UI            | ✅      | ✅    | ❌         |
-| Mobile Responsive    | ✅      | ✅    | ⚠️         |
-| Interactive Examples | ✅      | ❌    | ✅         |
-| Advanced Search      | ✅      | ⚠️    | ❌         |
-| Custom Theming       | ✅      | ⚠️    | ⚠️         |
-| Authentication       | ✅      | ❌    | ⚠️         |
-| Performance          | ✅      | ✅    | ⚠️         |
-| Easy Integration     | ✅      | ✅    | ✅         |
-
-## Browser Support
-
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-## Testing
-
-FlexDoc uses Jest for testing both the client and backend packages. Each package has its own test configuration and coverage reports.
-
-### Client Tests
-
-```bash
-cd packages/client
-npm test
-```
-
-To generate coverage reports:
-
-```bash
-cd packages/client
-npm run test:coverage
-```
-
-### Backend Tests
-
-```bash
-cd packages/backend
-npm test
-```
-
-To generate coverage reports:
-
-```bash
-cd packages/backend
-npm run test:coverage
-```
-
-## License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## Support
-
-- 📖 [Documentation](https://bluejeans117.github.io/flexdoc)
-- 🐛 [Issue Tracker](https://github.com/bluejeans117/flexdoc/issues)
-- 📧 [Email Support](mailto:vishnurajesh45@gmail.com)
+See [Distribution and versioning](./docs/distribution.md) for the release model, Maven Central setup, and the planned Python/Rust/Go distribution paths.
 
 ## Documentation
 
-- [Getting Started](./docs/getting-started.md)
-- [Configuration Options](./docs/configuration.md)
-- [Theming Guide](./docs/theming.md)
-- [Authentication](./packages/backend/docs/authentication.md)
-- [API Reference](./docs/api-reference.md)
-- [Examples](./packages/examples)
+- [Getting started](./docs/getting-started.md)
+- [Configuration](./docs/configuration.md)
+- [Framework adapters](./docs/framework-adapters.md)
+- [Renderer product/architecture](./docs/renderer-product.md)
+- [Distribution and versioning](./docs/distribution.md)
+- [Theming](./docs/theming.md)
+- [API reference](./docs/api-reference.md)
+
+## Security and self-hosting
+
+FlexDoc renderer assets are packaged with the integration rather than fetched from a third-party CDN. Documentation-route Basic/Bearer credentials are validated on the server and are not serialized into the browser configuration.
+
+Do not commit `.env` files, publishing tokens, signing keys, API credentials, or production secrets. Local `.env*` files are ignored except explicitly named example files.
+
+## License
+
+FlexDoc is licensed under **AGPL-3.0-or-later**. See [LICENSE](./LICENSE).
+
+## Project
+
+- Documentation/demo: https://bluejeans117.github.io/flexdoc
+- Issues: https://github.com/bluejeans117/flexdoc/issues
