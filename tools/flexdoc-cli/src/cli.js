@@ -4,6 +4,7 @@ import { access, cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:
 import { tmpdir } from 'node:os';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { bundleExternalReferences } from '@bluejeans/flexdoc-client';
 import yaml from 'js-yaml';
 
 const HELP = `FlexDoc CLI\n\nUsage:\n  flexdoc build <openapi> [--out <dir>] [--base-path <path>] [--title <title>] [--force]\n  flexdoc serve <openapi> [--host <host>] [--port <port>] [--base-path <path>] [--title <title>] [--watch]\n\nInput may be a local .json/.yaml/.yml file or an http(s) URL.\n`;
@@ -80,66 +81,12 @@ async function readSource(source, parentUri, requireOpenApi = false) {
   return { document: requireOpenApi ? validateOpenApi(document, uri) : document, uri };
 }
 
-function encodePointerToken(token) { return token.replace(/~/g, '~0').replace(/\//g, '~1'); }
-
-function splitRef(ref, fromUri) {
-  if (ref.startsWith('#')) return { documentUri: fromUri, pointer: ref };
-  const url = new URL(ref, fromUri);
-  const pointer = url.hash || '#';
-  url.hash = '';
-  return { documentUri: url.toString(), pointer };
-}
-
-function externalPointer(documentUri, pointer) {
-  const key = encodePointerToken(documentUri);
-  if (pointer === '#' || pointer === '') return `#/x-flexdoc-external-documents/${key}`;
-  if (!pointer.startsWith('#/')) throw new Error(`Unsupported JSON Pointer reference: ${pointer}`);
-  return `#/x-flexdoc-external-documents/${key}/${pointer.slice(2)}`;
-}
-
-async function bundleReferences(rootDocument, rootUri) {
-  const root = JSON.parse(JSON.stringify(rootDocument));
-  const externalDocuments = {};
-  const loading = new Map();
-  const visited = new Set();
-
-  async function getDocument(uri) {
-    if (uri === rootUri) return root;
-    if (externalDocuments[uri]) return externalDocuments[uri];
-    if (!loading.has(uri)) loading.set(uri, readSource(uri).then(({ document }) => JSON.parse(JSON.stringify(document))));
-    const document = await loading.get(uri);
-    externalDocuments[uri] = document;
-    return document;
-  }
-
-  async function rewriteDocument(document, documentUri) {
-    if (visited.has(documentUri)) return;
-    visited.add(documentUri);
-    async function walk(node) {
-      if (!node || typeof node !== 'object') return;
-      if (Array.isArray(node)) { for (const item of node) await walk(item); return; }
-      if (typeof node.$ref === 'string') {
-        const target = splitRef(node.$ref, documentUri);
-        if (target.documentUri === rootUri) node.$ref = target.pointer;
-        else if (target.documentUri !== documentUri) {
-          const targetDocument = await getDocument(target.documentUri);
-          node.$ref = externalPointer(target.documentUri, target.pointer);
-          await rewriteDocument(targetDocument, target.documentUri);
-        } else if (documentUri !== rootUri) node.$ref = externalPointer(documentUri, target.pointer);
-      }
-      for (const [key, value] of Object.entries(node)) if (key !== '$ref') await walk(value);
-    }
-    await walk(document);
-  }
-
-  await rewriteDocument(root, rootUri);
-  if (Object.keys(externalDocuments).length) root['x-flexdoc-external-documents'] = externalDocuments;
-  return root;
-}
-
 async function loadBundledSpec(input, title) {
   const { document, uri } = await readSource(input, undefined, true);
-  const bundled = await bundleReferences(document, uri);
+  const bundled = await bundleExternalReferences(document, {
+    baseUri: uri,
+    load: async (referenceUri) => (await readSource(referenceUri)).document,
+  });
   if (title) bundled.info.title = title;
   return bundled;
 }
