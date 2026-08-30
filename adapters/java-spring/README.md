@@ -2,6 +2,20 @@
 
 Java/Spring adapter for the canonical FlexDoc browser renderer. The JAR packages the same version-matched `flexdoc.standalone.js` and `flexdoc.standalone.css` used by the Node integrations; it does not implement a Java-specific OpenAPI renderer.
 
+Current source version: `0.1.0`. It targets renderer contract v1 / FlexDoc renderer 2.x.
+
+> The artifact is prepared for Maven Central publication but should not be described as available from Central until the first release has actually been published and verified.
+
+Planned coordinates:
+
+```xml
+<dependency>
+  <groupId>io.github.bluejeans117.flexdoc</groupId>
+  <artifactId>flexdoc-spring-boot-starter</artifactId>
+  <version>0.1.0</version>
+</dependency>
+```
+
 ## Spring Boot + springdoc
 
 If your application already exposes the standard springdoc endpoint at `/v3/api-docs`, the default configuration is enough. Adding the starter exposes FlexDoc at `/docs`; the browser loads `/v3/api-docs` from the same origin and the shared renderer handles references, Try It, schemas and code examples.
@@ -43,11 +57,14 @@ The adapter intentionally owns only framework plumbing: obtaining the OpenAPI do
 
 ## Building in this repository
 
-Build the standalone renderer first, then package the JAR:
+Build the standalone renderer first, then package and verify the JAR:
 
 ```bash
 npm run build:client
 mvn -f adapters/java-spring/pom.xml verify
+jar tf adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0.jar | grep META-INF/flexdoc
 ```
 
-CI verifies the Spring tests and that the resulting JAR contains both version-matched renderer assets.
+The release build attaches source and Javadoc JARs. CI should also verify that the resulting JAR contains both canonical renderer assets before publication.
+
+For Central setup and the versioning model used by future language adapters, see [`docs/distribution.md`](../../docs/distribution.md).
