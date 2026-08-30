@@ -10,20 +10,22 @@ The renderer contract is the compatibility boundary between the shared browser p
 | --- | --- | --- |
 | `@bluejeans/flexdoc-client` | `2.x` | canonical renderer; renderer contract v1 |
 | `@bluejeans/flexdoc-backend` | `2.x` | packages the matching 2.x standalone renderer; contract v1 |
+| `@bluejeans/flexdoc-cli` | `0.x` initially | consumes a compatible FlexDoc 2.x client and renderer contract v1 |
 | Spring Boot starter | `0.1.x` initially | renderer contract v1 / FlexDoc renderer 2.x |
 | Python adapter | future independent version | declare supported renderer contract |
 | Rust adapter | future independent version | declare supported renderer contract |
 | Go adapter | future independent module version | declare supported renderer contract |
 
-Do not synchronize versions across registries merely for aesthetics. Existing npm packages have release history, while a new Maven artifact does not. Instead, CI and package documentation must make renderer-contract compatibility explicit.
+Do not synchronize versions across registries merely for aesthetics. Existing npm packages have release history, while new ecosystem artifacts do not. Instead, CI and package documentation must make renderer-contract compatibility explicit.
 
 A breaking renderer-contract change requires a new contract major. An adapter can evolve independently while it continues to consume the same contract.
 
 ## Release tags
 
-Registry releases are intentionally scoped by ecosystem so independent adapter versions do not trigger unrelated publishers:
+Registry releases are intentionally scoped by ecosystem/package family so independent versions do not trigger unrelated publishers:
 
 - `js/v<version>` publishes the coordinated npm client/backend release;
+- `cli/v<version>` publishes `@bluejeans/flexdoc-cli`;
 - `java/v<version>` publishes the Spring Boot adapter to Maven Central.
 
 Future adapters should use an equivalent ecosystem-specific tag family when they gain automated publishing.
@@ -34,12 +36,13 @@ The npm packages are public scoped packages:
 
 - `@bluejeans/flexdoc-client`
 - `@bluejeans/flexdoc-backend`
+- `@bluejeans/flexdoc-cli`
 
-For the consolidated renderer architecture, both packages move to `2.0.0`.
+The client/backend stay on a coordinated `2.x` line because the backend packages the canonical renderer. The CLI has its own `0.x` line and declares a compatible client dependency.
 
-The release workflows use npm Trusted Publishing through GitHub OIDC. No long-lived `NPM_TOKEN` is required. The trusted-publisher relationship on npmjs.com must point to the exact GitHub repository and workflow filename for each package.
+The release workflows use npm Trusted Publishing through GitHub OIDC. No long-lived `NPM_TOKEN` is required after the trusted-publisher relationship exists. The trusted-publisher relationship on npmjs.com must point to the exact GitHub repository and workflow filename for each package.
 
-Release policy:
+### Client/backend release policy
 
 1. merge only after client/backend tests, standalone build checks, contract validation, backend asset checks and Java verification are green;
 2. create an immutable `js/v<version>` Git tag/GitHub Release;
@@ -48,7 +51,31 @@ Release policy:
 5. publish using npm Trusted Publishing;
 6. never rewrite a registry version. Fixes receive a new patch version.
 
-The two npm packages should remain on the same 2.x version for now because the backend vendors the canonical client renderer and coordinated versions make that relationship obvious.
+The two coordinated npm packages should remain on the same 2.x version for now because the backend vendors the canonical client renderer and coordinated versions make that relationship obvious.
+
+### CLI release policy
+
+The CLI uses `.github/workflows/publish-cli.yml` and `cli/v<version>` GitHub Releases.
+
+Before publication the workflow:
+
+1. builds the canonical client renderer used by the CLI;
+2. runs the CLI build/serve contract tests;
+3. validates the GitHub Release tag exactly matches `tools/flexdoc-cli/package.json`;
+4. packs the CLI tarball;
+5. installs that tarball into a clean temporary npm consumer;
+6. verifies the installed `flexdoc` binary reports the expected version;
+7. builds the nested external-reference fixture through the installed tarball and checks the generated static site/bundled spec;
+8. switches to the current Trusted-Publishing-capable npm/Node toolchain and publishes through OIDC.
+
+The first npm publication may require a one-time registry-side bootstrap before npm allows configuring Trusted Publishing for the new package. After that bootstrap, configure the Trusted Publisher for:
+
+- repository owner: `bluejeans117`;
+- repository: `flexdoc`;
+- workflow filename: `publish-cli.yml`;
+- publication permission: `npm publish`.
+
+Do not create a GitHub Release for a registry version that was already manually bootstrap-published, because npm package versions are immutable and the workflow would attempt to republish the same version.
 
 ## Maven Central / Spring Boot
 
