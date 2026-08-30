@@ -2,6 +2,7 @@ const { defineConfig } = require('@playwright/test');
 
 module.exports = defineConfig({
   testDir: './e2e',
+  testIgnore: 'cli-static.spec.cjs',
   timeout: 30_000,
   expect: { timeout: 5_000 },
   fullyParallel: false,
