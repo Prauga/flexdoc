@@ -26,9 +26,9 @@ Browser-side loading of cross-origin external OpenAPI references is subject to t
 
 | Package | Version | Purpose |
 | --- | --- | --- |
-| `@bluejeans/flexdoc-client` | `2.0.0` | React components plus the canonical standalone renderer |
-| `@bluejeans/flexdoc-backend` | `2.0.0` | Thin Express, Fastify and NestJS integrations |
-| `io.github.bluejeans117.flexdoc:flexdoc-spring-boot-starter` | `0.1.0` | Spring Boot adapter; Maven Central publication is prepared separately |
+| `@bluejeans/flexdoc-client` | `2.0.1` | React components plus the canonical standalone renderer |
+| `@bluejeans/flexdoc-backend` | `2.0.1` | Thin Express, Fastify and NestJS integrations |
+| `io.github.bluejeans117.flexdoc:flexdoc-spring-boot-starter` | `0.1.0` | Spring Boot adapter published on Maven Central |
 
 Language adapters have independent ecosystem versions. Compatibility is governed by the renderer contract rather than forcing npm, Maven, PyPI, crates.io and Go modules to share one version number. See [Distribution and versioning](./docs/distribution.md).
 
@@ -89,7 +89,15 @@ await setupNestFlexDoc(app, {
 
 ## Spring Boot
 
-The Java adapter is currently built from this repository and is prepared for Maven Central publication. Once published, applications using springdoc can use `/v3/api-docs` without custom spec plumbing:
+The Java adapter is published on Maven Central as `io.github.bluejeans117.flexdoc:flexdoc-spring-boot-starter:0.1.0`. Applications using springdoc can use `/v3/api-docs` without custom spec plumbing:
+
+```xml
+<dependency>
+  <groupId>io.github.bluejeans117.flexdoc</groupId>
+  <artifactId>flexdoc-spring-boot-starter</artifactId>
+  <version>0.1.0</version>
+</dependency>
+```
 
 ```yaml
 flexdoc:
@@ -99,7 +107,7 @@ flexdoc:
   theme: dark
 ```
 
-See [`adapters/java-spring`](./adapters/java-spring/README.md) for the complete integration and current publication status.
+See [`adapters/java-spring`](./adapters/java-spring/README.md) for the complete integration.
 
 ## Architecture
 
@@ -136,7 +144,7 @@ npm run build --workspace=@bluejeans/flexdoc-backend
 mvn -f adapters/java-spring/pom.xml verify
 ```
 
-CI additionally verifies that backend and Java artifacts contain the canonical standalone renderer assets.
+CI additionally verifies the packed npm client from a clean TypeScript consumer and checks that backend and Java artifacts contain the canonical standalone renderer assets.
 
 ## Release and distribution
 
