@@ -31,6 +31,9 @@ jobs:
       - name: Build client package
         run: npm run build -w packages/client
 
+      - name: Verify packed client package from a clean consumer
+        run: node scripts/verify-client-package.mjs
+
       - name: Verify JavaScript release tag matches package version
         run: |
           VERSION=$(node -p "require('./packages/client/package.json').version")
