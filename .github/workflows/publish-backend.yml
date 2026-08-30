@@ -46,8 +46,8 @@ jobs:
 
       - name: Verify packaged renderer assets
         run: |
-          test -f packages/backend/dist/assets/flexdoc.standalone.js
-          test -f packages/backend/dist/assets/flexdoc.standalone.css
+          test -f packages/backend/dist/renderer/flexdoc.standalone.js
+          test -f packages/backend/dist/renderer/flexdoc.standalone.css
 
       - name: Inspect npm package contents
         run: npm pack --dry-run -w packages/backend
