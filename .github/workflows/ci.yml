@@ -37,6 +37,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Test framework-neutral core
+        run: npm test -w packages/core
+
+      - name: Verify core package contents
+        run: npm pack --dry-run -w packages/core
+
       - name: Test client
         run: npm test -w packages/client -- --runInBand
 
