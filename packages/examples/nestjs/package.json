@@ -14,7 +14,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
+    "test:debug": "node --inspect-brk -r tsconfig-paths/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "gen:auth:basic": "npx ts-node ../../backend/src/scripts/generate-auth.ts basic",
     "gen:auth:bearer": "npx ts-node ../../backend/src/scripts/generate-auth.ts bearer"
@@ -27,7 +27,7 @@
     "directory": "packages/examples/nestjs"
   },
   "dependencies": {
-    "@bluejeans/flexdoc-backend": "^1.0.3",
+    "@bluejeans/flexdoc-backend": "^2.0.0",
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0",
     "@nestjs/platform-express": "^10.0.0",
