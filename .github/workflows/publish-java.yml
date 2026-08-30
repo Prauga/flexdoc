@@ -3,14 +3,13 @@ name: Publish Spring Adapter to Maven Central
 on:
   release:
     types: [published]
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   build-sign-and-publish:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'java/v')
+    if: startsWith(github.event.release.tag_name, 'java/v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -39,7 +38,6 @@ jobs:
         run: npm run build:client
 
       - name: Verify Java release tag matches adapter version
-        if: github.event_name == 'release'
         run: |
           VERSION=$(mvn -q -f adapters/java-spring/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)
           test "${{ github.event.release.tag_name }}" = "java/v${VERSION}"
