@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    name: test-and-build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test client
+        run: npm test -w packages/client -- --runInBand
+
+      - name: Build client and standalone renderer
+        run: npm run build:client
+
+      - name: Verify standalone renderer artifacts
+        run: |
+          test -s packages/client/dist/standalone/flexdoc.standalone.js
+          test -s packages/client/dist/standalone/flexdoc.standalone.css
+
+      - name: Verify language-neutral renderer contract
+        run: |
+          test -s packages/renderer-contract/flexdoc-renderer.schema.json
+          node -e "JSON.parse(require('fs').readFileSync('packages/renderer-contract/flexdoc-renderer.schema.json', 'utf8'))"
+
+      - name: Test backend
+        run: npm test -w packages/backend -- --runInBand
+
+      - name: Build backend with packaged renderer
+        run: npm run build:backend
+
+      - name: Verify backend renderer artifacts
+        run: |
+          test -s packages/backend/dist/renderer/flexdoc.standalone.js
+          test -s packages/backend/dist/renderer/flexdoc.standalone.css
+
+      - name: Test Java Spring adapter with release profile
+        run: mvn -f adapters/java-spring/pom.xml --batch-mode -Prelease -Dgpg.skip=true verify
+
+      - name: Verify Java adapter packages renderer assets
+        run: |
+          JAR=adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0.jar
+          jar tf "$JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.js'
+          jar tf "$JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.css'
+          test -s adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-sources.jar
+          test -s adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-javadoc.jar

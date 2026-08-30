@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flexdoc.dev/schema/renderer-contract-v1.json",
+  "title": "FlexDoc Renderer Contract v1",
+  "type": "object",
+  "required": ["contractVersion", "spec"],
+  "additionalProperties": false,
+  "properties": {
+    "contractVersion": { "const": "1" },
+    "spec": { "type": "object" },
+    "options": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "contractVersion": { "const": "1" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "altDescription": { "type": "string" },
+        "version": { "type": "string" },
+        "theme": { "oneOf": [{ "enum": ["light", "dark"] }, { "type": "object" }] },
+        "favicon": { "type": "string" },
+        "logo": { "oneOf": [{ "type": "string" }, { "type": "object" }] },
+        "tagGroups": { "type": "array", "items": { "type": "object", "required": ["name", "tags"], "properties": { "name": { "type": "string" }, "tags": { "type": "array", "items": { "type": "string" } } } } },
+        "hideDownloadButton": { "type": "boolean" },
+        "hideTopbar": { "type": "boolean" },
+        "hideHostname": { "type": "boolean" },
+        "showRequestHeaders": { "type": "boolean" },
+        "requiredPropsFirst": { "type": "boolean" },
+        "sortPropsAlphabetically": { "type": "boolean" },
+        "tryIt": { "type": "object", "properties": { "enabled": { "type": "boolean" }, "defaultServer": { "type": "string" }, "credentials": { "enum": ["omit", "same-origin", "include"] } } },
+        "codeSamples": { "type": "object", "properties": { "enabled": { "type": "boolean" }, "languages": { "type": "array", "items": { "enum": ["curl", "javascript", "python", "go", "java"] } } } },
+        "footer": { "type": "object" }
+      }
+    }
+  }
+}

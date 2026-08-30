@@ -2,17 +2,17 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
   moduleNameMapper: {
-    '\\.(css|less|scss|sass)$': '<rootDir>/__mocks__/styleMock.js',
-    '\\.(jpg|jpeg|png|gif|webp|svg)$': '<rootDir>/__mocks__/fileMock.js',
-    '^prismjs$': '<rootDir>/__mocks__/prismjs.js',
-    '^prismjs/components/.*$': '<rootDir>/__mocks__/prismjs.js',
-    '^prismjs/themes/.*$': '<rootDir>/__mocks__/styleMock.js',
+    '\\.(css|less|scss|sass)$': '<rootDir>/__mocks__/styleMock.cjs',
+    '\\.(jpg|jpeg|png|gif|webp|svg)$': '<rootDir>/__mocks__/fileMock.cjs',
+    '^prismjs$': '<rootDir>/__mocks__/prismjs.cjs',
+    '^prismjs/components/.*$': '<rootDir>/__mocks__/prismjs.cjs',
+    '^prismjs/themes/.*$': '<rootDir>/__mocks__/styleMock.cjs',
   },
   setupFilesAfterEnv: [
-    '<rootDir>/jest.setup.js',
+    '<rootDir>/jest.setup.cjs',
     '<rootDir>/src/setupTests.ts',
   ],
-  collectCoverage: true,
+  collectCoverage: false,
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
@@ -29,4 +29,3 @@ module.exports = {
   },
   testMatch: ['**/__tests__/**/*.{ts,tsx}', '**/*.{spec,test}.{ts,tsx}'],
 };
-

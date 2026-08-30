@@ -152,7 +152,7 @@ paths:
       });
     });
 
-    it('should throw error for non-local reference', () => {
+    it('should require external references to be bundled before synchronous resolution', () => {
       const spec = {} as OpenAPISpec;
       expect(() =>
         OpenAPIParser.resolveReference(spec, 'external/reference')

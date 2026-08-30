@@ -14,7 +14,7 @@
     "examples"
   ],
   "scripts": {
-    "build": "npm run build --workspaces",
+    "build": "npm run build:client && npm run build:backend",
     "dev:client": "npm run dev -w packages/client",
     "dev:backend": "npm run dev -w packages/backend",
     "build:client": "npm run build -w packages/client",
