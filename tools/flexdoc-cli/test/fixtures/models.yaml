@@ -1,0 +1,13 @@
+$defs:
+  Pet:
+    type: object
+    required: [id, name]
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      tags:
+        type: array
+        items:
+          $ref: ./common.yaml#/$defs/Tag
