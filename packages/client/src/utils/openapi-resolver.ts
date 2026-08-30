@@ -1,5 +1,5 @@
 import type { OpenAPISpec } from '../types/openapi';
-import { bundleExternalReferences as coreBundleExternalReferences, EXTERNAL_DOCUMENTS_KEY } from '../../../../core/src/openapi-resolver';
+import { bundleExternalReferences as coreBundleExternalReferences, EXTERNAL_DOCUMENTS_KEY } from '../../../../core/dist/openapi-resolver.js';
 
 export type DocumentLoader = (uri: string) => Promise<unknown>;
 export interface BundleOptions { baseUri: string; load?: DocumentLoader; }
