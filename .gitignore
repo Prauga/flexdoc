@@ -34,4 +34,5 @@ coverage
 
 # Playwright local output (visual baselines under e2e/**/*-snapshots stay tracked)
 playwright-report/
+playwright-cli-report/
 test-results/
