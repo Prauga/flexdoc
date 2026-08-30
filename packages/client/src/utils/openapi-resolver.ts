@@ -65,9 +65,8 @@ export async function bundleExternalReferences(spec: OpenAPISpec, options: Bundl
 
   const visited = new Set<string>();
   async function rewriteDocument(document: any, documentUri: string): Promise<void> {
-    const visitKey = documentUri;
-    if (visited.has(visitKey)) return;
-    visited.add(visitKey);
+    if (visited.has(documentUri)) return;
+    visited.add(documentUri);
 
     async function walk(node: any): Promise<void> {
       if (!node || typeof node !== 'object') return;
@@ -79,7 +78,9 @@ export async function bundleExternalReferences(spec: OpenAPISpec, options: Bundl
         const target = splitReference(node.$ref, documentUri);
         if (target.documentUri !== documentUri) {
           const targetDoc = await getDocument(target.documentUri);
-          node.$ref = externalPointer(target.documentUri, target.pointer);
+          node.$ref = target.documentUri === rootUri
+            ? target.pointer
+            : externalPointer(target.documentUri, target.pointer);
           await rewriteDocument(targetDoc, target.documentUri);
         } else if (documentUri !== rootUri) {
           node.$ref = externalPointer(documentUri, target.pointer);
