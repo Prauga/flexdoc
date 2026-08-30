@@ -16,9 +16,10 @@ test('CLI static export renders, deep-links, and executes Try It', async ({ page
 
   await page.goto('');
   await expect(page.getByText('CLI Fixture API', { exact: true }).first()).toBeVisible();
-  await expect(page.getByText('/pets/{id}', { exact: true })).toBeVisible();
+  const sidebar = page.getByRole('complementary');
+  await expect(sidebar.getByText('/pets/{id}', { exact: true })).toBeVisible();
 
-  await page.locator('button').filter({ hasText: '/pets/{id}' }).click();
+  await sidebar.locator('button').filter({ hasText: '/pets/{id}' }).click();
   await expect(page).toHaveURL(/#get-pets-id$/);
   await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
   await page.getByLabel('path id').fill('42');
