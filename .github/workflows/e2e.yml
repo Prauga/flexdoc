@@ -11,7 +11,7 @@ permissions:
 jobs:
   playwright:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -25,14 +25,23 @@ jobs:
       - name: Install repository dependencies
         run: npm ci
 
+      - name: Build canonical standalone renderer
+        run: npm run build:client
+
+      - name: Install CLI dependencies
+        run: npm install --prefix tools/flexdoc-cli --ignore-scripts --no-audit --no-fund
+
       - name: Install pinned Playwright test runner
         run: npm install --no-save --package-lock=false @playwright/test@1.62.1
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run browser E2E and visual regression checks
+      - name: Run renderer browser E2E and visual regression checks
         run: npx playwright test
+
+      - name: Run CLI static-site browser E2E
+        run: npx playwright test --config playwright.cli.config.cjs
 
       - name: Upload Playwright test output
         if: failure()
@@ -42,10 +51,18 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
 
-      - name: Upload Playwright report
+      - name: Upload renderer Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
+          if-no-files-found: ignore
+
+      - name: Upload CLI Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-cli-report
+          path: playwright-cli-report/
           if-no-files-found: ignore

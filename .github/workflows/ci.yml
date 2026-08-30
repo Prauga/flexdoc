@@ -51,6 +51,17 @@ jobs:
           test -s packages/client/dist/standalone/flexdoc.standalone.js
           test -s packages/client/dist/standalone/flexdoc.standalone.css
 
+      - name: Install CLI dependencies
+        run: npm install --prefix tools/flexdoc-cli --ignore-scripts --no-audit --no-fund
+
+      - name: Test CLI build and serve contracts
+        env:
+          FLEXDOC_CLIENT_DIR: ${{ github.workspace }}/packages/client
+        run: npm test --prefix tools/flexdoc-cli
+
+      - name: Verify CLI package contents
+        run: npm pack --prefix tools/flexdoc-cli --dry-run
+
       - name: Verify language-neutral renderer contract
         run: |
           test -s packages/renderer-contract/flexdoc-renderer.schema.json
