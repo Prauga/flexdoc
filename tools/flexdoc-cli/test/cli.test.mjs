@@ -2,14 +2,17 @@ import assert from 'node:assert/strict';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
+import { bundleExternalReferences } from '@bluejeans/flexdoc-client';
+import yaml from 'js-yaml';
 import { buildSite, serveSite } from '../src/cli.js';
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const cliDir = resolve(testDir, '..');
 const repoRoot = resolve(cliDir, '../..');
-const fixture = join(testDir, 'fixtures/openapi.yaml');
+const fixtureDir = join(testDir, 'fixtures');
+const fixture = join(fixtureDir, 'openapi.yaml');
 process.env.FLEXDOC_CLIENT_DIR = join(repoRoot, 'packages/client');
 
 async function temp(name) {
@@ -17,6 +20,10 @@ async function temp(name) {
   await rm(root, { recursive: true, force: true });
   await mkdir(root, { recursive: true });
   return root;
+}
+
+async function loadYamlFile(path) {
+  return yaml.load(await readFile(path, 'utf8'));
 }
 
 test('build creates a deployable static site and bundles nested external refs', async () => {
@@ -45,6 +52,25 @@ test('build creates a deployable static site and bundles nested external refs', 
     assert.match(responseRef, /^#\/x-flexdoc-external-documents\//);
     assert.ok(externalDocs.some((doc) => doc.$defs?.Pet));
     assert.ok(externalDocs.some((doc) => doc.$defs?.Tag));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('CLI build output exactly matches the client OpenAPI bundler', async () => {
+  const root = await temp('parity');
+  const out = join(root, 'site');
+  try {
+    const rootSpec = await loadYamlFile(fixture);
+    const rootUri = pathToFileURL(fixture).toString();
+    const clientBundled = await bundleExternalReferences(rootSpec, {
+      baseUri: rootUri,
+      load: async (uri) => loadYamlFile(fileURLToPath(uri)),
+    });
+
+    await buildSite(fixture, { out });
+    const cliBundled = JSON.parse(await readFile(join(out, 'openapi.json'), 'utf8'));
+    assert.deepEqual(cliBundled, clientBundled);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
