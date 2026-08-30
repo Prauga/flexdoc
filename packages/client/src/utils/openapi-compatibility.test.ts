@@ -68,7 +68,7 @@ describe('OpenAPI compatibility corpus', () => {
     expect(apiKeys.headers.Cookie).toBe('api_session=cookie-secret');
     expect(apiKeys.url).toContain('api_key=query-secret');
 
-    const basicSpec = structuredClone(openapi30Spec);
+    const basicSpec = JSON.parse(JSON.stringify(openapi30Spec));
     basicSpec.paths['/pets/{id}'].get!.security = [{ basic: [] }];
     const basic = buildRequest(basicSpec, '/pets/{id}', 'get', {
       serverUrl: 'https://api.example.test', parameters: { id: '42' }, auth: { basic: 'user:pa:ss' },
