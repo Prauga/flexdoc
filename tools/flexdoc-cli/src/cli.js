@@ -53,7 +53,8 @@ function parseArgs(argv) {
 async function parseDocument(text, source) {
   let document;
   try {
-    document = extname(source).toLowerCase() === '.json' ? JSON.parse(text) : yaml.load(text);
+    const sourcePath = source.startsWith('file:') ? fileURLToPath(source) : source;
+    document = extname(sourcePath).toLowerCase() === '.json' ? JSON.parse(text) : yaml.load(text);
   } catch (error) {
     throw new Error(`Invalid OpenAPI document at ${source}: ${error instanceof Error ? error.message : error}`);
   }
@@ -64,24 +65,20 @@ async function parseDocument(text, source) {
 }
 
 async function readSource(source, parentUri) {
-  const isRemote = /^https?:\/\//i.test(source);
-  if (isRemote) {
+  if (/^https?:\/\//i.test(source)) {
     const response = await fetch(source, { redirect: 'follow' });
     if (!response.ok) throw new Error(`Failed to load ${source}: HTTP ${response.status}`);
     return { document: await parseDocument(await response.text(), source), uri: response.url };
   }
-  if (parentUri?.startsWith('http')) {
-    const url = new URL(source, parentUri).toString();
-    return readSource(url);
+  if (source.startsWith('file:')) {
+    const absolute = fileURLToPath(source);
+    return { document: await parseDocument(await readFile(absolute, 'utf8'), source), uri: pathToFileURL(absolute).toString() };
   }
+  if (parentUri?.startsWith('http')) return readSource(new URL(source, parentUri).toString());
   const absolute = parentUri?.startsWith('file:')
     ? resolve(dirname(fileURLToPath(parentUri)), source)
     : resolve(source);
   return { document: await parseDocument(await readFile(absolute, 'utf8'), absolute), uri: pathToFileURL(absolute).toString() };
-}
-
-function decodePointerToken(token) {
-  return decodeURIComponent(token).replace(/~1/g, '/').replace(/~0/g, '~');
 }
 
 function encodePointerToken(token) {
@@ -112,9 +109,7 @@ async function bundleReferences(rootDocument, rootUri) {
   async function getDocument(uri) {
     if (uri === rootUri) return root;
     if (externalDocuments[uri]) return externalDocuments[uri];
-    if (!loading.has(uri)) {
-      loading.set(uri, readSource(uri).then(({ document }) => JSON.parse(JSON.stringify(document))));
-    }
+    if (!loading.has(uri)) loading.set(uri, readSource(uri).then(({ document }) => JSON.parse(JSON.stringify(document))));
     const document = await loading.get(uri);
     externalDocuments[uri] = document;
     return document;
@@ -132,15 +127,12 @@ async function bundleReferences(rootDocument, rootUri) {
       }
       if (typeof node.$ref === 'string') {
         const target = splitRef(node.$ref, documentUri);
-        if (target.documentUri === rootUri) {
-          node.$ref = target.pointer;
-        } else if (target.documentUri !== documentUri) {
+        if (target.documentUri === rootUri) node.$ref = target.pointer;
+        else if (target.documentUri !== documentUri) {
           const targetDocument = await getDocument(target.documentUri);
           node.$ref = externalPointer(target.documentUri, target.pointer);
           await rewriteDocument(targetDocument, target.documentUri);
-        } else if (documentUri !== rootUri) {
-          node.$ref = externalPointer(documentUri, target.pointer);
-        }
+        } else if (documentUri !== rootUri) node.$ref = externalPointer(documentUri, target.pointer);
       }
       for (const [key, value] of Object.entries(node)) if (key !== '$ref') await walk(value);
     }
@@ -169,8 +161,8 @@ async function rendererFiles() {
     };
   }
   return {
-    js: fileURLToPath(await import.meta.resolve('@bluejeans/flexdoc-client/standalone.js')),
-    css: fileURLToPath(await import.meta.resolve('@bluejeans/flexdoc-client/standalone.css')),
+    js: fileURLToPath(import.meta.resolve('@bluejeans/flexdoc-client/standalone.js')),
+    css: fileURLToPath(import.meta.resolve('@bluejeans/flexdoc-client/standalone.css')),
   };
 }
 
@@ -205,8 +197,8 @@ function html({ title, basePath }) {
 
 async function ensureEmptyOutput(outDir, force) {
   try {
-    const entries = await readFile(join(outDir, '.flexdoc-generated'), 'utf8').catch(() => null);
-    if (!force && entries === null) {
+    const marker = await readFile(join(outDir, '.flexdoc-generated'), 'utf8').catch(() => null);
+    if (!force && marker === null) {
       const directory = await stat(outDir);
       if (directory.isDirectory()) throw new Error(`Output directory already exists: ${outDir}. Use --force to replace it.`);
     }
@@ -246,15 +238,11 @@ async function createStaticServer(root, { host, port, basePath }) {
   const server = createServer(async (request, response) => {
     try {
       const url = new URL(request.url || '/', `http://${request.headers.host || `${host}:${port}`}`);
-      if (!url.pathname.startsWith(normalizedBase)) {
-        response.writeHead(404); response.end('Not found'); return;
-      }
+      if (!url.pathname.startsWith(normalizedBase)) { response.writeHead(404); response.end('Not found'); return; }
       let pathname = url.pathname.slice(normalizedBase.length);
       if (!pathname || pathname.endsWith('/')) pathname += 'index.html';
       const file = resolve(root, pathname);
-      if (file !== root && !file.startsWith(`${root}${sep}`)) {
-        response.writeHead(403); response.end('Forbidden'); return;
-      }
+      if (file !== root && !file.startsWith(`${root}${sep}`)) { response.writeHead(403); response.end('Forbidden'); return; }
       const body = await readFile(file);
       response.writeHead(200, { 'content-type': mimeType(file), 'cache-control': 'no-store' });
       response.end(body);
