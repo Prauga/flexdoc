@@ -19,6 +19,15 @@ Do not synchronize versions across registries merely for aesthetics. Existing np
 
 A breaking renderer-contract change requires a new contract major. An adapter can evolve independently while it continues to consume the same contract.
 
+## Release tags
+
+Registry releases are intentionally scoped by ecosystem so independent adapter versions do not trigger unrelated publishers:
+
+- `js/v<version>` publishes the coordinated npm client/backend release;
+- `java/v<version>` publishes the Spring Boot adapter to Maven Central.
+
+Future adapters should use an equivalent ecosystem-specific tag family when they gain automated publishing.
+
 ## npm
 
 The npm packages are public scoped packages:
@@ -28,13 +37,15 @@ The npm packages are public scoped packages:
 
 For the consolidated renderer architecture, both packages move to `2.0.0`.
 
-Recommended release policy:
+The release workflows use npm Trusted Publishing through GitHub OIDC. No long-lived `NPM_TOKEN` is required. The trusted-publisher relationship on npmjs.com must point to the exact GitHub repository and workflow filename for each package.
+
+Release policy:
 
 1. merge only after client/backend tests, standalone build checks, contract validation, backend asset checks and Java verification are green;
-2. create an immutable Git tag/GitHub Release for the version;
-3. publish with npm Trusted Publishing (OIDC) where supported, rather than storing a long-lived npm automation token;
-4. publish with provenance enabled;
-5. inspect the packed artifact (`npm pack --dry-run` or equivalent) before publishing;
+2. create an immutable `js/v<version>` Git tag/GitHub Release;
+3. let the client and backend workflows validate that the tag matches the committed package version;
+4. inspect the packed artifact before publication;
+5. publish using npm Trusted Publishing;
 6. never rewrite a registry version. Fixes receive a new patch version.
 
 The two npm packages should remain on the same 2.x version for now because the backend vendors the canonical client renderer and coordinated versions make that relationship obvious.
@@ -49,19 +60,26 @@ io.github.bluejeans117.flexdoc:flexdoc-spring-boot-starter:0.1.0
 
 The Maven module contains the canonical renderer JS/CSS under `META-INF/flexdoc` and serves those local assets at runtime. It does not contain an alternate Java renderer.
 
-The POM includes the project URL, AGPL license, developer/SCM metadata, sources artifact and Javadocs artifact needed for a normal Central release. Registry/account configuration and signing/publishing credentials are intentionally not committed.
+The POM includes the project URL, AGPL license, developer/SCM metadata, sources artifact and Javadocs artifact required for a normal Central release. Its `release` Maven profile adds GPG signing and Sonatype's Central Publishing Maven Plugin. The Central plugin is configured for automatic publication and waits until Central reports the deployment as published.
 
-Before the first Central publication:
+The GitHub release workflow imports the signing key and configures Maven Central authentication from repository secrets. Secret values must never be committed. The expected GitHub Actions secret names are:
 
-1. create/sign in to a Maven Central Portal account;
-2. verify ownership of the `io.github.bluejeans117` namespace through the supported GitHub verification flow;
-3. configure the repository's publishing identity/credentials in GitHub Actions or the Central-supported publishing mechanism;
-4. configure artifact signing according to Central's current requirements;
-5. build the canonical standalone renderer before Maven packaging;
-6. run `mvn -f adapters/java-spring/pom.xml verify` and inspect the JAR for both renderer assets;
-7. publish `0.1.0` and verify its POM, sources, Javadocs and runtime assets from Central before announcing it in the main README.
+- `MAVEN_CENTRAL_USERNAME`
+- `MAVEN_CENTRAL_PASSWORD`
+- `MAVEN_GPG_PRIVATE_KEY`
+- `MAVEN_GPG_PASSPHRASE`
 
-The documentation must say “prepared for Maven Central publication” until the artifact can actually be resolved from Central.
+For a Java release:
+
+1. ensure the `io.github.bluejeans117` namespace is verified in Central Portal;
+2. ensure the Central user token and signing-key secrets are configured in GitHub Actions;
+3. build and validate the canonical renderer and Java release profile in CI;
+4. create an immutable `java/v<version>` Git tag/GitHub Release;
+5. let the workflow verify the tag against `project.version`;
+6. let Maven sign the POM, main JAR, sources JAR and Javadocs JAR and deploy them through the Central Portal plugin;
+7. confirm the workflow reaches Central's `published` state before announcing the artifact as generally available.
+
+The documentation must say “prepared/configured for Maven Central publication” until the artifact can actually be resolved from Central.
 
 ## Python / PyPI
 
