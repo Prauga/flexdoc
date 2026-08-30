@@ -4,7 +4,7 @@ import {
   resolveObject as coreResolveObject,
   resolvePathItem as coreResolvePathItem,
   resolveServerVariables as coreResolveServerVariables,
-} from '../../../../core/src/openapi-normalizer';
+} from '../../../../core/dist/openapi-normalizer.js';
 
 export interface NormalizedOperation {
   path: string;
