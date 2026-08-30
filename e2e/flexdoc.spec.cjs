@@ -49,7 +49,10 @@ test('desktop search, Try It, response viewer, and code samples work together', 
   expect(requests[0].url).toBe('https://api.example.test/pets/42?locale=de&tags=one&tags=two&filter%5Brole%5D=admin');
   expect(requests[0].headers.authorization).toBe('Bearer token-42');
   expect(requests[0].headers['x-trace']).toBe('trace-42');
-  expect(requests[0].headers.cookie).toContain('session=session-42');
+  // The canonical request model serializes OpenAPI cookie parameters, but browser fetch
+  // forbids application code from setting the Cookie header. Browser execution therefore
+  // relies on the cookie jar/credentials policy rather than a synthetic Cookie header.
+  expect(requests[0].headers.cookie).toBeUndefined();
 
   await page.getByRole('tab', { name: 'JavaScript' }).click();
   await expect(page.locator('pre').filter({ hasText: 'fetch(' })).toBeVisible();
