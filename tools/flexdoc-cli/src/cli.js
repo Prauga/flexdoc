@@ -5,14 +5,7 @@ import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import yaml from 'js-yaml';
 
-const HELP = `FlexDoc CLI
-
-Usage:
-  flexdoc build <openapi> [--out <dir>] [--base-path <path>] [--title <title>] [--force]
-  flexdoc serve <openapi> [--host <host>] [--port <port>] [--base-path <path>] [--title <title>] [--watch]
-
-Input may be a local .json/.yaml/.yml file or an http(s) URL.
-`;
+const HELP = `FlexDoc CLI\n\nUsage:\n  flexdoc build <openapi> [--out <dir>] [--base-path <path>] [--title <title>] [--force]\n  flexdoc serve <openapi> [--host <host>] [--port <port>] [--base-path <path>] [--title <title>] [--watch]\n\nInput may be a local .json/.yaml/.yml file or an http(s) URL.\n`;
 
 function normalizeBasePath(value = '/') {
   let path = String(value || '/').trim();
@@ -32,10 +25,7 @@ function parseArgs(argv) {
   const booleanFlags = new Set(['--force', '--watch']);
   for (let index = 0; index < rest.length; index += 1) {
     const flag = rest[index];
-    if (booleanFlags.has(flag)) {
-      options[flag.slice(2)] = true;
-      continue;
-    }
+    if (booleanFlags.has(flag)) { options[flag.slice(2)] = true; continue; }
     const value = rest[++index];
     if (value === undefined || value.startsWith('--')) throw new Error(`Missing value for ${flag}`);
     if (flag === '--out') options.out = value;
@@ -50,40 +40,46 @@ function parseArgs(argv) {
   return options;
 }
 
-async function parseDocument(text, source) {
-  let document;
+async function parseData(text, source) {
   try {
     const sourcePath = source.startsWith('file:') ? fileURLToPath(source) : source;
-    document = extname(sourcePath).toLowerCase() === '.json' ? JSON.parse(text) : yaml.load(text);
+    return extname(sourcePath).toLowerCase() === '.json' ? JSON.parse(text) : yaml.load(text);
   } catch (error) {
-    throw new Error(`Invalid OpenAPI document at ${source}: ${error instanceof Error ? error.message : error}`);
+    throw new Error(`Invalid JSON/YAML document at ${source}: ${error instanceof Error ? error.message : error}`);
   }
+}
+
+function validateOpenApi(document, source) {
   if (!document || typeof document !== 'object' || !document.openapi || !document.info || !document.paths) {
     throw new Error(`Invalid OpenAPI document at ${source}: expected openapi, info, and paths`);
   }
   return document;
 }
 
-async function readSource(source, parentUri) {
+async function readSource(source, parentUri, requireOpenApi = false) {
+  let text;
+  let uri;
   if (/^https?:\/\//i.test(source)) {
     const response = await fetch(source, { redirect: 'follow' });
     if (!response.ok) throw new Error(`Failed to load ${source}: HTTP ${response.status}`);
-    return { document: await parseDocument(await response.text(), source), uri: response.url };
-  }
-  if (source.startsWith('file:')) {
+    text = await response.text();
+    uri = response.url;
+  } else if (source.startsWith('file:')) {
     const absolute = fileURLToPath(source);
-    return { document: await parseDocument(await readFile(absolute, 'utf8'), source), uri: pathToFileURL(absolute).toString() };
+    text = await readFile(absolute, 'utf8');
+    uri = pathToFileURL(absolute).toString();
+  } else if (parentUri?.startsWith('http')) {
+    return readSource(new URL(source, parentUri).toString(), undefined, requireOpenApi);
+  } else {
+    const absolute = parentUri?.startsWith('file:') ? resolve(dirname(fileURLToPath(parentUri)), source) : resolve(source);
+    text = await readFile(absolute, 'utf8');
+    uri = pathToFileURL(absolute).toString();
   }
-  if (parentUri?.startsWith('http')) return readSource(new URL(source, parentUri).toString());
-  const absolute = parentUri?.startsWith('file:')
-    ? resolve(dirname(fileURLToPath(parentUri)), source)
-    : resolve(source);
-  return { document: await parseDocument(await readFile(absolute, 'utf8'), absolute), uri: pathToFileURL(absolute).toString() };
+  const document = await parseData(text, uri);
+  return { document: requireOpenApi ? validateOpenApi(document, uri) : document, uri };
 }
 
-function encodePointerToken(token) {
-  return token.replace(/~/g, '~0').replace(/\//g, '~1');
-}
+function encodePointerToken(token) { return token.replace(/~/g, '~0').replace(/\//g, '~1'); }
 
 function splitRef(ref, fromUri) {
   if (ref.startsWith('#')) return { documentUri: fromUri, pointer: ref };
@@ -118,13 +114,9 @@ async function bundleReferences(rootDocument, rootUri) {
   async function rewriteDocument(document, documentUri) {
     if (visited.has(documentUri)) return;
     visited.add(documentUri);
-
     async function walk(node) {
       if (!node || typeof node !== 'object') return;
-      if (Array.isArray(node)) {
-        for (const item of node) await walk(item);
-        return;
-      }
+      if (Array.isArray(node)) { for (const item of node) await walk(item); return; }
       if (typeof node.$ref === 'string') {
         const target = splitRef(node.$ref, documentUri);
         if (target.documentUri === rootUri) node.$ref = target.pointer;
@@ -136,7 +128,6 @@ async function bundleReferences(rootDocument, rootUri) {
       }
       for (const [key, value] of Object.entries(node)) if (key !== '$ref') await walk(value);
     }
-
     await walk(document);
   }
 
@@ -146,7 +137,7 @@ async function bundleReferences(rootDocument, rootUri) {
 }
 
 async function loadBundledSpec(input, title) {
-  const { document, uri } = await readSource(input);
+  const { document, uri } = await readSource(input, undefined, true);
   const bundled = await bundleReferences(document, uri);
   if (title) bundled.info.title = title;
   return bundled;
@@ -154,45 +145,14 @@ async function loadBundledSpec(input, title) {
 
 async function rendererFiles() {
   const explicit = process.env.FLEXDOC_CLIENT_DIR;
-  if (explicit) {
-    return {
-      js: resolve(explicit, 'dist/standalone/flexdoc.standalone.js'),
-      css: resolve(explicit, 'dist/standalone/flexdoc.standalone.css'),
-    };
-  }
-  return {
-    js: fileURLToPath(import.meta.resolve('@bluejeans/flexdoc-client/standalone.js')),
-    css: fileURLToPath(import.meta.resolve('@bluejeans/flexdoc-client/standalone.css')),
-  };
+  if (explicit) return { js: resolve(explicit, 'dist/standalone/flexdoc.standalone.js'), css: resolve(explicit, 'dist/standalone/flexdoc.standalone.css') };
+  return { js: fileURLToPath(import.meta.resolve('@bluejeans/flexdoc-client/standalone.js')), css: fileURLToPath(import.meta.resolve('@bluejeans/flexdoc-client/standalone.css')) };
 }
 
 function html({ title, basePath }) {
   const base = normalizeBasePath(basePath);
   const safeTitle = String(title || 'FlexDoc').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>${safeTitle}</title>
-  <link rel="stylesheet" href="${base}flexdoc.css" />
-</head>
-<body style="margin:0">
-  <div id="flexdoc-root"></div>
-  <script src="${base}flexdoc.js"></script>
-  <script>
-    fetch('${base}openapi.json').then(function (response) {
-      if (!response.ok) throw new Error('Failed to load OpenAPI document: ' + response.status);
-      return response.json();
-    }).then(function (spec) {
-      return window.FlexDocStandalone.mountAsync(document.getElementById('flexdoc-root'), { spec: spec });
-    }).catch(function (error) {
-      document.getElementById('flexdoc-root').textContent = error.message;
-      console.error(error);
-    });
-  </script>
-</body>
-</html>\n`;
+  return `<!doctype html>\n<html lang="en">\n<head>\n  <meta charset="utf-8" />\n  <meta name="viewport" content="width=device-width,initial-scale=1" />\n  <title>${safeTitle}</title>\n  <link rel="stylesheet" href="${base}flexdoc.css" />\n</head>\n<body style="margin:0">\n  <div id="flexdoc-root"></div>\n  <script src="${base}flexdoc.js"></script>\n  <script>\n    fetch('${base}openapi.json').then(function (response) {\n      if (!response.ok) throw new Error('Failed to load OpenAPI document: ' + response.status);\n      return response.json();\n    }).then(function (spec) {\n      return window.FlexDocStandalone.mountAsync(document.getElementById('flexdoc-root'), { spec: spec });\n    }).catch(function (error) {\n      document.getElementById('flexdoc-root').textContent = error.message;\n      console.error(error);\n    });\n  </script>\n</body>\n</html>\n`;
 }
 
 async function ensureEmptyOutput(outDir, force) {
@@ -202,9 +162,7 @@ async function ensureEmptyOutput(outDir, force) {
       const directory = await stat(outDir);
       if (directory.isDirectory()) throw new Error(`Output directory already exists: ${outDir}. Use --force to replace it.`);
     }
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-  }
+  } catch (error) { if (error?.code !== 'ENOENT') throw error; }
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
 }
@@ -251,10 +209,7 @@ async function createStaticServer(root, { host, port, basePath }) {
       response.writeHead(500); response.end('Internal server error');
     }
   });
-  await new Promise((resolvePromise, reject) => {
-    server.once('error', reject);
-    server.listen(port, host, resolvePromise);
-  });
+  await new Promise((resolvePromise, reject) => { server.once('error', reject); server.listen(port, host, resolvePromise); });
   return server;
 }
 
@@ -262,12 +217,8 @@ export async function serveSite(input, options = {}) {
   const temporary = resolve(process.cwd(), '.flexdoc-serve');
   const buildOptions = { ...options, out: temporary, force: true };
   const rebuild = async () => {
-    try {
-      await buildSite(input, buildOptions);
-      console.log(`FlexDoc rebuilt from ${input}`);
-    } catch (error) {
-      console.error(`FlexDoc rebuild failed: ${error instanceof Error ? error.message : error}`);
-    }
+    try { await buildSite(input, buildOptions); console.log(`FlexDoc rebuilt from ${input}`); }
+    catch (error) { console.error(`FlexDoc rebuild failed: ${error instanceof Error ? error.message : error}`); }
   };
   await buildSite(input, buildOptions);
   const server = await createStaticServer(temporary, options);
@@ -294,8 +245,7 @@ export async function runCli(argv) {
   if (options.help) { console.log(HELP); return; }
   if (options.version) {
     const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
-    console.log(pkg.version);
-    return;
+    console.log(pkg.version); return;
   }
   if (options.command === 'build') {
     const result = await buildSite(options.input, options);
