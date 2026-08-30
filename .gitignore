@@ -31,3 +31,7 @@ dist-ssr
 
 # Coverage directories
 coverage
+
+# Playwright local output (visual baselines under e2e/**/*-snapshots stay tracked)
+playwright-report/
+test-results/
