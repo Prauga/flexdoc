@@ -11,11 +11,11 @@ The renderer contract is the compatibility boundary between the shared browser p
 | `@bluejeans/flexdoc-client` | `2.x` | canonical renderer; renderer contract v1 |
 | `@bluejeans/flexdoc-backend` | `2.x` | packages the matching 2.x standalone renderer; contract v1 |
 | Spring Boot starter | `0.1.x` initially | renderer contract v1 / FlexDoc renderer 2.x |
-| Python adapter | future independent version | declare supported renderer contract |
-| Rust adapter | future independent version | declare supported renderer contract |
-| Go adapter | future independent module version | declare supported renderer contract |
+| Python ASGI adapter | `0.x` source | renderer contract v1; PyPI publishing not configured yet |
+| Rust Axum adapter | `0.x` source | renderer contract v1; crates.io publishing not configured yet |
+| Go `net/http` adapter | `0.x` source | renderer contract v1; semantic module release not tagged yet |
 
-Do not synchronize versions across registries merely for aesthetics. Existing npm packages have release history, while a new Maven artifact does not. Instead, CI and package documentation must make renderer-contract compatibility explicit.
+Do not synchronize versions across registries merely for aesthetics. Existing npm packages have release history, while newer ecosystem adapters do not. Instead, CI and package documentation must make renderer-contract compatibility explicit.
 
 A breaking renderer-contract change requires a new contract major. An adapter can evolve independently while it continues to consume the same contract.
 
@@ -26,7 +26,7 @@ Registry releases are intentionally scoped by ecosystem so independent adapter v
 - `js/v<version>` publishes the coordinated npm client/backend release;
 - `java/v<version>` publishes the Spring Boot adapter to Maven Central.
 
-Future adapters should use an equivalent ecosystem-specific tag family when they gain automated publishing.
+Python, Rust, and Go should gain equivalent ecosystem-specific tag families when automated publishing is added.
 
 ## npm
 
@@ -35,13 +35,11 @@ The npm packages are public scoped packages:
 - `@bluejeans/flexdoc-client`
 - `@bluejeans/flexdoc-backend`
 
-For the consolidated renderer architecture, both packages move to `2.0.0`.
-
 The release workflows use npm Trusted Publishing through GitHub OIDC. No long-lived `NPM_TOKEN` is required. The trusted-publisher relationship on npmjs.com must point to the exact GitHub repository and workflow filename for each package.
 
 Release policy:
 
-1. merge only after client/backend tests, standalone build checks, contract validation, backend asset checks and Java verification are green;
+1. merge only after client/backend tests, standalone build checks, contract validation, backend asset checks and adapter verification are green;
 2. create an immutable `js/v<version>` Git tag/GitHub Release;
 3. let the client and backend workflows validate that the tag matches the committed package version;
 4. inspect the packed artifact before publication;
@@ -79,41 +77,50 @@ For a Java release:
 6. let Maven sign the POM, main JAR, sources JAR and Javadocs JAR and deploy them through the Central Portal plugin;
 7. confirm the workflow reaches Central's `published` state before announcing the artifact as generally available.
 
-The documentation must say “prepared/configured for Maven Central publication” until the artifact can actually be resolved from Central.
-
 ## Python / PyPI
 
-A future Python package should be a framework adapter/static asset package, not a Python rewrite of the renderer. Candidate integrations can include FastAPI, Flask and Django once the adapter API is defined.
+The repository now contains a dependency-free ASGI adapter under `adapters/python`. It can be mounted by FastAPI, Starlette, Django ASGI, Quart, or another ASGI host and serves the canonical renderer rather than reimplementing it.
 
-Distribution principles:
+Before the first PyPI release:
 
-- publish to PyPI using the ecosystem's Trusted Publishing/OIDC path from GitHub Actions where available;
-- bundle/version the canonical renderer assets and renderer contract in the wheel/sdist;
-- expose a small Python API for obtaining/serving a spec and host page;
-- test the built wheel, not only the source tree;
-- declare renderer-contract compatibility in package metadata/docs;
-- choose the PyPI package name only after checking registry availability.
+- choose/check the final PyPI package name;
+- add Trusted Publishing/OIDC from GitHub Actions;
+- copy the exact version-matched renderer JS/CSS into the wheel/sdist during release packaging;
+- test the built wheel in a clean environment;
+- declare renderer-contract compatibility in package metadata/docs.
+
+Until that packaging path is implemented, the source adapter accepts an explicit local renderer asset directory.
 
 ## Rust / crates.io
 
-A future Rust crate should likewise provide framework/server glue and embedded renderer assets. Good targets can be selected later (for example Axum or Actix Web) without creating a separate rendering implementation.
+The repository now contains an Axum adapter under `adapters/rust`. It hosts the same canonical browser renderer and does not contain a Rust OpenAPI renderer.
 
-Before implementation, confirm the current crates.io authentication/publishing mechanism and package-name availability. CI should build the crate/package, verify embedded renderer assets, and test installation from the produced package before release.
+Before the first crates.io release:
+
+- confirm package-name availability and the current crates.io publishing/auth mechanism;
+- copy/embed the exact canonical renderer assets into the produced crate package;
+- run `cargo package` and install/test the produced package rather than only the source tree;
+- declare renderer-contract compatibility in package metadata/docs.
+
+Until release packaging is implemented, the source adapter accepts a local renderer asset directory.
 
 ## Go modules
 
-Go does not require uploading an artifact to a central package registry. A Go adapter should be a normal Go module and use semantic Git tags; `pkg.go.dev` can index the public module.
+The repository now contains a standard-library `net/http` adapter under `adapters/go`. The handler accepts any `fs.FS`, which lets applications use an on-disk renderer directory or their own `go:embed` bundle while keeping the adapter independent from a second renderer implementation.
 
-If the Go module is kept in a subdirectory of this monorepo, its module path and Git tag must follow Go's submodule tag convention. The renderer JS/CSS can be compiled into the module with `go:embed`, keeping deployments self-contained.
+Before the first Go module release:
 
-Before the first Go release, choose whether the adapter should remain a monorepo submodule or use a dedicated repository. The decision should optimize import-path stability rather than forcing it to match npm/Maven structure.
+- decide the final stable module path;
+- follow Go's submodule semantic-tag convention if it remains in this monorepo;
+- provide a release packaging/generation path that includes the exact canonical renderer assets or a documented generated embed package;
+- verify the tagged module through a clean external consumer and `pkg.go.dev` indexing.
 
 ## Release compatibility checks
 
 Every adapter release should verify at least:
 
 - renderer contract version expected by the adapter;
-- exact renderer assets are present in the produced package;
+- exact renderer assets are present in the produced package or explicitly supplied through the documented local-asset boundary;
 - host HTML loads only local packaged assets by default;
 - no documentation-route secret is serialized to the browser;
 - basic generated page boots with a representative OpenAPI document;
