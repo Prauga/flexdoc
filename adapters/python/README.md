@@ -2,6 +2,22 @@
 
 `prauga-flexdoc` is a self-contained, dependency-free ASGI app for mounting in FastAPI, Starlette, Django ASGI, Quart, or another ASGI host.
 
+## FastAPI
+
+FastAPI already generates OpenAPI from route decorators, type hints, Pydantic models, response metadata, and security dependencies. Mount FlexDoc against that generated document with one helper:
+
+```python
+from fastapi import FastAPI
+from prauga_flexdoc import setup_fastapi_flexdoc
+
+app = FastAPI(docs_url=None, redoc_url=None)
+setup_fastapi_flexdoc(app, "/docs", title="My API")
+```
+
+The helper uses FastAPI's configured `openapi_url`, so custom OpenAPI paths continue to work and FastAPI remains an optional dependency.
+
+## Generic ASGI
+
 ```python
 from prauga_flexdoc import FlexDocASGI, FlexDocConfig
 
