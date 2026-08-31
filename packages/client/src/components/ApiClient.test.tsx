@@ -89,8 +89,8 @@ describe('ApiClient', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(second).not.toHaveBeenCalled();
 
-    fireEvent.change(screen.getByLabelText('Request URL'), { target: { value: 'https://api.example.test/users' } });
+    fireEvent.change(screen.getByLabelText('HTTP method'), { target: { value: 'POST' } });
     await waitFor(() => expect(second).toHaveBeenCalledTimes(1));
-    expect(second.mock.calls[0][0]).toEqual(expect.objectContaining({ url: 'https://api.example.test/users' }));
+    expect(second.mock.calls[0][0]).toEqual(expect.objectContaining({ method: 'POST' }));
   });
 });
