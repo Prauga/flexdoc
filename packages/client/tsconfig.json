@@ -17,6 +17,7 @@
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
     "declaration": true,
+    "rootDir": "src",
     "declarationDir": "dist/types",
     "emitDeclarationOnly": true
   },
