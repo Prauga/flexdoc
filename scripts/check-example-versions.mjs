@@ -6,6 +6,8 @@ const fail = (message) => { throw new Error(message); };
 
 const clientVersion = json('packages/client/package.json').version;
 const backendVersion = json('packages/backend/package.json').version;
+const coreVersion = json('core/package.json').version;
+const cliVersion = json('tools/flexdoc-cli/package.json').version;
 
 const javaPom = read('adapters/java-spring/pom.xml');
 const javaVersion = javaPom.match(/<artifactId>flexdoc-spring-boot-starter<\/artifactId>\s*<version>([^<]+)<\/version>/)?.[1]
@@ -33,6 +35,25 @@ const checks = [
   ['examples/java-spring/pom.xml', `<flexdoc.version>${javaVersion}</flexdoc.version>`],
   ['examples/go-net-http/go.mod', `github.com/prauga/flexdoc/adapters/go v${goVersion}`],
   ['examples/rust-axum/Cargo.toml', `prauga-flexdoc-axum = "${rustVersion}"`],
+
+  ['examples/README.md', `| [\`javascript-express\`](./javascript-express) | \`@prauga/flexdoc-backend\` \`${backendVersion}\` |`],
+  ['examples/README.md', `| [\`javascript-fastify\`](./javascript-fastify) | \`@prauga/flexdoc-backend\` \`${backendVersion}\` |`],
+  ['examples/README.md', `| [\`python-fastapi\`](./python-fastapi) | \`prauga-flexdoc\` \`${pythonVersion}\` |`],
+  ['examples/README.md', `| [\`java-spring\`](./java-spring) | \`com.prauga.flexdoc:flexdoc-spring-boot-starter\` \`${javaVersion}\` |`],
+  ['examples/README.md', `| [\`go-net-http\`](./go-net-http) | \`github.com/prauga/flexdoc/adapters/go\` \`v${goVersion}\` |`],
+  ['examples/README.md', `| [\`rust-axum\`](./rust-axum) | \`prauga-flexdoc-axum\` \`${rustVersion}\` |`],
+  ['examples/README.md', `- \`basic-usage\` — React + \`@prauga/flexdoc-client\` \`${clientVersion}\``],
+  ['examples/README.md', `- \`interactive-demo\` — React + \`@prauga/flexdoc-client\` \`${clientVersion}\``],
+  ['examples/README.md', `- \`nestjs\` — NestJS + \`@prauga/flexdoc-backend\` \`${backendVersion}\``],
+
+  ['README.md', `| npm | \`@prauga/flexdoc-client\` | \`${clientVersion}\` |`],
+  ['README.md', `| npm | \`@prauga/flexdoc-backend\` | \`${backendVersion}\` |`],
+  ['README.md', `| npm | \`@prauga/flexdoc-core\` | \`${coreVersion}\` |`],
+  ['README.md', `| npm | \`@prauga/flexdoc-cli\` | \`${cliVersion}\` |`],
+  ['README.md', `| Maven | \`com.prauga.flexdoc:flexdoc-spring-boot-starter\` | \`${javaVersion}\` |`],
+  ['README.md', `| PyPI | \`prauga-flexdoc\` | \`${pythonVersion}\` |`],
+  ['README.md', `| crates.io | \`prauga-flexdoc-axum\` | \`${rustVersion}\` |`],
+  ['README.md', `| Go | \`github.com/prauga/flexdoc/adapters/go\` | \`${goVersion}\` |`],
 ];
 
 for (const [path, expected] of checks) {
@@ -42,4 +63,4 @@ for (const [path, expected] of checks) {
   }
 }
 
-console.log(`Examples match current FlexDoc versions: client ${clientVersion}, backend ${backendVersion}, Java ${javaVersion}, Python ${pythonVersion}, Go ${goVersion}, Rust ${rustVersion}`);
+console.log(`Examples and README version tables match current FlexDoc versions: client ${clientVersion}, backend ${backendVersion}, core ${coreVersion}, CLI ${cliVersion}, Java ${javaVersion}, Python ${pythonVersion}, Go ${goVersion}, Rust ${rustVersion}`);
