@@ -37,6 +37,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify examples use current FlexDoc versions
+        run: npm run check:example-versions
+
       - name: Install framework-neutral core dependencies
         run: npm install --prefix core --ignore-scripts --no-audit --no-fund
 
@@ -69,6 +72,17 @@ jobs:
           test "$(go list -m)" = "github.com/prauga/flexdoc/adapters/go"
         working-directory: adapters/go
 
+      - name: Build Go example against published adapter
+        run: |
+          go mod tidy
+          if [ -n "$(git status --porcelain -- go.mod go.sum)" ]; then
+            echo "Go example module files are stale. Run 'go mod tidy' in examples/go-net-http and commit the result."
+            git diff -- go.mod go.sum
+            exit 1
+          fi
+          go build ./...
+        working-directory: examples/go-net-http
+
       - name: Test Python ASGI adapter
         run: |
           python3 -m compileall -q adapters/python/src
@@ -86,10 +100,19 @@ jobs:
           assert any(n.endswith('prauga_flexdoc/_assets/flexdoc.standalone.css') for n in names)
           PY
 
+      - name: Validate FastAPI example against published adapter
+        run: |
+          python3 -m pip install --disable-pip-version-check -q -r examples/python-fastapi/requirements.txt
+          python3 -m compileall -q examples/python-fastapi
+          PYTHONPATH=examples/python-fastapi python3 -c "from app import app; assert app.openapi_url == '/openapi.json'"
+
       - name: Test Rust Axum adapter
         run: |
           cargo test --manifest-path adapters/rust/Cargo.toml --all-targets
           cargo package --manifest-path adapters/rust/Cargo.toml --allow-dirty
+
+      - name: Build Rust example against published adapter
+        run: cargo check --manifest-path examples/rust-axum/Cargo.toml
 
       - name: Install CLI dependencies using local client bootstrap
         run: npm install --prefix tools/flexdoc-cli --no-save --ignore-scripts --no-audit --no-fund "${{ github.workspace }}/packages/client" js-yaml@^4.1.0
@@ -118,6 +141,29 @@ jobs:
           test -s packages/backend/dist/renderer/flexdoc.standalone.js
           test -s packages/backend/dist/renderer/flexdoc.standalone.css
 
+      - name: Validate JavaScript backend examples
+        run: |
+          npm install --prefix examples/javascript-express --ignore-scripts --no-audit --no-fund
+          npm install --prefix examples/javascript-fastify --ignore-scripts --no-audit --no-fund
+          node --check examples/javascript-express/index.js
+          node --check examples/javascript-fastify/index.js
+          node - <<'NODE'
+          const { buildApp } = require('./examples/javascript-fastify');
+          (async () => {
+            const app = await buildApp();
+            try {
+              await app.ready();
+              const response = await app.inject({ method: 'GET', url: '/docs' });
+              if (response.statusCode !== 200) throw new Error(`Fastify FlexDoc smoke test returned ${response.statusCode}`);
+            } finally {
+              await app.close();
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
       - name: Test Java Spring adapter with release profile
         run: mvn -f adapters/java-spring/pom.xml --batch-mode -Prelease -Dgpg.skip=true verify
 
@@ -128,3 +174,6 @@ jobs:
           jar tf "$JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.css'
           test -s adapters/java-spring/target/flexdoc-spring-boot-starter-0.2.0-sources.jar
           test -s adapters/java-spring/target/flexdoc-spring-boot-starter-0.2.0-javadoc.jar
+
+      - name: Build Spring example against published starter
+        run: mvn -f examples/java-spring/pom.xml --batch-mode -DskipTests package
