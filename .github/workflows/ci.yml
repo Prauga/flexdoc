@@ -13,6 +13,33 @@ permissions:
   contents: read
 
 jobs:
+  sync-pr20-go-sum:
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 20
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Materialize Go example checksums
+        working-directory: examples/go-net-http
+        run: go mod tidy
+
+      - name: Commit Go module sums
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add examples/go-net-http/go.mod examples/go-net-http/go.sum
+          if git diff --cached --quiet; then
+            echo "Go example module files already materialized."
+            exit 0
+          fi
+          git commit -m "Commit Go example module sums"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+
   test-and-build:
     name: test-and-build
     runs-on: ubuntu-latest
@@ -75,6 +102,11 @@ jobs:
       - name: Build Go example against published adapter
         run: |
           go mod tidy
+          if [ -n "$(git status --porcelain -- go.mod go.sum)" ]; then
+            echo "Go example module files are stale. Run 'go mod tidy' in examples/go-net-http and commit the result."
+            git diff -- go.mod go.sum
+            exit 1
+          fi
           go build ./...
         working-directory: examples/go-net-http
 
@@ -142,6 +174,22 @@ jobs:
           npm install --prefix examples/javascript-fastify --ignore-scripts --no-audit --no-fund
           node --check examples/javascript-express/index.js
           node --check examples/javascript-fastify/index.js
+          node - <<'NODE'
+          const { buildApp } = require('./examples/javascript-fastify');
+          (async () => {
+            const app = await buildApp();
+            try {
+              await app.ready();
+              const response = await app.inject({ method: 'GET', url: '/docs' });
+              if (response.statusCode !== 200) throw new Error(`Fastify FlexDoc smoke test returned ${response.statusCode}`);
+            } finally {
+              await app.close();
+            }
+          })().catch((error) => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
       - name: Test Java Spring adapter with release profile
         run: mvn -f adapters/java-spring/pom.xml --batch-mode -Prelease -Dgpg.skip=true verify
