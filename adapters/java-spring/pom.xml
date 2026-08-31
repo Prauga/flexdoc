@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>io.github.bluejeans117.flexdoc</groupId>
+  <groupId>com.prauga.flexdoc</groupId>
   <artifactId>flexdoc-spring-boot-starter</artifactId>
   <version>0.1.0</version>
   <name>FlexDoc Spring Boot Starter</name>
   <description>Spring Boot adapter for the self-hosted FlexDoc OpenAPI renderer and API explorer</description>
-  <url>https://github.com/bluejeans117/flexdoc</url>
+  <url>https://github.com/prauga/flexdoc</url>
 
   <licenses>
     <license>
@@ -22,9 +22,9 @@
     </developer>
   </developers>
   <scm>
-    <connection>scm:git:https://github.com/bluejeans117/flexdoc.git</connection>
+    <connection>scm:git:https://github.com/prauga/flexdoc.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/bluejeans117/flexdoc.git</developerConnection>
-    <url>https://github.com/bluejeans117/flexdoc</url>
+    <url>https://github.com/prauga/flexdoc</url>
     <tag>HEAD</tag>
   </scm>
 

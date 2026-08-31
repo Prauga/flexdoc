@@ -8,8 +8,8 @@ The renderer contract is the compatibility boundary between the shared browser p
 
 | Artifact | Release line | Compatibility |
 | --- | --- | --- |
-| `@bluejeans/flexdoc-client` | `2.x` | canonical renderer; renderer contract v1 |
-| `@bluejeans/flexdoc-backend` | `2.x` | packages the matching 2.x standalone renderer; contract v1 |
+| `@prauga/flexdoc-client` | `2.x` | canonical renderer; renderer contract v1 |
+| `@prauga/flexdoc-backend` | `2.x` | packages the matching 2.x standalone renderer; contract v1 |
 | Spring Boot starter | `0.1.x` initially | renderer contract v1 / FlexDoc renderer 2.x |
 | Python ASGI adapter | `0.x` source | renderer contract v1; PyPI publishing not configured yet |
 | Rust Axum adapter | `0.x` source | renderer contract v1; crates.io publishing not configured yet |
@@ -32,8 +32,8 @@ Python, Rust, and Go should gain equivalent ecosystem-specific tag families when
 
 The npm packages are public scoped packages:
 
-- `@bluejeans/flexdoc-client`
-- `@bluejeans/flexdoc-backend`
+- `@prauga/flexdoc-client`
+- `@prauga/flexdoc-backend`
 
 The release workflows use npm Trusted Publishing through GitHub OIDC. No long-lived `NPM_TOKEN` is required. The trusted-publisher relationship on npmjs.com must point to the exact GitHub repository and workflow filename for each package.
 
@@ -53,7 +53,7 @@ The two npm packages should remain on the same 2.x version for now because the b
 Coordinates:
 
 ```text
-io.github.bluejeans117.flexdoc:flexdoc-spring-boot-starter:0.1.0
+com.prauga.flexdoc:flexdoc-spring-boot-starter:0.1.0
 ```
 
 The Maven module contains the canonical renderer JS/CSS under `META-INF/flexdoc` and serves those local assets at runtime. It does not contain an alternate Java renderer.

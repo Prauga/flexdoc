@@ -10,7 +10,7 @@ Planned coordinates:
 
 ```xml
 <dependency>
-  <groupId>io.github.bluejeans117.flexdoc</groupId>
+  <groupId>com.prauga.flexdoc</groupId>
   <artifactId>flexdoc-spring-boot-starter</artifactId>
   <version>0.1.0</version>
 </dependency>

@@ -1,6 +1,6 @@
 # FlexDoc Backend
 
-[![npm version](https://img.shields.io/npm/v/@bluejeans/flexdoc-backend.svg)](https://www.npmjs.com/package/@bluejeans/flexdoc-backend)
+[![npm version](https://img.shields.io/npm/v/@prauga/flexdoc-backend.svg)](https://www.npmjs.com/package/@prauga/flexdoc-backend)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 The backend package for FlexDoc, a modern, customizable OpenAPI documentation generator that creates beautiful API documentation.
@@ -26,7 +26,7 @@ The backend package for FlexDoc, a modern, customizable OpenAPI documentation ge
 ## Installation
 
 ```bash
-npm install @bluejeans/flexdoc-backend
+npm install @prauga/flexdoc-backend
 ```
 
 ## Usage
@@ -34,7 +34,7 @@ npm install @bluejeans/flexdoc-backend
 ### Basic Usage
 
 ```typescript
-import { FlexDoc } from '@bluejeans/flexdoc-backend';
+import { FlexDoc } from '@prauga/flexdoc-backend';
 import { OpenAPIObject } from '@nestjs/swagger';
 
 // Create a new FlexDoc instance with your OpenAPI spec
@@ -58,7 +58,7 @@ app.get('/api/docs', (req, res) => {
 FlexDoc is highly customizable through the `FlexDocOptions` interface:
 
 ```typescript
-import { FlexDoc, FlexDocOptions } from '@bluejeans/flexdoc-backend';
+import { FlexDoc, FlexDocOptions } from '@prauga/flexdoc-backend';
 
 const options: FlexDocOptions = {
   // Required
@@ -114,7 +114,7 @@ const flexdoc = new FlexDoc(options);
 ```typescript
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { FlexDoc } from '@bluejeans/flexdoc-backend';
+import { FlexDoc } from '@prauga/flexdoc-backend';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -152,7 +152,7 @@ bootstrap();
 
 ```typescript
 import express from 'express';
-import { FlexDoc } from '@bluejeans/flexdoc-backend';
+import { FlexDoc } from '@prauga/flexdoc-backend';
 import swaggerJsdoc from 'swagger-jsdoc';
 
 const app = express();

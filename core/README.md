@@ -1,4 +1,4 @@
-# @bluejeans/flexdoc-core
+# @prauga/flexdoc-core
 
 Framework-neutral OpenAPI behavior shared by FlexDoc's renderer, CLI, and future API-client surfaces.
 
@@ -10,7 +10,7 @@ import {
   bundleExternalReferences,
   buildRequest,
   generateCodeSample,
-} from '@bluejeans/flexdoc-core';
+} from '@prauga/flexdoc-core';
 ```
 
-`0.1.0` is the initial source version. The existing `@bluejeans/flexdoc-client` public API remains compatible and delegates its OpenAPI utilities to this implementation.
+`0.1.0` is the initial source version. The existing `@prauga/flexdoc-client` public API remains compatible and delegates its OpenAPI utilities to this implementation.

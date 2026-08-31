@@ -1,4 +1,4 @@
-import { ApiDocsDemo } from '@bluejeans/flexdoc-client';
+import { ApiDocsDemo } from '@prauga/flexdoc-client';
 import React from 'react';
 
 function App() {

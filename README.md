@@ -28,10 +28,10 @@ Browser-side loading of cross-origin external OpenAPI references is subject to t
 
 | Package | Version | Purpose |
 | --- | --- | --- |
-| `@bluejeans/flexdoc-client` | `2.0.2` | React components plus the canonical standalone renderer |
-| `@bluejeans/flexdoc-backend` | `2.0.2` | Thin Express, Fastify and NestJS integrations |
-| `@bluejeans/flexdoc-cli` | `0.1.0` source | CLI serving/static export; npm publication follows this change |
-| `io.github.bluejeans117.flexdoc:flexdoc-spring-boot-starter` | `0.1.0` | Spring Boot adapter published on Maven Central |
+| `@prauga/flexdoc-client` | `2.0.2` | React components plus the canonical standalone renderer |
+| `@prauga/flexdoc-backend` | `2.0.2` | Thin Express, Fastify and NestJS integrations |
+| `@prauga/flexdoc-cli` | `0.1.0` source | CLI serving/static export; npm publication follows this change |
+| `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.1.0` | Spring Boot adapter published on Maven Central |
 | `adapters/go` | `0.x` source | Standard-library `net/http` adapter |
 | `adapters/python` | `0.x` source | Dependency-free ASGI adapter |
 | `adapters/rust` | `0.x` source | Axum adapter |
@@ -43,19 +43,19 @@ Language adapters have independent ecosystem versions. Compatibility is governed
 The CLI converts a local or remote OpenAPI document into FlexDoc without requiring React or a backend framework. The source package is in [`tools/flexdoc-cli`](./tools/flexdoc-cli/); after its first npm publication the commands are:
 
 ```bash
-npx @bluejeans/flexdoc-cli serve openapi.yaml
+npx @prauga/flexdoc-cli serve openapi.yaml
 ```
 
 For live local development:
 
 ```bash
-npx @bluejeans/flexdoc-cli serve openapi.yaml --watch
+npx @prauga/flexdoc-cli serve openapi.yaml --watch
 ```
 
 For a deployable static site:
 
 ```bash
-npx @bluejeans/flexdoc-cli build openapi.yaml --out ./docs
+npx @prauga/flexdoc-cli build openapi.yaml --out ./docs
 ```
 
 The static export contains `index.html`, `flexdoc.js`, `flexdoc.css`, and a bundled `openapi.json`. External `$ref` documents are resolved and bundled at build time, so the deployed site does not need the original external spec files. Use `--base-path /repository-name/` for GitHub Pages project sites or other sub-path deployments.
@@ -63,12 +63,12 @@ The static export contains `index.html`, `flexdoc.js`, `flexdoc.css`, and a bund
 ## React
 
 ```bash
-npm install @bluejeans/flexdoc-client@^2
+npm install @prauga/flexdoc-client@^2
 ```
 
 ```tsx
-import { FlexDoc } from '@bluejeans/flexdoc-client';
-import '@bluejeans/flexdoc-client/styles.css';
+import { FlexDoc } from '@prauga/flexdoc-client';
+import '@prauga/flexdoc-client/styles.css';
 
 export function Docs({ spec }) {
   return <FlexDoc spec={spec} theme="light" />;
@@ -80,12 +80,12 @@ The package also exports the standalone renderer used by non-React adapters and 
 ## Express
 
 ```bash
-npm install @bluejeans/flexdoc-backend@^2
+npm install @prauga/flexdoc-backend@^2
 ```
 
 ```ts
 import express from 'express';
-import { setupExpressFlexDoc } from '@bluejeans/flexdoc-backend';
+import { setupExpressFlexDoc } from '@prauga/flexdoc-backend';
 
 const app = express();
 
@@ -105,7 +105,7 @@ app.listen(3000);
 If you use `@nestjs/swagger`, FlexDoc can generate the document through Nest's `SwaggerModule.createDocument` and then serve it with the same renderer:
 
 ```ts
-import { setupNestFlexDoc } from '@bluejeans/flexdoc-backend';
+import { setupNestFlexDoc } from '@prauga/flexdoc-backend';
 
 await setupNestFlexDoc(app, {
   path: '/docs',
@@ -117,11 +117,11 @@ await setupNestFlexDoc(app, {
 
 ## Spring Boot
 
-The Java adapter is published on Maven Central as `io.github.bluejeans117.flexdoc:flexdoc-spring-boot-starter:0.1.0`. Applications using springdoc can use `/v3/api-docs` without custom spec plumbing:
+The Java adapter is published on Maven Central as `com.prauga.flexdoc:flexdoc-spring-boot-starter:0.1.0`. Applications using springdoc can use `/v3/api-docs` without custom spec plumbing:
 
 ```xml
 <dependency>
-  <groupId>io.github.bluejeans117.flexdoc</groupId>
+  <groupId>com.prauga.flexdoc</groupId>
   <artifactId>flexdoc-spring-boot-starter</artifactId>
   <version>0.1.0</version>
 </dependency>
@@ -178,10 +178,10 @@ The language-neutral contract is in [`packages/renderer-contract`](./packages/re
 
 ```bash
 npm ci
-npm test --workspace=@bluejeans/flexdoc-client
-npm run build --workspace=@bluejeans/flexdoc-client
-npm test --workspace=@bluejeans/flexdoc-backend
-npm run build --workspace=@bluejeans/flexdoc-backend
+npm test --workspace=@prauga/flexdoc-client
+npm run build --workspace=@prauga/flexdoc-client
+npm test --workspace=@prauga/flexdoc-backend
+npm run build --workspace=@prauga/flexdoc-backend
 npm install --prefix tools/flexdoc-cli
 FLEXDOC_CLIENT_DIR=packages/client npm test --prefix tools/flexdoc-cli
 mvn -f adapters/java-spring/pom.xml verify
@@ -223,5 +223,5 @@ FlexDoc is licensed under **AGPL-3.0-or-later**. See [LICENSE](./LICENSE).
 
 ## Project
 
-- Documentation/demo: https://bluejeans117.github.io/flexdoc
-- Issues: https://github.com/bluejeans117/flexdoc/issues
+- Documentation/demo: https://prauga.github.io/flexdoc
+- Issues: https://github.com/prauga/flexdoc/issues

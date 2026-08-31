@@ -5,7 +5,7 @@ A modern, customizable React component library for rendering OpenAPI documentati
 ## Installation
 
 ```bash
-npm install @bluejeans/flexdoc-client
+npm install @prauga/flexdoc-client
 ```
 
 ## Usage
@@ -13,7 +13,7 @@ npm install @bluejeans/flexdoc-client
 ### Basic Usage
 
 ```jsx
-import { FlexDoc } from '@bluejeans/flexdoc-client';
+import { FlexDoc } from '@prauga/flexdoc-client';
 import myOpenApiSpec from './my-openapi-spec.json';
 
 function ApiDocumentation() {
@@ -24,7 +24,7 @@ function ApiDocumentation() {
 ### With Custom Styling
 
 ```jsx
-import { FlexDoc } from '@bluejeans/flexdoc-client';
+import { FlexDoc } from '@prauga/flexdoc-client';
 import myOpenApiSpec from './my-openapi-spec.json';
 
 function ApiDocumentation() {
@@ -45,7 +45,7 @@ function ApiDocumentation() {
 
 ```jsx
 import { useState, useEffect } from 'react';
-import { FlexDoc, OpenAPIParser } from '@bluejeans/flexdoc-client';
+import { FlexDoc, OpenAPIParser } from '@prauga/flexdoc-client';
 
 function ApiDocumentation() {
   const [spec, setSpec] = useState(null);

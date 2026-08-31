@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@bluejeans/flexdoc-client": "^2.0.0",
+    "@prauga/flexdoc-client": "^2.0.0",
     "lucide-react": "^0.525.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
@@ -17,7 +17,7 @@
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bluejeans117/flexdoc.git",
+    "url": "https://github.com/prauga/flexdoc.git",
     "directory": "packages/examples/basic-usage"
   },
   "devDependencies": {

@@ -17,7 +17,7 @@ function findAsset(relativePath: string): string {
   }
 
   throw new Error(
-    `FlexDoc renderer asset not found: ${relativePath}. Build @bluejeans/flexdoc-client before @bluejeans/flexdoc-backend.`
+    `FlexDoc renderer asset not found: ${relativePath}. Build @prauga/flexdoc-client before @prauga/flexdoc-backend.`
   );
 }
 
