@@ -1,20 +1,22 @@
-# FlexDoc Spring Boot Starter
+# Prauga FlexDoc Spring Boot Starter
 
-Java/Spring adapter for the canonical FlexDoc browser renderer. The JAR packages the same version-matched `flexdoc.standalone.js` and `flexdoc.standalone.css` used by the Node integrations; it does not implement a Java-specific OpenAPI renderer.
+Java/Spring adapter for the canonical FlexDoc browser renderer. The JAR packages the same version-matched `flexdoc.standalone.js` and `flexdoc.standalone.css` used by the other integrations; it does not implement a Java-specific OpenAPI renderer.
 
-Current source version: `0.1.0`. It targets renderer contract v1 / FlexDoc renderer 2.x.
+Current source version: `0.2.0`. It targets renderer contract v1 / FlexDoc renderer 2.x.
 
-> The artifact is prepared for Maven Central publication but should not be described as available from Central until the first release has actually been published and verified.
+> `com.prauga.flexdoc` is a new Maven coordinate. Do not announce it as generally available until the Prauga namespace has been verified in Maven Central and the first publication has completed.
 
-Planned coordinates:
+Coordinates:
 
 ```xml
 <dependency>
-  <groupId>io.github.bluejeans117.flexdoc</groupId>
+  <groupId>com.prauga.flexdoc</groupId>
   <artifactId>flexdoc-spring-boot-starter</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
 </dependency>
 ```
+
+The Java package namespace is `com.prauga.flexdoc.spring`.
 
 ## Spring Boot + springdoc
 
@@ -53,8 +55,6 @@ FlexDocSpecProvider flexDocSpecProvider(ObjectMapper mapper, OpenAPI openApi) {
 
 A provider takes precedence over `spec-url`. `spec-location` creates the default provider only when explicitly configured.
 
-The adapter intentionally owns only framework plumbing: obtaining the OpenAPI document, producing the small host page and serving packaged assets. OpenAPI rendering, Try It, code samples and schema behavior remain in the shared browser renderer.
-
 ## Building in this repository
 
 Build the standalone renderer first, then package and verify the JAR:
@@ -62,9 +62,9 @@ Build the standalone renderer first, then package and verify the JAR:
 ```bash
 npm run build:client
 mvn -f adapters/java-spring/pom.xml verify
-jar tf adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0.jar | grep META-INF/flexdoc
+jar tf adapters/java-spring/target/flexdoc-spring-boot-starter-0.2.0.jar | grep META-INF/flexdoc
 ```
 
-The release build attaches source and Javadoc JARs. CI should also verify that the resulting JAR contains both canonical renderer assets before publication.
+The release build attaches source and Javadoc JARs. CI verifies that the resulting JAR contains both canonical renderer assets before publication.
 
-For Central setup and the versioning model used by future language adapters, see [`docs/distribution.md`](../../docs/distribution.md).
+See [`docs/distribution.md`](../../docs/distribution.md).

@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { setupFlexDoc } from '@bluejeans/flexdoc-backend';
+import { setupFlexDoc } from '@prauga/flexdoc-backend';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -32,7 +32,7 @@ async function bootstrap() {
         link: [
           {
             text: 'GitHub',
-            url: 'https://github.com/bluejeans117/flexdoc',
+            url: 'https://github.com/prauga/flexdoc',
             icon: 'github',
           },
           {
@@ -42,7 +42,7 @@ async function bootstrap() {
           },
           {
             text: 'Support',
-            url: 'https://github.com/bluejeans117/flexdoc/issues',
+            url: 'https://github.com/prauga/flexdoc/issues',
             icon: 'help-circle',
           },
         ],

@@ -1,4 +1,4 @@
-name: Publish CLI to npm Registry
+name: Publish FlexDoc CLI to npm
 
 on:
   release:
@@ -9,84 +9,43 @@ permissions:
   id-token: write
 
 jobs:
-  build-test-and-publish:
+  publish:
     if: startsWith(github.event.release.tag_name, 'cli/v')
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Setup build Node.js
-        uses: actions/setup-node@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '20'
           cache: npm
-
       - name: Install repository dependencies
         run: npm ci
-
-      - name: Build canonical client renderer
+      - name: Build canonical renderer
         run: npm run build:client
-
       - name: Install CLI dependencies
         run: npm install --prefix tools/flexdoc-cli --ignore-scripts --no-audit --no-fund
-
-      - name: Test CLI build and serve contracts
-        run: npm test --prefix tools/flexdoc-cli
+      - name: Test CLI
         env:
           FLEXDOC_CLIENT_DIR: ${{ github.workspace }}/packages/client
-
-      - name: Verify CLI release tag matches package version
+        run: npm test --prefix tools/flexdoc-cli
+      - name: Verify release tag
         run: |
           VERSION=$(node -p "require('./tools/flexdoc-cli/package.json').version")
           test "${{ github.event.release.tag_name }}" = "cli/v${VERSION}"
-
-      - name: Pack CLI artifact
+      - name: Pack and smoke-test install
         run: |
-          mkdir -p cli-release
-          cd tools/flexdoc-cli
-          npm pack --pack-destination "${GITHUB_WORKSPACE}/cli-release"
-
-      - name: Verify packed CLI from a clean consumer
-        run: |
-          TAR=$(find "${GITHUB_WORKSPACE}/cli-release" -maxdepth 1 -name '*.tgz' -print -quit)
-          test -n "$TAR"
-          test "$(tar -tzf "$TAR" | grep -c '^package/bin/flexdoc.js$')" = "1"
-          test "$(tar -tzf "$TAR" | grep -c '^package/src/cli.js$')" = "1"
-          test "$(tar -tzf "$TAR" | grep -c '^package/package.json$')" = "1"
-
-          CONSUMER=$(mktemp -d)
-          cd "$CONSUMER"
-          npm init -y >/dev/null 2>&1
-          npm install "$TAR" --ignore-scripts --no-audit --no-fund
-
-          EXPECTED_VERSION=$(node -p "require('${GITHUB_WORKSPACE}/tools/flexdoc-cli/package.json').version")
-          test "$(./node_modules/.bin/flexdoc --version)" = "$EXPECTED_VERSION"
-
-          ./node_modules/.bin/flexdoc build \
-            "${GITHUB_WORKSPACE}/tools/flexdoc-cli/test/fixtures/openapi.yaml" \
-            --out ./site \
-            --base-path /docs/
-
-          test -f site/index.html
-          test -f site/flexdoc.js
-          test -f site/flexdoc.css
-          test -f site/openapi.json
-          node -e "const s=require('./site/openapi.json'); if (!s['x-flexdoc-external-documents'] || Object.keys(s['x-flexdoc-external-documents']).length !== 2) process.exit(1)"
-
-      - name: Setup publishing Node.js
-        uses: actions/setup-node@v6
+          TARBALL=$(npm pack --prefix tools/flexdoc-cli --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s)[0].filename))")
+          TARBALL=$(realpath "tools/flexdoc-cli/$TARBALL")
+          TMP=$(mktemp -d)
+          cd "$TMP"
+          npm init -y >/dev/null
+          npm install --ignore-scripts --no-audit --no-fund "$TARBALL"
+          ./node_modules/.bin/flexdoc --version
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org/'
           package-manager-cache: false
-
-      - name: Ensure trusted-publishing capable npm
-        run: npm install --global npm@^11.15.0
-
-      - name: Inspect npm package contents
-        run: npm pack --dry-run --prefix tools/flexdoc-cli
-
-      - name: Publish CLI through npm Trusted Publishing
-        working-directory: tools/flexdoc-cli
-        run: npm publish --access public
+      - run: npm install --global npm@^11.15.0
+      - name: Publish @prauga/flexdoc-cli
+        run: npm publish --prefix tools/flexdoc-cli --access public

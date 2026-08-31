@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
-import { bundleExternalReferences } from '@bluejeans/flexdoc-client';
+import { bundleExternalReferences } from '@prauga/flexdoc-client';
 import yaml from 'js-yaml';
 import { buildSite, serveSite } from '../src/cli.js';
 

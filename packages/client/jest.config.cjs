@@ -2,6 +2,11 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
   moduleNameMapper: {
+    // The core package is intentionally ESM-only. Client Jest runs through
+    // ts-jest/CommonJS, so exercise the same core TypeScript implementation
+    // directly instead of asking Jest to execute the built ESM files.
+    '^\\.\\./\\.\\./\\.\\./\\.\\./core/dist/(.*)\\.js$': '<rootDir>/../../core/src/$1.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
     '\\.(css|less|scss|sass)$': '<rootDir>/__mocks__/styleMock.cjs',
     '\\.(jpg|jpeg|png|gif|webp|svg)$': '<rootDir>/__mocks__/fileMock.cjs',
     '^prismjs$': '<rootDir>/__mocks__/prismjs.cjs',

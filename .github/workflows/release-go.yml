@@ -1,0 +1,32 @@
+name: Validate FlexDoc Go module release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    if: startsWith(github.event.release.tag_name, 'adapters/go/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.23.x'
+      - run: npm ci
+      - run: npm run build:client
+      - run: npm run check:adapter-assets
+      - name: Verify Go module tag and module path
+        run: |
+          VERSION=${{ github.event.release.tag_name }}
+          case "$VERSION" in adapters/go/v*) ;; *) exit 1 ;; esac
+          test "$(cd adapters/go && go list -m)" = "github.com/prauga/flexdoc/adapters/go"
+      - run: go test ./...
+        working-directory: adapters/go

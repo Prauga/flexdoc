@@ -25,11 +25,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build framework-neutral core
+        run: npm run build:core
+
       - name: Test client package
         run: npm test -w packages/client -- --runInBand
 
       - name: Build client package
-        run: npm run build -w packages/client
+        run: npm run build:client
 
       - name: Verify packed client package from a clean consumer
         run: node scripts/verify-client-package.mjs

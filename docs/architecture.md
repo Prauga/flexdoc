@@ -37,7 +37,7 @@ The contract is intentionally JSON-compatible. A Go, Java, Rust, Python, .NET, o
 
 ## Package responsibilities
 
-### `@bluejeans/flexdoc-client`
+### `@prauga/flexdoc-client`
 
 Canonical product implementation. It ships:
 
@@ -45,7 +45,7 @@ Canonical product implementation. It ships:
 - a self-contained standalone browser bundle for framework/language adapters
 - renderer-side spec preparation that never mutates the caller's OpenAPI document
 
-### `@bluejeans/flexdoc-backend`
+### `@prauga/flexdoc-backend`
 
 Node/NestJS/Express adapter. It owns:
 

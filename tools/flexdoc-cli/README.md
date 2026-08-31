@@ -1,23 +1,23 @@
-# @bluejeans/flexdoc-cli
+# @prauga/flexdoc-cli
 
 The FlexDoc CLI turns an OpenAPI document into the canonical FlexDoc browser experience without requiring React or a backend framework.
 
 ## Commands
 
 ```bash
-npx @bluejeans/flexdoc-cli serve openapi.yaml
+npx @prauga/flexdoc-cli serve openapi.yaml
 ```
 
 Serves the generated documentation locally at `http://127.0.0.1:4174/`.
 
 ```bash
-npx @bluejeans/flexdoc-cli serve openapi.yaml --watch
+npx @prauga/flexdoc-cli serve openapi.yaml --watch
 ```
 
 Rebuilds when the root OpenAPI file changes and reloads connected browser pages automatically.
 
 ```bash
-npx @bluejeans/flexdoc-cli build openapi.yaml --out ./docs
+npx @prauga/flexdoc-cli build openapi.yaml --out ./docs
 ```
 
 Produces a static directory containing:
@@ -76,4 +76,4 @@ Root-domain/S3/nginx deployment:
 flexdoc build openapi.yaml --out ./public
 ```
 
-The generated renderer JS/CSS is copied from the version-matched `@bluejeans/flexdoc-client` dependency. No runtime CDN or FlexDoc service is required.
+The generated renderer JS/CSS is copied from the version-matched `@prauga/flexdoc-client` dependency. No runtime CDN or FlexDoc service is required.

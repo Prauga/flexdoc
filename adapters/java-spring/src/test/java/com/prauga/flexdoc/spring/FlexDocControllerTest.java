@@ -1,4 +1,4 @@
-package io.github.bluejeans117.flexdoc.spring;
+package com.prauga.flexdoc.spring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

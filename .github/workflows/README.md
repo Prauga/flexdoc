@@ -1,44 +1,30 @@
-# FlexDoc GitHub Workflows
+# FlexDoc GitHub workflows
 
-This directory contains GitHub Actions workflows for automating various tasks in the FlexDoc repository.
+FlexDoc uses separate release tags for each ecosystem while sharing one canonical renderer and renderer contract.
 
-## npm-publish.yml
+| Workflow | Tag family | Artifact |
+| --- | --- | --- |
+| `publish-client.yml` | `js/v<version>` | `@prauga/flexdoc-client` + renderer bundle |
+| `publish-backend.yml` | `js/v<version>` | `@prauga/flexdoc-backend` |
+| `publish-core.yml` | `core/v<version>` | `@prauga/flexdoc-core` |
+| `publish-cli.yml` | `cli/v<version>` | `@prauga/flexdoc-cli` |
+| `publish-java.yml` | `java/v<version>` | `com.prauga.flexdoc:flexdoc-spring-boot-starter` |
+| `publish-python.yml` | `python/v<version>` | `prauga-flexdoc` on PyPI |
+| `publish-rust.yml` | `rust/v<version>` | `prauga-flexdoc-axum` on crates.io |
+| `release-go.yml` | `adapters/go/v<version>` | public Go submodule tag |
 
-This workflow publishes the FlexDoc backend package to the public npm registry.
+`ci.yml` and `e2e.yml` validate normal pull requests. They build the canonical renderer, verify packed npm consumption, byte-check the committed Go/Python/Rust renderer assets, build ecosystem packages, and exercise browser behavior.
 
-### Triggers
+## Authentication
 
-The workflow can be triggered in two ways:
+Long-lived registry credentials are avoided where the registry supports OIDC:
 
-1. **Automatically on Release**: When a new GitHub Release is created, the workflow will automatically publish the package to the public npm registry with the version from the release tag.
+- npm packages use npm Trusted Publishing and require `id-token: write`.
+- PyPI uses `pypa/gh-action-pypi-publish` with a Trusted Publisher.
+- crates.io uses `rust-lang/crates-io-auth-action` with a Trusted Publisher.
+- Maven Central uses the Central credentials and signing key already expected by `publish-java.yml`.
+- Go requires no registry credential; the versioned submodule tag is the release.
 
-2. **Manually**: You can trigger the workflow manually from the GitHub Actions tab, specifying:
-   - **Version**: The version increment type:
-     - `patch`: Increments the patch version (e.g., 1.0.0 → 1.0.1)
-     - `minor`: Increments the minor version (e.g., 1.0.0 → 1.1.0)
-     - `major`: Increments the major version (e.g., 1.0.0 → 2.0.0)
-     - Or specify a specific version (e.g., `1.2.3`)
+Trusted Publisher relationships are registry-side configuration. After the repository moves to `prauga/flexdoc`, they must point at that repository and the exact workflow filenames above.
 
-### What it does
-
-1. Checks out the repository
-2. Sets up Node.js with the npm registry configuration
-3. Installs dependencies
-4. Builds the packages
-5. Updates the package.json (changes package name for npm registry)
-6. Updates the version based on the trigger type
-7. Publishes the backend package to the npm registry
-
-### Requirements
-
-- For publishing to the npm registry:
-  - You need to add an `NPM_TOKEN` secret to your repository
-  - You can create this token at https://www.npmjs.com/settings/[your-username]/tokens
-
-### Installing the published package
-
-Users can install the package with a simple command:
-
-```bash
-npm install @bluejeans/flexdoc-backend
-```
+The old `@bluejeans/*` npm packages are not published by these workflows and are not unpublished. After the replacement `@prauga/*` packages exist, use the guarded deprecation procedure.
