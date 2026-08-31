@@ -1,5 +1,6 @@
-use axum::{extract::State, http::{header, HeaderValue}, response::{Html, IntoResponse, Response}, routing::get, Router};
-use serde_json::json;
+use axum::{extract::State, http::{header, HeaderValue, StatusCode}, response::{Html, IntoResponse, Response}, routing::get, Json, Router};
+use serde::Serialize;
+use serde_json::{json, Value};
 use std::sync::Arc;
 
 static RENDERER_JS: &[u8] = include_bytes!("../assets/flexdoc.standalone.js");
@@ -19,23 +20,43 @@ impl Default for Config {
 }
 
 #[derive(Clone)]
-struct AppState { cfg: Arc<Config> }
+struct AppState { cfg: Arc<Config>, spec: Option<Arc<Value>> }
 
-pub fn router(mut cfg: Config) -> Router {
+pub fn router(cfg: Config) -> Router { build_router(cfg, None) }
+
+/// Build FlexDoc routes from a generated OpenAPI value, including `utoipa::OpenApi` values.
+/// The generated document is exposed only under the FlexDoc route and requires no separate
+/// application-owned `/openapi.json` endpoint.
+pub fn router_with_openapi<T: Serialize>(mut cfg: Config, spec: &T) -> Result<Router, serde_json::Error> {
+    let value = serde_json::to_value(spec)?;
+    cfg.path = format!("/{}", cfg.path.trim_matches('/'));
+    cfg.spec_url = format!("{}/__flexdoc/openapi.json", cfg.path);
+    Ok(build_router(cfg, Some(value)))
+}
+
+fn build_router(mut cfg: Config, spec: Option<Value>) -> Router {
     cfg.path = format!("/{}", cfg.path.trim_matches('/'));
     let base = cfg.path.clone();
-    let state = AppState { cfg: Arc::new(cfg) };
+    if spec.is_some() { cfg.spec_url = format!("{}/__flexdoc/openapi.json", base); }
+    let state = AppState { cfg: Arc::new(cfg), spec: spec.map(Arc::new) };
     Router::new()
         .route(&base, get(page))
         .route(&(base.clone() + "/"), get(page))
         .route(&(base.clone() + "/__flexdoc/renderer.js"), get(js))
-        .route(&(base + "/__flexdoc/renderer.css"), get(css))
+        .route(&(base.clone() + "/__flexdoc/renderer.css"), get(css))
+        .route(&(base + "/__flexdoc/openapi.json"), get(openapi))
         .with_state(state)
 }
 
 async fn page(State(state): State<AppState>) -> Html<String> { Html(render_html(&state.cfg)) }
 async fn js() -> Response { asset(RENDERER_JS, "application/javascript; charset=utf-8") }
 async fn css() -> Response { asset(RENDERER_CSS, "text/css; charset=utf-8") }
+async fn openapi(State(state): State<AppState>) -> Response {
+    match state.spec.as_deref() {
+        Some(spec) => Json(spec.clone()).into_response(),
+        None => StatusCode::NOT_FOUND.into_response(),
+    }
+}
 
 fn asset(body: &'static [u8], content_type: &'static str) -> Response {
     let mut response = body.into_response();
@@ -68,5 +89,12 @@ mod tests {
         assert!(body.contains("/docs/__flexdoc/renderer.js"));
         assert!(!RENDERER_JS.is_empty());
         assert!(!RENDERER_CSS.is_empty());
+    }
+
+    #[test]
+    fn generated_openapi_uses_internal_spec_route() {
+        let spec = json!({"openapi":"3.1.0","info":{"title":"Test","version":"1"},"paths":{}});
+        let router = router_with_openapi(Config::default(), &spec).expect("serializes OpenAPI");
+        drop(router);
     }
 }
