@@ -1,0 +1,11 @@
+{
+  "name": "flexdoc-example-fastify",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": { "start": "node index.js" },
+  "dependencies": {
+    "@fastify/swagger": "^9.5.1",
+    "@prauga/flexdoc-backend": "2.1.0",
+    "fastify": "^5.5.0"
+  }
+}

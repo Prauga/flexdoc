@@ -35,7 +35,11 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 
 These versions are independent across ecosystems. Renderer contract v1 is the compatibility boundary.
 
-> The repository is preparing the Prauga package migration. A source version in this table does not by itself mean that registry version has already been published.
+## Examples
+
+Runnable examples are available in [`examples/`](./examples/README.md) for Express, Fastify, FastAPI, Spring Boot, Go and Rust. Existing React and NestJS examples live under [`packages/examples/`](./packages/examples/).
+
+FlexDoc dependencies in examples use exact current release versions. `npm run check:example-versions` derives the expected versions from the package and adapter manifests and CI rejects stale example pins whenever a release version changes.
 
 ## React
 
@@ -158,6 +162,7 @@ Adapters obtain or expose the OpenAPI document, host a small page, and serve ver
 
 ```bash
 npm ci
+npm run check:example-versions
 npm run build:client
 npm test -w packages/client -- --runInBand
 npm test -w packages/backend -- --runInBand
@@ -168,16 +173,12 @@ cargo test --manifest-path adapters/rust/Cargo.toml --all-targets
 mvn -f adapters/java-spring/pom.xml verify
 ```
 
-Before `@prauga/flexdoc-client` exists on npm, repository CI bootstraps CLI dependencies from the local client package instead of reaching the registry.
-
 ## Release and migration
 
 - [Distribution and versioning](./docs/distribution.md)
 - [OpenAPI compatibility](./docs/openapi-compatibility.md)
 - [Framework adapters](./docs/framework-adapters.md)
 - [Renderer architecture](./docs/renderer-product.md)
-
-The old `@bluejeans/*` npm packages are migration aliases only. They should be **deprecated, not unpublished**, after their matching `@prauga/*` replacements are publicly available. Maven is a new coordinate and is not part of the npm deprecation operation.
 
 ## Security and self-hosting
 
