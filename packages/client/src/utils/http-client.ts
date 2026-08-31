@@ -26,10 +26,14 @@ export interface HttpRequestDraft {
   auth?: HttpAuth;
 }
 
-export function buildHttpRequest(draft: HttpRequestDraft): BuiltRequest {
-  return coreBuildHttpRequest(draft) as BuiltRequest;
+export interface HttpBuiltRequest extends BuiltRequest {
+  headerEntries: Array<[string, string]>;
 }
 
-export function requestDraftFromBuiltRequest(request: BuiltRequest): HttpRequestDraft {
+export function buildHttpRequest(draft: HttpRequestDraft): HttpBuiltRequest {
+  return coreBuildHttpRequest(draft) as HttpBuiltRequest;
+}
+
+export function requestDraftFromBuiltRequest(request: BuiltRequest & { headerEntries?: Array<[string, string]> }): HttpRequestDraft {
   return coreRequestDraftFromBuiltRequest(request) as HttpRequestDraft;
 }
