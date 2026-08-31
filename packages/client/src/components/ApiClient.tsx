@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Loader2, Play, Plus, Trash2 } from 'lucide-react';
 import { CodeBlock } from './CodeBlock';
 import { buildHttpRequest } from '../utils/http-client';
@@ -48,10 +48,12 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
   const [response, setResponse] = useState<{ status: number; statusText: string; headers: string; body: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const onRequestChangeRef = useRef(onRequestChange);
 
+  useEffect(() => { onRequestChangeRef.current = onRequestChange; }, [onRequestChange]);
   useEffect(() => {
-    try { onRequestChange?.(buildHttpRequest(draft)); } catch { /* an empty URL is valid while editing */ }
-  }, [draft, onRequestChange]);
+    try { onRequestChangeRef.current?.(buildHttpRequest(draft)); } catch { /* an empty URL is valid while editing */ }
+  }, [draft]);
 
   const method = (draft.method || 'GET').toUpperCase();
   const inputClass = theme === 'dark' ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900';
