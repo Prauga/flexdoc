@@ -1,6 +1,7 @@
 package flexdoc
 
 import (
+    "encoding/json"
     "net/http/httptest"
     "strings"
     "testing"
@@ -26,4 +27,27 @@ func TestHandlerWithAssetsIsSafe(t *testing.T) {
     body := rec.Body.String()
     if !strings.Contains(body, "/reference/__flexdoc/renderer.js") { t.Fatal("renderer route missing") }
     if strings.Contains(body, "</script><script>alert(1)</script>") { t.Fatal("unsafe title rendered") }
+}
+
+func TestHandlerFromOpenAPIServesGeneratedSpecAndDocs(t *testing.T) {
+    spec := map[string]any{
+        "openapi": "3.1.0",
+        "info": map[string]any{"title": "Generated", "version": "1"},
+        "paths": map[string]any{},
+    }
+    h, err := HandlerFromOpenAPI(Config{Path:"/reference", Title:"Generated API"}, spec)
+    if err != nil { t.Fatalf("HandlerFromOpenAPI: %v", err) }
+
+    page := httptest.NewRecorder()
+    h.ServeHTTP(page, httptest.NewRequest("GET", "/reference", nil))
+    if page.Code != 200 { t.Fatalf("docs status = %d", page.Code) }
+    if !strings.Contains(page.Body.String(), "/reference/__flexdoc/openapi.json") { t.Fatal("docs page does not reference generated spec route") }
+
+    generated := httptest.NewRecorder()
+    h.ServeHTTP(generated, httptest.NewRequest("GET", "/reference/__flexdoc/openapi.json", nil))
+    if generated.Code != 200 { t.Fatalf("spec status = %d", generated.Code) }
+    if got := generated.Header().Get("Content-Type"); !strings.HasPrefix(got, "application/json") { t.Fatalf("content-type = %q", got) }
+    var decoded map[string]any
+    if err := json.Unmarshal(generated.Body.Bytes(), &decoded); err != nil { t.Fatalf("decode generated spec: %v", err) }
+    if decoded["openapi"] != "3.1.0" { t.Fatalf("openapi = %#v", decoded["openapi"]) }
 }
