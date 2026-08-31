@@ -81,6 +81,9 @@ fn render_html(cfg: &Config) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::{body::{to_bytes, Body}, http::Request};
+    use tower::ServiceExt;
+
     #[test]
     fn html_is_script_safe_and_assets_are_embedded() {
         let cfg = Config { title:"</script><script>alert(1)</script>".into(), path:"/docs".into(), ..Default::default() };
@@ -91,10 +94,22 @@ mod tests {
         assert!(!RENDERER_CSS.is_empty());
     }
 
-    #[test]
-    fn generated_openapi_uses_internal_spec_route() {
+    #[tokio::test]
+    async fn generated_openapi_serves_docs_and_internal_spec_route() {
         let spec = json!({"openapi":"3.1.0","info":{"title":"Test","version":"1"},"paths":{}});
-        let router = router_with_openapi(Config::default(), &spec).expect("serializes OpenAPI");
-        drop(router);
+        let app = router_with_openapi(Config { path: "/reference".into(), ..Default::default() }, &spec).expect("serializes OpenAPI");
+
+        let page = app.clone().oneshot(Request::builder().uri("/reference").body(Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(page.status(), StatusCode::OK);
+        let page_body = to_bytes(page.into_body(), usize::MAX).await.unwrap();
+        let page_text = String::from_utf8(page_body.to_vec()).unwrap();
+        assert!(page_text.contains("/reference/__flexdoc/openapi.json"));
+
+        let response = app.oneshot(Request::builder().uri("/reference/__flexdoc/openapi.json").body(Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers().get(header::CONTENT_TYPE).and_then(|value| value.to_str().ok()), Some("application/json"));
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let decoded: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(decoded["openapi"], "3.1.0");
     }
 }
