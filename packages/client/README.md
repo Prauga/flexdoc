@@ -21,6 +21,28 @@ function ApiDocumentation() {
 }
 ```
 
+### Standalone API Client
+
+`ApiClient` can execute arbitrary HTTP requests without requiring an OpenAPI document. It uses the same canonical request shape as FlexDoc's OpenAPI request builder and code-sample generator.
+
+```jsx
+import { ApiClient } from '@prauga/flexdoc-client';
+
+function RequestWorkspace() {
+  return (
+    <ApiClient
+      initialRequest={{
+        method: 'GET',
+        url: 'https://api.example.com/pets',
+        query: [{ key: 'limit', value: '10' }],
+      }}
+    />
+  );
+}
+```
+
+For programmatic request construction, `buildHttpRequest` accepts arbitrary methods, URLs, ordered query parameters and headers, bodies, and common authorization modes. `requestDraftFromBuiltRequest` converts an existing canonical FlexDoc request into an editable API-client draft.
+
 ### With Custom Styling
 
 ```jsx
