@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Loader2, Play, Plus, Trash2 } from 'lucide-react';
 import { CodeBlock } from './CodeBlock';
-import { buildHttpRequest, HttpAuth, HttpKeyValue, HttpRequestDraft } from '../utils/http-client';
+import { buildHttpRequest } from '../utils/http-client';
+import type { HttpAuth, HttpKeyValue, HttpRequestDraft } from '../utils/http-client';
 import type { BuiltRequest } from '../utils/request-builder';
 
 export interface ApiClientProps {
@@ -28,16 +29,16 @@ function withDefaults(initialRequest?: Partial<HttpRequestDraft>): HttpRequestDr
 
 function PairEditor({ label, entries, onChange, inputClass }: { label: string; entries: HttpKeyValue[]; onChange: (entries: HttpKeyValue[]) => void; inputClass: string }) {
   const update = (index: number, patch: Partial<HttpKeyValue>) => onChange(entries.map((entry, i) => i === index ? { ...entry, ...patch } : entry));
-  return <div className='space-y-2'>
+  return <div className='space-y-3'>
     <div className='flex items-center justify-between'>
       <span className='text-sm font-medium'>{label}</span>
-      <button type='button' className='inline-flex min-h-9 items-center gap-1 rounded-md border px-2 text-sm' onClick={() => onChange([...entries, emptyPair()])}><Plus className='h-4 w-4' /> Add</button>
+      <button type='button' className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm' onClick={() => onChange([...entries, emptyPair()])}><Plus className='h-4 w-4' /> Add</button>
     </div>
-    {entries.map((entry, index) => <div className='grid grid-cols-[auto_1fr_1fr_auto] gap-2' key={index}>
+    {entries.map((entry, index) => <div className='flex gap-2' key={index}>
       <input aria-label={`${label} ${index + 1} enabled`} type='checkbox' checked={entry.enabled !== false} onChange={(e) => update(index, { enabled: e.target.checked })} />
-      <input aria-label={`${label} ${index + 1} key`} className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} placeholder='Key' value={entry.key} onChange={(e) => update(index, { key: e.target.value })} />
-      <input aria-label={`${label} ${index + 1} value`} className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} placeholder='Value' value={entry.value} onChange={(e) => update(index, { value: e.target.value })} />
-      <button type='button' aria-label={`Remove ${label.toLowerCase()} ${index + 1}`} className='inline-flex min-h-10 min-w-10 items-center justify-center rounded-md border' onClick={() => onChange(entries.filter((_, i) => i !== index))}><Trash2 className='h-4 w-4' /></button>
+      <input aria-label={`${label} ${index + 1} key`} className={`w-full rounded-md border px-3 py-2 text-sm ${inputClass}`} placeholder='Key' value={entry.key} onChange={(e) => update(index, { key: e.target.value })} />
+      <input aria-label={`${label} ${index + 1} value`} className={`w-full rounded-md border px-3 py-2 text-sm ${inputClass}`} placeholder='Value' value={entry.value} onChange={(e) => update(index, { value: e.target.value })} />
+      <button type='button' aria-label={`Remove ${label.toLowerCase()} ${index + 1}`} className='inline-flex min-h-11 items-center justify-center rounded-md border px-3 py-2' onClick={() => onChange(entries.filter((_, i) => i !== index))}><Trash2 className='h-4 w-4' /></button>
     </div>)}
   </div>;
 }
@@ -78,31 +79,31 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
   };
 
   return <div className={`rounded-xl border p-4 md:p-5 ${panelClass}`}>
-    <div className='flex flex-col gap-5'>
-      <div className='grid grid-cols-[8rem_1fr] gap-2'>
+    <div className='flex flex-col gap-4'>
+      <div className='flex gap-2'>
         <select aria-label='HTTP method' className={`rounded-md border px-3 py-2 font-medium ${inputClass}`} value={draft.method} onChange={(e) => setDraft({ ...draft, method: e.target.value })}>
           {['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((method) => <option key={method}>{method}</option>)}
         </select>
-        <input aria-label='Request URL' className={`rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} placeholder='https://api.example.com/resource' value={draft.url} onChange={(e) => setDraft({ ...draft, url: e.target.value })} />
+        <input aria-label='Request URL' className={`w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} placeholder='https://api.example.com/resource' value={draft.url} onChange={(e) => setDraft({ ...draft, url: e.target.value })} />
       </div>
 
       <PairEditor label='Query parameters' entries={draft.query || []} onChange={(query) => setDraft({ ...draft, query })} inputClass={inputClass} />
       <PairEditor label='Headers' entries={draft.headers || []} onChange={(headers) => setDraft({ ...draft, headers })} inputClass={inputClass} />
 
-      <div className='space-y-2'>
+      <div className='space-y-3'>
         <label className='text-sm font-medium'>Authorization
-          <select aria-label='Authorization type' className={`ml-2 rounded-md border px-2 py-1 ${inputClass}`} value={draft.auth?.type || 'none'} onChange={(e) => setAuthType(e.target.value as HttpAuth['type'])}>
+          <select aria-label='Authorization type' className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} value={draft.auth?.type || 'none'} onChange={(e) => setAuthType(e.target.value as HttpAuth['type'])}>
             <option value='none'>None</option><option value='bearer'>Bearer token</option><option value='basic'>Basic auth</option><option value='apiKey'>API key</option>
           </select>
         </label>
         {draft.auth?.type === 'bearer' && <input aria-label='Bearer token' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} value={draft.auth.token} onChange={(e) => setDraft({ ...draft, auth: { type: 'bearer', token: e.target.value } })} />}
-        {draft.auth?.type === 'basic' && <div className='grid grid-cols-2 gap-2'><input aria-label='Basic auth username' className={`rounded-md border px-3 py-2 ${inputClass}`} placeholder='Username' value={draft.auth.username} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth as Extract<HttpAuth, { type: 'basic' }>, username: e.target.value } })} /><input aria-label='Basic auth password' type='password' autoComplete='off' className={`rounded-md border px-3 py-2 ${inputClass}`} placeholder='Password' value={draft.auth.password} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth as Extract<HttpAuth, { type: 'basic' }>, password: e.target.value } })} /></div>}
-        {draft.auth?.type === 'apiKey' && <div className='grid grid-cols-[1fr_1fr_8rem] gap-2'><input aria-label='API key name' className={`rounded-md border px-3 py-2 ${inputClass}`} placeholder='Key name' value={draft.auth.key} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth as Extract<HttpAuth, { type: 'apiKey' }>, key: e.target.value } })} /><input aria-label='API key value' type='password' autoComplete='off' className={`rounded-md border px-3 py-2 ${inputClass}`} placeholder='Value' value={draft.auth.value} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth as Extract<HttpAuth, { type: 'apiKey' }>, value: e.target.value } })} /><select aria-label='API key location' className={`rounded-md border px-2 ${inputClass}`} value={draft.auth.in} onChange={(e) => setDraft({ ...draft, auth: { ...draft.auth as Extract<HttpAuth, { type: 'apiKey' }>, in: e.target.value as 'header' | 'query' } })}><option value='header'>Header</option><option value='query'>Query</option></select></div>}
+        {draft.auth?.type === 'basic' && <div className='flex gap-2'><input aria-label='Basic auth username' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Username' value={draft.auth.username} onChange={(e) => setDraft({ ...draft, auth: { ...(draft.auth as Extract<HttpAuth, { type: 'basic' }>), username: e.target.value } })} /><input aria-label='Basic auth password' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Password' value={draft.auth.password} onChange={(e) => setDraft({ ...draft, auth: { ...(draft.auth as Extract<HttpAuth, { type: 'basic' }>), password: e.target.value } })} /></div>}
+        {draft.auth?.type === 'apiKey' && <div className='flex gap-2'><input aria-label='API key name' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Key name' value={draft.auth.key} onChange={(e) => setDraft({ ...draft, auth: { ...(draft.auth as Extract<HttpAuth, { type: 'apiKey' }>), key: e.target.value } })} /><input aria-label='API key value' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Value' value={draft.auth.value} onChange={(e) => setDraft({ ...draft, auth: { ...(draft.auth as Extract<HttpAuth, { type: 'apiKey' }>), value: e.target.value } })} /><select aria-label='API key location' className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} value={draft.auth.in} onChange={(e) => setDraft({ ...draft, auth: { ...(draft.auth as Extract<HttpAuth, { type: 'apiKey' }>), in: e.target.value as 'header' | 'query' } })}><option value='header'>Header</option><option value='query'>Query</option></select></div>}
       </div>
 
-      {!['GET', 'HEAD'].includes(draft.method.toUpperCase()) && <div className='space-y-2'>
-        <label className='block text-sm font-medium'>Content type<input aria-label='Content type' className={`mt-1 w-full rounded-md border px-3 py-2 ${inputClass}`} value={draft.contentType || ''} onChange={(e) => setDraft({ ...draft, contentType: e.target.value })} /></label>
-        <label className='block text-sm font-medium'>Request body<textarea aria-label='Request body' rows={8} className={`mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} value={draft.body || ''} onChange={(e) => setDraft({ ...draft, body: e.target.value })} /></label>
+      {!['GET', 'HEAD'].includes(draft.method.toUpperCase()) && <div className='space-y-3'>
+        <label className='text-sm font-medium'>Content type<input aria-label='Content type' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} value={draft.contentType || ''} onChange={(e) => setDraft({ ...draft, contentType: e.target.value })} /></label>
+        <label className='text-sm font-medium'>Request body<textarea aria-label='Request body' rows={8} className={`w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} value={draft.body || ''} onChange={(e) => setDraft({ ...draft, body: e.target.value })} /></label>
       </div>}
 
       <button onClick={execute} disabled={loading} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60'>
