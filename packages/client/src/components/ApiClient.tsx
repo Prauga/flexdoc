@@ -44,7 +44,7 @@ function PairEditor({ label, entries, onChange, inputClass }: { label: string; e
 }
 
 export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'light', credentials = 'same-origin', requestInterceptor, onRequestChange }) => {
-  const [draft, setDraft] = useState<HttpRequestDraft>(() => withDefaults(initialRequest));
+  const [draft, setDraft] = useState<HttpRequestDraft>(withDefaults(initialRequest));
   const [response, setResponse] = useState<{ status: number; statusText: string; headers: string; body: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -53,6 +53,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
     try { onRequestChange?.(buildHttpRequest(draft)); } catch { /* an empty URL is valid while editing */ }
   }, [draft, onRequestChange]);
 
+  const method = (draft.method || 'GET').toUpperCase();
   const inputClass = theme === 'dark' ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900';
   const panelClass = theme === 'dark' ? 'border-gray-700 bg-gray-800/60 text-gray-100' : 'border-gray-200 bg-gray-50 text-gray-900';
 
@@ -79,8 +80,8 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
   return <div className={`rounded-xl border p-4 md:p-5 ${panelClass}`}>
     <div className='flex flex-col gap-4'>
       <div className='flex gap-2'>
-        <select aria-label='HTTP method' className={`rounded-md border px-3 py-2 font-medium ${inputClass}`} value={draft.method} onChange={(e) => setDraft({ ...draft, method: e.target.value })}>
-          {['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((method) => <option key={method}>{method}</option>)}
+        <select aria-label='HTTP method' className={`rounded-md border px-3 py-2 font-medium ${inputClass}`} value={method} onChange={(e) => setDraft({ ...draft, method: e.target.value })}>
+          {['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((item) => <option key={item}>{item}</option>)}
         </select>
         <input aria-label='Request URL' className={`w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} placeholder='https://api.example.com/resource' value={draft.url} onChange={(e) => setDraft({ ...draft, url: e.target.value })} />
       </div>
@@ -99,7 +100,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
         {draft.auth?.type === 'apiKey' && <div className='flex gap-2'><input aria-label='API key name' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Key name' value={draft.auth.key} onChange={(e) => setDraft({ ...draft, auth: { ...(draft.auth as Extract<HttpAuth, { type: 'apiKey' }>), key: e.target.value } })} /><input aria-label='API key value' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Value' value={draft.auth.value} onChange={(e) => setDraft({ ...draft, auth: { ...(draft.auth as Extract<HttpAuth, { type: 'apiKey' }>), value: e.target.value } })} /><select aria-label='API key location' className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} value={draft.auth.in} onChange={(e) => setDraft({ ...draft, auth: { ...(draft.auth as Extract<HttpAuth, { type: 'apiKey' }>), in: e.target.value as 'header' | 'query' } })}><option value='header'>Header</option><option value='query'>Query</option></select></div>}
       </div>
 
-      {!['GET', 'HEAD'].includes(draft.method.toUpperCase()) && <div className='space-y-3'>
+      {!['GET', 'HEAD'].includes(method) && <div className='space-y-3'>
         <label className='text-sm font-medium'>Content type<input aria-label='Content type' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} value={draft.contentType || ''} onChange={(e) => setDraft({ ...draft, contentType: e.target.value })} /></label>
         <label className='text-sm font-medium'>Request body<textarea aria-label='Request body' rows={8} className={`w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} value={draft.body || ''} onChange={(e) => setDraft({ ...draft, body: e.target.value })} /></label>
       </div>}
