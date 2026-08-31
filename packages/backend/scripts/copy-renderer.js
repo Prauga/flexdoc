@@ -13,7 +13,7 @@ for (const file of files) {
 
   if (!fs.existsSync(source)) {
     throw new Error(
-      `Missing ${source}. Build @bluejeans/flexdoc-client before the backend package.`
+      `Missing ${source}. Build @prauga/flexdoc-client before the backend package.`
     );
   }
 

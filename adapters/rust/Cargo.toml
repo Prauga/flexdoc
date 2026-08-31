@@ -1,0 +1,20 @@
+[package]
+name = "prauga-flexdoc-axum"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+description = "Self-contained Axum adapter for the Prauga FlexDoc OpenAPI renderer"
+repository = "https://github.com/prauga/flexdoc"
+homepage = "https://github.com/prauga/flexdoc"
+readme = "README.md"
+keywords = ["openapi", "axum", "api-docs", "self-hosted", "api-explorer"]
+categories = ["web-programming", "development-tools"]
+include = ["src/**", "assets/**", "README.md", "Cargo.toml"]
+
+[dependencies]
+axum = "0.8"
+serde_json = "1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tower = { version = "0.5", features = ["util"] }

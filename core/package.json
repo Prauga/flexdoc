@@ -1,27 +1,21 @@
 {
-  "name": "@bluejeans/flexdoc-core",
+  "name": "@prauga/flexdoc-core",
   "version": "0.1.0",
-  "description": "Framework-neutral OpenAPI engine for FlexDoc",
+  "description": "Framework-neutral OpenAPI engine for FlexDoc request construction, resolution, and serialization",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
   "files": ["dist", "README.md"],
   "publishConfig": { "access": "public" },
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test test/*.test.mjs"
-  },
+  "scripts": { "build": "tsc -p tsconfig.json", "test": "npm run build && node --test test/*.test.mjs" },
   "dependencies": { "js-yaml": "^4.1.0" },
   "devDependencies": { "@types/js-yaml": "^4.0.9", "typescript": "^5.0.0" },
-  "keywords": ["openapi", "api", "serialization", "api-client", "documentation"],
-  "author": "Vishnu R <vishnurajesh45@gmail.com>",
+  "keywords": ["flexdoc", "openapi", "openapi-parser", "api-client", "request-builder", "serialization", "api-documentation", "developer-tools"],
+  "author": "Prauga",
   "license": "AGPL-3.0-or-later",
-  "repository": { "type": "git", "url": "https://github.com/bluejeans117/flexdoc.git", "directory": "core" }
+  "repository": { "type": "git", "url": "https://github.com/prauga/flexdoc.git", "directory": "core" },
+  "bugs": { "url": "https://github.com/prauga/flexdoc/issues" },
+  "homepage": "https://github.com/prauga/flexdoc#readme"
 }

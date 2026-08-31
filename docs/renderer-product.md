@@ -1,6 +1,6 @@
 # FlexDoc shared renderer
 
-FlexDoc has one product renderer: the standalone browser bundle built by `@bluejeans/flexdoc-client`. Server/framework packages are adapters. They provide an OpenAPI document and renderer options, then serve the versioned renderer assets; they must not implement their own schema, request, search, or code-sample UI.
+FlexDoc has one product renderer: the standalone browser bundle built by `@prauga/flexdoc-client`. Server/framework packages are adapters. They provide an OpenAPI document and renderer options, then serve the versioned renderer assets; they must not implement their own schema, request, search, or code-sample UI.
 
 ## Renderer contract v1
 

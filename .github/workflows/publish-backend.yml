@@ -25,8 +25,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build canonical client renderer
-        run: npm run build -w packages/client
+      - name: Build canonical client renderer and core
+        run: npm run build:client
 
       - name: Test backend package
         run: npm test -w packages/backend -- --runInBand
@@ -34,15 +34,17 @@ jobs:
       - name: Build backend package
         run: npm run build -w packages/backend
 
-      - name: Verify JavaScript release tag matches package version
+      - name: Verify JavaScript release tag and Prauga identity
         run: |
           VERSION=$(node -p "require('./packages/backend/package.json').version")
+          NAME=$(node -p "require('./packages/backend/package.json').name")
           test "${{ github.event.release.tag_name }}" = "js/v${VERSION}"
+          test "$NAME" = "@prauga/flexdoc-backend"
 
       - name: Verify packaged renderer assets
         run: |
-          test -f packages/backend/dist/renderer/flexdoc.standalone.js
-          test -f packages/backend/dist/renderer/flexdoc.standalone.css
+          test -s packages/backend/dist/renderer/flexdoc.standalone.js
+          test -s packages/backend/dist/renderer/flexdoc.standalone.css
 
       - name: Setup publishing Node.js
         uses: actions/setup-node@v6
@@ -57,5 +59,5 @@ jobs:
       - name: Inspect npm package contents
         run: npm pack --dry-run -w packages/backend
 
-      - name: Publish backend through npm Trusted Publishing
+      - name: Publish @prauga/flexdoc-backend through npm Trusted Publishing
         run: npm publish -w packages/backend --access public

@@ -1,0 +1,51 @@
+name: Publish FlexDoc CLI to npm
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    if: startsWith(github.event.release.tag_name, 'cli/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Install repository dependencies
+        run: npm ci
+      - name: Build canonical renderer
+        run: npm run build:client
+      - name: Install CLI dependencies
+        run: npm install --prefix tools/flexdoc-cli --ignore-scripts --no-audit --no-fund
+      - name: Test CLI
+        env:
+          FLEXDOC_CLIENT_DIR: ${{ github.workspace }}/packages/client
+        run: npm test --prefix tools/flexdoc-cli
+      - name: Verify release tag
+        run: |
+          VERSION=$(node -p "require('./tools/flexdoc-cli/package.json').version")
+          test "${{ github.event.release.tag_name }}" = "cli/v${VERSION}"
+      - name: Pack and smoke-test install
+        run: |
+          TARBALL=$(npm pack --prefix tools/flexdoc-cli --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s)[0].filename))")
+          TARBALL=$(realpath "tools/flexdoc-cli/$TARBALL")
+          TMP=$(mktemp -d)
+          cd "$TMP"
+          npm init -y >/dev/null
+          npm install --ignore-scripts --no-audit --no-fund "$TARBALL"
+          ./node_modules/.bin/flexdoc --version
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org/'
+          package-manager-cache: false
+      - run: npm install --global npm@^11.15.0
+      - name: Publish @prauga/flexdoc-cli
+        run: npm publish --prefix tools/flexdoc-cli --access public
