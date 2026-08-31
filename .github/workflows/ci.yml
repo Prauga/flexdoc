@@ -62,6 +62,18 @@ jobs:
           test -s packages/client/dist/standalone/flexdoc.standalone.js
           test -s packages/client/dist/standalone/flexdoc.standalone.css
 
+      - name: Test Go adapter
+        run: go test ./...
+        working-directory: adapters/go
+
+      - name: Test Python ASGI adapter
+        run: |
+          python3 -m compileall -q adapters/python/src
+          python3 -m unittest discover -s adapters/python/tests -v
+
+      - name: Test Rust Axum adapter
+        run: cargo test --manifest-path adapters/rust/Cargo.toml --all-targets
+
       - name: Install CLI dependencies
         run: npm install --prefix tools/flexdoc-cli --ignore-scripts --no-audit --no-fund
 
