@@ -13,33 +13,6 @@ permissions:
   contents: read
 
 jobs:
-  sync-pr20-go-sum:
-    if: github.event_name == 'pull_request' && github.event.pull_request.number == 20
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout PR head
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-
-      - name: Materialize Go example checksums
-        working-directory: examples/go-net-http
-        run: go mod tidy
-
-      - name: Commit Go module sums
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add examples/go-net-http/go.mod examples/go-net-http/go.sum
-          if git diff --cached --quiet; then
-            echo "Go example module files already materialized."
-            exit 0
-          fi
-          git commit -m "Commit Go example module sums"
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
-
   test-and-build:
     name: test-and-build
     runs-on: ubuntu-latest
