@@ -74,7 +74,8 @@ jobs:
           python3 -m compileall -q adapters/python/src
           python3 -m unittest discover -s adapters/python/tests -v
           python3 -m pip install --disable-pip-version-check -q build
-          python3 -m build adapters/python
+          rm -rf adapters/python/dist
+          python3 -m build --outdir adapters/python/dist adapters/python
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
