@@ -2,10 +2,10 @@ import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 
 const migrations = [
-  ['@prauga/flexdoc-client', '@prauga/flexdoc-client'],
-  ['@prauga/flexdoc-backend', '@prauga/flexdoc-backend'],
-  ['@prauga/flexdoc-core', '@prauga/flexdoc-core'],
-  ['@prauga/flexdoc-cli', '@prauga/flexdoc-cli'],
+  ['@bluejeans/flexdoc-client', '@prauga/flexdoc-client'],
+  ['@bluejeans/flexdoc-backend', '@prauga/flexdoc-backend'],
+  ['@bluejeans/flexdoc-core', '@prauga/flexdoc-core'],
+  ['@bluejeans/flexdoc-cli', '@prauga/flexdoc-cli'],
 ];
 const apply = process.argv.includes('--apply');
 
