@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AlertCircle, Loader2, Play, Plus, Trash2 } from 'lucide-react';
 import { CodeBlock } from './CodeBlock';
 import { buildHttpRequest } from '../utils/http-client';
@@ -44,13 +44,11 @@ function PairEditor({ label, entries, onChange, inputClass }: { label: string; e
 }
 
 export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'light', credentials = 'same-origin', requestInterceptor, onRequestChange }) => {
-  const defaults = useMemo(() => withDefaults(initialRequest), [initialRequest]);
-  const [draft, setDraft] = useState<HttpRequestDraft>(defaults);
+  const [draft, setDraft] = useState<HttpRequestDraft>(() => withDefaults(initialRequest));
   const [response, setResponse] = useState<{ status: number; statusText: string; headers: string; body: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => setDraft(defaults), [defaults]);
   useEffect(() => {
     try { onRequestChange?.(buildHttpRequest(draft)); } catch { /* an empty URL is valid while editing */ }
   }, [draft, onRequestChange]);
