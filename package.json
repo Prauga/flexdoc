@@ -14,7 +14,6 @@
     "build:backend": "npm run build -w packages/backend",
     "sync:adapter-assets": "node scripts/sync-adapter-assets.mjs",
     "check:adapter-assets": "node scripts/sync-adapter-assets.mjs --check",
-    "deprecate:bluejeans": "node scripts/deprecate-bluejeans-packages.mjs",
     "example:nestjs": "cd packages/examples/nestjs && npm install && npm run start:dev",
     "test": "npm run build:core && npm run test --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present"

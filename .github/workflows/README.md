@@ -27,4 +27,4 @@ Long-lived registry credentials are avoided where the registry supports OIDC:
 
 Trusted Publisher relationships are registry-side configuration. After the repository moves to `prauga/flexdoc`, they must point at that repository and the exact workflow filenames above.
 
-The old `@bluejeans/*` npm packages are not published by these workflows and are not unpublished. After the replacement `@prauga/*` packages exist, use the guarded deprecation procedure.
+The old `@bluejeans/*` npm packages are not published by these workflows and are not unpublished. After the replacement `@prauga/*` packages exist, deprecate them with `npm deprecate`.

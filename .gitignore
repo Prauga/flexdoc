@@ -32,6 +32,9 @@ dist-ssr
 # Coverage directories
 coverage
 
+# Rust and Maven build output
+target/
+
 # Playwright local output (visual baselines under e2e/**/*-snapshots stay tracked)
 playwright-report/
 playwright-cli-report/
