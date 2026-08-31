@@ -68,9 +68,6 @@ def test_fastapi_mounted_app_serves_docs_and_assets():
         missing = await request("/missing")
         return page, asset, missing
 
-    async def _unused():
-        pass
-
     page, asset, missing = asyncio.run(run())
     assert page[0]["status"] == 200
     assert b"/openapi.json" in page[1]["body"]
