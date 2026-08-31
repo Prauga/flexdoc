@@ -35,7 +35,7 @@ jobs:
             'flexdoc-axum': 'prauga-flexdoc-axum',
             'flexdoc_axum': 'prauga_flexdoc_axum',
           }
-          skip_dirs = {'.git', 'node_modules', 'dist', 'target', '.pytest_cache'}
+          skip_dirs = {'.git', '.github', 'node_modules', 'dist', 'target', '.pytest_cache'}
           suffixes = {'.md','.json','.js','.mjs','.cjs','.ts','.tsx','.yml','.yaml','.toml','.xml','.java','.go','.py'}
           for path in Path('.').rglob('*'):
             if not path.is_file() or any(part in skip_dirs for part in path.parts) or path.suffix not in suffixes:
@@ -62,12 +62,11 @@ jobs:
         run: npm run sync:adapter-assets
       - name: Refresh Rust lockfile
         run: cargo generate-lockfile --manifest-path adapters/rust/Cargo.toml
-      - name: Commit generated migration artifacts and remove one-shot workflow
+      - name: Commit generated migration artifacts
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git rm -f .github/workflows/prepare-prauga-migration.yml
           git rm -f tools/flexdoc-cli/package-lock.json || true
-          git add -A
+          git add -A -- ':!.github/workflows'
           git commit -m "Complete Prauga namespace and generated package assets"
           git push origin HEAD:release/prauga-package-migration
