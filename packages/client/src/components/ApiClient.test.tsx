@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ApiClient } from './ApiClient';
@@ -80,20 +79,18 @@ describe('ApiClient', () => {
     expect(onRequestChange.mock.calls.at(-1)?.[0]).toEqual(expect.objectContaining({ method: 'GET', url: 'https://api.example.test/pets' }));
   });
 
-  it('does not loop when an inline request-change callback updates parent state', async () => {
-    let renders = 0;
-    const Parent = () => {
-      const [, setLatest] = useState<unknown>(null);
-      renders += 1;
-      return <ApiClient
-        initialRequest={{ method: 'GET', url: 'https://api.example.test/pets' }}
-        onRequestChange={(request) => setLatest(request)}
-      />;
-    };
+  it('does not fire request-change solely because callback identity changes', async () => {
+    const first = jest.fn();
+    const second = jest.fn();
+    const view = render(<ApiClient initialRequest={{ method: 'GET', url: 'https://api.example.test/pets' }} onRequestChange={first} />);
+    await waitFor(() => expect(first).toHaveBeenCalledTimes(1));
 
-    render(<Parent />);
-    await waitFor(() => expect(renders).toBeGreaterThan(1));
+    view.rerender(<ApiClient initialRequest={{ method: 'GET', url: 'https://api.example.test/pets' }} onRequestChange={second} />);
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(renders).toBeLessThan(5);
+    expect(second).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('Request URL'), { target: { value: 'https://api.example.test/users' } });
+    await waitFor(() => expect(second).toHaveBeenCalledTimes(1));
+    expect(second.mock.calls[0][0]).toEqual(expect.objectContaining({ url: 'https://api.example.test/users' }));
   });
 });
