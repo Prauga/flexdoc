@@ -49,10 +49,23 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const onRequestChangeRef = useRef(onRequestChange);
+  const lastRequestSignatureRef = useRef<string | null>(null);
 
   useEffect(() => { onRequestChangeRef.current = onRequestChange; }, [onRequestChange]);
   useEffect(() => {
-    try { onRequestChangeRef.current?.(buildHttpRequest(draft)); } catch { /* an empty URL is valid while editing */ }
+    try {
+      const request = buildHttpRequest(draft);
+      const signature = JSON.stringify([
+        request.method,
+        request.url,
+        request.headerEntries,
+        request.body,
+        request.bodyKind,
+      ]);
+      if (signature === lastRequestSignatureRef.current) return;
+      lastRequestSignatureRef.current = signature;
+      onRequestChangeRef.current?.(request);
+    } catch { /* an empty URL is valid while editing */ }
   }, [draft]);
 
   const method = (draft.method || 'GET').toUpperCase();
