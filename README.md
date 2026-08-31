@@ -63,9 +63,8 @@ import express from 'express';
 import { setupExpressFlexDoc } from '@prauga/flexdoc-backend';
 
 const app = express();
-setupExpressFlexDoc(app, {
-  path: '/docs',
-  specUrl: '/openapi.json',
+setupExpressFlexDoc(app, '/docs', {
+  spec,
   options: { title: 'Example API' },
 });
 app.listen(3000);
