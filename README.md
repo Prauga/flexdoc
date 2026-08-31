@@ -1,6 +1,6 @@
 # FlexDoc
 
-FlexDoc is an open-source, self-hosted OpenAPI documentation renderer and API explorer. It ships one canonical browser renderer and thin framework adapters, so React, Node backends, Spring Boot, and static exports all use the same OpenAPI behavior and UI.
+FlexDoc is an open-source, self-hosted OpenAPI documentation renderer and API explorer. It ships one canonical browser renderer and thin framework adapters, so React, Node backends, Spring Boot, Go, Python, Rust, and static exports all use the same OpenAPI behavior and UI.
 
 FlexDoc is designed to live with your API: no FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is required.
 
@@ -20,6 +20,7 @@ FlexDoc is designed to live with your API: no FlexDoc account, hosted dashboard,
 - CLI serving/static export with external-reference bundling
 - Express, Fastify and NestJS integrations
 - Spring Boot adapter that packages the same canonical renderer assets
+- thin Go `net/http`, Python ASGI, and Rust Axum adapters
 
 Browser-side loading of cross-origin external OpenAPI references is subject to the target server's CORS policy. Server-side/CLI bundling can avoid that constraint.
 
@@ -31,6 +32,9 @@ Browser-side loading of cross-origin external OpenAPI references is subject to t
 | `@bluejeans/flexdoc-backend` | `2.0.2` | Thin Express, Fastify and NestJS integrations |
 | `@bluejeans/flexdoc-cli` | `0.1.0` source | CLI serving/static export; npm publication follows this change |
 | `io.github.bluejeans117.flexdoc:flexdoc-spring-boot-starter` | `0.1.0` | Spring Boot adapter published on Maven Central |
+| `adapters/go` | `0.x` source | Standard-library `net/http` adapter |
+| `adapters/python` | `0.x` source | Dependency-free ASGI adapter |
+| `adapters/rust` | `0.x` source | Axum adapter |
 
 Language adapters have independent ecosystem versions. Compatibility is governed by the renderer contract rather than forcing npm, Maven, PyPI, crates.io and Go modules to share one version number. See [Distribution and versioning](./docs/distribution.md).
 
@@ -133,6 +137,16 @@ flexdoc:
 
 See [`adapters/java-spring`](./adapters/java-spring/README.md) for the complete integration.
 
+## Go, Python, and Rust
+
+The additional language adapters are deliberately thin and currently live in-source while their registry/release automation is prepared:
+
+- [`adapters/go`](./adapters/go/README.md): standard `net/http` handler accepting any `fs.FS` renderer source.
+- [`adapters/python`](./adapters/python/README.md): dependency-free ASGI app mountable from FastAPI, Starlette, Django ASGI, and other ASGI hosts.
+- [`adapters/rust`](./adapters/rust/README.md): Axum router integration.
+
+Each adapter serves the version-matched local `flexdoc.standalone.js` and `flexdoc.standalone.css`; none reimplements OpenAPI parsing or rendering.
+
 ## Architecture
 
 FlexDoc deliberately has one renderer implementation:
@@ -151,7 +165,9 @@ canonical renderer + request model
       +--> standalone static assets
       +--> Node framework adapters
       +--> Spring Boot adapter
-      +--> future Python / Rust / Go adapters
+      +--> Go net/http adapter
+      +--> Python ASGI adapter
+      +--> Rust Axum adapter
 ```
 
 Framework adapters and the CLI obtain or generate the OpenAPI document, prepare a small host page, and use version-matched renderer assets. They do not reimplement request construction, code generation, Try It, schemas, or theming.
@@ -169,9 +185,12 @@ npm run build --workspace=@bluejeans/flexdoc-backend
 npm install --prefix tools/flexdoc-cli
 FLEXDOC_CLIENT_DIR=packages/client npm test --prefix tools/flexdoc-cli
 mvn -f adapters/java-spring/pom.xml verify
+(cd adapters/go && go test ./...)
+python3 -m unittest discover -s adapters/python/tests -v
+cargo test --manifest-path adapters/rust/Cargo.toml --all-targets
 ```
 
-CI additionally verifies the packed npm client from clean TypeScript consumers, exercises CLI build/serve behavior, runs Chromium against CLI-generated output, and checks that backend and Java artifacts contain the canonical standalone renderer assets.
+CI additionally verifies the packed npm client from clean TypeScript consumers, exercises CLI build/serve behavior, runs Chromium against CLI-generated output, validates the Go/Python/Rust adapters, and checks that backend and Java artifacts contain the canonical standalone renderer assets.
 
 ## Release and distribution
 
