@@ -1,0 +1,50 @@
+name: Publish FlexDoc Python adapter
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: startsWith(github.event.release.tag_name, 'python/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - run: npm run build:client
+      - run: npm run check:adapter-assets
+      - name: Verify release tag
+        run: |
+          VERSION=$(python -c "import tomllib; print(tomllib.load(open('adapters/python/pyproject.toml','rb'))['project']['version'])")
+          test "${{ github.event.release.tag_name }}" = "python/v${VERSION}"
+      - run: python -m pip install --disable-pip-version-check build
+      - run: python -m build adapters/python
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: adapters/python/dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/prauga-flexdoc
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
