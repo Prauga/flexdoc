@@ -83,3 +83,28 @@ test('round-trips a built request into an editable draft without losing duplicat
     { key: 'Content-Type', value: 'application/json' },
   ]);
 });
+
+test('round-trips ordered duplicate query parameters without duplicating them on rebuild', () => {
+  const built = buildHttpRequest({
+    method: 'GET',
+    url: 'https://api.example.test/pets#results',
+    query: [
+      { key: 'limit', value: '10' },
+      { key: 'limit', value: '20' },
+      { key: 'search', value: 'red fox' },
+      { key: 'empty', value: '' },
+    ],
+  });
+
+  const draft = requestDraftFromBuiltRequest(built);
+  assert.equal(draft.url, 'https://api.example.test/pets#results');
+  assert.deepEqual(draft.query, [
+    { key: 'limit', value: '10' },
+    { key: 'limit', value: '20' },
+    { key: 'search', value: 'red fox' },
+    { key: 'empty', value: '' },
+  ]);
+
+  const rebuilt = buildHttpRequest(draft);
+  assert.equal(rebuilt.url, built.url);
+});
