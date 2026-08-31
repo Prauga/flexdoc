@@ -6,8 +6,8 @@ import { OpenAPIParser } from '../utils/openapi-parser';
 import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
 import { CodeSampleLanguage, generateCodeSample, languageLabel } from '../utils/code-samples';
 import { CodeBlock } from './CodeBlock';
-import { RequestPlayground } from './RequestPlayground';
 import { SchemaView } from './SchemaView';
+import { TryItApiClientWorkspace } from './TryItApiClientWorkspace';
 
 interface EndpointDetailProps {
   spec: OpenAPISpec;
@@ -117,7 +117,14 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
         })}
       </div>)}
 
-      {options.tryIt?.enabled !== false && section('Try It', 'tryIt', <RequestPlayground spec={spec} path={path} method={method} theme={theme} options={options} onRequestChange={setSampleRequest} />)}
+      {options.tryIt?.enabled !== false && section('Try It', 'tryIt', <TryItApiClientWorkspace
+        spec={spec}
+        path={path}
+        method={method}
+        theme={theme}
+        options={options}
+        onRequestChange={setSampleRequest}
+      />)}
 
       {options.codeSamples?.enabled !== false && section('Code Examples', 'examples', <div className='min-w-0'>
         <div className='mb-3 flex max-w-full gap-1 overflow-x-auto pb-1' role='tablist' aria-label='Code example language'>

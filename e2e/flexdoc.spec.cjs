@@ -65,6 +65,31 @@ test('desktop search, Try It, response viewer, and code samples work together', 
   await expect(page.locator('pre').filter({ hasText: 'Bearer token-42' })).toBeVisible();
 });
 
+test('Try It hands live values and custom servers to the API Client', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop API Client coverage');
+
+  await page.goto('/e2e/index.html#get-pets-id');
+  await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
+
+  await page.getByLabel('path id').fill('42');
+  await page.getByLabel('query locale').fill('de');
+  await page.getByLabel('header X-Trace').fill('trace-42');
+  await page.getByLabel('Custom server URL').fill('http://localhost:8080');
+  await page.getByRole('button', { name: 'Open in API Client' }).click();
+
+  await expect(page.getByRole('heading', { name: 'API Client' })).toBeVisible();
+  await expect(page.getByLabel('Request URL')).toHaveValue('http://localhost:8080/pets/42');
+  await expect(page.getByLabel('API Client custom server URL')).toHaveValue('http://localhost:8080');
+  await expect(page.getByLabel('Query parameters 1 key')).toHaveValue('locale');
+  await expect(page.getByLabel('Query parameters 1 value')).toHaveValue('de');
+  await expect(page.getByLabel('Headers 1 key')).toHaveValue('X-Trace');
+  await expect(page.getByLabel('Headers 1 value')).toHaveValue('trace-42');
+
+  await page.getByLabel('API Client server').selectOption('https://backup.example.test');
+  await expect(page.getByLabel('Request URL')).toHaveValue('https://backup.example.test/pets/42');
+  await expect(page.getByLabel('Query parameters 1 value')).toHaveValue('de');
+});
+
 test('mobile navigation is accessible and closes after endpoint selection', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-mobile', 'mobile navigation coverage');
 
