@@ -22,7 +22,7 @@ function smoke(name, type, sourceName, compilerOptions, tarball) {
   const dir = join(tempRoot, name); mkdirSync(dir);
   writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: `flexdoc-${name}`, private: true, type }, null, 2));
   run('npm', ['install','--ignore-scripts','--no-audit','--no-fund','--package-lock=false',tarball,'react@19','react-dom@19','@types/react@19','@types/react-dom@19','typescript@5'], { cwd: dir });
-  writeFileSync(join(dir, sourceName), `import { FlexDoc, sampleSpec, OpenAPIParser, buildRequest } from '@bluejeans/flexdoc-client';\nimport type { FlexDocProps, OpenAPISpec } from '@bluejeans/flexdoc-client';\nconst component: typeof FlexDoc = FlexDoc;\nconst spec: OpenAPISpec = sampleSpec;\nconst parser = OpenAPIParser;\nconst requestBuilder = buildRequest;\nconst props: FlexDocProps = { spec };\nvoid [component, parser, requestBuilder, props];\n`);
+  writeFileSync(join(dir, sourceName), `import { FlexDoc, sampleSpec, OpenAPIParser, buildRequest } from '@prauga/flexdoc-client';\nimport type { FlexDocProps, OpenAPISpec } from '@prauga/flexdoc-client';\nconst component: typeof FlexDoc = FlexDoc;\nconst spec: OpenAPISpec = sampleSpec;\nconst parser = OpenAPIParser;\nconst requestBuilder = buildRequest;\nconst props: FlexDocProps = { spec };\nvoid [component, parser, requestBuilder, props];\n`);
   writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify({ compilerOptions: { target:'ES2020', jsx:'react-jsx', strict:true, skipLibCheck:false, noEmit:true, ...compilerOptions }, include:[sourceName] }, null, 2));
   run('npm', ['exec','--','tsc','-p','tsconfig.json'], { cwd: dir });
 }

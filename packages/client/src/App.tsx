@@ -197,7 +197,7 @@ export const App: React.FC<AppProps> = ({ theme = 'light' }) => {
                 </div>
                 <div className='flex items-center gap-2 text-sm'>
                   <a
-                    href='https://github.com/bluejeans117/flexdoc'
+                    href='https://github.com/prauga/flexdoc'
                     target='_blank'
                     rel='noopener noreferrer'
                     className='flex items-center gap-2 text-sm hover:opacity-80 transition-opacity'
@@ -208,7 +208,7 @@ export const App: React.FC<AppProps> = ({ theme = 'light' }) => {
                 </div>
                 <div className='flex items-center gap-2 text-sm'>
                   <a
-                    href='https://bluejeans117.github.io/flexdoc'
+                    href='https://prauga.github.io/flexdoc'
                     target='_blank'
                     rel='noopener noreferrer'
                     className='flex items-center gap-2 text-sm hover:opacity-80 transition-opacity'

@@ -1,4 +1,4 @@
-import { FlexDoc, sampleSpec } from '@bluejeans/flexdoc-client';
+import { FlexDoc, sampleSpec } from '@prauga/flexdoc-client';
 import React, { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 

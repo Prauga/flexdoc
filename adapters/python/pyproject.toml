@@ -1,13 +1,32 @@
 [build-system]
-requires = ["setuptools>=75"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "flexdoc-adapter"
+name = "prauga-flexdoc"
 version = "0.1.0"
-description = "Framework-neutral ASGI adapter for the FlexDoc API reference renderer"
+description = "Self-contained ASGI adapter for the Prauga FlexDoc OpenAPI renderer"
+readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "AGPL-3.0-or-later"}
+license = "AGPL-3.0-or-later"
+authors = [{name = "Prauga"}]
+keywords = ["openapi", "api-documentation", "api-explorer", "asgi", "fastapi", "starlette", "self-hosted", "flexdoc"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Framework :: AsyncIO",
+  "Operating System :: OS Independent",
+  "Topic :: Documentation",
+  "Topic :: Software Development :: Libraries :: Application Frameworks"
+]
+
+[project.urls]
+Homepage = "https://github.com/prauga/flexdoc"
+Repository = "https://github.com/prauga/flexdoc"
+Issues = "https://github.com/prauga/flexdoc/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+prauga_flexdoc = ["_assets/*.js", "_assets/*.css"]

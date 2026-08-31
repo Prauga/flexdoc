@@ -1,7 +1,7 @@
 {
-  "name": "@bluejeans/flexdoc-client",
-  "version": "2.0.2",
-  "description": "FlexDoc's canonical OpenAPI renderer, API explorer, and React components",
+  "name": "@prauga/flexdoc-client",
+  "version": "2.1.0",
+  "description": "FlexDoc's canonical self-hosted OpenAPI renderer, API explorer, and React components",
   "type": "module",
   "main": "./dist/flexdoc.umd.cjs",
   "module": "./dist/flexdoc.es.js",
@@ -10,14 +10,8 @@
   "publishConfig": { "access": "public" },
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/types/esm/index.d.ts",
-        "default": "./dist/flexdoc.es.js"
-      },
-      "require": {
-        "types": "./dist/types/cjs/index.d.cts",
-        "default": "./dist/flexdoc.umd.cjs"
-      }
+      "import": { "types": "./dist/types/esm/index.d.ts", "default": "./dist/flexdoc.es.js" },
+      "require": { "types": "./dist/types/cjs/index.d.cts", "default": "./dist/flexdoc.umd.cjs" }
     },
     "./styles.css": { "import": "./dist/assets/index.css", "require": "./dist/assets/index.css" },
     "./standalone.js": "./dist/standalone/flexdoc.standalone.js",
@@ -32,10 +26,12 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
   },
-  "keywords": ["openapi", "openapi-docs", "api-explorer", "api-client", "swagger-ui", "documentation", "react", "typescript"],
-  "author": "Vishnu R <vishnurajesh45@gmail.com>",
+  "keywords": ["flexdoc", "openapi", "api-documentation", "api-docs", "api-explorer", "api-client", "swagger", "swagger-ui", "react", "self-hosted", "developer-tools"],
+  "author": "Prauga",
   "license": "AGPL-3.0-or-later",
-  "repository": { "type": "git", "url": "https://github.com/bluejeans117/flexdoc.git", "directory": "packages/client" },
+  "repository": { "type": "git", "url": "https://github.com/prauga/flexdoc.git", "directory": "packages/client" },
+  "bugs": { "url": "https://github.com/prauga/flexdoc/issues" },
+  "homepage": "https://github.com/prauga/flexdoc#readme",
   "peerDependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" },
   "dependencies": { "js-yaml": "^4.1.0", "lucide-react": "^0.525.0", "prismjs": "^1.29.0" },
   "devDependencies": {

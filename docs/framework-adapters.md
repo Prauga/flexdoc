@@ -5,7 +5,7 @@ FlexDoc integrations are intentionally thin. Every framework serves the same sta
 ## Express
 
 ```ts
-import { setupExpressFlexDoc } from '@bluejeans/flexdoc-backend';
+import { setupExpressFlexDoc } from '@prauga/flexdoc-backend';
 
 setupExpressFlexDoc(app, '/docs', {
   spec,
@@ -18,7 +18,7 @@ The existing `setupFlexDoc` API remains compatible; `setupExpressFlexDoc` is the
 ## Fastify
 
 ```ts
-import { setupFastifyFlexDoc } from '@bluejeans/flexdoc-backend';
+import { setupFastifyFlexDoc } from '@prauga/flexdoc-backend';
 
 setupFastifyFlexDoc(fastify, '/docs', {
   spec,
@@ -34,7 +34,7 @@ When `@nestjs/swagger` is installed, FlexDoc can generate the OpenAPI document a
 
 ```ts
 import { DocumentBuilder } from '@nestjs/swagger';
-import { setupNestFlexDoc } from '@bluejeans/flexdoc-backend';
+import { setupNestFlexDoc } from '@prauga/flexdoc-backend';
 
 const config = new DocumentBuilder()
   .setTitle('Orders API')

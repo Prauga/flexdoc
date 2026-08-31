@@ -57,25 +57,42 @@ jobs:
       - name: Verify packed client package from a clean consumer
         run: node scripts/verify-client-package.mjs
 
-      - name: Verify standalone renderer artifacts
+      - name: Verify canonical and adapter renderer assets
         run: |
           test -s packages/client/dist/standalone/flexdoc.standalone.js
           test -s packages/client/dist/standalone/flexdoc.standalone.css
+          npm run check:adapter-assets
 
       - name: Test Go adapter
-        run: go test ./...
+        run: |
+          go test ./...
+          test "$(go list -m)" = "github.com/prauga/flexdoc/adapters/go"
         working-directory: adapters/go
 
       - name: Test Python ASGI adapter
         run: |
           python3 -m compileall -q adapters/python/src
           python3 -m unittest discover -s adapters/python/tests -v
+          python3 -m pip install --disable-pip-version-check -q build
+          rm -rf adapters/python/dist
+          python3 -m build --outdir adapters/python/dist adapters/python
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          wheel = next(Path('adapters/python/dist').glob('*.whl'))
+          with ZipFile(wheel) as z:
+              names = set(z.namelist())
+          assert any(n.endswith('prauga_flexdoc/_assets/flexdoc.standalone.js') for n in names)
+          assert any(n.endswith('prauga_flexdoc/_assets/flexdoc.standalone.css') for n in names)
+          PY
 
       - name: Test Rust Axum adapter
-        run: cargo test --manifest-path adapters/rust/Cargo.toml --all-targets
+        run: |
+          cargo test --manifest-path adapters/rust/Cargo.toml --all-targets
+          cargo package --manifest-path adapters/rust/Cargo.toml --allow-dirty
 
-      - name: Install CLI dependencies
-        run: npm install --prefix tools/flexdoc-cli --ignore-scripts --no-audit --no-fund
+      - name: Install CLI dependencies using local client bootstrap
+        run: npm install --prefix tools/flexdoc-cli --no-save --ignore-scripts --no-audit --no-fund "${{ github.workspace }}/packages/client" js-yaml@^4.1.0
 
       - name: Test CLI build and serve contracts
         env:
@@ -106,8 +123,8 @@ jobs:
 
       - name: Verify Java adapter packages renderer assets
         run: |
-          JAR=adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0.jar
+          JAR=adapters/java-spring/target/flexdoc-spring-boot-starter-0.2.0.jar
           jar tf "$JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.js'
           jar tf "$JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.css'
-          test -s adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-sources.jar
-          test -s adapters/java-spring/target/flexdoc-spring-boot-starter-0.1.0-javadoc.jar
+          test -s adapters/java-spring/target/flexdoc-spring-boot-starter-0.2.0-sources.jar
+          test -s adapters/java-spring/target/flexdoc-spring-boot-starter-0.2.0-javadoc.jar

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from html import escape
+from importlib.resources import files
 from pathlib import Path
 import json
 
@@ -20,34 +21,33 @@ class FlexDocConfig:
 
 
 class FlexDocASGI:
-    """Small ASGI application for mounting in FastAPI, Starlette, Django ASGI, etc."""
+    """Small self-contained ASGI app for FastAPI, Starlette, Django ASGI, and other ASGI hosts."""
 
-    def __init__(self, config: FlexDocConfig = FlexDocConfig(), *, assets_dir: str | Path):
+    def __init__(self, config: FlexDocConfig = FlexDocConfig(), *, assets_dir: str | Path | None = None):
         self.config = config
         self.path = "/" + config.path.strip("/")
-        self.assets_dir = Path(assets_dir)
+        self.assets_dir = Path(assets_dir) if assets_dir is not None else None
+
+    def _read_asset(self, name: str) -> bytes:
+        if self.assets_dir is not None:
+            return (self.assets_dir / name).read_bytes()
+        return files("prauga_flexdoc").joinpath("_assets", name).read_bytes()
 
     async def __call__(self, scope, receive, send):
-        if scope.get("type") != "http":
-            return
+        if scope.get("type") != "http": return
         request_path = scope.get("path", "")
         if request_path in (self.path, self.path + "/"):
-            await self._send(send, 200, "text/html; charset=utf-8", self._html().encode())
-            return
+            await self._send(send, 200, "text/html; charset=utf-8", self._html().encode()); return
         if request_path == self.path + "/__flexdoc/renderer.js":
-            await self._asset(send, "flexdoc.standalone.js", "application/javascript; charset=utf-8")
-            return
+            await self._asset(send, "flexdoc.standalone.js", "application/javascript; charset=utf-8"); return
         if request_path == self.path + "/__flexdoc/renderer.css":
-            await self._asset(send, "flexdoc.standalone.css", "text/css; charset=utf-8")
-            return
+            await self._asset(send, "flexdoc.standalone.css", "text/css; charset=utf-8"); return
         await self._send(send, 404, "text/plain; charset=utf-8", b"Not Found")
 
     async def _asset(self, send, name: str, content_type: str):
-        try:
-            body = (self.assets_dir / name).read_bytes()
+        try: body = self._read_asset(name)
         except OSError:
-            await self._send(send, 500, "text/plain; charset=utf-8", b"FlexDoc renderer asset is unavailable")
-            return
+            await self._send(send, 500, "text/plain; charset=utf-8", b"FlexDoc renderer asset is unavailable"); return
         await self._send(send, 200, content_type, body, [(b"cache-control", b"public, max-age=31536000, immutable")])
 
     async def _send(self, send, status: int, content_type: str, body: bytes, extra_headers=None):

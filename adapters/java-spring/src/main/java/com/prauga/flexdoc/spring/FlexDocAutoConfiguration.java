@@ -1,4 +1,4 @@
-package io.github.bluejeans117.flexdoc.spring;
+package com.prauga.flexdoc.spring;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.ObjectProvider;

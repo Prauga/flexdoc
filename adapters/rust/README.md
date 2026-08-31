@@ -1,14 +1,13 @@
-# FlexDoc Rust / Axum adapter
+# Prauga FlexDoc Rust / Axum adapter
 
-Thin Axum routes for FlexDoc. Rust hosts the page and canonical renderer assets; the browser renderer remains the only OpenAPI UI implementation.
+`prauga-prauga-flexdoc-axum` provides self-contained Axum routes for FlexDoc. The crate embeds the canonical browser renderer instead of implementing OpenAPI UI behavior in Rust.
 
 ```rust
-let app = flexdoc_axum::router(flexdoc_axum::Config {
+let app = prauga_prauga_flexdoc_axum::router(prauga_prauga_flexdoc_axum::Config {
     path: "/docs".into(),
     spec_url: "/openapi.json".into(),
-    assets_dir: "./flexdoc-renderer".into(),
     ..Default::default()
 });
 ```
 
-The asset directory must contain `flexdoc.standalone.js` and `flexdoc.standalone.css` from the matching renderer bundle.
+The published crate includes the version-matched renderer JS/CSS under `assets/`.
