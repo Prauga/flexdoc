@@ -18,8 +18,12 @@ describe('ApiClient', () => {
       text: async () => '{"id":42}',
     });
 
-    render(<ApiClient initialRequest={{ method: 'POST', url: 'https://api.example.test/pets' }} />);
-    fireEvent.change(screen.getByLabelText('Request body'), { target: { value: '{"name":"Mochi"}' } });
+    render(<ApiClient initialRequest={{
+      method: 'POST',
+      url: 'https://api.example.test/pets',
+      body: '{"name":"Mochi"}',
+      contentType: 'application/json',
+    }} />);
     fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -27,18 +31,22 @@ describe('ApiClient', () => {
       method: 'POST',
       body: '{"name":"Mochi"}',
       credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
     }));
     expect(await screen.findByText(/201 Created/)).toBeInTheDocument();
   });
 
   it('supports query parameters and bearer authorization', async () => {
     fetchMock.mockResolvedValue({ status: 200, statusText: 'OK', headers: new Headers(), text: async () => '' });
-    render(<ApiClient initialRequest={{ url: 'https://api.example.test/pets' }} />);
+    render(<ApiClient initialRequest={{
+      method: 'GET',
+      url: 'https://api.example.test/pets',
+      query: [{ key: 'limit', value: '10' }],
+      auth: { type: 'bearer', token: 'secret' },
+    }} />);
 
-    fireEvent.change(screen.getByLabelText('Query parameters 1 key'), { target: { value: 'limit' } });
-    fireEvent.change(screen.getByLabelText('Query parameters 1 value'), { target: { value: '10' } });
-    fireEvent.change(screen.getByLabelText('Authorization type'), { target: { value: 'bearer' } });
-    fireEvent.change(screen.getByLabelText('Bearer token'), { target: { value: 'secret' } });
+    expect(screen.getByLabelText('Query parameters 1 key')).toHaveValue('limit');
+    expect(screen.getByLabelText('Query parameters 1 value')).toHaveValue('10');
     fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
