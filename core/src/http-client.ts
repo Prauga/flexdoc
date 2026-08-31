@@ -46,6 +46,23 @@ function appendQuery(url: string, entries: HttpKeyValue[]): string {
   return `${base}${separator}${encoded}${fragment}`;
 }
 
+function splitQuery(url: string): { url: string; query: HttpKeyValue[] } {
+  const hashIndex = url.indexOf('#');
+  const beforeFragment = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
+  const fragment = hashIndex >= 0 ? url.slice(hashIndex) : '';
+  const queryIndex = beforeFragment.indexOf('?');
+  if (queryIndex < 0) return { url, query: [] };
+
+  const query: HttpKeyValue[] = [];
+  const search = new URLSearchParams(beforeFragment.slice(queryIndex + 1));
+  search.forEach((value, key) => query.push({ key, value }));
+
+  return {
+    url: `${beforeFragment.slice(0, queryIndex)}${fragment}`,
+    query,
+  };
+}
+
 function findHeader(entries: Array<[string, string]>, name: string): string | undefined {
   return entries.find(([candidate]) => candidate.toLowerCase() === name.toLowerCase())?.[1];
 }
@@ -129,9 +146,11 @@ export function buildHttpRequest(draft: HttpRequestDraft): HttpBuiltRequest {
 
 export function requestDraftFromBuiltRequest(request: BuiltRequest & { headerEntries?: Array<[string, string]> }): HttpRequestDraft {
   const entries = request.headerEntries || Object.entries(request.headers);
+  const split = splitQuery(request.url);
   return {
     method: request.method,
-    url: request.url,
+    url: split.url,
+    query: split.query,
     headers: entries.map(([key, value]) => ({ key, value })),
     body: request.body,
     contentType: findHeader(entries, 'Content-Type'),
