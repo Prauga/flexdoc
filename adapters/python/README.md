@@ -14,6 +14,8 @@ app = FastAPI(docs_url=None, redoc_url=None)
 setup_fastapi_flexdoc(app, "/docs", title="My API")
 ```
 
+FastAPI uses `/docs` for its built-in Swagger UI by default. If FlexDoc is mounted at `/docs`, disable the built-in route with `docs_url=None` as above (and usually `redoc_url=None` if ReDoc is not needed). The helper rejects a conflicting mount with a clear error instead of silently creating an unreachable FlexDoc route. You can alternatively mount FlexDoc at a different path such as `/reference` and leave FastAPI's built-in docs enabled.
+
 The helper uses FastAPI's configured `openapi_url`, so custom OpenAPI paths continue to work and FastAPI remains an optional dependency.
 
 ## Generic ASGI
