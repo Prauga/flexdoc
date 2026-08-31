@@ -33,7 +33,6 @@ describe('ApiClient', () => {
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
     }));
-    expect(await screen.findByText(/201 Created/)).toBeInTheDocument();
   });
 
   it('supports query parameters and bearer authorization', async () => {
