@@ -92,7 +92,7 @@ jobs:
           cargo package --manifest-path adapters/rust/Cargo.toml --allow-dirty
 
       - name: Install CLI dependencies using local client bootstrap
-        run: npm install --prefix tools/flexdoc-cli --no-save --ignore-scripts --no-audit --no-fund ../../packages/client js-yaml@^4.1.0
+        run: npm install --prefix tools/flexdoc-cli --no-save --ignore-scripts --no-audit --no-fund "${{ github.workspace }}/packages/client" js-yaml@^4.1.0
 
       - name: Test CLI build and serve contracts
         env:
