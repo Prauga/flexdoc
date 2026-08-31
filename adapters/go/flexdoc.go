@@ -22,7 +22,7 @@ type Config struct {
     TryItEnabled bool
 }
 
-type handler struct { cfg Config; assets fs.FS }
+type handler struct { cfg Config; assets fs.FS; spec []byte }
 
 // Handler returns a self-contained net/http handler using the canonical FlexDoc renderer bundled with this Go module.
 func Handler(cfg Config) http.Handler {
@@ -31,14 +31,28 @@ func Handler(cfg Config) http.Handler {
     return HandlerWithAssets(cfg, assets)
 }
 
+// HandlerFromOpenAPI renders a generated OpenAPI document directly. This is suitable for
+// Huma and other code-first generators and avoids requiring an application-owned spec route.
+func HandlerFromOpenAPI(cfg Config, spec any) (http.Handler, error) {
+    data, err := json.Marshal(spec)
+    if err != nil { return nil, fmt.Errorf("marshal OpenAPI document: %w", err) }
+    assets, err := fs.Sub(embeddedRenderer, "assets")
+    if err != nil { return nil, err }
+    return handlerWithSpec(cfg, assets, data), nil
+}
+
 // HandlerWithAssets allows applications to override the bundled renderer assets, primarily for development/testing.
-func HandlerWithAssets(cfg Config, assets fs.FS) http.Handler {
+func HandlerWithAssets(cfg Config, assets fs.FS) http.Handler { return handlerWithSpec(cfg, assets, nil) }
+
+func handlerWithSpec(cfg Config, assets fs.FS, spec []byte) http.Handler {
     if cfg.Path == "" { cfg.Path = "/docs" }
     if cfg.SpecURL == "" { cfg.SpecURL = "/openapi.json" }
+    if len(spec) > 0 { cfg.SpecURL = strings.TrimRight(cfg.Path, "/") + "/__flexdoc/openapi.json" }
     if cfg.Title == "" { cfg.Title = "API Reference" }
     if cfg.Theme == "" { cfg.Theme = "system" }
     cfg.Path = "/" + strings.Trim(strings.TrimSpace(cfg.Path), "/")
-    return &handler{cfg: cfg, assets: assets}
+    if len(spec) > 0 { cfg.SpecURL = cfg.Path + "/__flexdoc/openapi.json" }
+    return &handler{cfg: cfg, assets: assets, spec: spec}
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -48,6 +62,11 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
         _, _ = w.Write([]byte(h.html()))
     case h.cfg.Path + "/__flexdoc/renderer.js": h.asset(w, "flexdoc.standalone.js", "application/javascript; charset=utf-8")
     case h.cfg.Path + "/__flexdoc/renderer.css": h.asset(w, "flexdoc.standalone.css", "text/css; charset=utf-8")
+    case h.cfg.Path + "/__flexdoc/openapi.json":
+        if len(h.spec) == 0 { http.NotFound(w, r); return }
+        w.Header().Set("Content-Type", "application/json; charset=utf-8")
+        w.Header().Set("Cache-Control", "no-store")
+        _, _ = w.Write(h.spec)
     default: http.NotFound(w, r)
     }
 }
