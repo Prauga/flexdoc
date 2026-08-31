@@ -84,8 +84,10 @@ export function buildHttpRequest(draft: HttpRequestDraft): BuiltRequest {
   if (draft.body && !['GET', 'HEAD'].includes(method)) {
     body = draft.body;
     requestBody = draft.body;
-    const contentType = draft.contentType?.trim();
-    if (contentType && !findHeader(headers, 'Content-Type')) setHeader(headers, 'Content-Type', contentType);
+    const explicitContentType = findHeader(headers, 'Content-Type');
+    const requestedContentType = draft.contentType?.trim();
+    if (!explicitContentType && requestedContentType) setHeader(headers, 'Content-Type', requestedContentType);
+    const contentType = explicitContentType || requestedContentType;
     bodyKind = contentType?.includes('json') ? 'json' : contentType === 'application/x-www-form-urlencoded' ? 'form' : contentType?.startsWith('multipart/form-data') ? 'multipart' : 'text';
   }
 
