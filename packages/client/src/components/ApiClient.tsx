@@ -59,7 +59,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
 
   const setAuthType = (type: HttpAuth['type']) => {
     const auth: HttpAuth = type === 'bearer' ? { type, token: '' } : type === 'basic' ? { type, username: '', password: '' } : type === 'apiKey' ? { type, key: '', value: '', in: 'header' } : { type: 'none' };
-    setDraft({ ...draft, auth });
+    setDraft((current) => ({ ...current, auth }));
   };
 
   const execute = async () => {
@@ -80,14 +80,14 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
   return <div className={`rounded-xl border p-4 md:p-5 ${panelClass}`}>
     <div className='flex flex-col gap-4'>
       <div className='flex gap-2'>
-        <select aria-label='HTTP method' className={`rounded-md border px-3 py-2 font-medium ${inputClass}`} value={method} onChange={(e) => setDraft({ ...draft, method: e.target.value })}>
+        <select aria-label='HTTP method' className={`rounded-md border px-3 py-2 font-medium ${inputClass}`} value={method} onChange={(e) => { const value = e.target.value; setDraft((current) => ({ ...current, method: value })); }}>
           {['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((item) => <option key={item}>{item}</option>)}
         </select>
-        <input aria-label='Request URL' className={`w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} placeholder='https://api.example.com/resource' value={draft.url} onChange={(e) => setDraft({ ...draft, url: e.target.value })} />
+        <input aria-label='Request URL' className={`w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} placeholder='https://api.example.com/resource' value={draft.url} onChange={(e) => { const value = e.target.value; setDraft((current) => ({ ...current, url: value })); }} />
       </div>
 
-      <PairEditor label='Query parameters' entries={draft.query || []} onChange={(query) => setDraft({ ...draft, query })} inputClass={inputClass} />
-      <PairEditor label='Headers' entries={draft.headers || []} onChange={(headers) => setDraft({ ...draft, headers })} inputClass={inputClass} />
+      <PairEditor label='Query parameters' entries={draft.query || []} onChange={(query) => setDraft((current) => ({ ...current, query }))} inputClass={inputClass} />
+      <PairEditor label='Headers' entries={draft.headers || []} onChange={(headers) => setDraft((current) => ({ ...current, headers }))} inputClass={inputClass} />
 
       <div className='space-y-3'>
         <label className='text-sm font-medium'>Authorization
@@ -95,14 +95,14 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
             <option value='none'>None</option><option value='bearer'>Bearer token</option><option value='basic'>Basic auth</option><option value='apiKey'>API key</option>
           </select>
         </label>
-        {draft.auth?.type === 'bearer' && <input aria-label='Bearer token' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} value={draft.auth.token} onChange={(e) => setDraft({ ...draft, auth: { type: 'bearer', token: e.target.value } })} />}
-        {draft.auth?.type === 'basic' && <div className='flex gap-2'><input aria-label='Basic auth username' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Username' value={draft.auth.username} onChange={(e) => setDraft({ ...draft, auth: { ...(draft.auth as Extract<HttpAuth, { type: 'basic' }>), username: e.target.value } })} /><input aria-label='Basic auth password' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Password' value={draft.auth.password} onChange={(e) => setDraft({ ...draft, auth: { ...(draft.auth as Extract<HttpAuth, { type: 'basic' }>), password: e.target.value } })} /></div>}
-        {draft.auth?.type === 'apiKey' && <div className='flex gap-2'><input aria-label='API key name' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Key name' value={draft.auth.key} onChange={(e) => setDraft({ ...draft, auth: { ...(draft.auth as Extract<HttpAuth, { type: 'apiKey' }>), key: e.target.value } })} /><input aria-label='API key value' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Value' value={draft.auth.value} onChange={(e) => setDraft({ ...draft, auth: { ...(draft.auth as Extract<HttpAuth, { type: 'apiKey' }>), value: e.target.value } })} /><select aria-label='API key location' className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} value={draft.auth.in} onChange={(e) => setDraft({ ...draft, auth: { ...(draft.auth as Extract<HttpAuth, { type: 'apiKey' }>), in: e.target.value as 'header' | 'query' } })}><option value='header'>Header</option><option value='query'>Query</option></select></div>}
+        {draft.auth?.type === 'bearer' && <input aria-label='Bearer token' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} value={draft.auth.token} onChange={(e) => { const token = e.target.value; setDraft((current) => ({ ...current, auth: { type: 'bearer', token } })); }} />}
+        {draft.auth?.type === 'basic' && <div className='flex gap-2'><input aria-label='Basic auth username' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Username' value={draft.auth.username} onChange={(e) => { const username = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'basic' }>), type: 'basic', username } })); }} /><input aria-label='Basic auth password' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Password' value={draft.auth.password} onChange={(e) => { const password = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'basic' }>), type: 'basic', password } })); }} /></div>}
+        {draft.auth?.type === 'apiKey' && <div className='flex gap-2'><input aria-label='API key name' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Key name' value={draft.auth.key} onChange={(e) => { const key = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'apiKey' }>), type: 'apiKey', key } })); }} /><input aria-label='API key value' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Value' value={draft.auth.value} onChange={(e) => { const value = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'apiKey' }>), type: 'apiKey', value } })); }} /><select aria-label='API key location' className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} value={draft.auth.in} onChange={(e) => { const location = e.target.value as 'header' | 'query'; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'apiKey' }>), type: 'apiKey', in: location } })); }}><option value='header'>Header</option><option value='query'>Query</option></select></div>}
       </div>
 
       {!['GET', 'HEAD'].includes(method) && <div className='space-y-3'>
-        <label className='text-sm font-medium'>Content type<input aria-label='Content type' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} value={draft.contentType || ''} onChange={(e) => setDraft({ ...draft, contentType: e.target.value })} /></label>
-        <label className='text-sm font-medium'>Request body<textarea aria-label='Request body' rows={8} className={`w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} value={draft.body || ''} onChange={(e) => setDraft({ ...draft, body: e.target.value })} /></label>
+        <label className='text-sm font-medium'>Content type<input aria-label='Content type' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} value={draft.contentType || ''} onChange={(e) => { const contentType = e.target.value; setDraft((current) => ({ ...current, contentType })); }} /></label>
+        <label className='text-sm font-medium'>Request body<textarea aria-label='Request body' rows={8} className={`w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} value={draft.body || ''} onChange={(e) => { const body = e.target.value; setDraft((current) => ({ ...current, body })); }} /></label>
       </div>}
 
       <button onClick={execute} disabled={loading} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60'>
