@@ -1,6 +1,7 @@
 package flexdoc
 
 import (
+    "embed"
     "encoding/json"
     "fmt"
     "html"
@@ -10,6 +11,9 @@ import (
     "strings"
 )
 
+//go:embed assets/flexdoc.standalone.js assets/flexdoc.standalone.css
+var embeddedRenderer embed.FS
+
 type Config struct {
     Path         string
     SpecURL      string
@@ -18,15 +22,17 @@ type Config struct {
     TryItEnabled bool
 }
 
-type handler struct {
-    cfg    Config
-    assets fs.FS
+type handler struct { cfg Config; assets fs.FS }
+
+// Handler returns a self-contained net/http handler using the canonical FlexDoc renderer bundled with this Go module.
+func Handler(cfg Config) http.Handler {
+    assets, err := fs.Sub(embeddedRenderer, "assets")
+    if err != nil { panic(err) }
+    return HandlerWithAssets(cfg, assets)
 }
 
-// Handler returns a standard net/http handler that serves the FlexDoc page and
-// the canonical renderer assets from assets. Pass os.DirFS for a filesystem
-// renderer bundle or an embedded fs.FS from your application/package.
-func Handler(cfg Config, assets fs.FS) http.Handler {
+// HandlerWithAssets allows applications to override the bundled renderer assets, primarily for development/testing.
+func HandlerWithAssets(cfg Config, assets fs.FS) http.Handler {
     if cfg.Path == "" { cfg.Path = "/docs" }
     if cfg.SpecURL == "" { cfg.SpecURL = "/openapi.json" }
     if cfg.Title == "" { cfg.Title = "API Reference" }
@@ -40,12 +46,9 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     case h.cfg.Path, h.cfg.Path + "/":
         w.Header().Set("Content-Type", "text/html; charset=utf-8")
         _, _ = w.Write([]byte(h.html()))
-    case h.cfg.Path + "/__flexdoc/renderer.js":
-        h.asset(w, "flexdoc.standalone.js", "application/javascript; charset=utf-8")
-    case h.cfg.Path + "/__flexdoc/renderer.css":
-        h.asset(w, "flexdoc.standalone.css", "text/css; charset=utf-8")
-    default:
-        http.NotFound(w, r)
+    case h.cfg.Path + "/__flexdoc/renderer.js": h.asset(w, "flexdoc.standalone.js", "application/javascript; charset=utf-8")
+    case h.cfg.Path + "/__flexdoc/renderer.css": h.asset(w, "flexdoc.standalone.css", "text/css; charset=utf-8")
+    default: http.NotFound(w, r)
     }
 }
 

@@ -1,0 +1,40 @@
+name: Prepare Prauga migration artifacts
+
+on:
+  push:
+    branches: [release/prauga-package-migration]
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: release/prauga-package-migration
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+      - name: Regenerate npm lockfiles
+        run: |
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          npm install --prefix tools/flexdoc-cli --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Install and build canonical renderer
+        run: |
+          npm install --ignore-scripts --no-audit --no-fund
+          npm run build:client
+      - name: Synchronize packaged adapter renderer assets
+        run: npm run sync:adapter-assets
+      - name: Refresh Rust lockfile
+        run: cargo generate-lockfile --manifest-path adapters/rust/Cargo.toml
+      - name: Commit generated artifacts and remove one-shot workflow
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git rm .github/workflows/prepare-prauga-migration.yml
+          git add package-lock.json tools/flexdoc-cli/package-lock.json adapters/go/assets adapters/python/src/prauga_flexdoc/_assets adapters/rust/assets adapters/rust/Cargo.lock
+          git commit -m "Generate Prauga package locks and renderer assets"
+          git push origin HEAD:release/prauga-package-migration

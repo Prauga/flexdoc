@@ -1,14 +1,13 @@
-# FlexDoc Python adapter
+# Prauga FlexDoc Python adapter
 
-A dependency-free ASGI app for mounting in FastAPI, Starlette, Django ASGI, Quart, or another ASGI host.
+`prauga-flexdoc` is a self-contained, dependency-free ASGI app for mounting in FastAPI, Starlette, Django ASGI, Quart, or another ASGI host.
 
 ```python
-from flexdoc_adapter import FlexDocASGI, FlexDocConfig
+from prauga_flexdoc import FlexDocASGI, FlexDocConfig
 
 app.mount("/docs", FlexDocASGI(
-    FlexDocConfig(path="/docs", spec_url="/openapi.json", title="My API"),
-    assets_dir="./flexdoc-renderer",
+    FlexDocConfig(path="/docs", spec_url="/openapi.json", title="My API")
 ))
 ```
 
-The asset directory must contain the matching canonical `flexdoc.standalone.js` and `flexdoc.standalone.css` renderer bundle.
+The wheel packages the version-matched canonical renderer JS/CSS. Pass `assets_dir=` only when intentionally overriding those bundled assets.

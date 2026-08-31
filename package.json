@@ -1,18 +1,10 @@
 {
   "name": "flexdoc-monorepo",
   "version": "1.0.0",
-  "description": "A beautiful, highly customizable OpenAPI documentation generator",
+  "description": "Prauga FlexDoc: self-hosted OpenAPI documentation and API exploration",
   "private": true,
-  "workspaces": [
-    "packages/*",
-    "templates/*",
-    "packages/examples/*"
-  ],
-  "files": [
-    "dist",
-    "lib",
-    "examples"
-  ],
+  "workspaces": ["packages/*", "templates/*", "packages/examples/*"],
+  "files": ["dist", "lib", "examples"],
   "scripts": {
     "build": "npm run build:client && npm run build:backend",
     "dev:client": "npm run dev -w packages/client",
@@ -20,63 +12,25 @@
     "build:core": "npm install --prefix core --ignore-scripts --no-audit --no-fund && npm run build --prefix core",
     "build:client": "npm run build:core && npm run build -w packages/client",
     "build:backend": "npm run build -w packages/backend",
+    "sync:adapter-assets": "node scripts/sync-adapter-assets.mjs",
+    "check:adapter-assets": "node scripts/sync-adapter-assets.mjs --check",
+    "deprecate:bluejeans": "node scripts/deprecate-bluejeans-packages.mjs",
     "example:nestjs": "cd packages/examples/nestjs && npm install && npm run start:dev",
     "test": "npm run build:core && npm run test --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present"
   },
-  "keywords": [
-    "openapi",
-    "swagger",
-    "documentation",
-    "api",
-    "nestjs",
-    "express",
-    "react",
-    "typescript"
-  ],
-  "author": "Vishnu R <vishnurajesh45@gmail.com>",
+  "keywords": ["flexdoc", "openapi", "api-documentation", "api-docs", "api-explorer", "self-hosted", "swagger", "developer-tools"],
+  "author": "Prauga",
   "license": "AGPL-3.0-or-later",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/bluejeans117/flexdoc.git"
-  },
-  "bugs": {
-    "url": "https://github.com/bluejeans117/flexdoc/issues"
-  },
-  "homepage": "https://bluejeans117.github.io/flexdoc",
-  "peerDependencies": {
-    "@nestjs/common": "^10.0.0",
-    "@nestjs/core": "^10.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@nestjs/common": {
-      "optional": true
-    },
-    "@nestjs/core": {
-      "optional": true
-    }
-  },
-  "dependencies": {
-    "js-yaml": "^4.1.0",
-    "lucide-react": "^0.525.0",
-    "prismjs": "^1.29.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
-  },
+  "repository": { "type": "git", "url": "https://github.com/prauga/flexdoc.git" },
+  "bugs": { "url": "https://github.com/prauga/flexdoc/issues" },
+  "homepage": "https://github.com/prauga/flexdoc#readme",
+  "peerDependencies": { "@nestjs/common": "^10.0.0", "@nestjs/core": "^10.0.0" },
+  "peerDependenciesMeta": { "@nestjs/common": { "optional": true }, "@nestjs/core": { "optional": true } },
+  "dependencies": { "js-yaml": "^4.1.0", "lucide-react": "^0.525.0", "prismjs": "^1.29.0", "react": "^19.0.0", "react-dom": "^19.0.0" },
   "devDependencies": {
-    "@types/js-yaml": "^4.0.9",
-    "@types/node": "^20.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^4.6.0",
-    "autoprefixer": "^10.4.17",
-    "eslint": "^8.57.0",
-    "eslint-plugin-react-hooks": "^5.0.0",
-    "eslint-plugin-react-refresh": "^0.4.7",
-    "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.4",
-    "typescript": "^5.0.0",
-    "vite": "^7.0.0",
-    "@houdiniproject/noticeme": "^1.3.0"
+    "@types/js-yaml": "^4.0.9", "@types/node": "^20.0.0", "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.6.0", "autoprefixer": "^10.4.17", "eslint": "^8.57.0", "eslint-plugin-react-hooks": "^5.0.0",
+    "eslint-plugin-react-refresh": "^0.4.7", "postcss": "^8.4.38", "tailwindcss": "^3.4.4", "typescript": "^5.0.0", "vite": "^7.0.0", "@houdiniproject/noticeme": "^1.3.0"
   }
 }

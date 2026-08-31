@@ -1,15 +1,18 @@
-# FlexDoc Go adapter
+# Prauga FlexDoc Go adapter
 
-Thin `net/http` integration for FlexDoc. It does not parse or render OpenAPI in Go; it hosts the canonical browser renderer.
+Self-contained `net/http` integration for FlexDoc. It packages the canonical browser renderer; OpenAPI rendering is not reimplemented in Go.
 
 ```go
-assets := os.DirFS("./flexdoc-renderer")
+import flexdoc "github.com/prauga/flexdoc/adapters/go"
+
 http.Handle("/docs", flexdoc.Handler(flexdoc.Config{
     Path: "/docs",
     SpecURL: "/openapi.json",
     Title: "My API",
     TryItEnabled: true,
-}, assets))
+}))
 ```
 
-The asset directory must contain `flexdoc.standalone.js` and `flexdoc.standalone.css` from the matching FlexDoc renderer bundle.
+The module embeds its version-matched renderer JS/CSS. `HandlerWithAssets` is available when an application intentionally wants to override those assets.
+
+For this monorepo submodule, release tags follow Go's submodule convention: `adapters/go/v<version>`.

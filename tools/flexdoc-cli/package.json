@@ -1,42 +1,18 @@
 {
-  "name": "@bluejeans/flexdoc-cli",
+  "name": "@prauga/flexdoc-cli",
   "version": "0.1.0",
   "description": "Serve and export self-contained FlexDoc API documentation from OpenAPI files",
   "type": "module",
-  "bin": {
-    "flexdoc": "./bin/flexdoc.js"
-  },
-  "files": [
-    "bin",
-    "src",
-    "README.md"
-  ],
-  "scripts": {
-    "test": "node --test"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "engines": {
-    "node": ">=20"
-  },
-  "dependencies": {
-    "@bluejeans/flexdoc-client": "^2.0.2",
-    "js-yaml": "^4.1.0"
-  },
-  "keywords": [
-    "openapi",
-    "api-docs",
-    "documentation",
-    "static-site",
-    "cli",
-    "swagger"
-  ],
-  "author": "Vishnu R <vishnurajesh45@gmail.com>",
+  "bin": { "flexdoc": "./bin/flexdoc.js" },
+  "files": ["bin", "src", "README.md"],
+  "scripts": { "test": "node --test" },
+  "publishConfig": { "access": "public" },
+  "engines": { "node": ">=20" },
+  "dependencies": { "@prauga/flexdoc-client": "^2.1.0", "js-yaml": "^4.1.0" },
+  "keywords": ["flexdoc", "openapi", "api-documentation", "api-docs", "static-site", "cli", "self-hosted", "swagger", "developer-tools", "github-pages"],
+  "author": "Prauga",
   "license": "AGPL-3.0-or-later",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/bluejeans117/flexdoc.git",
-    "directory": "tools/flexdoc-cli"
-  }
+  "repository": { "type": "git", "url": "https://github.com/prauga/flexdoc.git", "directory": "tools/flexdoc-cli" },
+  "bugs": { "url": "https://github.com/prauga/flexdoc/issues" },
+  "homepage": "https://github.com/prauga/flexdoc#readme"
 }

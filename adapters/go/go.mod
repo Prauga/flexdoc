@@ -1,3 +1,3 @@
-module github.com/bluejeans117/flexdoc/adapters/go
+module github.com/prauga/flexdoc/adapters/go
 
 go 1.23
