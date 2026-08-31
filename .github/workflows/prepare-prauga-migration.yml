@@ -66,7 +66,7 @@ jobs:
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git rm .github/workflows/prepare-prauga-migration.yml
+          git rm -f .github/workflows/prepare-prauga-migration.yml
           git rm -f tools/flexdoc-cli/package-lock.json || true
           git add -A
           git commit -m "Complete Prauga namespace and generated package assets"
