@@ -32,7 +32,7 @@ jobs:
         run: npm run check:adapter-assets
 
       - name: Install CLI dependencies using local Prauga client
-        run: npm install --prefix tools/flexdoc-cli --no-save --ignore-scripts --no-audit --no-fund ../../packages/client js-yaml@^4.1.0
+        run: npm install --prefix tools/flexdoc-cli --no-save --ignore-scripts --no-audit --no-fund "${{ github.workspace }}/packages/client" js-yaml@^4.1.0
 
       - name: Install pinned Playwright test runner
         run: npm install --no-save --package-lock=false @playwright/test@1.62.1
