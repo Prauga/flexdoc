@@ -6,5 +6,7 @@ export { normalizeOperation, resolveObject, resolvePathItem, resolveServerVariab
 export type { NormalizedOperation } from './openapi-normalizer.js';
 export { buildRequest, initialRequestValues, operationFor, parametersFor } from './request-builder.js';
 export type { BuiltRequest, RequestValue, RequestValues } from './request-builder.js';
+export { buildHttpRequest, requestDraftFromBuiltRequest } from './http-client.js';
+export type { HttpAuth, HttpKeyValue, HttpRequestDraft } from './http-client.js';
 export { generateCodeSample, languageLabel } from './code-samples.js';
 export type { CodeSampleLanguage } from './code-samples.js';

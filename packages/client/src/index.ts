@@ -1,6 +1,8 @@
 import './styles.css';
 
 export { FlexDoc } from './components/FlexDoc';
+export { ApiClient } from './components/ApiClient';
+export type { ApiClientProps } from './components/ApiClient';
 export { App as ApiDocsDemo } from './App';
 export type { AppProps } from './App';
 export type { OpenAPISpec } from './types/openapi';
@@ -13,6 +15,8 @@ export { normalizeOperation, resolveObject, resolvePathItem, resolveServerVariab
 export type { NormalizedOperation } from './utils/openapi-normalizer';
 export { buildRequest, initialRequestValues, parametersFor } from './utils/request-builder';
 export type { BuiltRequest, RequestValues, RequestValue } from './utils/request-builder';
+export { buildHttpRequest, requestDraftFromBuiltRequest } from './utils/http-client';
+export type { HttpAuth, HttpKeyValue, HttpRequestDraft } from './utils/http-client';
 export { generateCodeSample, languageLabel } from './utils/code-samples';
 export type { CodeSampleLanguage } from './utils/code-samples';
 export { sampleSpec } from './data/sample-spec';
