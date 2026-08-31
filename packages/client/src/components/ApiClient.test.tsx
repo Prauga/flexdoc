@@ -89,4 +89,20 @@ describe('ApiClient', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(second).not.toHaveBeenCalled();
   });
+
+  it('shows configured servers and an arbitrary custom server override', () => {
+    render(<ApiClient
+      initialRequest={{ method: 'GET', url: 'http://localhost:8080/pets/42' }}
+      initialServerUrl='http://localhost:8080'
+      serverOptions={[
+        { url: 'https://api.example.test', description: 'Production' },
+        { url: 'https://canary.example.test', description: 'Canary' },
+      ]}
+    />);
+
+    expect(screen.getByLabelText('API Client server')).toHaveTextContent('Production');
+    expect(screen.getByLabelText('API Client server')).toHaveTextContent('Canary');
+    expect(screen.getByLabelText('API Client custom server URL')).toHaveValue('http://localhost:8080');
+    expect(screen.getByLabelText('Request URL')).toHaveValue('http://localhost:8080/pets/42');
+  });
 });

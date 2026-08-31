@@ -80,6 +80,23 @@ function headerRecord(entries: Array<[string, string]>): Record<string, string> 
   return headers;
 }
 
+function normalizeHeaderEntries(request: BuiltRequest & { headerEntries?: unknown }): Array<[string, string]> {
+  const raw = request.headerEntries;
+  if (!Array.isArray(raw)) return Object.entries(request.headers || {});
+  const normalized: Array<[string, string]> = [];
+  for (const entry of raw) {
+    if (Array.isArray(entry) && entry.length >= 2) {
+      normalized.push([String(entry[0]), String(entry[1])]);
+      continue;
+    }
+    if (entry && typeof entry === 'object' && 'key' in entry && 'value' in entry) {
+      const item = entry as { key: unknown; value: unknown; enabled?: boolean };
+      if (item.enabled !== false) normalized.push([String(item.key), String(item.value)]);
+    }
+  }
+  return normalized.length || raw.length === 0 ? normalized : Object.entries(request.headers || {});
+}
+
 function encodeBasicCredential(value: string): string {
   if (typeof globalThis.btoa === 'function') {
     if (typeof TextEncoder === 'undefined') throw new Error('Basic auth requires UTF-8 encoding support.');
@@ -144,8 +161,8 @@ export function buildHttpRequest(draft: HttpRequestDraft): HttpBuiltRequest {
   };
 }
 
-export function requestDraftFromBuiltRequest(request: BuiltRequest & { headerEntries?: Array<[string, string]> }): HttpRequestDraft {
-  const entries = request.headerEntries || Object.entries(request.headers);
+export function requestDraftFromBuiltRequest(request: BuiltRequest & { headerEntries?: unknown }): HttpRequestDraft {
+  const entries = normalizeHeaderEntries(request);
   const split = splitQuery(request.url);
   return {
     method: request.method,

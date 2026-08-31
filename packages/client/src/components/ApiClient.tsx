@@ -2,8 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Loader2, Play, Plus, Trash2 } from 'lucide-react';
 import { CodeBlock } from './CodeBlock';
 import { buildHttpRequest } from '../utils/http-client';
+import { replaceRequestServer, requestUsesServer, resolveServerUrl } from '../utils/server-url';
 import type { HttpAuth, HttpKeyValue, HttpRequestDraft } from '../utils/http-client';
 import type { BuiltRequest } from '../utils/request-builder';
+import type { Server } from '../types/openapi';
 
 export interface ApiClientProps {
   initialRequest?: Partial<HttpRequestDraft>;
@@ -11,6 +13,8 @@ export interface ApiClientProps {
   credentials?: RequestCredentials;
   requestInterceptor?: (request: RequestInit & { url: string }) => RequestInit & { url: string } | Promise<RequestInit & { url: string }>;
   onRequestChange?: (request: BuiltRequest) => void;
+  serverOptions?: Server[];
+  initialServerUrl?: string;
 }
 
 const emptyPair = (): HttpKeyValue => ({ key: '', value: '', enabled: true });
@@ -25,6 +29,10 @@ function withDefaults(initialRequest?: Partial<HttpRequestDraft>): HttpRequestDr
     contentType: initialRequest?.contentType || 'application/json',
     auth: initialRequest?.auth || { type: 'none' },
   };
+}
+
+function requestOrigin(url: string): string {
+  try { return new URL(url).origin; } catch { return ''; }
 }
 
 function PairEditor({ label, entries, onChange, inputClass }: { label: string; entries: HttpKeyValue[]; onChange: (entries: HttpKeyValue[]) => void; inputClass: string }) {
@@ -43,8 +51,18 @@ function PairEditor({ label, entries, onChange, inputClass }: { label: string; e
   </div>;
 }
 
-export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'light', credentials = 'same-origin', requestInterceptor, onRequestChange }) => {
-  const [draft, setDraft] = useState<HttpRequestDraft>(withDefaults(initialRequest));
+export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'light', credentials = 'same-origin', requestInterceptor, onRequestChange, serverOptions = [], initialServerUrl }) => {
+  const initialDraft = withDefaults(initialRequest);
+  const serverChoices = serverOptions.map((server) => ({ server, url: resolveServerUrl(server) }));
+  const configuredServerUrls = serverChoices.map((choice) => choice.url);
+  const inferredServerUrl = initialServerUrl || configuredServerUrls.find((serverUrl) => requestUsesServer(initialDraft.url, serverUrl)) || '';
+  const configuredDefault = configuredServerUrls.includes(inferredServerUrl) ? inferredServerUrl : configuredServerUrls[0] || '';
+  const initialCustomServer = inferredServerUrl && !configuredServerUrls.includes(inferredServerUrl) ? inferredServerUrl : '';
+  const [draft, setDraft] = useState<HttpRequestDraft>(initialDraft);
+  const [configuredServerUrl, setConfiguredServerUrl] = useState(configuredDefault);
+  const [customServerUrl, setCustomServerUrl] = useState(initialCustomServer);
+  const serverUrlRef = useRef(inferredServerUrl || configuredDefault || requestOrigin(initialDraft.url));
+  const originalServerUrlRef = useRef(serverUrlRef.current);
   const [response, setResponse] = useState<{ status: number; statusText: string; headers: string; body: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -72,6 +90,13 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
   const inputClass = theme === 'dark' ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900';
   const panelClass = theme === 'dark' ? 'border-gray-700 bg-gray-800/60 text-gray-100' : 'border-gray-200 bg-gray-50 text-gray-900';
 
+  const applyServer = (nextServerUrl: string) => {
+    if (!nextServerUrl) return;
+    const previousServerUrl = serverUrlRef.current;
+    serverUrlRef.current = nextServerUrl;
+    setDraft((current) => ({ ...current, url: replaceRequestServer(current.url, previousServerUrl, nextServerUrl) }));
+  };
+
   const setAuthType = (type: HttpAuth['type']) => {
     const auth: HttpAuth = type === 'bearer' ? { type, token: '' } : type === 'basic' ? { type, username: '', password: '' } : type === 'apiKey' ? { type, key: '', value: '', in: 'header' } : { type: 'none' };
     setDraft((current) => ({ ...current, auth }));
@@ -94,6 +119,26 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
 
   return <div className={`rounded-xl border p-4 md:p-5 ${panelClass}`}>
     <div className='flex flex-col gap-4'>
+      <div className='grid gap-2 sm:grid-cols-2'>
+        {serverOptions.length > 0 && <label className='text-sm font-medium'>Server
+          <select aria-label='API Client server' className={`mt-1 w-full rounded-md border px-3 py-2 text-sm ${inputClass}`} value={configuredServerUrl} onChange={(e) => {
+            setConfiguredServerUrl(e.target.value);
+            setCustomServerUrl('');
+            applyServer(e.target.value);
+          }}>
+            {serverChoices.map(({ server, url }) => <option key={`${server.url}:${url}`} value={url}>{server.description ? `${server.description} — ` : ''}{server.url}</option>)}
+          </select>
+        </label>}
+        <label className='text-sm font-medium'>Custom server URL <span className='text-xs font-normal opacity-70'>(optional override)</span>
+          <input aria-label='API Client custom server URL' className={`mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} value={customServerUrl} onChange={(e) => {
+            const value = e.target.value;
+            setCustomServerUrl(value);
+            const fallback = configuredServerUrl || originalServerUrlRef.current;
+            if (value.trim() || fallback) applyServer(value.trim() || fallback);
+          }} placeholder='http://localhost:8080' />
+        </label>
+      </div>
+
       <div className='flex gap-2'>
         <select aria-label='HTTP method' className={`rounded-md border px-3 py-2 font-medium ${inputClass}`} value={method} onChange={(e) => { const value = e.target.value; setDraft((current) => ({ ...current, method: value })); }}>
           {['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((item) => <option key={item}>{item}</option>)}
