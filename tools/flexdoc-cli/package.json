@@ -1,6 +1,6 @@
 {
   "name": "@prauga/flexdoc-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Serve and export self-contained FlexDoc API documentation from OpenAPI files",
   "type": "module",
   "bin": { "flexdoc": "./bin/flexdoc.js" },
@@ -8,7 +8,7 @@
   "scripts": { "test": "node --test" },
   "publishConfig": { "access": "public" },
   "engines": { "node": ">=20" },
-  "dependencies": { "@prauga/flexdoc-client": "^2.1.0", "js-yaml": "^4.1.0" },
+  "dependencies": { "@prauga/flexdoc-client": "^2.2.0", "js-yaml": "^4.1.0" },
   "keywords": ["flexdoc", "openapi", "api-documentation", "api-docs", "static-site", "cli", "self-hosted", "swagger", "developer-tools", "github-pages"],
   "author": "Prauga",
   "license": "AGPL-3.0-or-later",

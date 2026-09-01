@@ -1,6 +1,6 @@
 module.exports = {
   preset: 'ts-jest',
-  testEnvironment: 'jsdom',
+  testEnvironment: '@happy-dom/jest-environment',
   moduleNameMapper: {
     // The core package is intentionally ESM-only. Client Jest runs through
     // ts-jest/CommonJS, so exercise the same core TypeScript implementation

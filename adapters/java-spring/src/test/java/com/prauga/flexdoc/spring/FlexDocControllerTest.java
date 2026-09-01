@@ -5,12 +5,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
 class FlexDocControllerTest {
   @Test
   void defaultsToSameOriginSpringdocEndpoint() throws Exception {
     FlexDocProperties properties = new FlexDocProperties();
-    FlexDocController controller = new FlexDocController(properties, null, new ObjectMapper());
+    FlexDocController controller =
+        new FlexDocController(properties, objectProvider(null), new ObjectMapper());
 
     String html = controller.documentation().getBody();
 
@@ -31,7 +34,8 @@ class FlexDocControllerTest {
         "paths", Map.of(),
         "x-test", "</script><script>alert(1)</script>");
 
-    FlexDocController controller = new FlexDocController(properties, provider, new ObjectMapper());
+    FlexDocController controller =
+        new FlexDocController(properties, objectProvider(provider), new ObjectMapper());
     String html = controller.documentation().getBody();
 
     assertThat(html).contains("/reference/__flexdoc/renderer.js");
@@ -39,5 +43,13 @@ class FlexDocControllerTest {
     assertThat(html).contains("window.__FLEXDOC_SPEC_URL__=null");
     assertThat(html).doesNotContain("</script><script>alert(1)</script>");
     assertThat(html).contains("\\u003c/script\\u003e");
+  }
+
+  private static ObjectProvider<FlexDocSpecProvider> objectProvider(FlexDocSpecProvider provider) {
+    StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+    if (provider != null) {
+      beanFactory.addBean("flexDocSpecProvider", provider);
+    }
+    return beanFactory.getBeanProvider(FlexDocSpecProvider.class);
   }
 }

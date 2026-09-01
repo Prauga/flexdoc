@@ -58,11 +58,12 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
   const inferredServerUrl = initialServerUrl || configuredServerUrls.find((serverUrl) => requestUsesServer(initialDraft.url, serverUrl)) || '';
   const configuredDefault = configuredServerUrls.includes(inferredServerUrl) ? inferredServerUrl : configuredServerUrls[0] || '';
   const initialCustomServer = inferredServerUrl && !configuredServerUrls.includes(inferredServerUrl) ? inferredServerUrl : '';
+  const initialEffectiveServer = inferredServerUrl || configuredDefault || requestOrigin(initialDraft.url);
   const [draft, setDraft] = useState<HttpRequestDraft>(initialDraft);
   const [configuredServerUrl, setConfiguredServerUrl] = useState(configuredDefault);
   const [customServerUrl, setCustomServerUrl] = useState(initialCustomServer);
-  const serverUrlRef = useRef(inferredServerUrl || configuredDefault || requestOrigin(initialDraft.url));
-  const originalServerUrlRef = useRef(serverUrlRef.current);
+  const serverUrlRef = useRef(initialEffectiveServer);
+  const originalServerUrlRef = useRef(initialEffectiveServer);
   const [response, setResponse] = useState<{ status: number; statusText: string; headers: string; body: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

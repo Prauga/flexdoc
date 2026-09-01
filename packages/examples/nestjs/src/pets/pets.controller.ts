@@ -7,12 +7,7 @@ import {
   Put,
   Delete,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { PetsService } from './pets.service';
 import { CreatePetDto, UpdatePetDto, PetDto } from './dto/pet.dto';
 
@@ -67,4 +62,3 @@ export class PetsController {
     return this.petsService.remove(+id);
   }
 }
-

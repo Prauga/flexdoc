@@ -38,19 +38,19 @@ export interface Operation {
 }
 export interface Parameter {
   name: string; in: 'query' | 'header' | 'path' | 'cookie'; description?: string; required?: boolean; deprecated?: boolean;
-  allowEmptyValue?: boolean; style?: string; explode?: boolean; allowReserved?: boolean; schema?: Schema | Reference; example?: any;
+  allowEmptyValue?: boolean; style?: string; explode?: boolean; allowReserved?: boolean; schema?: Schema | Reference; example?: unknown;
   examples?: Record<string, Example | Reference>; content?: Record<string, MediaType>;
 }
 export interface RequestBody { description?: string; content: Record<string, MediaType>; required?: boolean; }
-export interface MediaType { schema?: Schema | Reference; example?: any; examples?: Record<string, Example | Reference>; encoding?: Record<string, Encoding>; }
+export interface MediaType { schema?: Schema | Reference; example?: unknown; examples?: Record<string, Example | Reference>; encoding?: Record<string, Encoding>; }
 export interface Encoding { contentType?: string; headers?: Record<string, Header | Reference>; style?: string; explode?: boolean; allowReserved?: boolean; }
 export interface Responses { [statusCode: string]: Response | Reference; }
 export interface Response { description: string; headers?: Record<string, Header | Reference>; content?: Record<string, MediaType>; links?: Record<string, Link | Reference>; }
-export interface Header { description?: string; required?: boolean; deprecated?: boolean; allowEmptyValue?: boolean; style?: string; explode?: boolean; allowReserved?: boolean; schema?: Schema | Reference; example?: any; examples?: Record<string, Example | Reference>; }
+export interface Header { description?: string; required?: boolean; deprecated?: boolean; allowEmptyValue?: boolean; style?: string; explode?: boolean; allowReserved?: boolean; schema?: Schema | Reference; example?: unknown; examples?: Record<string, Example | Reference>; }
 
 export interface Schema {
   $id?: string; $schema?: string; title?: string; description?: string;
-  type?: string | string[]; format?: string; const?: any; enum?: any[]; default?: any; examples?: any[]; example?: any;
+  type?: string | string[]; format?: string; const?: unknown; enum?: unknown[]; default?: unknown; examples?: unknown[]; example?: unknown;
   multipleOf?: number; maximum?: number; exclusiveMaximum?: boolean | number; minimum?: number; exclusiveMinimum?: boolean | number;
   maxLength?: number; minLength?: number; pattern?: string; maxItems?: number; minItems?: number; uniqueItems?: boolean;
   maxProperties?: number; minProperties?: number; required?: string[];
@@ -66,8 +66,8 @@ export interface Schema {
 export interface Discriminator { propertyName: string; mapping?: Record<string, string>; }
 export interface XML { name?: string; namespace?: string; prefix?: string; attribute?: boolean; wrapped?: boolean; }
 export interface Reference { $ref: string; summary?: string; description?: string; }
-export interface Example { summary?: string; description?: string; value?: any; externalValue?: string; }
-export interface Link { operationRef?: string; operationId?: string; parameters?: Record<string, any>; requestBody?: any; description?: string; server?: Server; }
+export interface Example { summary?: string; description?: string; value?: unknown; externalValue?: string; }
+export interface Link { operationRef?: string; operationId?: string; parameters?: Record<string, unknown>; requestBody?: unknown; description?: string; server?: Server; }
 export interface Callback { [expression: string]: PathItem; }
 export interface Components {
   schemas?: Record<string, Schema | Reference>; responses?: Record<string, Response | Reference>; parameters?: Record<string, Parameter | Reference>;

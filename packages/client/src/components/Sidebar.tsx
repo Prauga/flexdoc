@@ -75,7 +75,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, {} as { [tag: string]: { path: string; method: string; operation: any }[] });
 
   const toggleTag = (tag: string) => setExpandedTags((current) => {
-    const next = new Set(current); next.has(tag) ? next.delete(tag) : next.add(tag); return next;
+    const next = new Set(current);
+    if (next.has(tag)) next.delete(tag);
+    else next.add(tag);
+    return next;
   });
 
   return (

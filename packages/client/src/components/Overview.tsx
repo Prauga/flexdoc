@@ -29,8 +29,8 @@ export const Overview: React.FC<OverviewProps> = ({
       : 'hover:border-blue-300 hover:bg-blue-50';
 
   // Get endpoint statistics
-  const endpointStats = Object.entries(spec.paths).reduce(
-    (acc, [_path, pathItem]) => {
+  const endpointStats = Object.values(spec.paths).reduce(
+    (acc, pathItem) => {
       const methods = OpenAPIParser.getHttpMethods(pathItem);
       methods.forEach((method) => {
         acc[method] = (acc[method] || 0) + 1;

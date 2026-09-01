@@ -4,32 +4,50 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.lang.Nullable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/** Serves the FlexDoc host page and the version-matched embedded renderer assets. */
 @RestController
 public class FlexDocController {
   private final FlexDocProperties properties;
-  private final FlexDocSpecProvider provider;
+  private final ObjectProvider<FlexDocSpecProvider> provider;
   private final ObjectMapper objectMapper;
 
-  public FlexDocController(FlexDocProperties properties, @Nullable FlexDocSpecProvider provider, ObjectMapper objectMapper) {
+  /**
+   * Creates a controller for the configured FlexDoc documentation endpoint.
+   *
+   * @param properties bound FlexDoc configuration
+   * @param provider optional application OpenAPI document provider
+   * @param objectMapper mapper used to serialize renderer bootstrap values safely
+   */
+  public FlexDocController(
+      FlexDocProperties properties,
+      ObjectProvider<FlexDocSpecProvider> provider,
+      ObjectMapper objectMapper) {
     this.properties = properties;
     this.provider = provider;
     this.objectMapper = objectMapper;
   }
 
+  /**
+   * Renders the self-hosted FlexDoc documentation page.
+   *
+   * @return HTML response that bootstraps the embedded renderer
+   * @throws Exception when a configured OpenAPI provider cannot produce a document
+   */
   @GetMapping(value = "${flexdoc.path:/docs}", produces = MediaType.TEXT_HTML_VALUE)
   public ResponseEntity<String> documentation() throws Exception {
     String base = normalizedPath();
-    Object document = provider == null ? null : provider.getOpenApiDocument();
+    FlexDocSpecProvider specProvider = provider.getIfAvailable();
+    Object document = specProvider == null ? null : specProvider.getOpenApiDocument();
     String spec = safeScriptJson(document);
-    String specUrl = safeScriptJson(provider == null ? properties.getSpecUrl() : null);
+    String specUrl = safeScriptJson(specProvider == null ? properties.getSpecUrl() : null);
     Map<String, Object> options = new LinkedHashMap<>();
     options.put("contractVersion", "1");
     options.put("title", properties.getTitle());
@@ -49,11 +67,23 @@ public class FlexDocController {
     return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(html);
   }
 
+  /**
+   * Serves the embedded standalone renderer JavaScript.
+   *
+   * @return immutable JavaScript asset response
+   * @throws IOException when the packaged asset cannot be read
+   */
   @GetMapping(value = "${flexdoc.path:/docs}/__flexdoc/renderer.js", produces = "application/javascript")
   public ResponseEntity<byte[]> rendererJavaScript() throws IOException {
     return immutableResource("META-INF/flexdoc/flexdoc.standalone.js", MediaType.valueOf("application/javascript"));
   }
 
+  /**
+   * Serves the embedded standalone renderer stylesheet.
+   *
+   * @return immutable CSS asset response
+   * @throws IOException when the packaged asset cannot be read
+   */
   @GetMapping(value = "${flexdoc.path:/docs}/__flexdoc/renderer.css", produces = "text/css")
   public ResponseEntity<byte[]> rendererCss() throws IOException {
     return immutableResource("META-INF/flexdoc/flexdoc.standalone.css", MediaType.valueOf("text/css"));

@@ -25,10 +25,26 @@ function displayValue(value: unknown): string | number | readonly string[] {
   return value as string | number;
 }
 
-export const RequestPlayground: React.FC<Props> = ({ spec, path, method, theme, options, onRequestChange, onOpenInApiClient }) => {
+function resetKeyFor({ spec, path, method, options }: Props): string {
   const pathItem = spec.paths[path];
   const operation = pathItem?.[method.toLowerCase() as keyof typeof pathItem] as Operation | undefined;
   const servers = operation?.servers || pathItem?.servers || spec.servers || [];
+  return JSON.stringify({
+    path,
+    method: method.toLowerCase(),
+    defaultServer: options?.tryIt?.defaultServer ?? null,
+    servers: servers.map(resolveServerUrl),
+    defaults: initialRequestValues(spec, path, method),
+  });
+}
+
+const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme, options, onRequestChange, onOpenInApiClient }) => {
+  const pathItem = spec.paths[path];
+  const operation = pathItem?.[method.toLowerCase() as keyof typeof pathItem] as Operation | undefined;
+  const servers = useMemo(
+    () => operation?.servers || pathItem?.servers || spec.servers || [],
+    [operation?.servers, pathItem?.servers, spec.servers]
+  );
   const serverChoices = useMemo(() => servers.map((server) => ({ server, url: resolveServerUrl(server) })), [servers]);
   const configuredServerUrls = useMemo(() => serverChoices.map((choice) => choice.url), [serverChoices]);
   const defaults = useMemo(() => ({
@@ -46,7 +62,6 @@ export const RequestPlayground: React.FC<Props> = ({ spec, path, method, theme, 
   const selectedServerRef = useRef(configuredDefault);
   const customServerInputRef = useRef<HTMLInputElement>(null);
   const onRequestChangeRef = useRef(onRequestChange);
-  onRequestChangeRef.current = onRequestChange;
   const [response, setResponse] = useState<{ status: number; statusText: string; headers: string; body: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -59,11 +74,9 @@ export const RequestPlayground: React.FC<Props> = ({ spec, path, method, theme, 
   };
 
   useEffect(() => {
-    valuesRef.current = defaults;
-    selectedServerRef.current = configuredDefault;
-    if (customServerInputRef.current) customServerInputRef.current.value = initialCustomServer;
-    setValues(defaults);
-  }, [defaults, configuredDefault, initialCustomServer]);
+    onRequestChangeRef.current = onRequestChange;
+  }, [onRequestChange]);
+
   useEffect(() => {
     try { onRequestChangeRef.current?.(buildRequest(spec, path, method, values)); } catch { /* incomplete required values are valid while editing */ }
   }, [spec, path, method, values]);
@@ -158,3 +171,7 @@ export const RequestPlayground: React.FC<Props> = ({ spec, path, method, theme, 
     </div>
   </div>;
 };
+
+export const RequestPlayground: React.FC<Props> = (props) => (
+  <RequestPlaygroundStateful key={resetKeyFor(props)} {...props} />
+);

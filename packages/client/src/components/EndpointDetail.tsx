@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { AlertCircle, ChevronDown, ChevronRight, Lock, Unlock } from 'lucide-react';
-import { OpenAPISpec, Operation } from '../types/openapi';
+import { OpenAPISpec, Operation, RequestBody, Response } from '../types/openapi';
 import { FlexDocRendererOptions } from '../types/options';
 import { OpenAPIParser } from '../utils/openapi-parser';
 import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
@@ -40,7 +40,10 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
   const schemaOptions = { requiredPropsFirst: options.requiredPropsFirst, sortPropsAlphabetically: options.sortPropsAlphabetically };
 
   const toggle = (id: string) => setExpandedSections((current) => {
-    const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next;
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
   });
 
   const section = (title: string, id: string, children: React.ReactNode) => (
@@ -54,7 +57,7 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
 
   const requestBody = operation.requestBody
     ? OpenAPIParser.isReference(operation.requestBody)
-      ? OpenAPIParser.resolveReference(spec, operation.requestBody.$ref)
+      ? OpenAPIParser.resolveReference<RequestBody>(spec, operation.requestBody.$ref)
       : operation.requestBody
     : undefined;
 
@@ -103,7 +106,7 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
 
       {section('Responses', 'responses', <div className='space-y-4'>
         {Object.entries(operation.responses || {}).map(([status, raw]: [string, any]) => {
-          const response = OpenAPIParser.isReference(raw) ? OpenAPIParser.resolveReference(spec, raw.$ref) : raw;
+          const response = OpenAPIParser.isReference(raw) ? OpenAPIParser.resolveReference<Response>(spec, raw.$ref) : raw;
           return <div key={status} className={`rounded-lg border p-4 ${card}`}>
             <div className='mb-3 flex flex-wrap items-center gap-2'><span className='rounded border px-2.5 py-1 text-sm font-bold'>{status}</span><span className={`text-sm ${muted}`}>{response.description}</span></div>
             {response.headers && options.showRequestHeaders && <div className='mb-3 text-sm'><span className='font-medium'>Headers:</span> {Object.keys(response.headers).join(', ')}</div>}
@@ -118,6 +121,7 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
       </div>)}
 
       {options.tryIt?.enabled !== false && section('Try It', 'tryIt', <TryItApiClientWorkspace
+        key={`${method}:${path}:${options.tryIt?.defaultServer || ''}`}
         spec={spec}
         path={path}
         method={method}

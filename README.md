@@ -9,7 +9,8 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - OpenAPI 3.0/3.1 normalization and reference resolution, including relative external references
 - responsive API reference UI with search and deep links
 - interactive **Try It** execution and response inspection
-- server selection and OpenAPI server variables
+- full **API Client** workflow with Try It handoff
+- configured OpenAPI server selection, server variables, and arbitrary custom endpoints such as canaries or localhost
 - API key, Basic, Bearer, OAuth2/OpenID bearer authentication
 - OpenAPI parameter serialization including deepObject, matrix, label, pipe/space-delimited and explode semantics
 - JSON, form-urlencoded and multipart request bodies
@@ -24,27 +25,27 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 
 | Ecosystem | Package | Source version |
 | --- | --- | ---: |
-| npm | `@prauga/flexdoc-client` | `2.1.0` |
-| npm | `@prauga/flexdoc-backend` | `2.1.0` |
-| npm | `@prauga/flexdoc-core` | `0.1.0` |
-| npm | `@prauga/flexdoc-cli` | `0.1.0` |
-| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.2.0` |
-| PyPI | `prauga-flexdoc` | `0.1.0` |
-| crates.io | `prauga-flexdoc-axum` | `0.1.0` |
-| Go | `github.com/prauga/flexdoc/adapters/go` | `0.1.0` |
+| npm | `@prauga/flexdoc-client` | `2.2.0` |
+| npm | `@prauga/flexdoc-backend` | `2.2.0` |
+| npm | `@prauga/flexdoc-core` | `0.2.0` |
+| npm | `@prauga/flexdoc-cli` | `0.2.0` |
+| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.3.0` |
+| PyPI | `prauga-flexdoc` | `0.2.0` |
+| crates.io | `prauga-flexdoc-axum` | `0.2.0` |
+| Go | `github.com/prauga/flexdoc/adapters/go` | `0.2.0` |
 
 These versions are independent across ecosystems. Renderer contract v1 is the compatibility boundary.
 
 ## Examples
 
-Runnable examples are available in [`examples/`](./examples/README.md) for Express, Fastify, FastAPI, Spring Boot, Go and Rust. Existing React and NestJS examples live under [`packages/examples/`](./packages/examples/).
+Runnable examples are available in [`examples/`](./examples/README.md) for Express, Fastify, FastAPI, Spring Boot, Go and Rust. React and NestJS examples live under [`packages/examples/`](./packages/examples/).
 
-FlexDoc dependencies in examples use exact current release versions. `npm run check:example-versions` derives the expected versions from the package and adapter manifests and CI rejects stale example pins whenever a release version changes.
+The examples use the full OpenAPI 3.1 feature showcase where the framework allows a direct specification. FlexDoc dependencies use exact current release versions. `npm run check:example-versions` derives the expected versions from the package and adapter manifests and CI rejects stale example pins whenever a release version changes.
 
 ## React
 
 ```bash
-npm install @prauga/flexdoc-client@^2.1
+npm install @prauga/flexdoc-client@^2.2
 ```
 
 ```tsx
@@ -59,7 +60,7 @@ export function Docs({ spec }) {
 ## Node backend integrations
 
 ```bash
-npm install @prauga/flexdoc-backend@^2.1
+npm install @prauga/flexdoc-backend@^2.2
 ```
 
 ```ts
@@ -69,7 +70,11 @@ import { setupExpressFlexDoc } from '@prauga/flexdoc-backend';
 const app = express();
 setupExpressFlexDoc(app, '/docs', {
   spec,
-  options: { title: 'Example API' },
+  options: {
+    title: 'Example API',
+    tryIt: { enabled: true },
+    codeSamples: { enabled: true, languages: ['curl', 'javascript', 'python', 'go', 'java'] },
+  },
 });
 app.listen(3000);
 ```
@@ -91,7 +96,7 @@ Static output contains `index.html`, `flexdoc.js`, `flexdoc.css`, and a bundled 
 <dependency>
   <groupId>com.prauga.flexdoc</groupId>
   <artifactId>flexdoc-spring-boot-starter</artifactId>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
 </dependency>
 ```
 
@@ -156,13 +161,16 @@ canonical browser renderer
       +--> Rust Axum
 ```
 
-Adapters obtain or expose the OpenAPI document, host a small page, and serve version-matched local renderer assets. They do not reimplement schemas, request serialization, code samples, Try It, navigation, or theming.
+Adapters obtain or expose the OpenAPI document, host a small page, and serve version-matched local renderer assets. They do not reimplement schemas, request serialization, code samples, Try It, API Client behavior, navigation, or theming.
 
 ## Development
+
+Monorepo development and CI use Node.js `22.22.3` or newer, matching the root `engines.node` contract. The published CLI intentionally keeps the broader Node.js `>=20` runtime contract because consumers execute built CLI/runtime code rather than the repository's ESLint/Vite development toolchain.
 
 ```bash
 npm ci
 npm run check:example-versions
+npm run lint
 npm run build:client
 npm test -w packages/client -- --runInBand
 npm test -w packages/backend -- --runInBand
