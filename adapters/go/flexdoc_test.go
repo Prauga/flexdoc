@@ -25,7 +25,8 @@ func TestHandlerWithAssetsIsSafe(t *testing.T) {
     h.ServeHTTP(rec, httptest.NewRequest("GET", "/reference", nil))
     if rec.Code != 200 { t.Fatalf("status = %d", rec.Code) }
     body := rec.Body.String()
-    if !strings.Contains(body, "/reference/__flexdoc/renderer.js") { t.Fatal("renderer route missing") }
+    if !strings.Contains(body, "/reference/__flexdoc/renderer.js?v=") { t.Fatal("versioned renderer route missing") }
+    if !strings.Contains(body, "/reference/__flexdoc/renderer.css?v=") { t.Fatal("versioned renderer stylesheet missing") }
     if strings.Contains(body, "</script><script>alert(1)</script>") { t.Fatal("unsafe title rendered") }
 }
 

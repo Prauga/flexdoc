@@ -124,8 +124,16 @@ function setupFastifyFlexDocInternal(
 
   app.get(normalizedPath, routeOptions, async (_request, reply) => {
     try {
-      const html = generateFlexDocHTML(await resolvedSpec(), { ...(options.options || {}), rendererBasePath });
-      return reply.type('text/html; charset=utf-8').send(html);
+      const assets = getRendererAssets();
+      const html = generateFlexDocHTML(await resolvedSpec(), {
+        ...(options.options || {}),
+        rendererBasePath,
+        rendererVersion: assets.version,
+      });
+      return reply
+        .type('text/html; charset=utf-8')
+        .header('Cache-Control', 'no-cache')
+        .send(html);
     } catch (error) {
       return reply.code(502).type('text/plain; charset=utf-8').send(`Unable to load OpenAPI specification: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

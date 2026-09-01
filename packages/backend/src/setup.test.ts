@@ -11,6 +11,7 @@ jest.mock('./renderer-assets', () => ({
   getRendererAssets: jest.fn().mockReturnValue({
     javascript: 'window.renderer = true;',
     css: '.renderer { display: block; }',
+    version: 'test-renderer-version',
   }),
 }));
 
@@ -76,7 +77,10 @@ describe('setupFlexDoc', () => {
 
     expect(generateFlexDocHTML).toHaveBeenCalledWith(
       spec,
-      expect.objectContaining({ rendererBasePath: '/docs/__flexdoc' })
+      expect.objectContaining({
+        rendererBasePath: '/docs/__flexdoc',
+        rendererVersion: 'test-renderer-version',
+      })
     );
     expect(mockRes.setHeader).toHaveBeenCalledWith(
       'Content-Type',
@@ -120,6 +124,7 @@ describe('setupFlexDoc', () => {
       expect.objectContaining({
         ...flexDocOptions,
         rendererBasePath: '/docs/__flexdoc',
+        rendererVersion: 'test-renderer-version',
       })
     );
   });

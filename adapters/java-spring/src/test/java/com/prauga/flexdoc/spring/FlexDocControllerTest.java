@@ -17,7 +17,8 @@ class FlexDocControllerTest {
 
     String html = controller.documentation().getBody();
 
-    assertThat(html).contains("/docs/__flexdoc/renderer.js");
+    assertThat(html).contains("/docs/__flexdoc/renderer.js?v=");
+    assertThat(html).contains("/docs/__flexdoc/renderer.css?v=");
     assertThat(html).contains("window.__FLEXDOC_SPEC__=null");
     assertThat(html).contains("window.__FLEXDOC_SPEC_URL__=\"/v3/api-docs\"");
     assertThat(html).contains("FlexDocStandalone.mountAsync");
@@ -38,7 +39,7 @@ class FlexDocControllerTest {
         new FlexDocController(properties, objectProvider(provider), new ObjectMapper());
     String html = controller.documentation().getBody();
 
-    assertThat(html).contains("/reference/__flexdoc/renderer.js");
+    assertThat(html).contains("/reference/__flexdoc/renderer.js?v=");
     assertThat(html).contains("Example &lt;API&gt;");
     assertThat(html).contains("window.__FLEXDOC_SPEC_URL__=null");
     assertThat(html).doesNotContain("</script><script>alert(1)</script>");

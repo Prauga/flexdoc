@@ -5,7 +5,11 @@ interface OpenAPISpec {
   [key: string]: unknown;
 }
 
-interface RenderOptions extends FlexDocOptions { specUrl?: string; rendererBasePath?: string; }
+interface RenderOptions extends FlexDocOptions {
+  specUrl?: string;
+  rendererBasePath?: string;
+  rendererVersion?: string;
+}
 
 function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
@@ -26,9 +30,11 @@ export function generateFlexDocHTML(spec: OpenAPISpec | null, options: RenderOpt
     favicon = '',
     specUrl,
     rendererBasePath = './__flexdoc',
+    rendererVersion,
     auth: _serverOnlyAuth,
     ...rendererOptions
   } = options;
+  const assetVersion = rendererVersion ? `?v=${encodeURIComponent(rendererVersion)}` : '';
 
   const documentTitle = title || spec?.info?.title || 'API Documentation';
   const publicOptions = {
@@ -47,7 +53,7 @@ export function generateFlexDocHTML(spec: OpenAPISpec | null, options: RenderOpt
   <meta name="color-scheme" content="light dark" />
   <title>${escapeHtml(documentTitle)}</title>
   ${favicon ? `<link rel="icon" href="${escapeHtml(favicon)}" />` : ''}
-  <link rel="stylesheet" href="${escapeHtml(rendererBasePath)}/renderer.css" />
+  <link rel="stylesheet" href="${escapeHtml(rendererBasePath)}/renderer.css${assetVersion}" />
   ${customCss ? `<style>${customCss}</style>` : ''}
 </head>
 <body>
@@ -57,7 +63,7 @@ export function generateFlexDocHTML(spec: OpenAPISpec | null, options: RenderOpt
     window.__FLEXDOC_SPEC_URL__ = ${serializeForScript(specUrl || null)};
     window.__FLEXDOC_OPTIONS__ = ${serializeForScript(publicOptions)};
   </script>
-  <script src="${escapeHtml(rendererBasePath)}/renderer.js"></script>
+  <script src="${escapeHtml(rendererBasePath)}/renderer.js${assetVersion}"></script>
   <script>
     (async function bootstrapFlexDoc() {
       const root = document.getElementById('flexdoc-root');

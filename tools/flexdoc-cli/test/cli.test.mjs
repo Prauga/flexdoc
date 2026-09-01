@@ -38,8 +38,8 @@ test('build creates a deployable static site and bundles nested external refs', 
       readFile(join(out, 'openapi.json'), 'utf8'),
     ]);
     assert.match(html, /<title>Exported API<\/title>/);
-    assert.match(html, /href="\/docs\/flexdoc.css"/);
-    assert.match(html, /src="\/docs\/flexdoc.js"/);
+    assert.match(html, /href="\/docs\/flexdoc.css\?v=[a-f0-9]{16}"/);
+    assert.match(html, /src="\/docs\/flexdoc.js\?v=[a-f0-9]{16}"/);
     assert.ok(js.length > 1000);
     assert.ok(css.length > 100);
 

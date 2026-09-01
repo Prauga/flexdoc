@@ -27,6 +27,15 @@ describe('generateFlexDocHTML', () => {
     expect(html).toContain('"tryIt":{"enabled":true}');
   });
 
+  it('cache-busts immutable renderer assets when their version changes', () => {
+    const html = generateFlexDocHTML(null, {
+      rendererBasePath: '/docs/__flexdoc',
+      rendererVersion: 'abc123',
+    });
+    expect(html).toContain('/docs/__flexdoc/renderer.css?v=abc123');
+    expect(html).toContain('/docs/__flexdoc/renderer.js?v=abc123');
+  });
+
   it('never exposes route authentication secrets to the browser', () => {
     const html = generateFlexDocHTML(null, { auth: { type: 'basic', secretKey: 'super-secret-do-not-ship' } });
     expect(html).not.toContain('super-secret-do-not-ship');

@@ -48,7 +48,11 @@ fn build_router(mut cfg: Config, spec: Option<Value>) -> Router {
         .with_state(state)
 }
 
-async fn page(State(state): State<AppState>) -> Html<String> { Html(render_html(&state.cfg)) }
+async fn page(State(state): State<AppState>) -> Response {
+    let mut response = Html(render_html(&state.cfg)).into_response();
+    response.headers_mut().insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    response
+}
 async fn js() -> Response { asset(RENDERER_JS, "application/javascript; charset=utf-8") }
 async fn css() -> Response { asset(RENDERER_CSS, "text/css; charset=utf-8") }
 async fn openapi(State(state): State<AppState>) -> Response {
@@ -73,9 +77,19 @@ fn escape_html(value: &str) -> String {
     value.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;").replace('\'', "&#39;")
 }
 
+fn renderer_version() -> String {
+    let mut hash = 0xcbf29ce484222325_u64;
+    for byte in RENDERER_JS.iter().chain([0_u8].iter()).chain(RENDERER_CSS.iter()) {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
+
 fn render_html(cfg: &Config) -> String {
     let options = json!({"contractVersion":"1","title":cfg.title,"theme":cfg.theme,"tryIt":{"enabled":cfg.try_it_enabled}});
-    format!(r#"<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>{}</title><link rel="stylesheet" href="{}/__flexdoc/renderer.css"></head><body><div id="flexdoc-root"></div><script>window.__FLEXDOC_SPEC_URL__={};window.__FLEXDOC_OPTIONS__={};</script><script src="{}/__flexdoc/renderer.js"></script><script>(async function(){{const root=document.getElementById('flexdoc-root');try{{const baseUri=new URL(window.__FLEXDOC_SPEC_URL__,window.location.href).toString();const response=await fetch(baseUri);if(!response.ok)throw new Error('Unable to load OpenAPI specification: HTTP '+response.status);const spec=await response.json();const config={{spec:spec,options:window.__FLEXDOC_OPTIONS__||{{}},baseUri:baseUri}};if(window.FlexDocStandalone.mountAsync)await window.FlexDocStandalone.mountAsync(root,config);else window.FlexDocStandalone.mount(root,config);}}catch(error){{root.textContent=error instanceof Error?error.message:String(error);}}}})();</script></body></html>"#, escape_html(&cfg.title), cfg.path, safe_json(json!(cfg.spec_url)), safe_json(options), cfg.path)
+    let version = renderer_version();
+    format!(r#"<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>{}</title><link rel="stylesheet" href="{}/__flexdoc/renderer.css?v={}"></head><body><div id="flexdoc-root"></div><script>window.__FLEXDOC_SPEC_URL__={};window.__FLEXDOC_OPTIONS__={};</script><script src="{}/__flexdoc/renderer.js?v={}"></script><script>(async function(){{const root=document.getElementById('flexdoc-root');try{{const baseUri=new URL(window.__FLEXDOC_SPEC_URL__,window.location.href).toString();const response=await fetch(baseUri);if(!response.ok)throw new Error('Unable to load OpenAPI specification: HTTP '+response.status);const spec=await response.json();const config={{spec:spec,options:window.__FLEXDOC_OPTIONS__||{{}},baseUri:baseUri}};if(window.FlexDocStandalone.mountAsync)await window.FlexDocStandalone.mountAsync(root,config);else window.FlexDocStandalone.mount(root,config);}}catch(error){{root.textContent=error instanceof Error?error.message:String(error);}}}})();</script></body></html>"#, escape_html(&cfg.title), cfg.path, version, safe_json(json!(cfg.spec_url)), safe_json(options), cfg.path, version)
 }
 
 #[cfg(test)]
@@ -89,7 +103,8 @@ mod tests {
         let cfg = Config { title:"</script><script>alert(1)</script>".into(), path:"/docs".into(), ..Default::default() };
         let body = render_html(&cfg);
         assert!(!body.contains("</script><script>alert(1)</script>"));
-        assert!(body.contains("/docs/__flexdoc/renderer.js"));
+        assert!(body.contains("/docs/__flexdoc/renderer.js?v="));
+        assert!(body.contains("/docs/__flexdoc/renderer.css?v="));
         assert!(!RENDERER_JS.is_empty());
         assert!(!RENDERER_CSS.is_empty());
     }

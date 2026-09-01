@@ -210,11 +210,14 @@ export function setupFlexDoc(
   app.use(normalizedPath, async (_req: any, res: any) => {
     try {
       const resolvedSpec = await getSpec();
+      const rendererAssets = getRendererAssets();
       const html = generateFlexDocHTML(resolvedSpec, {
         ...(flexDocOptions || {}),
         rendererBasePath,
+        rendererVersion: rendererAssets.version,
       });
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache');
       res.send(html);
     } catch (error) {
       res.statusCode = 502;

@@ -6,8 +6,10 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const adapterDir = resolve(repoRoot, 'adapters/go');
-const adapterGoMod = readFileSync(resolve(adapterDir, 'go.mod'), 'utf8');
-const exampleGoMod = readFileSync(resolve(repoRoot, 'examples/go-net-http/go.mod'), 'utf8');
+const gitText = (path) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
+const gitBytes = (path) => Buffer.from(gitText(path));
+const adapterGoMod = gitText(resolve(adapterDir, 'go.mod'));
+const exampleGoMod = gitText(resolve(repoRoot, 'examples/go-net-http/go.mod'));
 
 const moduleMatch = adapterGoMod.match(/^module\s+(\S+)$/m);
 if (!moduleMatch) throw new Error('Could not read the Go adapter module path');
@@ -39,13 +41,13 @@ const modulePrefix = `${modulePath}@${version}`;
 const moduleEntries = trackedAdapterFiles.map((repoPath) => {
   const absolutePath = resolve(repoRoot, repoPath);
   const moduleRelativePath = relative(adapterDir, absolutePath).split(sep).join('/');
-  return [`${modulePrefix}/${moduleRelativePath}`, readFileSync(absolutePath)];
+  return [`${modulePrefix}/${moduleRelativePath}`, gitBytes(absolutePath)];
 });
 
 // Go's VCS module-zip creation copies the repository-root LICENSE into a
 // submodule zip when the submodule does not contain its own LICENSE.
 if (!trackedAdapterFiles.some((path) => path === 'adapters/go/LICENSE')) {
-  moduleEntries.push([`${modulePrefix}/LICENSE`, readFileSync(resolve(repoRoot, 'LICENSE'))]);
+  moduleEntries.push([`${modulePrefix}/LICENSE`, gitBytes(resolve(repoRoot, 'LICENSE'))]);
 }
 
 const moduleHash = hash1(moduleEntries);
@@ -54,7 +56,7 @@ const expected = `${modulePath} ${version} ${moduleHash}\n${modulePath} ${versio
 const sumPath = resolve(repoRoot, 'examples/go-net-http/go.sum');
 let actual = '';
 try {
-  actual = readFileSync(sumPath, 'utf8');
+  actual = gitText(sumPath);
 } catch {
   // The message below contains the exact file content needed for the release tree.
 }

@@ -1,4 +1,10 @@
-jest.mock('./renderer-assets', () => ({ getRendererAssets: () => ({ javascript: 'renderer-js', css: 'renderer-css' }) }));
+jest.mock('./renderer-assets', () => ({
+  getRendererAssets: () => ({
+    javascript: 'renderer-js',
+    css: 'renderer-css',
+    version: 'test-renderer-version',
+  }),
+}));
 jest.mock('./template', () => ({ generateFlexDocHTML: jest.fn(() => '<html>docs</html>') }));
 
 import { setupFastifyFlexDoc, setupFastifySwaggerFlexDoc } from './framework-adapters';
@@ -27,7 +33,10 @@ describe('setupFastifyFlexDoc', () => {
     const { state, reply } = replyState();
     await routes.get('/docs').handler({ headers: {} }, reply);
     expect(state.body).toBe('<html>docs</html>');
-    expect(generateFlexDocHTML).toHaveBeenCalled();
+    expect(generateFlexDocHTML).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ rendererVersion: 'test-renderer-version' })
+    );
   });
 
   it('protects Fastify routes when docs auth is configured', async () => {

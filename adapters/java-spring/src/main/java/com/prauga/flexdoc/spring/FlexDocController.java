@@ -2,6 +2,9 @@ package com.prauga.flexdoc.spring;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.beans.factory.ObjectProvider;
@@ -55,16 +58,20 @@ public class FlexDocController {
     options.put("tryIt", Map.of("enabled", properties.isTryItEnabled()));
     String optionsJson = safeScriptJson(options);
     String title = escapeHtml(properties.getTitle());
+    String rendererVersion = rendererVersion();
 
     String html = "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\">"
-        + "<meta name=\"color-scheme\" content=\"light dark\"><title>" + title + "</title><link rel=\"stylesheet\" href=\"" + base + "/__flexdoc/renderer.css\"></head>"
+        + "<meta name=\"color-scheme\" content=\"light dark\"><title>" + title + "</title><link rel=\"stylesheet\" href=\"" + base + "/__flexdoc/renderer.css?v=" + rendererVersion + "\"></head>"
         + "<body><div id=\"flexdoc-root\"></div><script>window.__FLEXDOC_SPEC__=" + spec + ";window.__FLEXDOC_SPEC_URL__=" + specUrl + ";window.__FLEXDOC_OPTIONS__=" + optionsJson + ";</script>"
-        + "<script src=\"" + base + "/__flexdoc/renderer.js\"></script><script>(async function(){const root=document.getElementById('flexdoc-root');try{let spec=window.__FLEXDOC_SPEC__;let baseUri;"
+        + "<script src=\"" + base + "/__flexdoc/renderer.js?v=" + rendererVersion + "\"></script><script>(async function(){const root=document.getElementById('flexdoc-root');try{let spec=window.__FLEXDOC_SPEC__;let baseUri;"
         + "if(!spec&&window.__FLEXDOC_SPEC_URL__){baseUri=new URL(window.__FLEXDOC_SPEC_URL__,window.location.href).toString();const response=await fetch(baseUri);if(!response.ok)throw new Error('Unable to load OpenAPI specification: HTTP '+response.status);spec=await response.json();}"
         + "if(!spec)throw new Error('No OpenAPI specification was provided');const config={spec:spec,options:window.__FLEXDOC_OPTIONS__||{},baseUri:baseUri};"
         + "if(baseUri&&window.FlexDocStandalone.mountAsync)await window.FlexDocStandalone.mountAsync(root,config);else window.FlexDocStandalone.mount(root,config);"
         + "}catch(error){root.innerHTML='<pre style=\"padding:24px;color:#b91c1c;white-space:pre-wrap\"></pre>';root.firstChild.textContent=error instanceof Error?error.message:String(error);}})();</script></body></html>";
-    return ResponseEntity.ok().contentType(MediaType.TEXT_HTML).body(html);
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.noCache())
+        .contentType(MediaType.TEXT_HTML)
+        .body(html);
   }
 
   /**
@@ -90,12 +97,28 @@ public class FlexDocController {
   }
 
   private ResponseEntity<byte[]> immutableResource(String path, MediaType type) throws IOException {
+    return ResponseEntity.ok()
+        .cacheControl(CacheControl.maxAge(java.time.Duration.ofDays(365)).cachePublic().immutable())
+        .contentType(type)
+        .body(readResource(path));
+  }
+
+  private String rendererVersion() throws IOException {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      digest.update(readResource("META-INF/flexdoc/flexdoc.standalone.js"));
+      digest.update((byte) 0);
+      digest.update(readResource("META-INF/flexdoc/flexdoc.standalone.css"));
+      return HexFormat.of().formatHex(digest.digest(), 0, 8);
+    } catch (NoSuchAlgorithmException error) {
+      throw new IllegalStateException("SHA-256 is unavailable", error);
+    }
+  }
+
+  private byte[] readResource(String path) throws IOException {
     var resource = new ClassPathResource(path);
     try (var input = resource.getInputStream()) {
-      return ResponseEntity.ok()
-          .cacheControl(CacheControl.maxAge(java.time.Duration.ofDays(365)).cachePublic().immutable())
-          .contentType(type)
-          .body(input.readAllBytes());
+      return input.readAllBytes();
     }
   }
 
