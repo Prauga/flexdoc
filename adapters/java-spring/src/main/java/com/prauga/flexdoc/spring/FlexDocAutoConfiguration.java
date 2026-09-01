@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 
+/** Auto-configures the FlexDoc documentation endpoint for Spring Boot applications. */
 @AutoConfiguration
 @EnableConfigurationProperties(FlexDocProperties.class)
 @ConditionalOnProperty(prefix = "flexdoc", name = "enabled", havingValue = "true", matchIfMissing = true)
@@ -31,6 +32,6 @@ public class FlexDocAutoConfiguration {
       FlexDocProperties properties,
       ObjectProvider<FlexDocSpecProvider> provider,
       ObjectMapper objectMapper) {
-    return new FlexDocController(properties, provider.getIfAvailable(), objectMapper);
+    return new FlexDocController(properties, provider, objectMapper);
   }
 }

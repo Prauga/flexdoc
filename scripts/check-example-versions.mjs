@@ -9,6 +9,11 @@ const backendVersion = json('packages/backend/package.json').version;
 const coreVersion = json('core/package.json').version;
 const cliVersion = json('tools/flexdoc-cli/package.json').version;
 
+const coreLock = json('core/package-lock.json');
+if (coreLock.version !== coreVersion || coreLock.packages?.['']?.version !== coreVersion) {
+  fail(`core/package-lock.json is stale: expected @prauga/flexdoc-core ${coreVersion}`);
+}
+
 const javaPom = read('adapters/java-spring/pom.xml');
 const javaVersion = javaPom.match(/<artifactId>flexdoc-spring-boot-starter<\/artifactId>\s*<version>([^<]+)<\/version>/)?.[1]
   || javaPom.match(/<version>([^<]+)<\/version>/)?.[1];
@@ -35,6 +40,13 @@ const checks = [
   ['examples/java-spring/pom.xml', `<flexdoc.version>${javaVersion}</flexdoc.version>`],
   ['examples/go-net-http/go.mod', `github.com/prauga/flexdoc/adapters/go v${goVersion}`],
   ['examples/rust-axum/Cargo.toml', `prauga-flexdoc-axum = "${rustVersion}"`],
+
+  ['examples/javascript-express/README.md', `pinned to \`${backendVersion}\``],
+  ['examples/javascript-fastify/README.md', `pinned to \`${backendVersion}\``],
+  ['examples/python-fastapi/README.md', `pinned to \`${pythonVersion}\``],
+  ['examples/java-spring/README.md', `<flexdoc.version>${javaVersion}</flexdoc.version>`],
+  ['examples/go-net-http/README.md', `adapters/go v${goVersion}`],
+  ['examples/rust-axum/README.md', `pinned to \`${rustVersion}\``],
 
   ['examples/README.md', `| [\`javascript-express\`](./javascript-express) | \`@prauga/flexdoc-backend\` \`${backendVersion}\` |`],
   ['examples/README.md', `| [\`javascript-fastify\`](./javascript-fastify) | \`@prauga/flexdoc-backend\` \`${backendVersion}\` |`],
@@ -63,4 +75,8 @@ for (const [path, expected] of checks) {
   }
 }
 
-console.log(`Examples and README version tables match current FlexDoc versions: client ${clientVersion}, backend ${backendVersion}, core ${coreVersion}, CLI ${cliVersion}, Java ${javaVersion}, Python ${pythonVersion}, Go ${goVersion}, Rust ${rustVersion}`);
+if (read('examples/go-net-http/showcase-openapi.json') !== read('examples/showcase-openapi.json')) {
+  fail('examples/go-net-http/showcase-openapi.json is stale; copy examples/showcase-openapi.json so the embedded Go showcase stays in sync');
+}
+
+console.log(`Examples, lockfiles and README version tables match current FlexDoc versions: client ${clientVersion}, backend ${backendVersion}, core ${coreVersion}, CLI ${cliVersion}, Java ${javaVersion}, Python ${pythonVersion}, Go ${goVersion}, Rust ${rustVersion}`);

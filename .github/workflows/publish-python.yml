@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
       - uses: actions/setup-python@v6
         with:
@@ -31,7 +31,7 @@ jobs:
       - run: |
           rm -rf adapters/python/dist
           python -m build --outdir adapters/python/dist adapters/python
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: python-dist
           path: adapters/python/dist/
@@ -46,7 +46,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: python-dist
           path: dist

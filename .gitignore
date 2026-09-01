@@ -32,6 +32,11 @@ dist-ssr
 # Coverage directories
 coverage
 
+# Python build/cache output
+__pycache__/
+*.py[cod]
+*.egg-info/
+
 # Rust and Maven build output
 target/
 

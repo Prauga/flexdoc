@@ -29,8 +29,13 @@ export const SchemaView: React.FC<Props> = ({ spec, schema, theme, required = fa
   if (OpenAPIParser.isReference(schema)) {
     if (seen.has(schema.$ref)) return <div className='py-1 text-sm opacity-70'>↳ <code>{schema.$ref.replace('#/components/schemas/', '')}</code> (recursive reference)</div>;
     const nextSeen = new Set(seen); nextSeen.add(schema.$ref);
-    try { return <SchemaView {...childProps} schema={OpenAPIParser.resolveReference(spec, schema.$ref)} required={required} level={level} seen={nextSeen} />; }
-    catch { return <div className='py-1 text-sm text-red-500'>Unresolved reference: <code>{schema.$ref}</code></div>; }
+    let resolved: Schema | Reference;
+    try {
+      resolved = OpenAPIParser.resolveReference<Schema | Reference>(spec, schema.$ref);
+    } catch {
+      return <div className='py-1 text-sm text-red-500'>Unresolved reference: <code>{schema.$ref}</code></div>;
+    }
+    return <SchemaView {...childProps} schema={resolved} required={required} level={level} seen={nextSeen} />;
   }
 
   const muted = theme === 'dark' ? 'text-gray-400' : 'text-gray-600';

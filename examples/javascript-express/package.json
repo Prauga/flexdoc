@@ -4,8 +4,7 @@
   "private": true,
   "scripts": { "start": "node index.js" },
   "dependencies": {
-    "@prauga/flexdoc-backend": "2.1.0",
-    "express": "^5.1.0",
-    "swagger-jsdoc": "^6.2.8"
+    "@prauga/flexdoc-backend": "2.2.0",
+    "express": "^5.1.0"
   }
 }

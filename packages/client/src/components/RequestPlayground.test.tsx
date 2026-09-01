@@ -18,6 +18,14 @@ const spec: OpenAPISpec = {
         responses: { '200': { description: 'ok' } },
       },
     },
+    '/archived-pets': {
+      get: {
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'string', default: '25' } },
+        ],
+        responses: { '200': { description: 'ok' } },
+      },
+    },
   },
 };
 
@@ -38,6 +46,25 @@ test('hands the exact live editor request to the API Client callback', () => {
   expect(draft.url).toBe('https://api.example.test/pets');
   expect(draft.query).toEqual([{ key: 'limit', value: '10' }]);
   expect(draft.headers).toEqual([{ key: 'X-Trace', value: 'abc' }]);
+});
+
+test('resets direct-use form state when operation defaults change', () => {
+  const onOpenInApiClient = jest.fn();
+  const { rerender } = render(
+    <RequestPlayground spec={spec} path='/pets' method='get' theme='light' onOpenInApiClient={onOpenInApiClient} />
+  );
+
+  fireEvent.change(screen.getByLabelText('query limit'), { target: { value: '10' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
+  expect(onOpenInApiClient.mock.calls.at(-1)?.[0].url).toBe('https://api.example.test/pets?limit=10');
+
+  rerender(
+    <RequestPlayground spec={spec} path='/archived-pets' method='get' theme='light' onOpenInApiClient={onOpenInApiClient} />
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
+
+  expect(onOpenInApiClient.mock.calls.at(-1)?.[0].url).toBe('https://api.example.test/archived-pets?limit=25');
+  expect(screen.queryByLabelText('header X-Trace')).not.toBeInTheDocument();
 });
 
 test('uses an arbitrary custom server override for Try It and API Client handoff', () => {

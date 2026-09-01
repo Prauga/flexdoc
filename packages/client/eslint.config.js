@@ -20,10 +20,27 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': [
-        'warn',
+        'error',
         { allowConstantExport: true },
       ],
     },
+  },
+  {
+    files: ['**/*.test.{ts,tsx}', '**/*.d.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/prefer-as-const': 'off',
+    },
+  },
+  {
+    files: [
+      'src/components/EndpointDetail.tsx',
+      'src/components/Overview.tsx',
+      'src/components/Sidebar.tsx',
+    ],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
   }
 );
-

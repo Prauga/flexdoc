@@ -1,11 +1,11 @@
 # Go net/http
 
-This example keeps the OpenAPI 3.1 document in memory, serves it at `/openapi.json`, and points the published Go adapter at that URL.
+This example serves the shared OpenAPI 3.1 feature showcase from memory at `/openapi.json` and mounts the FlexDoc Go adapter at `/docs`. It exercises the same servers, auth metadata, parameters, request bodies, Try It, custom-server flow, API Client handoff, and code samples as the other direct-spec examples.
 
 ```bash
 go run .
 ```
 
-Open `http://localhost:8080/docs`.
+Open `http://localhost:3000/docs`.
 
-The FlexDoc Go module is intentionally pinned to `v0.1.0`; repository CI requires it to match `adapters/go/VERSION`.
+The example is pinned to `github.com/prauga/flexdoc/adapters/go v0.2.0`. During this unreleased PR, repository CI substitutes the adapter from `../../adapters/go`; after the `adapters/go/v0.2.0` release tag is published, the manifest is directly runnable from a standalone checkout as written.

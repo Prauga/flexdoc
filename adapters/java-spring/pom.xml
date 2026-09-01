@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.prauga.flexdoc</groupId>
   <artifactId>flexdoc-spring-boot-starter</artifactId>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
   <name>Prauga FlexDoc Spring Boot Starter</name>
   <description>Spring Boot adapter for the self-hosted FlexDoc OpenAPI renderer and API explorer</description>
   <url>https://github.com/prauga/flexdoc</url>

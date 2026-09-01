@@ -1,6 +1,20 @@
 import { FlexDocModule } from './flexdoc.module';
 import { setupFlexDoc } from './setup';
 
+// NestJS 12 is ESM-only. This unit test exercises FlexDoc's module metadata and
+// initialization behavior, not Nest's decorator/runtime implementation, so keep
+// the Jest CommonJS test isolated from the framework runtime. Real NestJS 12
+// compatibility is validated by building the NestJS example in CI.
+jest.mock('@nestjs/common', () => ({
+  Module: () => <T extends Function>(target: T) => target,
+  Inject: () => () => undefined,
+  Injectable: () => <T extends Function>(target: T) => target,
+}));
+
+jest.mock('@nestjs/core', () => ({
+  HttpAdapterHost: class HttpAdapterHost {},
+}));
+
 jest.mock('./setup', () => ({
   setupFlexDoc: jest.fn(),
 }));

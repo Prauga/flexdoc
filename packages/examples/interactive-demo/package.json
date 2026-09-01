@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@prauga/flexdoc-client": "2.1.0",
-    "lucide-react": "^0.525.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "@prauga/flexdoc-client": "2.2.0",
+    "lucide-react": "^1.37.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "scripts": {
     "start": "vite",
@@ -24,10 +24,10 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.6.0",
-    "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.32",
-    "tailwindcss": "^3.3.6",
-    "typescript": "^5.3.3",
-    "vite": "^7.0.0"
+    "autoprefixer": "^10.5.4",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.2",
+    "vite": "^7.3.6"
   }
 }

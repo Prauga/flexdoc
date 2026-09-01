@@ -1,0 +1,213 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FlexDoc 2.2 Showcase API",
+    "version": "2.2.0",
+    "description": "A local-first API used by the FlexDoc examples to exercise server selection, authentication, parameter serialization, request bodies, schemas, extensions, Try It, API Client handoff and code samples.",
+    "contact": { "name": "Prauga", "url": "https://github.com/prauga/flexdoc" },
+    "license": { "name": "AGPL-3.0-or-later", "url": "https://www.gnu.org/licenses/agpl-3.0.html" }
+  },
+  "servers": [
+    { "url": "http://localhost:3000", "description": "Local example server" },
+    {
+      "url": "https://{environment}.api.example.test/v1",
+      "description": "Variable server example",
+      "variables": {
+        "environment": {
+          "default": "staging",
+          "enum": ["staging", "canary", "production"],
+          "description": "Deployment environment"
+        }
+      }
+    }
+  ],
+  "tags": [
+    { "name": "Pets", "description": "JSON requests, path/query/header parameters and bearer auth" },
+    { "name": "Search", "description": "Array and deep-object query serialization" },
+    { "name": "Forms", "description": "Form-urlencoded and multipart request bodies" },
+    { "name": "Admin", "description": "API-key and Basic authentication examples" }
+  ],
+  "paths": {
+    "/pets": {
+      "get": {
+        "tags": ["Pets"],
+        "summary": "List pets",
+        "description": "Exercises query arrays, deep-object filters, request headers, response headers and API-key authentication.",
+        "operationId": "listPets",
+        "x-owner": "developer-experience",
+        "x-stability": "stable",
+        "security": [{ "apiKeyAuth": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "description": "Maximum results", "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } },
+          { "name": "tags", "in": "query", "description": "Pipe-delimited tags", "style": "pipeDelimited", "explode": false, "schema": { "type": "array", "items": { "type": "string" }, "example": ["friendly", "adoptable"] } },
+          { "name": "filter", "in": "query", "description": "Deep-object filter", "style": "deepObject", "explode": true, "schema": { "type": "object", "properties": { "status": { "type": "string", "enum": ["available", "pending", "adopted"] }, "minAge": { "type": "integer" } } } },
+          { "name": "X-Trace-ID", "in": "header", "description": "Optional request trace identifier", "schema": { "type": "string", "example": "trace-local-001" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pets matching the supplied filters",
+            "headers": { "X-Next-Cursor": { "description": "Cursor for the next page", "schema": { "type": "string" } } },
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Pet" } }, "example": [{ "id": "pet-1", "name": "Miso", "status": "available", "age": 3, "tags": ["friendly"] }] } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "post": {
+        "tags": ["Pets"],
+        "summary": "Create a pet",
+        "description": "Exercises a required JSON body and Bearer authentication.",
+        "operationId": "createPet",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/NewPet" },
+              "example": { "name": "Miso", "age": 3, "tags": ["friendly", "adoptable"] }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Created pet", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Pet" } } } },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/pets/{petId}": {
+      "parameters": [
+        { "name": "petId", "in": "path", "required": true, "description": "Pet identifier", "schema": { "type": "string", "example": "pet-1" } }
+      ],
+      "get": {
+        "tags": ["Pets"],
+        "summary": "Get a pet",
+        "operationId": "getPet",
+        "responses": {
+          "200": { "description": "Pet details", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Pet" } } } },
+          "404": { "description": "Pet not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "patch": {
+        "tags": ["Pets"],
+        "summary": "Patch a pet",
+        "operationId": "patchPet",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PetPatch" }, "example": { "status": "adopted" } } }
+        },
+        "responses": { "200": { "description": "Updated pet", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Pet" } } } } }
+      }
+    },
+    "/search": {
+      "get": {
+        "tags": ["Search"],
+        "summary": "Search the catalog",
+        "operationId": "searchCatalog",
+        "parameters": [
+          { "name": "terms", "in": "query", "style": "spaceDelimited", "explode": false, "schema": { "type": "array", "items": { "type": "string" }, "example": ["small", "friendly"] } },
+          { "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["name", "age", "status"], "default": "name" } }
+        ],
+        "responses": { "200": { "description": "Search result", "content": { "application/json": { "schema": { "type": "object", "properties": { "terms": { "type": "array", "items": { "type": "string" } }, "count": { "type": "integer" } } } } } } }
+      }
+    },
+    "/sessions": {
+      "post": {
+        "tags": ["Admin"],
+        "summary": "Create a session",
+        "operationId": "createSession",
+        "security": [{ "basicAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": { "type": "object", "required": ["scope"], "properties": { "scope": { "type": "string", "example": "pets:write" }, "remember": { "type": "boolean", "default": false } } }
+            }
+          }
+        },
+        "responses": { "200": { "description": "Session token", "content": { "application/json": { "schema": { "type": "object", "properties": { "token": { "type": "string" } } } } } } }
+      }
+    },
+    "/uploads": {
+      "post": {
+        "tags": ["Forms"],
+        "summary": "Upload a pet photo",
+        "operationId": "uploadPhoto",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary", "description": "Image file" },
+                  "caption": { "type": "string", "example": "Miso at the park" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Upload metadata", "content": { "application/json": { "schema": { "type": "object", "properties": { "id": { "type": "string" }, "url": { "type": "string", "format": "uri" } } } } } } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT", "description": "Bearer token used for write operations" },
+      "basicAuth": { "type": "http", "scheme": "basic", "description": "Basic authentication used by the session example" },
+      "apiKeyAuth": { "type": "apiKey", "in": "header", "name": "X-API-Key", "description": "API key used by list operations" },
+      "oauth2": {
+        "type": "oauth2",
+        "description": "OAuth2 metadata rendered by the documentation UI",
+        "flows": {
+          "authorizationCode": {
+            "authorizationUrl": "https://auth.example.test/oauth/authorize",
+            "tokenUrl": "https://auth.example.test/oauth/token",
+            "scopes": { "pets:read": "Read pets", "pets:write": "Create and modify pets" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Pet": {
+        "type": "object",
+        "required": ["id", "name", "status"],
+        "properties": {
+          "id": { "type": "string", "readOnly": true, "example": "pet-1" },
+          "name": { "type": "string", "minLength": 1, "example": "Miso" },
+          "status": { "type": "string", "enum": ["available", "pending", "adopted"], "example": "available" },
+          "age": { "type": "integer", "minimum": 0, "example": 3 },
+          "tags": { "type": "array", "items": { "type": "string" }, "example": ["friendly", "adoptable"] },
+          "metadata": { "type": "object", "additionalProperties": { "type": "string" }, "example": { "source": "showcase" } }
+        }
+      },
+      "NewPet": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "age": { "type": "integer", "minimum": 0 },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "PetPatch": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "status": { "type": "string", "enum": ["available", "pending", "adopted"] },
+          "age": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": { "code": { "type": "string", "example": "invalid_request" }, "message": { "type": "string", "example": "The request could not be processed" } }
+      }
+    },
+    "responses": {
+      "Unauthorized": { "description": "Authentication is required", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "ValidationError": { "description": "Request validation failed", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+    }
+  }
+}

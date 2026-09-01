@@ -1,10 +1,10 @@
 import { Reference, RequestBody } from '../types/openapi';
 
-export function isReference(obj: any): obj is Reference {
-  if (obj === null || obj === undefined) {
+export function isReference(obj: unknown): obj is Reference {
+  if (obj === null || obj === undefined || typeof obj !== 'object') {
     return false;
   }
-  return typeof obj === 'object' && '$ref' in obj;
+  return '$ref' in obj;
 }
 
 export function isRequestBody(
@@ -15,4 +15,3 @@ export function isRequestBody(
   }
   return typeof obj === 'object' && !isReference(obj);
 }
-

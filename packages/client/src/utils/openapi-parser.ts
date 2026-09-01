@@ -1,4 +1,4 @@
-import type { OpenAPISpec, Reference } from '../types/openapi';
+import type { OpenAPISpec, PathItem, Reference } from '../types/openapi';
 import { OpenAPIParser as CoreOpenAPIParser } from '../../../../core/dist/openapi-parser.js';
 
 export class OpenAPIParser {
@@ -6,7 +6,7 @@ export class OpenAPIParser {
     return CoreOpenAPIParser.parseSpec(input) as Promise<OpenAPISpec>;
   }
 
-  static getHttpMethods(pathItem: any): string[] {
+  static getHttpMethods(pathItem: PathItem): string[] {
     return CoreOpenAPIParser.getHttpMethods(pathItem);
   }
 
@@ -30,6 +30,8 @@ export class OpenAPIParser {
 
   static decodePointerToken(token: string): string { return CoreOpenAPIParser.decodePointerToken(token); }
   static encodePointerToken(token: string): string { return CoreOpenAPIParser.encodePointerToken(token); }
-  static resolveReference(spec: OpenAPISpec | Record<string, unknown>, ref: string): any { return CoreOpenAPIParser.resolveReference(spec, ref); }
+  static resolveReference<T = unknown>(spec: OpenAPISpec | Record<string, unknown>, ref: string): T {
+    return CoreOpenAPIParser.resolveReference(spec, ref) as T;
+  }
   static isReference(obj: unknown): obj is Reference { return CoreOpenAPIParser.isReference(obj); }
 }

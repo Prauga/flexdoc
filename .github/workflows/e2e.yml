@@ -19,7 +19,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '22.22.3'
           cache: npm
 
       - name: Install repository dependencies
@@ -28,11 +28,8 @@ jobs:
       - name: Build canonical standalone renderer
         run: npm run build:client
 
-      - name: Verify adapter renderer parity
-        run: npm run check:adapter-assets
-
       - name: Install CLI dependencies using local Prauga client
-        run: npm install --prefix tools/flexdoc-cli --no-save --ignore-scripts --no-audit --no-fund "${{ github.workspace }}/packages/client" js-yaml@^4.1.0
+        run: npm install --prefix tools/flexdoc-cli --no-save --package-lock=false --ignore-scripts --no-audit --no-fund "${{ github.workspace }}/packages/client" js-yaml@^4.1.0
 
       - name: Install pinned Playwright test runner
         run: npm install --no-save --package-lock=false @playwright/test@1.62.1
@@ -48,9 +45,12 @@ jobs:
           FLEXDOC_CLIENT_DIR: ${{ github.workspace }}/packages/client
         run: npx playwright test --config playwright.cli.config.cjs
 
+      - name: Verify adapter renderer parity
+        run: npm run check:adapter-assets
+
       - name: Upload Playwright test output
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-test-results
           path: test-results/
@@ -58,7 +58,7 @@ jobs:
 
       - name: Upload renderer Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/
@@ -66,7 +66,7 @@ jobs:
 
       - name: Upload CLI Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-cli-report
           path: playwright-cli-report/
