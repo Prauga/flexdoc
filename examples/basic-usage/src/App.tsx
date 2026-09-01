@@ -2,7 +2,7 @@ import { FlexDoc } from '@prauga/flexdoc-client';
 import type { FlexDocRendererOptions, OpenAPISpec } from '@prauga/flexdoc-client';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
-import showcaseSpec from '../../../../examples/showcase-openapi.json';
+import showcaseSpec from '../../showcase-openapi.json';
 
 const logo = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="96" height="32" viewBox="0 0 96 32"%3E%3Crect width="96" height="32" rx="8" fill="%23111827"/%3E%3Ctext x="12" y="21" fill="white" font-family="Arial,sans-serif" font-size="14" font-weight="700"%3EFlexDoc%3C/text%3E%3C/svg%3E';
 

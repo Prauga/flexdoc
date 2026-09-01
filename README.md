@@ -38,7 +38,7 @@ These versions are independent across ecosystems. Renderer contract v1 is the co
 
 ## Examples
 
-Runnable examples are available in [`examples/`](./examples/README.md) for Express, Fastify, FastAPI, Spring Boot, Go and Rust. React and NestJS examples live under [`packages/examples/`](./packages/examples/).
+All runnable examples are consolidated in [`examples/`](./examples/README.md), including React, the standalone API Client, NestJS, Express, Fastify, FastAPI, Spring Boot, Go and Rust.
 
 The examples use the full OpenAPI 3.1 feature showcase where the framework allows a direct specification. FlexDoc dependencies use exact current release versions. `npm run check:example-versions` derives the expected versions from the package and adapter manifests and CI rejects stale example pins whenever a release version changes.
 

@@ -31,9 +31,10 @@ const goVersion = read('adapters/go/VERSION').trim();
 if (!goVersion) fail('Unable to read Go adapter version');
 
 const checks = [
-  ['packages/examples/basic-usage/package.json', `"@prauga/flexdoc-client": "${clientVersion}"`],
-  ['packages/examples/interactive-demo/package.json', `"@prauga/flexdoc-client": "${clientVersion}"`],
-  ['packages/examples/nestjs/package.json', `"@prauga/flexdoc-backend": "${backendVersion}"`],
+  ['examples/basic-usage/package.json', `"@prauga/flexdoc-client": "${clientVersion}"`],
+  ['examples/interactive-demo/package.json', `"@prauga/flexdoc-client": "${clientVersion}"`],
+  ['examples/api-client/package.json', `"@prauga/flexdoc-client": "${clientVersion}"`],
+  ['examples/nestjs/package.json', `"@prauga/flexdoc-backend": "${backendVersion}"`],
   ['examples/javascript-express/package.json', `"@prauga/flexdoc-backend": "${backendVersion}"`],
   ['examples/javascript-fastify/package.json', `"@prauga/flexdoc-backend": "${backendVersion}"`],
   ['examples/python-fastapi/requirements.txt', `prauga-flexdoc==${pythonVersion}`],
@@ -54,9 +55,10 @@ const checks = [
   ['examples/README.md', `| [\`java-spring\`](./java-spring) | \`com.prauga.flexdoc:flexdoc-spring-boot-starter\` \`${javaVersion}\` |`],
   ['examples/README.md', `| [\`go-net-http\`](./go-net-http) | \`github.com/prauga/flexdoc/adapters/go\` \`v${goVersion}\` |`],
   ['examples/README.md', `| [\`rust-axum\`](./rust-axum) | \`prauga-flexdoc-axum\` \`${rustVersion}\` |`],
-  ['examples/README.md', `- \`basic-usage\` — React + \`@prauga/flexdoc-client\` \`${clientVersion}\``],
-  ['examples/README.md', `- \`interactive-demo\` — React + \`@prauga/flexdoc-client\` \`${clientVersion}\``],
-  ['examples/README.md', `- \`nestjs\` — NestJS + \`@prauga/flexdoc-backend\` \`${backendVersion}\``],
+  ['examples/README.md', `| [\`basic-usage\`](./basic-usage) | React + \`@prauga/flexdoc-client\` \`${clientVersion}\` |`],
+  ['examples/README.md', `| [\`interactive-demo\`](./interactive-demo) | React + \`@prauga/flexdoc-client\` \`${clientVersion}\` |`],
+  ['examples/README.md', `| [\`api-client\`](./api-client) | Full API Client + \`@prauga/flexdoc-client\` \`${clientVersion}\` |`],
+  ['examples/README.md', `| [\`nestjs\`](./nestjs) | NestJS + \`@prauga/flexdoc-backend\` \`${backendVersion}\` |`],
 
   ['README.md', `| npm | \`@prauga/flexdoc-client\` | \`${clientVersion}\` |`],
   ['README.md', `| npm | \`@prauga/flexdoc-backend\` | \`${backendVersion}\` |`],

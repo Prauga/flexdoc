@@ -15,15 +15,15 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register node_modules/.bin/jest --runInBand",
-    "gen:auth:basic": "npx ts-node ../../backend/src/scripts/generate-auth.ts basic",
-    "gen:auth:bearer": "npx ts-node ../../backend/src/scripts/generate-auth.ts bearer"
+    "gen:auth:basic": "npx ts-node ../../packages/backend/src/scripts/generate-auth.ts basic",
+    "gen:auth:bearer": "npx ts-node ../../packages/backend/src/scripts/generate-auth.ts bearer"
   },
   "author": "Prauga",
   "license": "AGPL-3.0-or-later",
   "repository": {
     "type": "git",
     "url": "https://github.com/Prauga/flexdoc",
-    "directory": "packages/examples/nestjs"
+    "directory": "examples/nestjs"
   },
   "dependencies": {
     "@prauga/flexdoc-backend": "2.2.0",

@@ -1,5 +1,5 @@
 {
-  "name": "flexdoc-interactive-example",
+  "name": "flexdoc-basic-example",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -18,7 +18,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Prauga/flexdoc",
-    "directory": "packages/examples/interactive-demo"
+    "directory": "examples/basic-usage"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

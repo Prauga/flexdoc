@@ -98,4 +98,4 @@ function App() {
 - [Configuration Options](./configuration.md) - Learn about all available configuration options
 - [Theming Guide](./theming.md) - Customize the look and feel of your documentation
 - [Authentication](../packages/backend/docs/authentication.md) - Secure your API documentation
-- [Examples](../packages/examples) - See complete example applications
+- [Examples](../examples) - See complete example applications

@@ -229,4 +229,4 @@ const options = {
 };
 ```
 
-For more examples, see the [Examples](../packages/examples) directory.
+For more examples, see the [Examples](../examples) directory.

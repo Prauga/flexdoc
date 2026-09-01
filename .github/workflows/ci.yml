@@ -65,8 +65,9 @@ jobs:
 
       - name: Build React workspace examples
         run: |
-          npm run build -w packages/examples/basic-usage
-          npm run build -w packages/examples/interactive-demo
+          npm run build -w examples/basic-usage
+          npm run build -w examples/interactive-demo
+          npm run build -w examples/api-client
 
       - name: Verify packed client package from a clean consumer
         run: node scripts/verify-client-package.mjs
@@ -148,7 +149,7 @@ jobs:
         run: npm run build:backend
 
       - name: Build NestJS example against local release candidate
-        run: npm run build -w packages/examples/nestjs
+        run: npm run build -w examples/nestjs
 
       - name: Verify backend renderer artifacts
         run: |

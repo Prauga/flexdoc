@@ -8,7 +8,10 @@
   },
   "workspaces": [
     "packages/*",
-    "packages/examples/*"
+    "examples/basic-usage",
+    "examples/interactive-demo",
+    "examples/api-client",
+    "examples/nestjs"
   ],
   "files": [
     "dist",
@@ -25,9 +28,10 @@
     "sync:adapter-assets": "node scripts/sync-adapter-assets.mjs",
     "check:adapter-assets": "node scripts/sync-adapter-assets.mjs --check",
     "check:example-versions": "node scripts/check-example-versions.mjs",
-    "lint": "npm run lint -w packages/client && npm run lint -w packages/examples/nestjs",
+    "lint": "npm run lint -w packages/client && npm run lint -w examples/nestjs",
     "audit": "npm audit --audit-level=low",
-    "example:nestjs": "cd packages/examples/nestjs && npm install && npm run start:dev",
+    "example:nestjs": "cd examples/nestjs && npm install && npm run start:dev",
+    "example:api-client": "npm run start -w examples/api-client",
     "test": "npm run build:core && npm run test --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present"
   },

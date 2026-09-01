@@ -305,4 +305,4 @@ interface ThemeOptions {
 }
 ```
 
-For more detailed information, see the [Examples](../packages/examples) directory.
+For more detailed information, see the [Examples](../examples) directory.
