@@ -23,18 +23,36 @@ function ApiDocumentation() {
 
 ### Standalone API Client
 
-`ApiClient` can execute arbitrary HTTP requests without requiring an OpenAPI document. It uses the same canonical request shape as FlexDoc's OpenAPI request builder and code-sample generator.
+`ApiClient` is the low-level request editor and executor. It can execute arbitrary HTTP requests without requiring an OpenAPI document and uses the same canonical request shape as FlexDoc's OpenAPI request builder and code-sample generator.
 
 ```jsx
 import { ApiClient } from '@prauga/flexdoc-client';
 
-function RequestWorkspace() {
+function RequestEditor() {
   return (
     <ApiClient
       initialRequest={{
         method: 'GET',
         url: 'https://api.example.com/pets',
         query: [{ key: 'limit', value: '10' }],
+      }}
+    />
+  );
+}
+```
+
+For a Postman-style local workspace with reusable collections, folders, and saved requests, use `ApiClientWorkspace`. Workspace data is persisted in IndexedDB by default and stays local to the browser. Set `persistenceKey={false}` to disable persistence, or provide a custom string to isolate multiple workspaces.
+
+```jsx
+import { ApiClientWorkspace } from '@prauga/flexdoc-client';
+
+function RequestWorkspace() {
+  return (
+    <ApiClientWorkspace
+      persistenceKey='my-api'
+      initialRequest={{
+        method: 'GET',
+        url: 'https://api.example.com/pets',
       }}
     />
   );
@@ -126,4 +144,3 @@ npm test
 ## License
 
 MIT
-

@@ -3,7 +3,7 @@ import type { OpenAPISpec, Operation } from '../types/openapi';
 import type { FlexDocRendererOptions } from '../types/options';
 import type { BuiltRequest } from '../utils/request-builder';
 import { requestDraftFromBuiltRequest } from '../utils/http-client';
-import { ApiClient } from './ApiClient';
+import { ApiClientWorkspace } from './ApiClientWorkspace';
 import { RequestPlayground } from './RequestPlayground';
 
 interface Props {
@@ -55,9 +55,9 @@ export const TryItApiClientWorkspace: React.FC<Props> = ({ spec, path, method, t
     {session && draft && <section className='mt-6' aria-labelledby='api-client-heading'>
       <h2 id='api-client-heading' className='mb-2 text-base font-semibold sm:text-lg'>API Client</h2>
       <p className={`mb-4 text-xs ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-        Changes in Try It do not refresh this client automatically. Reopen it to load the latest Try It values.
+        Changes in Try It do not refresh this client automatically. Reopen it to load the latest Try It values. Saved collections stay local to this browser.
       </p>
-      <ApiClient
+      <ApiClientWorkspace
         key={session.id}
         initialRequest={draft}
         theme={theme}

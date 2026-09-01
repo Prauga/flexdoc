@@ -6,6 +6,23 @@ const overviewDigests = {
   'chromium-mobile': '244c39f50f4ab2f44a664bf4b2637dfc596d239e62b9f005cc9802521e3af750',
 };
 
+async function readApiClientWorkspace(page, key = 'default') {
+  return page.evaluate(async (workspaceKey) => new Promise((resolve, reject) => {
+    const openRequest = indexedDB.open('flexdoc-api-client');
+    openRequest.onerror = () => reject(openRequest.error);
+    openRequest.onsuccess = () => {
+      const database = openRequest.result;
+      const transaction = database.transaction('workspaces', 'readonly');
+      const request = transaction.objectStore('workspaces').get(workspaceKey);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        resolve(request.result || null);
+        database.close();
+      };
+    };
+  }), key);
+}
+
 test('deep links directly to an operation', async ({ page }) => {
   await page.goto('/e2e/index.html#get-pets-id');
   await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
@@ -88,6 +105,31 @@ test('Try It hands live values and custom servers to the API Client', async ({ p
   await page.getByLabel('API Client server').selectOption('https://backup.example.test');
   await expect(page.getByLabel('Request URL')).toHaveValue('https://backup.example.test/pets/42');
   await expect(page.getByLabel('Query parameters 1 value')).toHaveValue('de');
+
+  await page.getByLabel('New folder name').fill('Pets');
+  await page.getByRole('button', { name: 'Add folder' }).click();
+  await expect(page.getByRole('button', { name: 'Delete folder Pets' })).toBeVisible();
+  await expect(page.getByLabel('Saved request folder')).toHaveValue(/folder-/);
+
+  await page.getByLabel('Saved request name').fill('Get pet 42');
+  await page.getByRole('button', { name: 'Save request' }).click();
+  await expect(page.getByRole('button', { name: 'Load saved request Get pet 42' })).toBeVisible();
+
+  await page.getByLabel('Request URL').fill('https://backup.example.test/owners');
+  await expect(page.getByLabel('Request URL')).toHaveValue('https://backup.example.test/owners');
+  await page.getByRole('button', { name: 'Load saved request Get pet 42' }).click();
+  await expect(page.getByLabel('Request URL')).toHaveValue('https://backup.example.test/pets/42');
+
+  await expect.poll(async () => {
+    const workspace = await readApiClientWorkspace(page);
+    return workspace?.requests?.some((request) => request.name === 'Get pet 42');
+  }).toBe(true);
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
+  await page.getByLabel('path id').fill('42');
+  await page.getByRole('button', { name: 'Open in API Client' }).click();
+  await expect(page.getByRole('button', { name: 'Load saved request Get pet 42' })).toBeVisible();
 });
 
 test('mobile navigation is accessible and closes after endpoint selection', async ({ page }, testInfo) => {
