@@ -1,61 +1,33 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FolderPlus, Library, Plus, Save, Trash2 } from 'lucide-react';
 import type { HttpRequestDraft } from '../utils/http-client';
 import {
   cloneRequestDraft,
   createApiClientId,
-  createDefaultApiClientWorkspace,
   deleteApiClientCollection,
   deleteApiClientFolder,
-  loadApiClientWorkspace,
-  saveApiClientWorkspace,
 } from '../utils/api-client-workspace';
 import type { ApiClientWorkspaceState } from '../utils/api-client-workspace';
 
 interface Props {
   request: HttpRequestDraft;
   onLoadRequest: (request: HttpRequestDraft) => void;
+  workspace: ApiClientWorkspaceState;
+  onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
   theme: 'light' | 'dark';
-  persistenceKey: string | false;
 }
 
 function timestamp(): string {
   return new Date().toISOString();
 }
 
-export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, theme, persistenceKey }) => {
-  const initialWorkspace = createDefaultApiClientWorkspace();
-  const [workspace, setWorkspace] = useState<ApiClientWorkspaceState>(initialWorkspace);
-  const [hydrated, setHydrated] = useState(persistenceKey === false);
-  const [selectedCollectionId, setSelectedCollectionId] = useState(initialWorkspace.collections[0].id);
+export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, workspace, onWorkspaceChange, theme }) => {
+  const [selectedCollectionId, setSelectedCollectionId] = useState(workspace.collections[0]?.id || '');
   const [selectedFolderId, setSelectedFolderId] = useState('');
   const [collectionName, setCollectionName] = useState('');
   const [folderName, setFolderName] = useState('');
   const [requestName, setRequestName] = useState('');
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (persistenceKey === false) return;
-    let cancelled = false;
-    loadApiClientWorkspace(persistenceKey)
-      .then((next) => {
-        if (cancelled) return;
-        setWorkspace(next);
-        setSelectedCollectionId(next.collections[0]?.id || '');
-        setSelectedFolderId('');
-        setActiveRequestId(null);
-        setHydrated(true);
-      })
-      .catch(() => {
-        if (!cancelled) setHydrated(true);
-      });
-    return () => { cancelled = true; };
-  }, [persistenceKey]);
-
-  useEffect(() => {
-    if (!hydrated || persistenceKey === false) return;
-    void saveApiClientWorkspace(persistenceKey, workspace).catch(() => undefined);
-  }, [hydrated, persistenceKey, workspace]);
 
   const selectedCollection = workspace.collections.find((collection) => collection.id === selectedCollectionId) || workspace.collections[0];
   const collectionFolders = useMemo(
@@ -72,7 +44,7 @@ export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, 
     if (!name) return;
     const createdAt = timestamp();
     const id = createApiClientId('collection');
-    setWorkspace((current) => ({
+    onWorkspaceChange((current) => ({
       ...current,
       collections: [...current.collections, { id, name, createdAt, updatedAt: createdAt }],
     }));
@@ -87,7 +59,7 @@ export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, 
     if (!name || !selectedCollection) return;
     const createdAt = timestamp();
     const id = createApiClientId('folder');
-    setWorkspace((current) => ({
+    onWorkspaceChange((current) => ({
       ...current,
       folders: [...current.folders, { id, collectionId: selectedCollection.id, name, createdAt, updatedAt: createdAt }],
     }));
@@ -100,7 +72,7 @@ export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, 
     const name = requestName.trim() || request.url || 'Untitled request';
     const updatedAt = timestamp();
     if (activeRequestId) {
-      setWorkspace((current) => ({
+      onWorkspaceChange((current) => ({
         ...current,
         requests: current.requests.map((saved) => saved.id === activeRequestId ? {
           ...saved,
@@ -122,7 +94,7 @@ export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, 
       createdAt: updatedAt,
       updatedAt,
     };
-    setWorkspace((current) => ({ ...current, requests: [...current.requests, saved] }));
+    onWorkspaceChange((current) => ({ ...current, requests: [...current.requests, saved] }));
     setActiveRequestId(saved.id);
     setRequestName(name);
   };
@@ -138,7 +110,7 @@ export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, 
   };
 
   const removeRequest = (requestId: string) => {
-    setWorkspace((current) => ({ ...current, requests: current.requests.filter((saved) => saved.id !== requestId) }));
+    onWorkspaceChange((current) => ({ ...current, requests: current.requests.filter((saved) => saved.id !== requestId) }));
     if (activeRequestId === requestId) {
       setActiveRequestId(null);
       setRequestName('');
@@ -146,13 +118,13 @@ export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, 
   };
 
   const removeFolder = (folderId: string) => {
-    setWorkspace((current) => deleteApiClientFolder(current, folderId));
+    onWorkspaceChange((current) => deleteApiClientFolder(current, folderId));
     if (selectedFolderId === folderId) setSelectedFolderId('');
   };
 
   const removeCollection = (collectionId: string) => {
     const next = deleteApiClientCollection(workspace, collectionId);
-    setWorkspace(next);
+    onWorkspaceChange(next);
     if (selectedCollectionId === collectionId) {
       setSelectedCollectionId(next.collections[0]?.id || '');
       setSelectedFolderId('');
@@ -182,10 +154,10 @@ export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, 
     </div>
   );
 
-  return <aside className='space-y-4'>
+  return <section className='space-y-4' aria-labelledby='api-client-collections-heading'>
     <div className='flex items-center gap-2'>
       <Library className='h-4 w-4' />
-      <h3 className='font-semibold'>Collections</h3>
+      <h3 id='api-client-collections-heading' className='font-semibold'>Collections</h3>
     </div>
 
     <div className='flex gap-2'>
@@ -249,5 +221,5 @@ export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, 
         {collectionRequests.length === 0 && <p className={`px-2 text-xs ${mutedClass}`}>Save the current request to build a reusable collection.</p>}
       </div>
     </>}
-  </aside>;
+  </section>;
 };

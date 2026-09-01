@@ -1,6 +1,7 @@
 import {
   buildHttpRequest as coreBuildHttpRequest,
   requestDraftFromBuiltRequest as coreRequestDraftFromBuiltRequest,
+  resolveHttpRequestDraftVariables as coreResolveHttpRequestDraftVariables,
 } from '../../../../core/dist/http-client.js';
 import type { BuiltRequest } from './request-builder';
 
@@ -26,12 +27,22 @@ export interface HttpRequestDraft {
   auth?: HttpAuth;
 }
 
+export type HttpVariables = Record<string, string>;
+
+export interface HttpRequestBuildOptions {
+  variables?: HttpVariables;
+}
+
 export interface HttpBuiltRequest extends BuiltRequest {
   headerEntries: Array<[string, string]>;
 }
 
-export function buildHttpRequest(draft: HttpRequestDraft): HttpBuiltRequest {
-  return coreBuildHttpRequest(draft) as HttpBuiltRequest;
+export function buildHttpRequest(draft: HttpRequestDraft, options: HttpRequestBuildOptions = {}): HttpBuiltRequest {
+  return coreBuildHttpRequest(draft, options) as HttpBuiltRequest;
+}
+
+export function resolveHttpRequestDraftVariables(draft: HttpRequestDraft, variables: HttpVariables): HttpRequestDraft {
+  return coreResolveHttpRequestDraftVariables(draft, variables) as HttpRequestDraft;
 }
 
 export function requestDraftFromBuiltRequest(request: BuiltRequest & { headerEntries?: Array<[string, string]> }): HttpRequestDraft {

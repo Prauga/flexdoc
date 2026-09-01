@@ -132,6 +132,65 @@ test('Try It hands live values and custom servers to the API Client', async ({ p
   await expect(page.getByRole('button', { name: 'Load saved request Get pet 42' })).toBeVisible();
 });
 
+test('API Client environments resolve templates while saved requests keep raw drafts', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop environment coverage');
+
+  const requests = [];
+  await page.route('https://env.example.test/**', async (route) => {
+    requests.push({ url: route.request().url(), headers: route.request().headers() });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+  });
+
+  await page.goto('/e2e/index.html#get-pets-id');
+  await page.getByLabel('path id').fill('42');
+  await page.getByRole('button', { name: 'Open in API Client' }).click();
+  const apiClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  await expect(apiClient).toBeVisible();
+
+  await apiClient.getByLabel('New environment name').fill('Local');
+  await apiClient.getByRole('button', { name: 'Add environment' }).click();
+  await expect(apiClient.getByLabel('Active environment')).toHaveText(/Local/);
+
+  await apiClient.getByRole('button', { name: 'Add environment variable' }).click();
+  await apiClient.getByLabel('Environment variable 1 key').fill('baseUrl');
+  await apiClient.getByLabel('Environment variable 1 value').fill('https://env.example.test');
+  await apiClient.getByRole('button', { name: 'Add environment variable' }).click();
+  await apiClient.getByLabel('Environment variable 2 key').fill('petId');
+  await apiClient.getByLabel('Environment variable 2 value').fill('99');
+
+  await apiClient.getByLabel('Request URL').fill('{{baseUrl}}/pets/{{petId}}');
+  await apiClient.getByLabel('Headers 1 value').fill('{{petId}}');
+  await apiClient.getByRole('button', { name: 'Send request' }).click();
+  await expect(apiClient.getByText(/Response\s+200\s+OK/)).toBeVisible();
+
+  expect(requests).toHaveLength(1);
+  expect(requests[0].url).toBe('https://env.example.test/pets/99?locale=fr');
+  expect(requests[0].headers['x-trace']).toBe('99');
+
+  await apiClient.getByLabel('Saved request name').fill('Templated pet');
+  await apiClient.getByRole('button', { name: 'Save request' }).click();
+  await expect(apiClient.getByRole('button', { name: 'Load saved request Templated pet' })).toBeVisible();
+
+  await expect.poll(async () => {
+    const workspace = await readApiClientWorkspace(page);
+    const saved = workspace?.requests?.find((request) => request.name === 'Templated pet');
+    return {
+      version: workspace?.version,
+      activeEnvironment: workspace?.environments?.find((environment) => environment.id === workspace?.activeEnvironmentId)?.name,
+      url: saved?.request?.url,
+      header: saved?.request?.headers?.[0]?.value,
+    };
+  }).toEqual({ version: 2, activeEnvironment: 'Local', url: '{{baseUrl}}/pets/{{petId}}', header: '{{petId}}' });
+
+  await page.reload();
+  await page.getByLabel('path id').fill('42');
+  await page.getByRole('button', { name: 'Open in API Client' }).click();
+  const reopenedClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  await expect(reopenedClient.getByLabel('Active environment')).toHaveText(/Local/);
+  await reopenedClient.getByRole('button', { name: 'Load saved request Templated pet' }).click();
+  await expect(reopenedClient.getByLabel('Request URL')).toHaveValue('{{baseUrl}}/pets/{{petId}}');
+});
+
 test('mobile navigation is accessible and closes after endpoint selection', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-mobile', 'mobile navigation coverage');
 

@@ -22,6 +22,12 @@ export interface HttpRequestDraft {
   auth?: HttpAuth;
 }
 
+export type HttpVariables = Record<string, string>;
+
+export interface HttpRequestBuildOptions {
+  variables?: HttpVariables;
+}
+
 /**
  * Arbitrary HTTP requests retain their ordered header entries in addition to
  * the legacy record view exposed by BuiltRequest. The ordered entries are the
@@ -110,6 +116,52 @@ function encodeBasicCredential(value: string): string {
   throw new Error('Basic auth requires a Base64 encoder in this runtime.');
 }
 
+function resolveTemplateValue(value: string | undefined, variables: HttpVariables): string | undefined {
+  if (value === undefined || value === '') return value;
+  return value.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (match, rawName: string) => {
+    const name = rawName.trim();
+    return Object.prototype.hasOwnProperty.call(variables, name) ? variables[name] : match;
+  });
+}
+
+function resolveAuthVariables(auth: HttpAuth | undefined, variables: HttpVariables): HttpAuth | undefined {
+  if (!auth || auth.type === 'none') return auth;
+  if (auth.type === 'bearer') return { type: 'bearer', token: resolveTemplateValue(auth.token, variables) || '' };
+  if (auth.type === 'basic') {
+    return {
+      type: 'basic',
+      username: resolveTemplateValue(auth.username, variables) || '',
+      password: resolveTemplateValue(auth.password, variables) || '',
+    };
+  }
+  return {
+    type: 'apiKey',
+    key: resolveTemplateValue(auth.key, variables) || '',
+    value: resolveTemplateValue(auth.value, variables) || '',
+    in: auth.in,
+  };
+}
+
+export function resolveHttpRequestDraftVariables(draft: HttpRequestDraft, variables: HttpVariables): HttpRequestDraft {
+  return {
+    method: resolveTemplateValue(draft.method, variables) ?? draft.method,
+    url: resolveTemplateValue(draft.url, variables) ?? draft.url,
+    query: draft.query?.map((entry) => ({
+      ...entry,
+      key: resolveTemplateValue(entry.key, variables) || '',
+      value: resolveTemplateValue(entry.value, variables) || '',
+    })),
+    headers: draft.headers?.map((entry) => ({
+      ...entry,
+      key: resolveTemplateValue(entry.key, variables) || '',
+      value: resolveTemplateValue(entry.value, variables) || '',
+    })),
+    body: resolveTemplateValue(draft.body, variables),
+    contentType: resolveTemplateValue(draft.contentType, variables),
+    auth: resolveAuthVariables(draft.auth, variables),
+  };
+}
+
 function applyAuth(draft: HttpRequestDraft, headers: Array<[string, string]>, query: HttpKeyValue[]): void {
   const auth = draft.auth;
   if (!auth || auth.type === 'none') return;
@@ -126,23 +178,24 @@ function applyAuth(draft: HttpRequestDraft, headers: Array<[string, string]>, qu
   else replaceHeader(headers, auth.key, auth.value);
 }
 
-export function buildHttpRequest(draft: HttpRequestDraft): HttpBuiltRequest {
-  const method = (draft.method || 'GET').trim().toUpperCase();
-  const url = draft.url.trim();
+export function buildHttpRequest(draft: HttpRequestDraft, options: HttpRequestBuildOptions = {}): HttpBuiltRequest {
+  const resolvedDraft = options.variables ? resolveHttpRequestDraftVariables(draft, options.variables) : draft;
+  const method = (resolvedDraft.method || 'GET').trim().toUpperCase();
+  const url = resolvedDraft.url.trim();
   if (!url) throw new Error('Request URL is required.');
 
-  const query = enabledPairs(draft.query);
-  const headerEntries: Array<[string, string]> = enabledPairs(draft.headers).map(({ key, value }) => [key, value]);
-  applyAuth(draft, headerEntries, query);
+  const query = enabledPairs(resolvedDraft.query);
+  const headerEntries: Array<[string, string]> = enabledPairs(resolvedDraft.headers).map(({ key, value }) => [key, value]);
+  applyAuth(resolvedDraft, headerEntries, query);
 
   let body: string | undefined;
   let bodyKind: BuiltRequest['bodyKind'];
   let requestBody: BodyInit | undefined;
-  if (draft.body && !['GET', 'HEAD'].includes(method)) {
-    body = draft.body;
-    requestBody = draft.body;
+  if (resolvedDraft.body && !['GET', 'HEAD'].includes(method)) {
+    body = resolvedDraft.body;
+    requestBody = resolvedDraft.body;
     const explicitContentType = findHeader(headerEntries, 'Content-Type');
-    const requestedContentType = draft.contentType?.trim();
+    const requestedContentType = resolvedDraft.contentType?.trim();
     if (!explicitContentType && requestedContentType) headerEntries.push(['Content-Type', requestedContentType]);
     const contentType = explicitContentType || requestedContentType;
     bodyKind = contentType?.includes('json') ? 'json' : contentType === 'application/x-www-form-urlencoded' ? 'form' : contentType?.startsWith('multipart/form-data') ? 'multipart' : 'text';

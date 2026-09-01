@@ -17,9 +17,16 @@ export { normalizeOperation, resolveObject, resolvePathItem, resolveServerVariab
 export type { NormalizedOperation } from './utils/openapi-normalizer';
 export { buildRequest, initialRequestValues, parametersFor } from './utils/request-builder';
 export type { BuiltRequest, RequestValues, RequestValue } from './utils/request-builder';
-export { buildHttpRequest, requestDraftFromBuiltRequest } from './utils/http-client';
-export type { HttpAuth, HttpKeyValue, HttpRequestDraft } from './utils/http-client';
-export type { ApiClientCollection, ApiClientFolder, ApiClientSavedRequest, ApiClientWorkspaceState } from './utils/api-client-workspace';
+export { buildHttpRequest, requestDraftFromBuiltRequest, resolveHttpRequestDraftVariables } from './utils/http-client';
+export type { HttpAuth, HttpKeyValue, HttpRequestBuildOptions, HttpRequestDraft, HttpVariables } from './utils/http-client';
+export type {
+  ApiClientCollection,
+  ApiClientEnvironment,
+  ApiClientEnvironmentVariable,
+  ApiClientFolder,
+  ApiClientSavedRequest,
+  ApiClientWorkspaceState,
+} from './utils/api-client-workspace';
 export { generateCodeSample, languageLabel } from './utils/code-samples';
 export type { CodeSampleLanguage } from './utils/code-samples';
 export { sampleSpec } from './data/sample-spec';

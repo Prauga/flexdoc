@@ -41,7 +41,13 @@ function RequestEditor() {
 }
 ```
 
-For a Postman-style local workspace with reusable collections, folders, and saved requests, use `ApiClientWorkspace`. Workspace data is persisted in IndexedDB by default and stays local to the browser. Set `persistenceKey={false}` to disable persistence, or provide a custom string to isolate multiple workspaces.
+For a Postman-style local workspace with reusable collections, folders, saved requests, and named environments, use `ApiClientWorkspace`. Workspace data is persisted in IndexedDB by default and stays local to the browser. Set `persistenceKey={false}` to disable persistence, or provide a custom string to isolate multiple workspaces.
+
+Environment variables use `{{variable}}` placeholders. The active environment is resolved across request URLs, query parameters, headers, bodies, content types, methods, and common authentication fields at request-build time. Saved requests retain their raw templates, so switching environments does not rewrite collection data. Execution, `onRequestChange`, and code-generation consumers receive the resolved request while the editor continues to display the raw template.
+
+Environment values are displayed as plain text and, when persistence is enabled, stored unencrypted in browser IndexedDB. Treat tokens and other secrets entered as environment values as local browser data rather than protected credential storage.
+
+Template expansion is intentionally one pass: if a variable value itself contains another `{{variable}}` placeholder, that nested placeholder is left unresolved. The low-level resolver also supports method placeholders programmatically, but the current API Client method control is a fixed HTTP-verb selector and does not accept free-form `{{method}}` input.
 
 ```jsx
 import { ApiClientWorkspace } from '@prauga/flexdoc-client';
@@ -52,14 +58,16 @@ function RequestWorkspace() {
       persistenceKey='my-api'
       initialRequest={{
         method: 'GET',
-        url: 'https://api.example.com/pets',
+        url: '{{baseUrl}}/pets',
       }}
     />
   );
 }
 ```
 
-For programmatic request construction, `buildHttpRequest` accepts arbitrary methods, URLs, ordered query parameters and headers, bodies, and common authorization modes. `requestDraftFromBuiltRequest` converts an existing canonical FlexDoc request into an editable API-client draft.
+Create an environment in the workspace, add a `baseUrl` variable such as `https://api.example.com`, and select that environment before sending the templated request.
+
+For programmatic request construction, `buildHttpRequest` accepts arbitrary methods, URLs, ordered query parameters and headers, bodies, common authorization modes, and an optional `variables` map. `resolveHttpRequestDraftVariables` resolves a draft without mutating it, while `requestDraftFromBuiltRequest` converts an existing canonical FlexDoc request into an editable API-client draft.
 
 ### With Custom Styling
 
@@ -143,4 +151,4 @@ npm test
 
 ## License
 
-MIT
+AGPL-3.0-or-later

@@ -3,7 +3,7 @@ import { AlertCircle, Loader2, Play, Plus, Trash2 } from 'lucide-react';
 import { CodeBlock } from './CodeBlock';
 import { buildHttpRequest } from '../utils/http-client';
 import { replaceRequestServer, requestUsesServer, resolveServerUrl } from '../utils/server-url';
-import type { HttpAuth, HttpKeyValue, HttpRequestDraft } from '../utils/http-client';
+import type { HttpAuth, HttpKeyValue, HttpRequestDraft, HttpVariables } from '../utils/http-client';
 import type { BuiltRequest } from '../utils/request-builder';
 import type { Server } from '../types/openapi';
 
@@ -13,6 +13,8 @@ export interface ApiClientProps {
   credentials?: RequestCredentials;
   requestInterceptor?: (request: RequestInit & { url: string }) => RequestInit & { url: string } | Promise<RequestInit & { url: string }>;
   onRequestChange?: (request: BuiltRequest) => void;
+  onDraftChange?: (draft: HttpRequestDraft) => void;
+  variables?: HttpVariables;
   serverOptions?: Server[];
   initialServerUrl?: string;
 }
@@ -28,6 +30,15 @@ function withDefaults(initialRequest?: Partial<HttpRequestDraft>): HttpRequestDr
     body: initialRequest?.body || '',
     contentType: initialRequest?.contentType || 'application/json',
     auth: initialRequest?.auth || { type: 'none' },
+  };
+}
+
+function cloneDraft(draft: HttpRequestDraft): HttpRequestDraft {
+  return {
+    ...draft,
+    query: draft.query?.map((entry) => ({ ...entry })),
+    headers: draft.headers?.map((entry) => ({ ...entry })),
+    auth: draft.auth ? { ...draft.auth } : undefined,
   };
 }
 
@@ -51,7 +62,7 @@ function PairEditor({ label, entries, onChange, inputClass }: { label: string; e
   </div>;
 }
 
-export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'light', credentials = 'same-origin', requestInterceptor, onRequestChange, serverOptions = [], initialServerUrl }) => {
+export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'light', credentials = 'same-origin', requestInterceptor, onRequestChange, onDraftChange, variables = {}, serverOptions = [], initialServerUrl }) => {
   const initialDraft = withDefaults(initialRequest);
   const serverChoices = serverOptions.map((server) => ({ server, url: resolveServerUrl(server) }));
   const configuredServerUrls = serverChoices.map((choice) => choice.url);
@@ -68,12 +79,15 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const onRequestChangeRef = useRef(onRequestChange);
+  const onDraftChangeRef = useRef(onDraftChange);
   const lastRequestSignatureRef = useRef<string | null>(null);
 
   useEffect(() => { onRequestChangeRef.current = onRequestChange; }, [onRequestChange]);
+  useEffect(() => { onDraftChangeRef.current = onDraftChange; }, [onDraftChange]);
+  useEffect(() => { onDraftChangeRef.current?.(cloneDraft(draft)); }, [draft]);
   useEffect(() => {
     try {
-      const request = buildHttpRequest(draft);
+      const request = buildHttpRequest(draft, { variables });
       const signature = JSON.stringify([
         request.method,
         request.url,
@@ -84,8 +98,8 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
       if (signature === lastRequestSignatureRef.current) return;
       lastRequestSignatureRef.current = signature;
       onRequestChangeRef.current?.(request);
-    } catch { /* an empty URL is valid while editing */ }
-  }, [draft]);
+    } catch { /* an empty or unresolved URL is valid while editing */ }
+  }, [draft, variables]);
 
   const method = (draft.method || 'GET').toUpperCase();
   const inputClass = theme === 'dark' ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900';
@@ -106,7 +120,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
   const execute = async () => {
     setLoading(true); setError(null); setResponse(null);
     try {
-      const request = buildHttpRequest(draft);
+      const request = buildHttpRequest(draft, { variables });
       let initWithUrl: RequestInit & { url: string } = { ...request.init, url: request.url, credentials };
       if (requestInterceptor) initWithUrl = await requestInterceptor(initWithUrl);
       const { url, ...init } = initWithUrl;
@@ -144,7 +158,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({ initialRequest, theme = 'l
         <select aria-label='HTTP method' className={`rounded-md border px-3 py-2 font-medium ${inputClass}`} value={method} onChange={(e) => { const value = e.target.value; setDraft((current) => ({ ...current, method: value })); }}>
           {['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((item) => <option key={item}>{item}</option>)}
         </select>
-        <input aria-label='Request URL' className={`w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} placeholder='https://api.example.com/resource' value={draft.url} onChange={(e) => { const value = e.target.value; setDraft((current) => ({ ...current, url: value })); }} />
+        <input aria-label='Request URL' className={`w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} placeholder='https://api.example.com/resource or {{baseUrl}}/resource' value={draft.url} onChange={(e) => { const value = e.target.value; setDraft((current) => ({ ...current, url: value })); }} />
       </div>
 
       <PairEditor label='Query parameters' entries={draft.query || []} onChange={(query) => setDraft((current) => ({ ...current, query }))} inputClass={inputClass} />

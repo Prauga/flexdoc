@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildHttpRequest, requestDraftFromBuiltRequest } from '../dist/index.js';
+import { buildHttpRequest, requestDraftFromBuiltRequest, resolveHttpRequestDraftVariables } from '../dist/index.js';
 
 test('builds arbitrary HTTP requests with duplicate query params and headers', () => {
   const request = buildHttpRequest({
@@ -60,6 +60,58 @@ test('uses a real Base64 fallback for Basic auth when btoa is unavailable', () =
     if (descriptor) Object.defineProperty(globalThis, 'btoa', descriptor);
     else delete globalThis.btoa;
   }
+});
+
+test('resolves environment variables across the canonical HTTP draft', () => {
+  const draft = {
+    method: '{{method}}',
+    url: '{{ baseUrl }}/pets/{{petId}}',
+    query: [{ key: '{{queryKey}}', value: '{{petId}}' }],
+    headers: [{ key: 'X-{{headerName}}', value: '{{traceId}}' }],
+    body: '{"name":"{{petName}}"}',
+    contentType: '{{contentType}}',
+    auth: { type: 'bearer', token: '{{token}}' },
+  };
+  const variables = {
+    method: 'PATCH',
+    baseUrl: 'https://api.example.test',
+    petId: '42',
+    queryKey: 'id',
+    headerName: 'Trace',
+    traceId: 'trace-42',
+    petName: 'Mochi',
+    contentType: 'application/json',
+    token: 'secret',
+  };
+
+  const resolved = resolveHttpRequestDraftVariables(draft, variables);
+  assert.equal(resolved.url, 'https://api.example.test/pets/42');
+  assert.equal(resolved.auth.token, 'secret');
+  assert.equal(draft.url, '{{ baseUrl }}/pets/{{petId}}');
+
+  const request = buildHttpRequest(draft, { variables });
+  assert.equal(request.method, 'PATCH');
+  assert.equal(request.url, 'https://api.example.test/pets/42?id=42');
+  assert.deepEqual(request.headerEntries, [
+    ['X-Trace', 'trace-42'],
+    ['Authorization', 'Bearer secret'],
+    ['Content-Type', 'application/json'],
+  ]);
+  assert.equal(request.body, '{"name":"Mochi"}');
+});
+
+test('preserves explicit empty substitutions for method and URL', () => {
+  const resolved = resolveHttpRequestDraftVariables(
+    { method: '{{method}}', url: '{{url}}' },
+    { method: '', url: '' },
+  );
+  assert.equal(resolved.method, '');
+  assert.equal(resolved.url, '');
+});
+
+test('leaves unresolved environment placeholders intact', () => {
+  const request = buildHttpRequest({ method: 'GET', url: '{{baseUrl}}/pets/{{petId}}' }, { variables: { baseUrl: 'https://api.example.test' } });
+  assert.equal(request.url, 'https://api.example.test/pets/{{petId}}');
 });
 
 test('round-trips a built request into an editable draft without losing duplicate headers', () => {

@@ -25,7 +25,31 @@ export interface ApiClientSavedRequest {
   updatedAt: string;
 }
 
+export interface ApiClientEnvironmentVariable {
+  id: string;
+  key: string;
+  value: string;
+  enabled?: boolean;
+}
+
+export interface ApiClientEnvironment {
+  id: string;
+  name: string;
+  variables: ApiClientEnvironmentVariable[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ApiClientWorkspaceState {
+  version: 2;
+  collections: ApiClientCollection[];
+  folders: ApiClientFolder[];
+  requests: ApiClientSavedRequest[];
+  environments: ApiClientEnvironment[];
+  activeEnvironmentId?: string;
+}
+
+interface ApiClientWorkspaceStateV1 {
   version: 1;
   collections: ApiClientCollection[];
   folders: ApiClientFolder[];
@@ -58,25 +82,64 @@ export function cloneRequestDraft(request: HttpRequestDraft): HttpRequestDraft {
 export function createDefaultApiClientWorkspace(): ApiClientWorkspaceState {
   const timestamp = now();
   return {
-    version: 1,
+    version: 2,
     collections: [{ id: createApiClientId('collection'), name: DEFAULT_COLLECTION_NAME, createdAt: timestamp, updatedAt: timestamp }],
     folders: [],
     requests: [],
+    environments: [],
   };
+}
+
+function hasWorkspaceCollections(candidate: Partial<ApiClientWorkspaceState> | Partial<ApiClientWorkspaceStateV1>): boolean {
+  return Array.isArray(candidate.collections) && Array.isArray(candidate.folders) && Array.isArray(candidate.requests) && candidate.collections.length > 0;
 }
 
 export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceState {
   if (!value || typeof value !== 'object') return createDefaultApiClientWorkspace();
-  const candidate = value as Partial<ApiClientWorkspaceState>;
-  if (candidate.version !== 1 || !Array.isArray(candidate.collections) || !Array.isArray(candidate.folders) || !Array.isArray(candidate.requests)) {
-    return createDefaultApiClientWorkspace();
+  const candidate = value as Partial<ApiClientWorkspaceState> & Partial<ApiClientWorkspaceStateV1>;
+  if (!hasWorkspaceCollections(candidate)) return createDefaultApiClientWorkspace();
+
+  if (candidate.version === 1) {
+    return {
+      version: 2,
+      collections: candidate.collections!,
+      folders: candidate.folders!,
+      requests: candidate.requests!,
+      environments: [],
+    };
   }
-  if (candidate.collections.length === 0) return createDefaultApiClientWorkspace();
+
+  if (candidate.version !== 2 || !Array.isArray(candidate.environments)) return createDefaultApiClientWorkspace();
+  const activeEnvironmentId = candidate.environments.some((environment) => environment.id === candidate.activeEnvironmentId)
+    ? candidate.activeEnvironmentId
+    : undefined;
   return {
-    version: 1,
-    collections: candidate.collections,
-    folders: candidate.folders,
-    requests: candidate.requests,
+    version: 2,
+    collections: candidate.collections!,
+    folders: candidate.folders!,
+    requests: candidate.requests!,
+    environments: candidate.environments,
+    activeEnvironmentId,
+  };
+}
+
+export function activeApiClientEnvironmentVariables(workspace: ApiClientWorkspaceState): Record<string, string> {
+  const environment = workspace.environments.find((candidate) => candidate.id === workspace.activeEnvironmentId);
+  const variables = Object.create(null) as Record<string, string>;
+  if (!environment) return variables;
+  for (const variable of environment.variables) {
+    const key = variable.key.trim();
+    if (variable.enabled === false || !key) continue;
+    variables[key] = variable.value;
+  }
+  return variables;
+}
+
+export function deleteApiClientEnvironment(workspace: ApiClientWorkspaceState, environmentId: string): ApiClientWorkspaceState {
+  return {
+    ...workspace,
+    environments: workspace.environments.filter((environment) => environment.id !== environmentId),
+    activeEnvironmentId: workspace.activeEnvironmentId === environmentId ? undefined : workspace.activeEnvironmentId,
   };
 }
 
@@ -90,7 +153,14 @@ export function deleteApiClientFolder(workspace: ApiClientWorkspaceState, folder
 
 export function deleteApiClientCollection(workspace: ApiClientWorkspaceState, collectionId: string): ApiClientWorkspaceState {
   const remainingCollections = workspace.collections.filter((collection) => collection.id !== collectionId);
-  if (remainingCollections.length === 0) return createDefaultApiClientWorkspace();
+  if (remainingCollections.length === 0) {
+    const replacement = createDefaultApiClientWorkspace();
+    return {
+      ...replacement,
+      environments: workspace.environments,
+      activeEnvironmentId: workspace.activeEnvironmentId,
+    };
+  }
   return {
     ...workspace,
     collections: remainingCollections,
