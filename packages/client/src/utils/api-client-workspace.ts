@@ -1,4 +1,4 @@
-import type { HttpRequestDraft } from './http-client';
+import type { HttpAuth, HttpKeyValue, HttpRequestDraft } from './http-client';
 
 export interface ApiClientCollection {
   id: string;
@@ -49,25 +49,112 @@ export interface ApiClientWorkspaceState {
   activeEnvironmentId?: string;
 }
 
-interface ApiClientWorkspaceStateV1 {
-  version: 1;
-  collections: ApiClientCollection[];
-  folders: ApiClientFolder[];
-  requests: ApiClientSavedRequest[];
-}
-
 const DATABASE_NAME = 'flexdoc-api-client';
 const DATABASE_VERSION = 1;
 const STORE_NAME = 'workspaces';
 const DEFAULT_COLLECTION_NAME = 'My Collection';
 
+type UnknownRecord = Record<string, unknown>;
+
 function now(): string {
   return new Date().toISOString();
+}
+
+function isRecord(value: unknown): value is UnknownRecord {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasString(record: UnknownRecord, key: string): boolean {
+  return typeof record[key] === 'string';
+}
+
+function isHttpKeyValue(value: unknown): value is HttpKeyValue {
+  if (!isRecord(value) || !hasString(value, 'key') || !hasString(value, 'value')) return false;
+  return value.enabled === undefined || typeof value.enabled === 'boolean';
+}
+
+function isHttpAuth(value: unknown): value is HttpAuth {
+  if (!isRecord(value) || typeof value.type !== 'string') return false;
+  if (value.type === 'none') return true;
+  if (value.type === 'bearer') return hasString(value, 'token');
+  if (value.type === 'basic') return hasString(value, 'username') && hasString(value, 'password');
+  return value.type === 'apiKey'
+    && hasString(value, 'key')
+    && hasString(value, 'value')
+    && (value.in === 'header' || value.in === 'query');
+}
+
+function isHttpRequestDraft(value: unknown): value is HttpRequestDraft {
+  if (!isRecord(value) || !hasString(value, 'method') || !hasString(value, 'url')) return false;
+  if (value.query !== undefined && (!Array.isArray(value.query) || !value.query.every(isHttpKeyValue))) return false;
+  if (value.headers !== undefined && (!Array.isArray(value.headers) || !value.headers.every(isHttpKeyValue))) return false;
+  if (value.body !== undefined && typeof value.body !== 'string') return false;
+  if (value.contentType !== undefined && typeof value.contentType !== 'string') return false;
+  return value.auth === undefined || isHttpAuth(value.auth);
+}
+
+function isCollection(value: unknown): value is ApiClientCollection {
+  return isRecord(value)
+    && hasString(value, 'id')
+    && hasString(value, 'name')
+    && hasString(value, 'createdAt')
+    && hasString(value, 'updatedAt');
+}
+
+function isFolder(value: unknown): value is ApiClientFolder {
+  return isRecord(value)
+    && hasString(value, 'id')
+    && hasString(value, 'collectionId')
+    && hasString(value, 'name')
+    && hasString(value, 'createdAt')
+    && hasString(value, 'updatedAt');
+}
+
+function isSavedRequest(value: unknown): value is ApiClientSavedRequest {
+  return isRecord(value)
+    && hasString(value, 'id')
+    && hasString(value, 'collectionId')
+    && (value.folderId === undefined || typeof value.folderId === 'string')
+    && hasString(value, 'name')
+    && isHttpRequestDraft(value.request)
+    && hasString(value, 'createdAt')
+    && hasString(value, 'updatedAt');
+}
+
+function isEnvironmentVariable(value: unknown): value is ApiClientEnvironmentVariable {
+  return isRecord(value)
+    && hasString(value, 'id')
+    && hasString(value, 'key')
+    && hasString(value, 'value')
+    && (value.enabled === undefined || typeof value.enabled === 'boolean');
+}
+
+function normalizeEnvironment(value: unknown): ApiClientEnvironment | null {
+  if (!isRecord(value)
+    || !hasString(value, 'id')
+    || !hasString(value, 'name')
+    || !Array.isArray(value.variables)
+    || !hasString(value, 'createdAt')
+    || !hasString(value, 'updatedAt')) return null;
+
+  return {
+    id: value.id as string,
+    name: value.name as string,
+    variables: value.variables.filter(isEnvironmentVariable),
+    createdAt: value.createdAt as string,
+    updatedAt: value.updatedAt as string,
+  };
 }
 
 export function createApiClientId(prefix: string): string {
   const uuid = globalThis.crypto?.randomUUID?.();
   return uuid ? `${prefix}-${uuid}` : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function createDefaultApiClientPersistenceKey(title?: string, host?: string): string {
+  const scopedHost = host?.trim() || 'unknown-host';
+  const scopedTitle = title?.trim() || 'untitled';
+  return `flexdoc:${encodeURIComponent(scopedHost)}:${encodeURIComponent(scopedTitle)}`;
 }
 
 export function cloneRequestDraft(request: HttpRequestDraft): HttpRequestDraft {
@@ -90,35 +177,49 @@ export function createDefaultApiClientWorkspace(): ApiClientWorkspaceState {
   };
 }
 
-function hasWorkspaceCollections(candidate: Partial<ApiClientWorkspaceState> | Partial<ApiClientWorkspaceStateV1>): boolean {
-  return Array.isArray(candidate.collections) && Array.isArray(candidate.folders) && Array.isArray(candidate.requests) && candidate.collections.length > 0;
-}
-
 export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceState {
-  if (!value || typeof value !== 'object') return createDefaultApiClientWorkspace();
-  const candidate = value as Partial<ApiClientWorkspaceState> & Partial<ApiClientWorkspaceStateV1>;
-  if (!hasWorkspaceCollections(candidate)) return createDefaultApiClientWorkspace();
+  if (!isRecord(value) || (value.version !== 1 && value.version !== 2)) return createDefaultApiClientWorkspace();
 
-  if (candidate.version === 1) {
+  const collectionValues = Array.isArray(value.collections) ? value.collections.filter(isCollection) : [];
+  if (collectionValues.length === 0) return createDefaultApiClientWorkspace();
+  const collectionIds = new Set(collectionValues.map((collection) => collection.id));
+
+  const folderValues = (Array.isArray(value.folders) ? value.folders.filter(isFolder) : [])
+    .filter((folder) => collectionIds.has(folder.collectionId));
+  const foldersById = new Map(folderValues.map((folder) => [folder.id, folder]));
+
+  const requestValues = (Array.isArray(value.requests) ? value.requests.filter(isSavedRequest) : [])
+    .filter((request) => collectionIds.has(request.collectionId))
+    .map((request) => {
+      if (!request.folderId) return request;
+      const folder = foldersById.get(request.folderId);
+      return folder?.collectionId === request.collectionId ? request : { ...request, folderId: undefined };
+    });
+
+  if (value.version === 1) {
     return {
       version: 2,
-      collections: candidate.collections!,
-      folders: candidate.folders!,
-      requests: candidate.requests!,
+      collections: collectionValues,
+      folders: folderValues,
+      requests: requestValues,
       environments: [],
     };
   }
 
-  if (candidate.version !== 2 || !Array.isArray(candidate.environments)) return createDefaultApiClientWorkspace();
-  const activeEnvironmentId = candidate.environments.some((environment) => environment.id === candidate.activeEnvironmentId)
-    ? candidate.activeEnvironmentId
+  const environmentValues = (Array.isArray(value.environments) ? value.environments : [])
+    .map(normalizeEnvironment)
+    .filter((environment): environment is ApiClientEnvironment => environment !== null);
+  const activeEnvironmentId = typeof value.activeEnvironmentId === 'string'
+    && environmentValues.some((environment) => environment.id === value.activeEnvironmentId)
+    ? value.activeEnvironmentId
     : undefined;
+
   return {
     version: 2,
-    collections: candidate.collections!,
-    folders: candidate.folders!,
-    requests: candidate.requests!,
-    environments: candidate.environments,
+    collections: collectionValues,
+    folders: folderValues,
+    requests: requestValues,
+    environments: environmentValues,
     activeEnvironmentId,
   };
 }

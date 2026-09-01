@@ -47,7 +47,12 @@ export interface FlexDocOptions {
   noAutoAuth?: boolean; lazyRendering?: boolean; scrollYOffset?: number | string; suppressWarnings?: boolean; payloadSampleIdx?: number;
   /** Protect the documentation route itself. This is server-only and is never exposed to the renderer. */
   auth?: { type: 'basic' | 'bearer'; secretKey: string };
-  tryIt?: { enabled?: boolean; defaultServer?: string; credentials?: 'omit' | 'same-origin' | 'include' };
+  tryIt?: {
+    enabled?: boolean;
+    defaultServer?: string;
+    credentials?: 'omit' | 'same-origin' | 'include';
+    apiClientPersistenceKey?: string | false;
+  };
   codeSamples?: { enabled?: boolean; languages?: Array<'curl' | 'javascript' | 'python' | 'go' | 'java'> };
   footer?: { copyright?: string; link?: Array<{ text: string; url: string; icon?: string }> };
 }

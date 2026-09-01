@@ -3,6 +3,7 @@ import type { OpenAPISpec, Operation } from '../types/openapi';
 import type { FlexDocRendererOptions } from '../types/options';
 import type { BuiltRequest } from '../utils/request-builder';
 import { requestDraftFromBuiltRequest } from '../utils/http-client';
+import { createDefaultApiClientPersistenceKey } from '../utils/api-client-workspace';
 import { ApiClientWorkspace } from './ApiClientWorkspace';
 import { RequestPlayground } from './RequestPlayground';
 
@@ -35,6 +36,8 @@ export const TryItApiClientWorkspace: React.FC<Props> = ({ spec, path, method, t
   const pathItem = spec.paths[path];
   const operation = pathItem?.[method.toLowerCase() as keyof typeof pathItem] as Operation | undefined;
   const servers = operation?.servers || pathItem?.servers || spec.servers || [];
+  const persistenceKey = options?.tryIt?.apiClientPersistenceKey
+    ?? createDefaultApiClientPersistenceKey(spec.info?.title, typeof window === 'undefined' ? undefined : window.location.host);
 
   const openInApiClient = (request: BuiltRequest, serverUrl?: string) => {
     nextSessionId.current += 1;
@@ -66,6 +69,7 @@ export const TryItApiClientWorkspace: React.FC<Props> = ({ spec, path, method, t
         onRequestChange={onRequestChange}
         serverOptions={servers}
         initialServerUrl={session.serverUrl}
+        persistenceKey={persistenceKey}
       />
     </section>}
   </>;

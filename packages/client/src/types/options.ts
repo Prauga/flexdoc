@@ -81,6 +81,7 @@ export interface FlexDocRendererOptions {
     defaultServer?: string;
     credentials?: RequestCredentials;
     requestInterceptor?: (request: RequestInit & { url: string }) => Promise<RequestInit & { url: string }> | (RequestInit & { url: string });
+    apiClientPersistenceKey?: string | false;
   };
   codeSamples?: {
     enabled?: boolean;

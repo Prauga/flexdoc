@@ -43,9 +43,9 @@ function RequestEditor() {
 
 For a Postman-style local workspace with reusable collections, folders, saved requests, and named environments, use `ApiClientWorkspace`. Workspace data is persisted in IndexedDB by default and stays local to the browser. Set `persistenceKey={false}` to disable persistence, or provide a custom string to isolate multiple workspaces.
 
-Environment variables use `{{variable}}` placeholders. The active environment is resolved across request URLs, query parameters, headers, bodies, content types, methods, and common authentication fields at request-build time. Saved requests retain their raw templates, so switching environments does not rewrite collection data. Execution, `onRequestChange`, and code-generation consumers receive the resolved request while the editor continues to display the raw template.
+Saved request drafts and environment values are stored as entered, including authentication values such as bearer tokens, basic-auth passwords, API keys, and tokens placed in environment variables. Environment values are displayed as plain text. IndexedDB is scoped by the browser origin, but FlexDoc does not encrypt these values or create an additional security boundary between persistence keys on the same origin. Only persist secrets on origins and devices you trust.
 
-Environment values are displayed as plain text and, when persistence is enabled, stored unencrypted in browser IndexedDB. Treat tokens and other secrets entered as environment values as local browser data rather than protected credential storage.
+Environment variables use `{{variable}}` placeholders. The active environment is resolved across request URLs, query parameters, headers, bodies, content types, methods, and common authentication fields at request-build time. Saved requests retain their raw templates, so switching environments does not rewrite collection data. Execution, `onRequestChange`, and code-generation consumers receive the resolved request while the editor continues to display the raw template.
 
 Template expansion is intentionally one pass: if a variable value itself contains another `{{variable}}` placeholder, that nested placeholder is left unresolved. The low-level resolver also supports method placeholders programmatically, but the current API Client method control is a fixed HTTP-verb selector and does not accept free-form `{{method}}` input.
 
@@ -66,6 +66,20 @@ function RequestWorkspace() {
 ```
 
 Create an environment in the workspace, add a `baseUrl` variable such as `https://api.example.com`, and select that environment before sending the templated request.
+
+When the API Client is opened from FlexDoc's OpenAPI Try It flow, its default IndexedDB key is scoped by the documentation page host and OpenAPI `info.title` so different named APIs on the same origin do not all share the `default` workspace. This default is not a unique spec identity: two docs with the same host and `info.title` share a workspace. Use `tryIt.apiClientPersistenceKey` to separate such specs explicitly, or set it to `false` to disable persistence for the Try It handoff workspace. Persistence keys isolate application state, not security principals: workspaces on the same browser origin remain readable by scripts running on that origin.
+
+```jsx
+<FlexDoc
+  spec={myOpenApiSpec}
+  options={{
+    tryIt: {
+      enabled: true,
+      apiClientPersistenceKey: 'pets-api',
+    },
+  }}
+/>
+```
 
 For programmatic request construction, `buildHttpRequest` accepts arbitrary methods, URLs, ordered query parameters and headers, bodies, common authorization modes, and an optional `variables` map. `resolveHttpRequestDraftVariables` resolves a draft without mutating it, while `requestDraftFromBuiltRequest` converts an existing canonical FlexDoc request into an editable API-client draft.
 

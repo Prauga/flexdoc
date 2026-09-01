@@ -6,21 +6,24 @@ const overviewDigests = {
   'chromium-mobile': '244c39f50f4ab2f44a664bf4b2637dfc596d239e62b9f005cc9802521e3af750',
 };
 
-async function readApiClientWorkspace(page, key = 'default') {
-  return page.evaluate(async (workspaceKey) => new Promise((resolve, reject) => {
+const API_CLIENT_SPEC_TITLE = 'FlexDoc Browser Fixture';
+
+async function readApiClientWorkspace(page, key) {
+  return page.evaluate(async ({ workspaceKey, specTitle }) => new Promise((resolve, reject) => {
+    const resolvedKey = workspaceKey ?? `flexdoc:${encodeURIComponent(window.location.host)}:${encodeURIComponent(specTitle)}`;
     const openRequest = indexedDB.open('flexdoc-api-client');
     openRequest.onerror = () => reject(openRequest.error);
     openRequest.onsuccess = () => {
       const database = openRequest.result;
       const transaction = database.transaction('workspaces', 'readonly');
-      const request = transaction.objectStore('workspaces').get(workspaceKey);
+      const request = transaction.objectStore('workspaces').get(resolvedKey);
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         resolve(request.result || null);
         database.close();
       };
     };
-  }), key);
+  }), { workspaceKey: key ?? null, specTitle: API_CLIENT_SPEC_TITLE });
 }
 
 test('deep links directly to an operation', async ({ page }) => {

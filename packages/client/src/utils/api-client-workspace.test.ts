@@ -1,6 +1,7 @@
 import {
   activeApiClientEnvironmentVariables,
   cloneRequestDraft,
+  createDefaultApiClientPersistenceKey,
   createDefaultApiClientWorkspace,
   deleteApiClientCollection,
   deleteApiClientEnvironment,
@@ -28,6 +29,12 @@ describe('api-client-workspace', () => {
     expect(source.auth.token).toBe('secret');
   });
 
+  it('derives distinct default persistence keys from the page host and spec title', () => {
+    expect(createDefaultApiClientPersistenceKey('Pets API', 'docs.example.test')).toBe('flexdoc:docs.example.test:Pets%20API');
+    expect(createDefaultApiClientPersistenceKey('Billing API', 'docs.example.test')).toBe('flexdoc:docs.example.test:Billing%20API');
+    expect(createDefaultApiClientPersistenceKey('Pets API', 'internal.example.test')).toBe('flexdoc:internal.example.test:Pets%20API');
+  });
+
   it('migrates version 1 workspaces without losing saved requests', () => {
     const migrated = normalizeApiClientWorkspace({
       version: 1,
@@ -47,6 +54,47 @@ describe('api-client-workspace', () => {
     expect(migrated.collections[0].name).toBe('Legacy');
     expect(migrated.requests[0].request.url).toBe('{{baseUrl}}/pets');
     expect(migrated.environments).toEqual([]);
+  });
+
+  it('filters corrupt IndexedDB entries while preserving valid environments and variables', () => {
+    const normalized = normalizeApiClientWorkspace({
+      version: 2,
+      collections: [
+        null,
+        { id: 'collection-1', name: 'Valid', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+      ],
+      folders: [
+        'bad-folder',
+        { id: 'folder-1', collectionId: 'missing', name: 'Orphan', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+      ],
+      requests: [
+        { id: 'request-bad', collectionId: 'collection-1', name: 'Broken', request: { url: '/pets' }, createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+        { id: 'request-good', collectionId: 'collection-1', name: 'List pets', request: { method: 'GET', url: '/pets' }, createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+      ],
+      environments: [
+        {
+          id: 'environment-local',
+          name: 'Local',
+          variables: [
+            null,
+            { id: 'variable-good', key: 'baseUrl', value: 'http://localhost:3000' },
+          ],
+          createdAt: '2026-09-01',
+          updatedAt: '2026-09-01',
+        },
+        { id: 'environment-broken', variables: [], createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+      ],
+      activeEnvironmentId: 'environment-broken',
+    });
+
+    expect(normalized.collections.map((collection) => collection.id)).toEqual(['collection-1']);
+    expect(normalized.folders).toEqual([]);
+    expect(normalized.requests.map((request) => request.id)).toEqual(['request-good']);
+    expect(normalized.environments.map((environment) => environment.id)).toEqual(['environment-local']);
+    expect(normalized.environments[0].variables).toEqual([
+      { id: 'variable-good', key: 'baseUrl', value: 'http://localhost:3000' },
+    ]);
+    expect(normalized.activeEnvironmentId).toBeUndefined();
   });
 
   it('builds a prototype-safe active environment variable map from enabled named values', () => {

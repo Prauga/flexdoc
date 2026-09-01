@@ -30,7 +30,7 @@
     "check:example-versions": "node scripts/check-example-versions.mjs",
     "lint": "npm run lint -w packages/client && npm run lint -w examples/nestjs",
     "audit": "npm audit --audit-level=low",
-    "example:nestjs": "cd examples/nestjs && npm install && npm run start:dev",
+    "example:nestjs": "npm run start:dev -w examples/nestjs",
     "example:api-client": "npm run start -w examples/api-client",
     "test": "npm run build:core && npm run test --workspaces --if-present",
     "test:coverage": "npm run test:coverage --workspaces --if-present"
@@ -52,9 +52,9 @@
     "url": "https://github.com/Prauga/flexdoc"
   },
   "bugs": {
-    "url": "https://github.com/prauga/flexdoc/issues"
+    "url": "https://github.com/Prauga/flexdoc/issues"
   },
-  "homepage": "https://github.com/prauga/flexdoc#readme",
+  "homepage": "https://github.com/Prauga/flexdoc#readme",
   "peerDependencies": {
     "@nestjs/common": "^10.0.0 || ^11.0.0 || ^12.0.0",
     "@nestjs/core": "^10.0.0 || ^11.0.0 || ^12.0.0"
