@@ -20,7 +20,7 @@
   "keywords": ["flexdoc", "openapi", "api-documentation", "api-docs", "api-explorer", "express", "fastify", "nestjs", "self-hosted", "swagger", "developer-tools"],
   "author": "Prauga",
   "license": "AGPL-3.0-or-later",
-  "repository": { "type": "git", "url": "https://github.com/prauga/flexdoc.git", "directory": "packages/backend" },
+  "repository": { "type": "git", "url": "https://github.com/Prauga/flexdoc", "directory": "packages/backend" },
   "bugs": { "url": "https://github.com/prauga/flexdoc/issues" },
   "homepage": "https://github.com/prauga/flexdoc#readme",
   "peerDependencies": { "@nestjs/common": "^10.0.0 || ^11.0.0 || ^12.0.0", "@nestjs/core": "^10.0.0 || ^11.0.0 || ^12.0.0" },
