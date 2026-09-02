@@ -2,7 +2,7 @@ import './styles.css';
 
 export { FlexDoc } from './components/FlexDoc';
 export { ApiClient } from './components/ApiClient';
-export type { ApiClientProps } from './components/ApiClient';
+export type { ApiClientExecutionResult, ApiClientProps } from './components/ApiClient';
 export { ApiClientWorkspace } from './components/ApiClientWorkspace';
 export type { ApiClientWorkspaceProps } from './components/ApiClientWorkspace';
 export { App as ApiDocsDemo } from './App';
@@ -19,11 +19,21 @@ export { buildRequest, initialRequestValues, parametersFor } from './utils/reque
 export type { BuiltRequest, RequestValues, RequestValue } from './utils/request-builder';
 export { buildHttpRequest, requestDraftFromBuiltRequest, resolveHttpRequestDraftVariables } from './utils/http-client';
 export type { HttpAuth, HttpKeyValue, HttpRequestBuildOptions, HttpRequestDraft, HttpVariables } from './utils/http-client';
+export { cloneApiClientScripts, EMPTY_API_CLIENT_SCRIPTS, runApiClientScript } from './utils/api-client-scripting';
+export type {
+  ApiClientRequestScripts,
+  ApiClientScriptEnvironmentChange,
+  ApiClientScriptResponse,
+  ApiClientScriptRunResult,
+  ApiClientScriptTestResult,
+} from './utils/api-client-scripting';
 export type {
   ApiClientCollection,
   ApiClientEnvironment,
   ApiClientEnvironmentVariable,
   ApiClientFolder,
+  ApiClientHistoryEntry,
+  ApiClientHistoryInput,
   ApiClientSavedRequest,
   ApiClientWorkspaceState,
 } from './utils/api-client-workspace';

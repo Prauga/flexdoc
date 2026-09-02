@@ -1,5 +1,6 @@
 import {
   activeApiClientEnvironmentVariables,
+  addApiClientHistoryEntry,
   cloneRequestDraft,
   createDefaultApiClientPersistenceKey,
   createDefaultApiClientWorkspace,
@@ -50,10 +51,137 @@ describe('api-client-workspace', () => {
       }],
     });
 
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(4);
     expect(migrated.collections[0].name).toBe('Legacy');
     expect(migrated.requests[0].request.url).toBe('{{baseUrl}}/pets');
+    expect(migrated.requests[0].scripts).toBeUndefined();
     expect(migrated.environments).toEqual([]);
+    expect(migrated.history).toEqual([]);
+  });
+
+  it('migrates version 2 workspaces while preserving environments', () => {
+    const migrated = normalizeApiClientWorkspace({
+      version: 2,
+      collections: [{ id: 'collection-1', name: 'Existing', createdAt: '2026-01-01', updatedAt: '2026-01-01' }],
+      folders: [],
+      requests: [],
+      environments: [{ id: 'environment-1', name: 'Local', variables: [], createdAt: '2026-01-01', updatedAt: '2026-01-01' }],
+      activeEnvironmentId: 'environment-1',
+    });
+
+    expect(migrated.version).toBe(4);
+    expect(migrated.environments).toHaveLength(1);
+    expect(migrated.activeEnvironmentId).toBe('environment-1');
+    expect(migrated.history).toEqual([]);
+  });
+
+  it('migrates version 3 workspaces while preserving scripts and starting empty history', () => {
+    const migrated = normalizeApiClientWorkspace({
+      version: 3,
+      collections: [{ id: 'collection-1', name: 'Scripts', createdAt: '2026-09-01', updatedAt: '2026-09-01' }],
+      folders: [],
+      requests: [{
+        id: 'request-1',
+        collectionId: 'collection-1',
+        name: 'List pets',
+        request: { method: 'GET', url: '/pets' },
+        scripts: { preRequest: 'console.log(1)', tests: "flex.test('ok', () => {})" },
+        createdAt: '2026-09-01',
+        updatedAt: '2026-09-01',
+      }],
+      environments: [],
+    });
+
+    expect(migrated.version).toBe(4);
+    expect(migrated.requests[0].scripts?.preRequest).toBe('console.log(1)');
+    expect(migrated.history).toEqual([]);
+  });
+
+  it('preserves valid saved scripts and strips malformed script payloads', () => {
+    const normalized = normalizeApiClientWorkspace({
+      version: 3,
+      collections: [{ id: 'collection-1', name: 'Scripts', createdAt: '2026-09-01', updatedAt: '2026-09-01' }],
+      folders: [],
+      requests: [
+        {
+          id: 'request-good',
+          collectionId: 'collection-1',
+          name: 'Good',
+          request: { method: 'GET', url: '/pets' },
+          scripts: { preRequest: 'console.log(1)', tests: "flex.test('ok', () => {})" },
+          createdAt: '2026-09-01',
+          updatedAt: '2026-09-01',
+        },
+        {
+          id: 'request-bad-scripts',
+          collectionId: 'collection-1',
+          name: 'Still valid request',
+          request: { method: 'GET', url: '/owners' },
+          scripts: { preRequest: 42, tests: null },
+          createdAt: '2026-09-01',
+          updatedAt: '2026-09-01',
+        },
+      ],
+      environments: [],
+    });
+
+    expect(normalized.requests[0].scripts).toEqual({ preRequest: 'console.log(1)', tests: "flex.test('ok', () => {})" });
+    expect(normalized.requests[1].scripts).toBeUndefined();
+  });
+
+  it('normalizes valid request history and filters malformed entries', () => {
+    const normalized = normalizeApiClientWorkspace({
+      version: 4,
+      collections: [{ id: 'collection-1', name: 'History', createdAt: '2026-09-01', updatedAt: '2026-09-01' }],
+      folders: [],
+      requests: [],
+      environments: [],
+      history: [
+        {
+          id: 'history-good',
+          request: { method: 'GET', url: '{{baseUrl}}/pets' },
+          scripts: { preRequest: '', tests: '' },
+          executedMethod: 'GET',
+          resolvedUrl: 'https://api.example.test/pets',
+          status: 200,
+          statusText: 'OK',
+          responseTime: 18,
+          createdAt: '2026-09-01T10:00:00.000Z',
+        },
+        {
+          id: 'history-bad',
+          request: { method: 'GET', url: '/pets' },
+          executedMethod: 'GET',
+          resolvedUrl: 42,
+          createdAt: '2026-09-01T10:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(normalized.history).toHaveLength(1);
+    expect(normalized.history[0]).toMatchObject({
+      id: 'history-good',
+      executedMethod: 'GET',
+      resolvedUrl: 'https://api.example.test/pets',
+      status: 200,
+      responseTime: 18,
+    });
+  });
+
+  it('keeps only the 100 most recent request history entries', () => {
+    let workspace = createDefaultApiClientWorkspace();
+    for (let index = 0; index < 105; index += 1) {
+      workspace = addApiClientHistoryEntry(workspace, {
+        request: { method: 'GET', url: `/pets/${index}` },
+        executedMethod: 'GET',
+        resolvedUrl: `https://api.example.test/pets/${index}`,
+        status: 200,
+      });
+    }
+
+    expect(workspace.history).toHaveLength(100);
+    expect(workspace.history[0].resolvedUrl).toBe('https://api.example.test/pets/104');
+    expect(workspace.history[99].resolvedUrl).toBe('https://api.example.test/pets/5');
   });
 
   it('filters corrupt IndexedDB entries while preserving valid environments and variables', () => {
@@ -158,11 +286,17 @@ describe('api-client-workspace', () => {
     expect(next.requests[0].folderId).toBeUndefined();
   });
 
-  it('cascades collection contents while always keeping one collection and environments', () => {
-    const workspace = createDefaultApiClientWorkspace();
+  it('cascades collection contents while always keeping one collection, environments, and history', () => {
+    let workspace = createDefaultApiClientWorkspace();
     const firstId = workspace.collections[0].id;
     workspace.environments.push({ id: 'environment-1', name: 'Local', variables: [], createdAt: '2026-09-01', updatedAt: '2026-09-01' });
     workspace.activeEnvironmentId = 'environment-1';
+    workspace = addApiClientHistoryEntry(workspace, {
+      request: { method: 'GET', url: '/pets' },
+      executedMethod: 'GET',
+      resolvedUrl: 'https://api.example.test/pets',
+      status: 200,
+    });
     const next = deleteApiClientCollection(workspace, firstId);
 
     expect(next.collections).toHaveLength(1);
@@ -170,5 +304,6 @@ describe('api-client-workspace', () => {
     expect(next.collections[0].id).not.toBe(firstId);
     expect(next.environments).toHaveLength(1);
     expect(next.activeEnvironmentId).toBe('environment-1');
+    expect(next.history).toHaveLength(1);
   });
 });

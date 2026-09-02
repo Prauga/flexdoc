@@ -1,17 +1,22 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ApiClient } from './ApiClient';
-import type { ApiClientProps } from './ApiClient';
+import type { ApiClientExecutionResult, ApiClientProps } from './ApiClient';
 import { ApiClientCollections } from './ApiClientCollections';
 import { ApiClientEnvironments } from './ApiClientEnvironments';
+import { ApiClientHistory } from './ApiClientHistory';
 import type { HttpRequestDraft } from '../utils/http-client';
+import type { ApiClientRequestScripts, ApiClientScriptEnvironmentChange } from '../utils/api-client-scripting';
 import type { BuiltRequest } from '../utils/request-builder';
 import {
   activeApiClientEnvironmentVariables,
+  addApiClientHistoryEntry,
   cloneRequestDraft,
+  createApiClientId,
   createDefaultApiClientWorkspace,
   loadApiClientWorkspace,
   saveApiClientWorkspace,
 } from '../utils/api-client-workspace';
+import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import type { ApiClientWorkspaceState } from '../utils/api-client-workspace';
 
 export interface ApiClientWorkspaceProps extends ApiClientProps {
@@ -30,19 +35,69 @@ function withWorkspaceDefaults(initialRequest?: Partial<HttpRequestDraft>): Http
   };
 }
 
+function applyEnvironmentChanges(workspace: ApiClientWorkspaceState, changes: ApiClientScriptEnvironmentChange[]): ApiClientWorkspaceState {
+  if (!workspace.activeEnvironmentId || changes.length === 0) return workspace;
+  const environmentIndex = workspace.environments.findIndex((environment) => environment.id === workspace.activeEnvironmentId);
+  if (environmentIndex < 0) return workspace;
+
+  const environment = workspace.environments[environmentIndex];
+  let variables = environment.variables.map((variable) => ({ ...variable }));
+  let changed = false;
+
+  for (const change of changes) {
+    const key = change.key.trim();
+    if (!key) continue;
+    if (change.action === 'unset') {
+      const next = variables.filter((variable) => variable.key.trim() !== key);
+      if (next.length !== variables.length) {
+        variables = next;
+        changed = true;
+      }
+      continue;
+    }
+
+    const indexes = variables
+      .map((variable, index) => variable.key.trim() === key ? index : -1)
+      .filter((index) => index >= 0);
+    const value = change.value || '';
+    if (indexes.length > 0) {
+      const first = indexes[0];
+      variables[first] = { ...variables[first], key, value, enabled: true };
+      if (indexes.length > 1) variables = variables.filter((variable, index) => index === first || variable.key.trim() !== key);
+    } else {
+      variables.push({ id: createApiClientId('variable'), key, value, enabled: true });
+    }
+    changed = true;
+  }
+
+  if (!changed) return workspace;
+  const environments = workspace.environments.map((candidate, index) => index === environmentIndex
+    ? { ...candidate, variables, updatedAt: new Date().toISOString() }
+    : candidate);
+  return { ...workspace, environments };
+}
+
 export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   initialRequest,
+  initialScripts,
   theme = 'light',
   persistenceKey = 'default',
   onRequestChange,
   onDraftChange,
+  onScriptsChange,
+  onExecutionComplete,
   variables: externalVariables = {},
+  environmentVariables: externalEnvironmentVariables = {},
+  onEnvironmentChanges,
   ...apiClientProps
 }) => {
   const initialDraft = withWorkspaceDefaults(initialRequest);
+  const initialScriptState = cloneApiClientScripts(initialScripts);
   const initialWorkspace = createDefaultApiClientWorkspace();
   const [editorRequest, setEditorRequest] = useState<HttpRequestDraft>(initialDraft);
   const [currentRequest, setCurrentRequest] = useState<HttpRequestDraft>(initialDraft);
+  const [editorScripts, setEditorScripts] = useState<ApiClientRequestScripts>(initialScriptState);
+  const [currentScripts, setCurrentScripts] = useState<ApiClientRequestScripts>(initialScriptState);
   const [editorRevision, setEditorRevision] = useState(0);
   const [workspace, setWorkspace] = useState<ApiClientWorkspaceState>(initialWorkspace);
   const [hydrated, setHydrated] = useState(persistenceKey === false);
@@ -67,7 +122,11 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
     void saveApiClientWorkspace(persistenceKey, workspace).catch(() => undefined);
   }, [hydrated, persistenceKey, workspace]);
 
-  const environmentVariables = useMemo(() => activeApiClientEnvironmentVariables(workspace), [workspace]);
+  const workspaceEnvironmentVariables = useMemo(() => activeApiClientEnvironmentVariables(workspace), [workspace]);
+  const environmentVariables = useMemo(
+    () => ({ ...externalEnvironmentVariables, ...workspaceEnvironmentVariables }),
+    [externalEnvironmentVariables, workspaceEnvironmentVariables],
+  );
   const variables = useMemo(() => ({ ...externalVariables, ...environmentVariables }), [environmentVariables, externalVariables]);
 
   const handleRequestChange = (request: BuiltRequest) => {
@@ -79,10 +138,29 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
     onDraftChange?.(cloneRequestDraft(request));
   };
 
-  const loadSavedRequest = (request: HttpRequestDraft) => {
-    const next = cloneRequestDraft(request);
-    setEditorRequest(next);
-    setCurrentRequest(next);
+  const handleScriptsChange = (scripts: ApiClientRequestScripts) => {
+    const next = cloneApiClientScripts(scripts);
+    setCurrentScripts(next);
+    onScriptsChange?.(next);
+  };
+
+  const handleEnvironmentChanges = (changes: ApiClientScriptEnvironmentChange[]) => {
+    setWorkspace((current) => applyEnvironmentChanges(current, changes));
+    onEnvironmentChanges?.(changes);
+  };
+
+  const handleExecutionComplete = (result: ApiClientExecutionResult) => {
+    setWorkspace((current) => addApiClientHistoryEntry(current, result));
+    onExecutionComplete?.(result);
+  };
+
+  const loadSavedRequest = (request: HttpRequestDraft, scripts?: ApiClientRequestScripts) => {
+    const nextRequest = cloneRequestDraft(request);
+    const nextScripts = cloneApiClientScripts(scripts);
+    setEditorRequest(nextRequest);
+    setCurrentRequest(nextRequest);
+    setEditorScripts(nextScripts);
+    setCurrentScripts(nextScripts);
     setEditorRevision((revision) => revision + 1);
   };
 
@@ -94,9 +172,18 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
       <div className='border-t pt-4'>
         <ApiClientCollections
           request={currentRequest}
+          scripts={currentScripts}
           onLoadRequest={loadSavedRequest}
           workspace={workspace}
           onWorkspaceChange={setWorkspace}
+          theme={theme}
+        />
+      </div>
+      <div className='border-t pt-4'>
+        <ApiClientHistory
+          workspace={workspace}
+          onWorkspaceChange={setWorkspace}
+          onLoadRequest={loadSavedRequest}
           theme={theme}
         />
       </div>
@@ -105,9 +192,14 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
       key={editorRevision}
       {...apiClientProps}
       initialRequest={editorRequest}
+      initialScripts={editorScripts}
       theme={theme}
       variables={variables}
+      environmentVariables={environmentVariables}
+      onEnvironmentChanges={handleEnvironmentChanges}
       onDraftChange={handleDraftChange}
+      onScriptsChange={handleScriptsChange}
+      onExecutionComplete={handleExecutionComplete}
       onRequestChange={handleRequestChange}
     />
   </div>;

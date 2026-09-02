@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { FolderPlus, Library, Plus, Save, Trash2 } from 'lucide-react';
 import type { HttpRequestDraft } from '../utils/http-client';
+import { cloneApiClientScripts } from '../utils/api-client-scripting';
+import type { ApiClientRequestScripts } from '../utils/api-client-scripting';
 import {
   cloneRequestDraft,
   createApiClientId,
@@ -11,7 +13,8 @@ import type { ApiClientWorkspaceState } from '../utils/api-client-workspace';
 
 interface Props {
   request: HttpRequestDraft;
-  onLoadRequest: (request: HttpRequestDraft) => void;
+  scripts: ApiClientRequestScripts;
+  onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts) => void;
   workspace: ApiClientWorkspaceState;
   onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
   theme: 'light' | 'dark';
@@ -21,7 +24,7 @@ function timestamp(): string {
   return new Date().toISOString();
 }
 
-export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, workspace, onWorkspaceChange, theme }) => {
+export const ApiClientCollections: React.FC<Props> = ({ request, scripts, onLoadRequest, workspace, onWorkspaceChange, theme }) => {
   const [selectedCollectionId, setSelectedCollectionId] = useState(workspace.collections[0]?.id || '');
   const [selectedFolderId, setSelectedFolderId] = useState('');
   const [collectionName, setCollectionName] = useState('');
@@ -80,6 +83,7 @@ export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, 
           folderId: selectedFolderId || undefined,
           name,
           request: cloneRequestDraft(request),
+          scripts: cloneApiClientScripts(scripts),
           updatedAt,
         } : saved),
       }));
@@ -91,6 +95,7 @@ export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, 
       folderId: selectedFolderId || undefined,
       name,
       request: cloneRequestDraft(request),
+      scripts: cloneApiClientScripts(scripts),
       createdAt: updatedAt,
       updatedAt,
     };
@@ -106,7 +111,7 @@ export const ApiClientCollections: React.FC<Props> = ({ request, onLoadRequest, 
     setSelectedCollectionId(saved.collectionId);
     setSelectedFolderId(saved.folderId || '');
     setRequestName(saved.name);
-    onLoadRequest(cloneRequestDraft(saved.request));
+    onLoadRequest(cloneRequestDraft(saved.request), saved.scripts ? cloneApiClientScripts(saved.scripts) : undefined);
   };
 
   const removeRequest = (requestId: string) => {

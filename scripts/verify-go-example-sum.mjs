@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,6 +10,7 @@ const gitText = (path) => readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
 const gitBytes = (path) => Buffer.from(gitText(path));
 const adapterGoMod = gitText(resolve(adapterDir, 'go.mod'));
 const exampleGoMod = gitText(resolve(repoRoot, 'examples/go-net-http/go.mod'));
+const write = process.argv.includes('--write');
 
 const moduleMatch = adapterGoMod.match(/^module\s+(\S+)$/m);
 if (!moduleMatch) throw new Error('Could not read the Go adapter module path');
@@ -59,6 +60,12 @@ try {
   actual = gitText(sumPath);
 } catch {
   // The message below contains the exact file content needed for the release tree.
+}
+
+if (actual !== expected && write) {
+  writeFileSync(sumPath, expected);
+  console.log(`Updated ${relative(repoRoot, sumPath)} for ${modulePath} ${version}.`);
+  process.exit(0);
 }
 
 if (actual !== expected) {

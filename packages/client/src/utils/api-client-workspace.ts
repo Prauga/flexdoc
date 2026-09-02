@@ -1,4 +1,6 @@
 import type { HttpAuth, HttpKeyValue, HttpRequestDraft } from './http-client';
+import { cloneApiClientScripts } from './api-client-scripting';
+import type { ApiClientRequestScripts } from './api-client-scripting';
 
 export interface ApiClientCollection {
   id: string;
@@ -21,6 +23,7 @@ export interface ApiClientSavedRequest {
   folderId?: string;
   name: string;
   request: HttpRequestDraft;
+  scripts?: ApiClientRequestScripts;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,19 +43,45 @@ export interface ApiClientEnvironment {
   updatedAt: string;
 }
 
+export interface ApiClientHistoryEntry {
+  id: string;
+  request: HttpRequestDraft;
+  scripts?: ApiClientRequestScripts;
+  executedMethod: string;
+  resolvedUrl: string;
+  status?: number;
+  statusText?: string;
+  responseTime?: number;
+  error?: string;
+  createdAt: string;
+}
+
+export interface ApiClientHistoryInput {
+  request: HttpRequestDraft;
+  scripts?: ApiClientRequestScripts;
+  executedMethod: string;
+  resolvedUrl: string;
+  status?: number;
+  statusText?: string;
+  responseTime?: number;
+  error?: string;
+}
+
 export interface ApiClientWorkspaceState {
-  version: 2;
+  version: 4;
   collections: ApiClientCollection[];
   folders: ApiClientFolder[];
   requests: ApiClientSavedRequest[];
   environments: ApiClientEnvironment[];
   activeEnvironmentId?: string;
+  history: ApiClientHistoryEntry[];
 }
 
 const DATABASE_NAME = 'flexdoc-api-client';
 const DATABASE_VERSION = 1;
 const STORE_NAME = 'workspaces';
 const DEFAULT_COLLECTION_NAME = 'My Collection';
+const HISTORY_LIMIT = 100;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -66,6 +95,11 @@ function isRecord(value: unknown): value is UnknownRecord {
 
 function hasString(record: UnknownRecord, key: string): boolean {
   return typeof record[key] === 'string';
+}
+
+function isOptionalFiniteNumber(record: UnknownRecord, key: string): boolean {
+  const value = record[key];
+  return value === undefined || (typeof value === 'number' && Number.isFinite(value));
 }
 
 function isHttpKeyValue(value: unknown): value is HttpKeyValue {
@@ -110,15 +144,32 @@ function isFolder(value: unknown): value is ApiClientFolder {
     && hasString(value, 'updatedAt');
 }
 
-function isSavedRequest(value: unknown): value is ApiClientSavedRequest {
-  return isRecord(value)
-    && hasString(value, 'id')
-    && hasString(value, 'collectionId')
-    && (value.folderId === undefined || typeof value.folderId === 'string')
-    && hasString(value, 'name')
-    && isHttpRequestDraft(value.request)
-    && hasString(value, 'createdAt')
-    && hasString(value, 'updatedAt');
+function normalizeScripts(value: unknown): ApiClientRequestScripts | undefined {
+  if (!isRecord(value) || !hasString(value, 'preRequest') || !hasString(value, 'tests')) return undefined;
+  return { preRequest: value.preRequest as string, tests: value.tests as string };
+}
+
+function normalizeSavedRequest(value: unknown): ApiClientSavedRequest | null {
+  if (!isRecord(value)
+    || !hasString(value, 'id')
+    || !hasString(value, 'collectionId')
+    || (value.folderId !== undefined && typeof value.folderId !== 'string')
+    || !hasString(value, 'name')
+    || !isHttpRequestDraft(value.request)
+    || !hasString(value, 'createdAt')
+    || !hasString(value, 'updatedAt')) return null;
+
+  const scripts = normalizeScripts(value.scripts);
+  return {
+    id: value.id as string,
+    collectionId: value.collectionId as string,
+    folderId: value.folderId as string | undefined,
+    name: value.name as string,
+    request: value.request,
+    ...(scripts ? { scripts } : {}),
+    createdAt: value.createdAt as string,
+    updatedAt: value.updatedAt as string,
+  };
 }
 
 function isEnvironmentVariable(value: unknown): value is ApiClientEnvironmentVariable {
@@ -146,6 +197,33 @@ function normalizeEnvironment(value: unknown): ApiClientEnvironment | null {
   };
 }
 
+function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
+  if (!isRecord(value)
+    || !hasString(value, 'id')
+    || !isHttpRequestDraft(value.request)
+    || !hasString(value, 'executedMethod')
+    || !hasString(value, 'resolvedUrl')
+    || !isOptionalFiniteNumber(value, 'status')
+    || (value.statusText !== undefined && typeof value.statusText !== 'string')
+    || !isOptionalFiniteNumber(value, 'responseTime')
+    || (value.error !== undefined && typeof value.error !== 'string')
+    || !hasString(value, 'createdAt')) return null;
+
+  const scripts = normalizeScripts(value.scripts);
+  return {
+    id: value.id as string,
+    request: value.request,
+    ...(scripts ? { scripts } : {}),
+    executedMethod: value.executedMethod as string,
+    resolvedUrl: value.resolvedUrl as string,
+    status: value.status as number | undefined,
+    statusText: value.statusText as string | undefined,
+    responseTime: value.responseTime as number | undefined,
+    error: value.error as string | undefined,
+    createdAt: value.createdAt as string,
+  };
+}
+
 export function createApiClientId(prefix: string): string {
   const uuid = globalThis.crypto?.randomUUID?.();
   return uuid ? `${prefix}-${uuid}` : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -169,16 +247,17 @@ export function cloneRequestDraft(request: HttpRequestDraft): HttpRequestDraft {
 export function createDefaultApiClientWorkspace(): ApiClientWorkspaceState {
   const timestamp = now();
   return {
-    version: 2,
+    version: 4,
     collections: [{ id: createApiClientId('collection'), name: DEFAULT_COLLECTION_NAME, createdAt: timestamp, updatedAt: timestamp }],
     folders: [],
     requests: [],
     environments: [],
+    history: [],
   };
 }
 
 export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceState {
-  if (!isRecord(value) || (value.version !== 1 && value.version !== 2)) return createDefaultApiClientWorkspace();
+  if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4)) return createDefaultApiClientWorkspace();
 
   const collectionValues = Array.isArray(value.collections) ? value.collections.filter(isCollection) : [];
   if (collectionValues.length === 0) return createDefaultApiClientWorkspace();
@@ -188,7 +267,9 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
     .filter((folder) => collectionIds.has(folder.collectionId));
   const foldersById = new Map(folderValues.map((folder) => [folder.id, folder]));
 
-  const requestValues = (Array.isArray(value.requests) ? value.requests.filter(isSavedRequest) : [])
+  const requestValues = (Array.isArray(value.requests) ? value.requests : [])
+    .map(normalizeSavedRequest)
+    .filter((request): request is ApiClientSavedRequest => request !== null)
     .filter((request) => collectionIds.has(request.collectionId))
     .map((request) => {
       if (!request.folderId) return request;
@@ -198,11 +279,12 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
 
   if (value.version === 1) {
     return {
-      version: 2,
+      version: 4,
       collections: collectionValues,
       folders: folderValues,
       requests: requestValues,
       environments: [],
+      history: [],
     };
   }
 
@@ -213,15 +295,38 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
     && environmentValues.some((environment) => environment.id === value.activeEnvironmentId)
     ? value.activeEnvironmentId
     : undefined;
+  const historyValues = value.version === 4 && Array.isArray(value.history)
+    ? value.history
+      .map(normalizeHistoryEntry)
+      .filter((entry): entry is ApiClientHistoryEntry => entry !== null)
+      .slice(0, HISTORY_LIMIT)
+    : [];
 
   return {
-    version: 2,
+    version: 4,
     collections: collectionValues,
     folders: folderValues,
     requests: requestValues,
     environments: environmentValues,
     activeEnvironmentId,
+    history: historyValues,
   };
+}
+
+export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, input: ApiClientHistoryInput): ApiClientWorkspaceState {
+  const entry: ApiClientHistoryEntry = {
+    id: createApiClientId('history'),
+    request: cloneRequestDraft(input.request),
+    ...(input.scripts ? { scripts: cloneApiClientScripts(input.scripts) } : {}),
+    executedMethod: input.executedMethod,
+    resolvedUrl: input.resolvedUrl,
+    status: input.status,
+    statusText: input.statusText,
+    responseTime: input.responseTime,
+    error: input.error,
+    createdAt: now(),
+  };
+  return { ...workspace, history: [entry, ...workspace.history].slice(0, HISTORY_LIMIT) };
 }
 
 export function activeApiClientEnvironmentVariables(workspace: ApiClientWorkspaceState): Record<string, string> {
@@ -260,6 +365,7 @@ export function deleteApiClientCollection(workspace: ApiClientWorkspaceState, co
       ...replacement,
       environments: workspace.environments,
       activeEnvironmentId: workspace.activeEnvironmentId,
+      history: workspace.history,
     };
   }
   return {
