@@ -16,12 +16,18 @@ final class FlexDocServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(dirname(__DIR__, 2) . '/config/flexdoc.php', 'flexdoc');
         $this->app->singleton(FlexDocHost::class, function ($app): FlexDocHost {
             $config = $app['config']->get('flexdoc', []);
+            $tryItEnabled = filter_var(
+                $config['try_it_enabled'] ?? true,
+                FILTER_VALIDATE_BOOLEAN,
+                FILTER_NULL_ON_FAILURE,
+            ) ?? true;
+
             return new FlexDocHost(new FlexDocConfig(
                 path: (string) ($config['path'] ?? '/docs'),
                 specUrl: (string) ($config['spec_url'] ?? '/openapi.json'),
                 title: (string) ($config['title'] ?? 'API Reference'),
                 theme: (string) ($config['theme'] ?? 'system'),
-                tryItEnabled: (bool) ($config['try_it_enabled'] ?? true),
+                tryItEnabled: $tryItEnabled,
             ));
         });
     }

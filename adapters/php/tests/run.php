@@ -26,11 +26,23 @@ check($host->rendererJavaScript()->body === file_get_contents(dirname(__DIR__) .
 check($host->rendererCss()->body === file_get_contents(dirname(__DIR__) . '/assets/flexdoc.standalone.css'), 'CSS parity');
 check($host->responseForPath('/missing')->status === 404, '404 route');
 
+putenv('FLEXDOC_TRY_IT=false');
+$_ENV['FLEXDOC_TRY_IT'] = 'false';
+$_SERVER['FLEXDOC_TRY_IT'] = 'false';
+$laravelConfig = require dirname(__DIR__) . '/config/flexdoc.php';
+check($laravelConfig['try_it_enabled'] === false, 'Laravel FLEXDOC_TRY_IT=false');
+putenv('FLEXDOC_TRY_IT');
+unset($_ENV['FLEXDOC_TRY_IT'], $_SERVER['FLEXDOC_TRY_IT']);
+
 $container = new Container();
 $router = new Router(new Dispatcher($container), $container);
 LaravelFlexDoc::register($router, $host);
 $uris = array_map(static fn ($route) => $route->uri(), $router->getRoutes()->getRoutes());
-check(in_array('reference', $uris, true), 'Laravel docs route');
+$documentationRouteCount = count(array_filter(
+    $uris,
+    static fn (string $uri): bool => rtrim($uri, '/') === 'reference',
+));
+check($documentationRouteCount === 2, 'Laravel docs and trailing-slash routes');
 check(in_array('reference/__flexdoc/renderer.js', $uris, true), 'Laravel JS route');
 check(in_array('reference/__flexdoc/renderer.css', $uris, true), 'Laravel CSS route');
 
@@ -45,4 +57,4 @@ check(
     'Symfony cache header'
 );
 
-echo "PHP FlexDoc host, Laravel routes, and Symfony controller passed.\n";
+echo "PHP FlexDoc host, Laravel config/routes, and Symfony controller passed.\n";

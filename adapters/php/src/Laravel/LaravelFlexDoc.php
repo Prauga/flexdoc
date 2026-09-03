@@ -13,7 +13,10 @@ final class LaravelFlexDoc
     public static function register(object $router, FlexDocHost $host): void
     {
         $base = ltrim($host->config()->path, '/');
-        $router->get($base, static fn () => self::response($host->documentation()));
+        $documentation = static fn () => self::response($host->documentation());
+
+        $router->get($base, $documentation);
+        $router->get($base . '/', $documentation);
         $router->get($base . '/__flexdoc/renderer.js', static fn () => self::response($host->rendererJavaScript()));
         $router->get($base . '/__flexdoc/renderer.css', static fn () => self::response($host->rendererCss()));
     }
