@@ -7,6 +7,8 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 use Illuminate\Container\Container;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Http\Request;
+use Illuminate\Routing\CallableDispatcher;
+use Illuminate\Routing\Contracts\CallableDispatcher as CallableDispatcherContract;
 use Illuminate\Routing\Router;
 use Prauga\FlexDoc\FlexDocConfig;
 use Prauga\FlexDoc\FlexDocHost;
@@ -38,6 +40,7 @@ $providerHost = FlexDocServiceProvider::hostFromConfig([
 check($providerHost->config()->tryItEnabled === false, 'Laravel service provider parses string false');
 
 $container = new Container();
+$container->instance(CallableDispatcherContract::class, new CallableDispatcher($container));
 $router = new Router(new Dispatcher($container), $container);
 LaravelFlexDoc::register($router, $host);
 
