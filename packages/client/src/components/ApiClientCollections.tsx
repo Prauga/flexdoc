@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FolderPlus, Library, Plus, Save, Trash2 } from 'lucide-react';
 import type { HttpRequestDraft } from '../utils/http-client';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
@@ -15,6 +15,7 @@ interface Props {
   request: HttpRequestDraft;
   scripts: ApiClientRequestScripts;
   onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts) => void;
+  onSelectedCollectionChange?: (collectionId?: string) => void;
   workspace: ApiClientWorkspaceState;
   onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
   theme: 'light' | 'dark';
@@ -24,7 +25,15 @@ function timestamp(): string {
   return new Date().toISOString();
 }
 
-export const ApiClientCollections: React.FC<Props> = ({ request, scripts, onLoadRequest, workspace, onWorkspaceChange, theme }) => {
+export const ApiClientCollections: React.FC<Props> = ({
+  request,
+  scripts,
+  onLoadRequest,
+  onSelectedCollectionChange,
+  workspace,
+  onWorkspaceChange,
+  theme,
+}) => {
   const [selectedCollectionId, setSelectedCollectionId] = useState(workspace.collections[0]?.id || '');
   const [selectedFolderId, setSelectedFolderId] = useState('');
   const [collectionName, setCollectionName] = useState('');
@@ -42,6 +51,10 @@ export const ApiClientCollections: React.FC<Props> = ({ request, scripts, onLoad
     [selectedCollection?.id, workspace.requests],
   );
 
+  useEffect(() => {
+    onSelectedCollectionChange?.(selectedCollection?.id);
+  }, [onSelectedCollectionChange, selectedCollection?.id]);
+
   const addCollection = () => {
     const name = collectionName.trim();
     if (!name) return;
@@ -49,12 +62,51 @@ export const ApiClientCollections: React.FC<Props> = ({ request, scripts, onLoad
     const id = createApiClientId('collection');
     onWorkspaceChange((current) => ({
       ...current,
-      collections: [...current.collections, { id, name, createdAt, updatedAt: createdAt }],
+      collections: [...current.collections, { id, name, variables: [], createdAt, updatedAt: createdAt }],
     }));
     setSelectedCollectionId(id);
     setSelectedFolderId('');
     setCollectionName('');
     setActiveRequestId(null);
+  };
+
+  const addCollectionVariable = () => {
+    if (!selectedCollection) return;
+    const updatedAt = timestamp();
+    onWorkspaceChange((current) => ({
+      ...current,
+      collections: current.collections.map((collection) => collection.id === selectedCollection.id ? {
+        ...collection,
+        variables: [...collection.variables, { id: createApiClientId('variable'), key: '', value: '', enabled: true }],
+        updatedAt,
+      } : collection),
+    }));
+  };
+
+  const updateCollectionVariable = (variableId: string, patch: { key?: string; value?: string; enabled?: boolean }) => {
+    if (!selectedCollection) return;
+    const updatedAt = timestamp();
+    onWorkspaceChange((current) => ({
+      ...current,
+      collections: current.collections.map((collection) => collection.id === selectedCollection.id ? {
+        ...collection,
+        variables: collection.variables.map((variable) => variable.id === variableId ? { ...variable, ...patch } : variable),
+        updatedAt,
+      } : collection),
+    }));
+  };
+
+  const removeCollectionVariable = (variableId: string) => {
+    if (!selectedCollection) return;
+    const updatedAt = timestamp();
+    onWorkspaceChange((current) => ({
+      ...current,
+      collections: current.collections.map((collection) => collection.id === selectedCollection.id ? {
+        ...collection,
+        variables: collection.variables.filter((variable) => variable.id !== variableId),
+        updatedAt,
+      } : collection),
+    }));
   };
 
   const addFolder = () => {
@@ -189,7 +241,23 @@ export const ApiClientCollections: React.FC<Props> = ({ request, scripts, onLoad
     </div>
 
     {selectedCollection && <>
-      <div className='flex gap-2'>
+      <div className='space-y-2 border-t pt-3'>
+        <div className='flex items-center justify-between'>
+          <span className='text-xs font-semibold uppercase tracking-wide'>Collection variables</span>
+          <button type='button' aria-label='Add collection variable' className='inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs' onClick={addCollectionVariable}><Plus className='h-3.5 w-3.5' /> Add</button>
+        </div>
+        <div className='space-y-2'>
+          {selectedCollection.variables.map((variable, index) => <div key={variable.id} className='grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] items-center gap-1'>
+            <input aria-label={`Collection variable ${index + 1} enabled`} type='checkbox' checked={variable.enabled !== false} onChange={(event) => updateCollectionVariable(variable.id, { enabled: event.target.checked })} />
+            <input aria-label={`Collection variable ${index + 1} key`} className={`min-w-0 rounded-md border px-2 py-1.5 font-mono text-xs ${inputClass}`} placeholder='baseUrl' value={variable.key} onChange={(event) => updateCollectionVariable(variable.id, { key: event.target.value })} />
+            <input aria-label={`Collection variable ${index + 1} value`} className={`min-w-0 rounded-md border px-2 py-1.5 font-mono text-xs ${inputClass}`} placeholder='https://api.example.com' value={variable.value} onChange={(event) => updateCollectionVariable(variable.id, { value: event.target.value })} />
+            <button type='button' aria-label={`Remove collection variable ${index + 1}`} className='rounded-md p-1.5 opacity-70 hover:opacity-100' onClick={() => removeCollectionVariable(variable.id)}><Trash2 className='h-3.5 w-3.5' /></button>
+          </div>)}
+          {selectedCollection.variables.length === 0 && <p className={`text-xs ${mutedClass}`}>Collection variables provide reusable defaults such as <code>{'{{baseUrl}}'}</code>. Active environment values override matching collection keys.</p>}
+        </div>
+      </div>
+
+      <div className='flex gap-2 border-t pt-3'>
         <input aria-label='New folder name' className={`min-w-0 flex-1 rounded-md border px-2 py-2 text-sm ${inputClass}`} value={folderName} onChange={(event) => setFolderName(event.target.value)} placeholder='Folder' />
         <button type='button' aria-label='Add folder' className='rounded-md border px-3 py-2' onClick={addFolder}><FolderPlus className='h-4 w-4' /></button>
       </div>

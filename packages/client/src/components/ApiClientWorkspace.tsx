@@ -10,6 +10,7 @@ import type { BuiltRequest } from '../utils/request-builder';
 import {
   activeApiClientEnvironmentVariables,
   addApiClientHistoryEntry,
+  apiClientCollectionVariables,
   cloneRequestDraft,
   createApiClientId,
   createDefaultApiClientWorkspace,
@@ -100,6 +101,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   const [currentScripts, setCurrentScripts] = useState<ApiClientRequestScripts>(initialScriptState);
   const [editorRevision, setEditorRevision] = useState(0);
   const [workspace, setWorkspace] = useState<ApiClientWorkspaceState>(initialWorkspace);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<string | undefined>(initialWorkspace.collections[0]?.id);
   const [hydrated, setHydrated] = useState(persistenceKey === false);
 
   useEffect(() => {
@@ -122,12 +124,19 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
     void saveApiClientWorkspace(persistenceKey, workspace).catch(() => undefined);
   }, [hydrated, persistenceKey, workspace]);
 
+  const collectionVariables = useMemo(
+    () => apiClientCollectionVariables(workspace, selectedCollectionId),
+    [selectedCollectionId, workspace],
+  );
   const workspaceEnvironmentVariables = useMemo(() => activeApiClientEnvironmentVariables(workspace), [workspace]);
   const environmentVariables = useMemo(
     () => ({ ...externalEnvironmentVariables, ...workspaceEnvironmentVariables }),
     [externalEnvironmentVariables, workspaceEnvironmentVariables],
   );
-  const variables = useMemo(() => ({ ...externalVariables, ...environmentVariables }), [environmentVariables, externalVariables]);
+  const variables = useMemo(
+    () => ({ ...collectionVariables, ...externalVariables, ...environmentVariables }),
+    [collectionVariables, environmentVariables, externalVariables],
+  );
 
   const handleRequestChange = (request: BuiltRequest) => {
     onRequestChange?.(request);
@@ -174,6 +183,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
           request={currentRequest}
           scripts={currentScripts}
           onLoadRequest={loadSavedRequest}
+          onSelectedCollectionChange={setSelectedCollectionId}
           workspace={workspace}
           onWorkspaceChange={setWorkspace}
           theme={theme}

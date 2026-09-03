@@ -2,9 +2,17 @@ import type { HttpAuth, HttpKeyValue, HttpRequestDraft } from './http-client';
 import { cloneApiClientScripts } from './api-client-scripting';
 import type { ApiClientRequestScripts } from './api-client-scripting';
 
+export interface ApiClientEnvironmentVariable {
+  id: string;
+  key: string;
+  value: string;
+  enabled?: boolean;
+}
+
 export interface ApiClientCollection {
   id: string;
   name: string;
+  variables: ApiClientEnvironmentVariable[];
   createdAt: string;
   updatedAt: string;
 }
@@ -26,13 +34,6 @@ export interface ApiClientSavedRequest {
   scripts?: ApiClientRequestScripts;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface ApiClientEnvironmentVariable {
-  id: string;
-  key: string;
-  value: string;
-  enabled?: boolean;
 }
 
 export interface ApiClientEnvironment {
@@ -127,12 +128,28 @@ function isHttpRequestDraft(value: unknown): value is HttpRequestDraft {
   return value.auth === undefined || isHttpAuth(value.auth);
 }
 
-function isCollection(value: unknown): value is ApiClientCollection {
+function isEnvironmentVariable(value: unknown): value is ApiClientEnvironmentVariable {
   return isRecord(value)
     && hasString(value, 'id')
-    && hasString(value, 'name')
-    && hasString(value, 'createdAt')
-    && hasString(value, 'updatedAt');
+    && hasString(value, 'key')
+    && hasString(value, 'value')
+    && (value.enabled === undefined || typeof value.enabled === 'boolean');
+}
+
+function normalizeCollection(value: unknown): ApiClientCollection | null {
+  if (!isRecord(value)
+    || !hasString(value, 'id')
+    || !hasString(value, 'name')
+    || !hasString(value, 'createdAt')
+    || !hasString(value, 'updatedAt')) return null;
+
+  return {
+    id: value.id as string,
+    name: value.name as string,
+    variables: Array.isArray(value.variables) ? value.variables.filter(isEnvironmentVariable) : [],
+    createdAt: value.createdAt as string,
+    updatedAt: value.updatedAt as string,
+  };
 }
 
 function isFolder(value: unknown): value is ApiClientFolder {
@@ -170,14 +187,6 @@ function normalizeSavedRequest(value: unknown): ApiClientSavedRequest | null {
     createdAt: value.createdAt as string,
     updatedAt: value.updatedAt as string,
   };
-}
-
-function isEnvironmentVariable(value: unknown): value is ApiClientEnvironmentVariable {
-  return isRecord(value)
-    && hasString(value, 'id')
-    && hasString(value, 'key')
-    && hasString(value, 'value')
-    && (value.enabled === undefined || typeof value.enabled === 'boolean');
 }
 
 function normalizeEnvironment(value: unknown): ApiClientEnvironment | null {
@@ -224,6 +233,16 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
   };
 }
 
+function variableMap(values: ApiClientEnvironmentVariable[]): Record<string, string> {
+  const variables = Object.create(null) as Record<string, string>;
+  for (const variable of values) {
+    const key = variable.key.trim();
+    if (variable.enabled === false || !key) continue;
+    variables[key] = variable.value;
+  }
+  return variables;
+}
+
 export function createApiClientId(prefix: string): string {
   const uuid = globalThis.crypto?.randomUUID?.();
   return uuid ? `${prefix}-${uuid}` : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -248,7 +267,7 @@ export function createDefaultApiClientWorkspace(): ApiClientWorkspaceState {
   const timestamp = now();
   return {
     version: 4,
-    collections: [{ id: createApiClientId('collection'), name: DEFAULT_COLLECTION_NAME, createdAt: timestamp, updatedAt: timestamp }],
+    collections: [{ id: createApiClientId('collection'), name: DEFAULT_COLLECTION_NAME, variables: [], createdAt: timestamp, updatedAt: timestamp }],
     folders: [],
     requests: [],
     environments: [],
@@ -259,7 +278,9 @@ export function createDefaultApiClientWorkspace(): ApiClientWorkspaceState {
 export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceState {
   if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4)) return createDefaultApiClientWorkspace();
 
-  const collectionValues = Array.isArray(value.collections) ? value.collections.filter(isCollection) : [];
+  const collectionValues = (Array.isArray(value.collections) ? value.collections : [])
+    .map(normalizeCollection)
+    .filter((collection): collection is ApiClientCollection => collection !== null);
   if (collectionValues.length === 0) return createDefaultApiClientWorkspace();
   const collectionIds = new Set(collectionValues.map((collection) => collection.id));
 
@@ -329,16 +350,14 @@ export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, inp
   return { ...workspace, history: [entry, ...workspace.history].slice(0, HISTORY_LIMIT) };
 }
 
+export function apiClientCollectionVariables(workspace: ApiClientWorkspaceState, collectionId?: string): Record<string, string> {
+  const collection = workspace.collections.find((candidate) => candidate.id === collectionId);
+  return variableMap(collection?.variables || []);
+}
+
 export function activeApiClientEnvironmentVariables(workspace: ApiClientWorkspaceState): Record<string, string> {
   const environment = workspace.environments.find((candidate) => candidate.id === workspace.activeEnvironmentId);
-  const variables = Object.create(null) as Record<string, string>;
-  if (!environment) return variables;
-  for (const variable of environment.variables) {
-    const key = variable.key.trim();
-    if (variable.enabled === false || !key) continue;
-    variables[key] = variable.value;
-  }
-  return variables;
+  return variableMap(environment?.variables || []);
 }
 
 export function deleteApiClientEnvironment(workspace: ApiClientWorkspaceState, environmentId: string): ApiClientWorkspaceState {
