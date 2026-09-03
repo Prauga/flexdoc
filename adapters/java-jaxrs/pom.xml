@@ -2,26 +2,22 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.prauga.flexdoc</groupId>
-  <artifactId>flexdoc-spring-boot-starter</artifactId>
+  <artifactId>flexdoc-jaxrs</artifactId>
   <version>0.4.0</version>
-  <name>Prauga FlexDoc Spring Boot Starter</name>
-  <description>Spring Boot adapter for the self-hosted FlexDoc OpenAPI renderer and API explorer</description>
+  <name>Prauga FlexDoc Jakarta REST Adapter</name>
+  <description>Jakarta REST/JAX-RS adapter for the framework-neutral FlexDoc JVM host</description>
   <url>https://github.com/prauga/flexdoc</url>
   <licenses><license><name>GNU Affero General Public License v3.0 or later</name><url>https://www.gnu.org/licenses/agpl-3.0.html</url><distribution>repo</distribution></license></licenses>
   <developers><developer><name>Prauga</name><organization>Prauga</organization><organizationUrl>https://prauga.com</organizationUrl></developer></developers>
   <scm><connection>scm:git:https://github.com/prauga/flexdoc.git</connection><developerConnection>scm:git:ssh://git@github.com/prauga/flexdoc.git</developerConnection><url>https://github.com/prauga/flexdoc</url><tag>HEAD</tag></scm>
-  <properties><java.version>17</java.version><spring-boot.version>3.3.0</spring-boot.version><flexdoc.version>0.4.0</flexdoc.version><maven.compiler.release>${java.version}</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding></properties>
-  <dependencyManagement><dependencies><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-dependencies</artifactId><version>${spring-boot.version}</version><type>pom</type><scope>import</scope></dependency></dependencies></dependencyManagement>
+  <properties><java.version>17</java.version><maven.compiler.release>${java.version}</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding><flexdoc.version>0.4.0</flexdoc.version></properties>
   <dependencies>
     <dependency><groupId>com.prauga.flexdoc</groupId><artifactId>flexdoc-jvm</artifactId><version>${flexdoc.version}</version></dependency>
-    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-autoconfigure</artifactId></dependency>
-    <dependency><groupId>org.springframework</groupId><artifactId>spring-webmvc</artifactId></dependency>
-    <dependency><groupId>com.fasterxml.jackson.core</groupId><artifactId>jackson-databind</artifactId></dependency>
-    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>jakarta.ws.rs</groupId><artifactId>jakarta.ws.rs-api</artifactId><version>3.1.0</version><scope>provided</scope></dependency>
+    <dependency><groupId>jakarta.inject</groupId><artifactId>jakarta.inject-api</artifactId><version>2.0.1</version><scope>provided</scope></dependency>
   </dependencies>
   <build><plugins>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.13.0</version></plugin>
-    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.2.5</version></plugin>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-source-plugin</artifactId><version>3.3.1</version><executions><execution><id>attach-sources</id><goals><goal>jar-no-fork</goal></goals></execution></executions></plugin>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-javadoc-plugin</artifactId><version>3.8.0</version><executions><execution><id>attach-javadocs</id><goals><goal>jar</goal></goals></execution></executions></plugin>
   </plugins></build>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.prauga.flexdoc</groupId>
+  <artifactId>flexdoc-jvm</artifactId>
+  <version>0.4.0</version>
+  <name>Prauga FlexDoc JVM Host</name>
+  <description>Framework-neutral Java host for the self-hosted FlexDoc OpenAPI renderer and API explorer</description>
+  <url>https://github.com/prauga/flexdoc</url>
+  <licenses><license><name>GNU Affero General Public License v3.0 or later</name><url>https://www.gnu.org/licenses/agpl-3.0.html</url><distribution>repo</distribution></license></licenses>
+  <developers><developer><name>Prauga</name><organization>Prauga</organization><organizationUrl>https://prauga.com</organizationUrl></developer></developers>
+  <scm><connection>scm:git:https://github.com/prauga/flexdoc.git</connection><developerConnection>scm:git:ssh://git@github.com/prauga/flexdoc.git</developerConnection><url>https://github.com/prauga/flexdoc</url><tag>HEAD</tag></scm>
+  <properties><java.version>17</java.version><maven.compiler.release>${java.version}</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding><junit.version>5.11.4</junit.version></properties>
+  <dependencies><dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><version>${junit.version}</version><scope>test</scope></dependency></dependencies>
+  <build>
+    <resources>
+      <resource><directory>src/main/resources</directory></resource>
+      <resource><directory>../../packages/client/dist/standalone</directory><targetPath>META-INF/flexdoc</targetPath><includes><include>flexdoc.standalone.js</include><include>flexdoc.standalone.css</include></includes></resource>
+    </resources>
+    <plugins>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.13.0</version></plugin>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.2</version></plugin>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-source-plugin</artifactId><version>3.3.1</version><executions><execution><id>attach-sources</id><goals><goal>jar-no-fork</goal></goals></execution></executions></plugin>
+      <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-javadoc-plugin</artifactId><version>3.8.0</version><executions><execution><id>attach-javadocs</id><goals><goal>jar</goal></goals></execution></executions></plugin>
+    </plugins>
+  </build>
+  <profiles><profile><id>release</id><build><plugins>
+    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-gpg-plugin</artifactId><version>3.2.7</version><executions><execution><id>sign-artifacts</id><phase>verify</phase><goals><goal>sign</goal></goals></execution></executions></plugin>
+    <plugin><groupId>org.sonatype.central</groupId><artifactId>central-publishing-maven-plugin</artifactId><version>0.11.0</version><extensions>true</extensions><configuration><publishingServerId>central</publishingServerId><autoPublish>true</autoPublish><waitUntil>published</waitUntil></configuration></plugin>
+  </plugins></build></profile></profiles>
+</project>
