@@ -1,0 +1,95 @@
+name: Java Adapters
+
+on:
+  pull_request:
+    paths:
+      - 'adapters/java/**'
+      - 'adapters/java-jvm/**'
+      - 'adapters/java-jaxrs/**'
+      - 'adapters/java-spring/**'
+      - 'examples/java-*/**'
+      - 'packages/client/**'
+      - '.github/workflows/java.yml'
+      - '.github/workflows/publish-java.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'adapters/java/**'
+      - 'adapters/java-jvm/**'
+      - 'adapters/java-jaxrs/**'
+      - 'adapters/java-spring/**'
+      - 'examples/java-*/**'
+      - 'packages/client/**'
+      - '.github/workflows/java.yml'
+      - '.github/workflows/publish-java.yml'
+
+concurrency:
+  group: java-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-java-family:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Install repository dependencies
+        run: npm ci
+
+      - name: Build canonical renderer
+        run: npm run build:client
+
+      - name: Test and install Java adapter family
+        run: mvn -f adapters/java/pom.xml --batch-mode install
+
+      - name: Verify JVM package owns canonical renderer
+        run: |
+          VERSION=$(mvn -q -f adapters/java-jvm/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)
+          JAR="adapters/java-jvm/target/flexdoc-jvm-${VERSION}.jar"
+          jar tf "$JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.js'
+          jar tf "$JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.css'
+          unzip -p "$JAR" META-INF/flexdoc/flexdoc.standalone.js > /tmp/flexdoc-jvm.js
+          unzip -p "$JAR" META-INF/flexdoc/flexdoc.standalone.css > /tmp/flexdoc-jvm.css
+          cmp /tmp/flexdoc-jvm.js packages/client/dist/standalone/flexdoc.standalone.js
+          cmp /tmp/flexdoc-jvm.css packages/client/dist/standalone/flexdoc.standalone.css
+
+      - name: Build Spring Boot example
+        run: mvn -f examples/java-spring/pom.xml --batch-mode -DskipTests package
+
+      - name: Test Quarkus Jakarta REST example
+        run: mvn -f examples/java-quarkus/pom.xml --batch-mode test
+
+      - name: Test Micronaut neutral-host example
+        run: mvn -f examples/java-micronaut/pom.xml --batch-mode test
+
+      - name: Build Guice neutral-host example
+        run: mvn -f examples/java-guice/pom.xml --batch-mode package
+
+      - name: Smoke test Guice/JDK HTTP host
+        run: |
+          java -Dport=5091 -jar examples/java-guice/target/flexdoc-guice-example-0.1.0-all.jar >/tmp/flexdoc-guice.log 2>&1 &
+          APP_PID=$!
+          trap 'kill $APP_PID 2>/dev/null || true' EXIT
+          READY=0
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5091/health >/dev/null; then READY=1; break; fi
+            sleep 1
+          done
+          if [ "$READY" -ne 1 ]; then cat /tmp/flexdoc-guice.log; exit 1; fi
+          curl --fail --silent http://127.0.0.1:5091/docs | grep 'Guice FlexDoc Example'
+          curl --fail --silent --output /tmp/guice-renderer.js http://127.0.0.1:5091/docs/__flexdoc/renderer.js
+          curl --fail --silent --output /tmp/guice-renderer.css http://127.0.0.1:5091/docs/__flexdoc/renderer.css
+          cmp /tmp/guice-renderer.js packages/client/dist/standalone/flexdoc.standalone.js
+          cmp /tmp/guice-renderer.css packages/client/dist/standalone/flexdoc.standalone.css
