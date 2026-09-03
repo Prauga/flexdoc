@@ -17,3 +17,8 @@ FlexDoc framework support follows one rule: **one canonical renderer, minimal na
 | Elixir | `prauga_flexdoc` Plug | Plug, Phoenix |
 
 Frameworks that already accept a neutral host directly get examples/helpers instead of new package fragmentation. All committed renderer assets are synchronized from `packages/client/dist/standalone` and checked byte-for-byte in CI.
+
+### Path ownership notes
+
+- Jakarta REST/JAX-RS class-level `@Path` values are compile-time annotations. The packaged `FlexDocJaxRsResource` is rooted at `/docs`; custom paths require a subclass/application resource with a different `@Path`, and its `FlexDocHost` must be configured to the same path.
+- Rails mounts the shared Rack transport. `Rails.mount(..., at:)` requires `at:` to match `host.config.path`; mismatches are rejected immediately rather than leaving the page mounted while renderer asset requests 404.

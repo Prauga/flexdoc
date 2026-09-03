@@ -26,12 +26,16 @@ In `config/routes.rb`:
 
 ```ruby
 host = Prauga::FlexDoc::Host.new(
-  Prauga::FlexDoc::Config.new(spec_url: "/openapi.json", title: "My API")
+  Prauga::FlexDoc::Config.new(
+    path: "/docs",
+    spec_url: "/openapi.json",
+    title: "My API"
+  )
 )
 Prauga::FlexDoc::Rails.mount(self, host: host, at: "/docs")
 ```
 
-Rails already uses Rack, so the Rails helper intentionally mounts the same `RackApp` rather than introducing a Rails-specific renderer host.
+Rails already uses Rack, so the Rails helper intentionally mounts the same `RackApp` rather than introducing a Rails-specific renderer host. If `at:` is supplied, it must resolve to the same normalized path as `host.config.path`; the helper raises immediately on a mismatch so the HTML shell cannot point at renderer asset URLs that the mounted Rack app will reject.
 
 ## Packaging
 

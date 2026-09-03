@@ -6,7 +6,14 @@ module Prauga
       module_function
 
       def mount(mapper, host: Host.new, at: nil, as: :flexdoc)
-        mapper.mount RackApp.new(host), at: (at || host.config.path), as: as
+        mount_path = at || host.config.path
+        normalized_mount_path = Config.new(path: mount_path).path
+        if normalized_mount_path != host.config.path
+          raise ArgumentError,
+                "Rails mount path #{normalized_mount_path.inspect} must match FlexDoc host path #{host.config.path.inspect}"
+        end
+
+        mapper.mount RackApp.new(host), at: normalized_mount_path, as: as
         host
       end
     end

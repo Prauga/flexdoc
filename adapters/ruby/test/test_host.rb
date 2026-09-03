@@ -52,4 +52,17 @@ class FlexDocHostTest < Minitest::Test
     assert_equal 200, asset.status
     assert_equal @host.renderer_javascript.body, asset.body
   end
+
+  def test_rails_route_helper_rejects_mount_path_mismatch
+    routes = ActionDispatch::Routing::RouteSet.new
+    host = @host
+
+    error = assert_raises(ArgumentError) do
+      routes.draw do
+        Prauga::FlexDoc::Rails.mount(self, host:, at: "/different")
+      end
+    end
+
+    assert_includes error.message, "must match FlexDoc host path"
+  end
 end
