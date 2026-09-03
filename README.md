@@ -1,6 +1,6 @@
 # FlexDoc
 
-FlexDoc is Prauga's open-source, self-hosted OpenAPI documentation renderer and API explorer. It ships one canonical browser renderer and thin ecosystem adapters, so React, Node backends, ASP.NET Core, Spring Boot, Go, Python, Rust, and static exports use the same OpenAPI behavior and UI.
+FlexDoc is Prauga's open-source, self-hosted OpenAPI documentation renderer and API explorer. It ships one canonical browser renderer and thin ecosystem adapters, so React, Node backends, ASP.NET Core, JVM frameworks, Go, Python, Rust, and static exports use the same OpenAPI behavior and UI.
 
 No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is required.
 
@@ -19,7 +19,7 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - light/dark theming and renderer options
 - standalone browser JS/CSS with no runtime CDN dependency
 - CLI local serving and static export
-- Express, Fastify, NestJS, ASP.NET Core, Spring Boot, Go `net/http`, Python ASGI and Rust Axum integrations
+- Express, Fastify, NestJS, ASP.NET Core, Spring Boot, Jakarta REST/Quarkus, Micronaut, Guice-style JVM, Go `net/http`, Python ASGI and Rust Axum integrations
 
 ## Package family
 
@@ -30,7 +30,9 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 | npm | `@prauga/flexdoc-core` | `0.2.0` |
 | npm | `@prauga/flexdoc-cli` | `0.2.0` |
 | NuGet | `Prauga.FlexDoc.AspNetCore` | `0.1.0` |
-| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.3.0` |
+| Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.4.0` |
+| Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.4.0` |
+| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.4.0` |
 | PyPI | `prauga-flexdoc` | `0.2.0` |
 | crates.io | `prauga-flexdoc-axum` | `0.2.0` |
 | Go | `github.com/prauga/flexdoc/adapters/go` | `0.2.0` |
@@ -39,7 +41,7 @@ These versions are independent across ecosystems. Renderer contract v1 is the co
 
 ## Examples
 
-All runnable examples are consolidated in [`examples/`](./examples/README.md), including React, the standalone API Client, NestJS, Express, Fastify, ASP.NET Core, FastAPI, Spring Boot, Go and Rust.
+All runnable examples are consolidated in [`examples/`](./examples/README.md), including React, the standalone API Client, NestJS, Express, Fastify, ASP.NET Core, FastAPI, Spring Boot, Quarkus, Micronaut, Guice, Go and Rust.
 
 The examples use the full OpenAPI 3.1 feature showcase where the framework allows a direct specification. FlexDoc dependencies use exact current release versions. `npm run check:example-versions` derives the expected versions from the package and adapter manifests and CI rejects stale example pins whenever a release version changes.
 
@@ -111,17 +113,52 @@ npx @prauga/flexdoc-cli build openapi.yaml --out ./docs
 
 Static output contains `index.html`, `flexdoc.js`, `flexdoc.css`, and a bundled `openapi.json`. External `$ref` documents are resolved at build time.
 
-## Spring Boot
+## Java / JVM
+
+The Java family is coordinated at `0.4.0`. `flexdoc-jvm` owns the renderer host with no web-framework dependency; Spring Boot and Jakarta REST are thin transports over it.
+
+```xml
+<dependency>
+  <groupId>com.prauga.flexdoc</groupId>
+  <artifactId>flexdoc-jvm</artifactId>
+  <version>0.4.0</version>
+</dependency>
+```
+
+```java
+FlexDocHost host = new FlexDocHost(
+    FlexDocConfig.builder()
+        .path("/docs")
+        .specUrl("/openapi.json")
+        .title("My API")
+        .build());
+```
+
+Map `host.documentation()`, `host.rendererJavaScript()`, and `host.rendererCss()` through the framework's native HTTP response type. This is the direct integration path for Micronaut and for Guice/Governator-style services.
+
+For Jakarta REST/JAX-RS runtimes such as Quarkus:
+
+```xml
+<dependency>
+  <groupId>com.prauga.flexdoc</groupId>
+  <artifactId>flexdoc-jaxrs</artifactId>
+  <version>0.4.0</version>
+</dependency>
+```
+
+Provide a `FlexDocHost` through CDI and expose `FlexDocJaxRsResource` or delegate to it from an application resource.
+
+For Spring Boot:
 
 ```xml
 <dependency>
   <groupId>com.prauga.flexdoc</groupId>
   <artifactId>flexdoc-spring-boot-starter</artifactId>
-  <version>0.3.0</version>
+  <version>0.4.0</version>
 </dependency>
 ```
 
-With springdoc's conventional `/v3/api-docs` endpoint, the default integration exposes FlexDoc at `/docs`. See [`adapters/java-spring`](./adapters/java-spring/README.md).
+With springdoc's conventional `/v3/api-docs` endpoint, the default integration exposes FlexDoc at `/docs`. The starter now delegates renderer hosting to `flexdoc-jvm` instead of maintaining a Spring-specific renderer host.
 
 ## Go
 
@@ -177,7 +214,7 @@ canonical browser renderer
       +--> standalone / CLI
       +--> Express / Fastify / NestJS
       +--> ASP.NET Core
-      +--> Spring Boot
+      +--> JVM host --> Spring Boot / Jakarta REST / Quarkus / Micronaut / Guice-Governator
       +--> Go net/http
       +--> Python ASGI
       +--> Rust Axum
@@ -201,7 +238,7 @@ dotnet build adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNet
 (cd adapters/go && go test ./...)
 python3 -m unittest discover -s adapters/python/tests -v
 cargo test --manifest-path adapters/rust/Cargo.toml --all-targets
-mvn -f adapters/java-spring/pom.xml verify
+mvn -f adapters/java/pom.xml verify
 ```
 
 ## Release and migration
