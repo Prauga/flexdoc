@@ -22,7 +22,8 @@ defmodule PraugaFlexDoc.MixProject do
   defp deps do
     [
       {:plug, "~> 1.19"},
-      {:jason, "~> 1.4"}
+      {:jason, "~> 1.4"},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false}
     ]
   end
 
