@@ -1,8 +1,6 @@
 # FlexDoc examples
 
-All runnable FlexDoc examples live in this directory. They represent the **current FlexDoc release represented by this repository** and are intentionally kept in lockstep with source manifests so copyable examples do not describe an older API.
-
-CI runs `npm run check:example-versions` and fails if an example drifts behind the source package/adapter version.
+All runnable FlexDoc examples live here and are kept aligned to the source adapter versions by CI.
 
 | Example | FlexDoc package |
 | --- | --- |
@@ -22,13 +20,11 @@ CI runs `npm run check:example-versions` and fails if an example drifts behind t
 | [`java-guice`](./java-guice) | Guice/JDK HTTP + `com.prauga.flexdoc:flexdoc-jvm` `0.4.0` |
 | [`php-laravel`](./php-laravel) | Laravel + `prauga/flexdoc` `0.1.0` |
 | [`php-symfony`](./php-symfony) | Symfony + `prauga/flexdoc` `0.1.0` |
+| [`ruby-rack`](./ruby-rack) | Rack + `prauga-flexdoc` gem `0.1.0` |
+| [`ruby-rails`](./ruby-rails) | Rails + `prauga-flexdoc` gem `0.1.0` |
 | [`go-net-http`](./go-net-http) | `github.com/prauga/flexdoc/adapters/go` `v0.2.0` |
 | [`rust-axum`](./rust-axum) | `prauga-flexdoc-axum` `0.2.0` |
 
-## Architecture coverage
+## Adapter rule
 
-The Java, Python, and PHP examples follow the same rule: one framework-neutral host per runtime owns the renderer shell/assets and framework integrations only translate HTTP responses or register routes. Dedicated language workflows exercise those integrations against real framework components.
-
-## Release-candidate validation
-
-Examples keep exact release versions in their manifests. Before those versions are published, CI substitutes or builds the package/adapter from the same commit where the ecosystem supports it. Third-party framework versions remain independent.
+Every ecosystem owns one native renderer host where practical. Framework integrations register routes or translate responses over that host. The Java, Python, PHP, and Ruby slices all follow this pattern and have dedicated language CI.

@@ -1,0 +1,66 @@
+name: Ruby Adapters
+
+on:
+  pull_request:
+    paths:
+      - 'adapters/ruby/**'
+      - 'examples/ruby-*/**'
+      - 'packages/client/**'
+      - '.github/workflows/ruby.yml'
+      - '.github/workflows/publish-ruby.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'adapters/ruby/**'
+      - 'examples/ruby-*/**'
+      - 'packages/client/**'
+      - '.github/workflows/ruby.yml'
+      - '.github/workflows/publish-ruby.yml'
+
+concurrency:
+  group: ruby-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-ruby-family:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: adapters/ruby
+
+      - run: npm ci
+      - run: npm run build:client
+
+      - name: Test neutral host, Rack, and Rails routing
+        working-directory: adapters/ruby
+        run: bundle exec rake test
+
+      - name: Build and inspect gem
+        working-directory: adapters/ruby
+        run: |
+          gem build prauga-flexdoc.gemspec
+          GEM_FILE=$(ls prauga-flexdoc-*.gem)
+          rm -rf /tmp/flexdoc-ruby-unpack
+          mkdir -p /tmp/flexdoc-ruby-unpack
+          gem unpack "$GEM_FILE" --target /tmp/flexdoc-ruby-unpack >/dev/null
+          ROOT=$(find /tmp/flexdoc-ruby-unpack -mindepth 1 -maxdepth 1 -type d -name 'prauga-flexdoc-*' | head -n1)
+          test -n "$ROOT"
+          test -s "$ROOT/assets/flexdoc.standalone.js"
+          test -s "$ROOT/assets/flexdoc.standalone.css"
+          test -s "$ROOT/LICENSE"
+
+      - name: Verify canonical renderer parity
+        run: |
+          cmp adapters/ruby/assets/flexdoc.standalone.js packages/client/dist/standalone/flexdoc.standalone.js
+          cmp adapters/ruby/assets/flexdoc.standalone.css packages/client/dist/standalone/flexdoc.standalone.css

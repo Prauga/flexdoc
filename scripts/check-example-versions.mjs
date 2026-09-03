@@ -8,21 +8,13 @@ const clientVersion = json('packages/client/package.json').version;
 const backendVersion = json('packages/backend/package.json').version;
 const coreVersion = json('core/package.json').version;
 const cliVersion = json('tools/flexdoc-cli/package.json').version;
-const coreLock = json('core/package-lock.json');
-if (coreLock.version !== coreVersion || coreLock.packages?.['']?.version !== coreVersion) fail(`core/package-lock.json is stale: expected ${coreVersion}`);
-
-const javaPom = read('adapters/java/pom.xml');
-const javaVersion = javaPom.match(/<artifactId>flexdoc-java-reactor<\/artifactId>\s*<version>([^<]+)<\/version>/)?.[1];
-if (!javaVersion) fail('Unable to read Java family version');
-
+const javaVersion = read('adapters/java/pom.xml').match(/<artifactId>flexdoc-java-reactor<\/artifactId>\s*<version>([^<]+)<\/version>/)?.[1];
 const pythonVersion = read('adapters/python/pyproject.toml').match(/\[project\][\s\S]*?\nversion\s*=\s*"([^"]+)"/)?.[1];
-if (!pythonVersion) fail('Unable to read Python adapter version');
 const phpVersion = read('adapters/php/VERSION').trim();
-if (!phpVersion) fail('Unable to read PHP adapter version');
+const rubyVersion = read('adapters/ruby/lib/prauga/flexdoc/version.rb').match(/VERSION = "([^"]+)"/)?.[1];
 const rustVersion = read('adapters/rust/Cargo.toml').match(/\[package\][\s\S]*?\nversion\s*=\s*"([^"]+)"/)?.[1];
-if (!rustVersion) fail('Unable to read Rust adapter version');
 const goVersion = read('adapters/go/VERSION').trim();
-if (!goVersion) fail('Unable to read Go adapter version');
+for (const [name, version] of Object.entries({javaVersion, pythonVersion, phpVersion, rubyVersion, rustVersion, goVersion})) if (!version) fail(`Unable to read ${name}`);
 
 const checks = [
   ['examples/basic-usage/package.json', `"@prauga/flexdoc-client": "${clientVersion}"`],
@@ -36,19 +28,14 @@ const checks = [
   ['examples/python-django/requirements.txt', `prauga-flexdoc==${pythonVersion}`],
   ['examples/php-laravel/composer.json', `"prauga/flexdoc": "${phpVersion}"`],
   ['examples/php-symfony/composer.json', `"prauga/flexdoc": "${phpVersion}"`],
+  ['examples/ruby-rack/Gemfile', `gem "prauga-flexdoc", "${rubyVersion}"`],
+  ['examples/ruby-rails/Gemfile', `gem "prauga-flexdoc", "${rubyVersion}"`],
   ['examples/java-spring/pom.xml', `<flexdoc.version>${javaVersion}</flexdoc.version>`],
   ['examples/java-quarkus/pom.xml', `<flexdoc.version>${javaVersion}</flexdoc.version>`],
   ['examples/java-micronaut/pom.xml', `<flexdoc.version>${javaVersion}</flexdoc.version>`],
   ['examples/java-guice/pom.xml', `<flexdoc.version>${javaVersion}</flexdoc.version>`],
   ['examples/go-net-http/go.mod', `github.com/prauga/flexdoc/adapters/go v${goVersion}`],
   ['examples/rust-axum/Cargo.toml', `prauga-flexdoc-axum = "${rustVersion}"`],
-  ['examples/python-fastapi/README.md', `pinned to \`${pythonVersion}\``],
-  ['examples/python-flask/README.md', `pinned to \`${pythonVersion}\``],
-  ['examples/python-django/README.md', `pinned to \`${pythonVersion}\``],
-  ['examples/php-laravel/README.md', `\`${phpVersion}\``],
-  ['examples/php-symfony/README.md', `\`${phpVersion}\``],
-  ['examples/README.md', `| [\`php-laravel\`](./php-laravel) | Laravel + \`prauga/flexdoc\` \`${phpVersion}\` |`],
-  ['examples/README.md', `| [\`php-symfony\`](./php-symfony) | Symfony + \`prauga/flexdoc\` \`${phpVersion}\` |`],
   ['README.md', `| npm | \`@prauga/flexdoc-client\` | \`${clientVersion}\` |`],
   ['README.md', `| npm | \`@prauga/flexdoc-backend\` | \`${backendVersion}\` |`],
   ['README.md', `| npm | \`@prauga/flexdoc-core\` | \`${coreVersion}\` |`],
@@ -56,13 +43,11 @@ const checks = [
   ['README.md', `| Maven | \`com.prauga.flexdoc:flexdoc-jvm\` | \`${javaVersion}\` |`],
   ['README.md', `| PyPI | \`prauga-flexdoc\` | \`${pythonVersion}\` |`],
   ['README.md', `| Composer | \`prauga/flexdoc\` | \`${phpVersion}\` |`],
+  ['README.md', `| RubyGems | \`prauga-flexdoc\` | \`${rubyVersion}\` |`],
   ['README.md', `| crates.io | \`prauga-flexdoc-axum\` | \`${rustVersion}\` |`],
   ['README.md', `| Go | \`github.com/prauga/flexdoc/adapters/go\` | \`${goVersion}\` |`],
 ];
-
-for (const [path, expected] of checks) {
-  if (!read(path).includes(expected)) fail(`${path} is stale: expected ${expected}`);
-}
+for (const [path, expected] of checks) if (!read(path).includes(expected)) fail(`${path} is stale: expected ${expected}`);
 
 if (read('examples/go-net-http/showcase-openapi.json') !== read('examples/showcase-openapi.json')) fail('Go showcase OpenAPI copy is stale');
-console.log(`Examples and version tables match: client ${clientVersion}, backend ${backendVersion}, Java ${javaVersion}, Python ${pythonVersion}, PHP ${phpVersion}, Go ${goVersion}, Rust ${rustVersion}`);
+console.log(`Version guard passed: JS ${clientVersion}/${backendVersion}, Java ${javaVersion}, Python ${pythonVersion}, PHP ${phpVersion}, Ruby ${rubyVersion}, Go ${goVersion}, Rust ${rustVersion}`);

@@ -1,0 +1,38 @@
+name: Publish FlexDoc Ruby adapter
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: startsWith(github.event.release.tag_name, 'ruby/v')
+    runs-on: ubuntu-latest
+    environment: rubygems
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: adapters/ruby
+      - name: Verify release tag
+        working-directory: adapters/ruby
+        run: |
+          VERSION=$(ruby -Ilib -r prauga/flexdoc/version -e 'print Prauga::FlexDoc::VERSION')
+          test "${{ github.event.release.tag_name }}" = "ruby/v${VERSION}"
+      - name: Test and build gem
+        working-directory: adapters/ruby
+        run: |
+          bundle exec rake test
+          gem build prauga-flexdoc.gemspec --output /tmp/prauga-flexdoc.gem
+      - name: Configure RubyGems trusted publishing
+        uses: rubygems/configure-rubygems-credentials@v2.1.0
+      - name: Publish gem
+        run: gem push /tmp/prauga-flexdoc.gem
