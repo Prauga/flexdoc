@@ -115,6 +115,7 @@ jobs:
           mix deps.get
           mix test
           mix hex.build
+          mix docs
 
       - name: Verify Plug renderer parity
         run: |
