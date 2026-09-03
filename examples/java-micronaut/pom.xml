@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.prauga.example</groupId><artifactId>flexdoc-micronaut-example</artifactId><version>0.1.0</version>
+  <properties><maven.compiler.release>17</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding><micronaut.platform.version>4.10.1</micronaut.platform.version><micronaut.maven.plugin.version>4.11.6</micronaut.maven.plugin.version><flexdoc.version>0.4.0</flexdoc.version><packaging>jar</packaging><micronaut.runtime>netty</micronaut.runtime></properties>
+  <dependencyManagement><dependencies><dependency><groupId>io.micronaut.platform</groupId><artifactId>micronaut-platform</artifactId><version>${micronaut.platform.version}</version><type>pom</type><scope>import</scope></dependency></dependencies></dependencyManagement>
+  <dependencies>
+    <dependency><groupId>com.prauga.flexdoc</groupId><artifactId>flexdoc-jvm</artifactId><version>${flexdoc.version}</version></dependency>
+    <dependency><groupId>io.micronaut</groupId><artifactId>micronaut-runtime</artifactId></dependency>
+    <dependency><groupId>io.micronaut</groupId><artifactId>micronaut-http-server-netty</artifactId></dependency>
+    <dependency><groupId>io.micronaut</groupId><artifactId>micronaut-http-client</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>io.micronaut.test</groupId><artifactId>micronaut-test-junit5</artifactId><scope>test</scope></dependency>
+    <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter-api</artifactId><scope>test</scope></dependency>
+  </dependencies>
+  <build><plugins>
+    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.13.0</version><configuration><annotationProcessorPaths><path><groupId>io.micronaut</groupId><artifactId>micronaut-inject-java</artifactId></path></annotationProcessorPaths></configuration></plugin>
+    <plugin><groupId>io.micronaut.maven</groupId><artifactId>micronaut-maven-plugin</artifactId><version>${micronaut.maven.plugin.version}</version><extensions>true</extensions></plugin>
+    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-surefire-plugin</artifactId><version>3.5.2</version></plugin>
+  </plugins></build>
+</project>
