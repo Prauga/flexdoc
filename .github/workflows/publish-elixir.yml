@@ -26,7 +26,8 @@ jobs:
       - name: Verify release tag
         working-directory: adapters/elixir
         run: |
-          VERSION=$(mix run -e 'IO.write(Mix.Project.config()[:version])')
+          VERSION=$(sed -n 's/^[[:space:]]*@version "\([^"]*\)".*/\1/p' mix.exs)
+          test -n "$VERSION"
           test "${{ github.event.release.tag_name }}" = "elixir/v${VERSION}"
       - name: Test package
         working-directory: adapters/elixir
