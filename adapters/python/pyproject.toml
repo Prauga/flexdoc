@@ -4,21 +4,28 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "prauga-flexdoc"
-version = "0.2.0"
-description = "Self-contained ASGI adapter for the Prauga FlexDoc OpenAPI renderer"
+version = "0.3.0"
+description = "Self-contained ASGI and WSGI adapters for the Prauga FlexDoc OpenAPI renderer"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "AGPL-3.0-or-later"
 authors = [{name = "Prauga"}]
-keywords = ["openapi", "api-documentation", "api-explorer", "asgi", "fastapi", "starlette", "self-hosted", "flexdoc"]
+keywords = ["openapi", "api-documentation", "api-explorer", "asgi", "wsgi", "fastapi", "flask", "django", "starlette", "self-hosted", "flexdoc"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
   "Framework :: AsyncIO",
+  "Framework :: Flask",
+  "Framework :: Django",
   "Operating System :: OS Independent",
   "Topic :: Documentation",
   "Topic :: Software Development :: Libraries :: Application Frameworks"
 ]
+
+[project.optional-dependencies]
+fastapi = ["fastapi>=0.115"]
+flask = ["flask>=3.0"]
+django = ["django>=5.0"]
 
 [project.urls]
 Homepage = "https://github.com/prauga/flexdoc"
