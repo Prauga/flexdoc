@@ -32,6 +32,6 @@ app.MapFlexDoc(options =>
 app.Run();
 ```
 
-FlexDoc serves the docs shell at `/docs` and version-fingerprinted renderer assets beneath `/docs/__flexdoc/`. The HTML shell is `no-cache`; renderer JS/CSS are immutable and self-hosted.
+FlexDoc serves the docs shell at `/docs` and version-fingerprinted renderer assets beneath `/docs/__flexdoc/`. ASP.NET Core endpoint routing also accepts the equivalent trailing-slash request `/docs/`; CI exercises both forms. The HTML shell is `no-cache`; renderer JS/CSS are immutable and self-hosted.
 
 The integration only needs an OpenAPI JSON URL. It deliberately has no dependency on Swashbuckle, NSwag, or a particular OpenAPI generator.

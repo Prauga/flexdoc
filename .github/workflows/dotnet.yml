@@ -84,13 +84,17 @@ jobs:
             exit 1
           fi
 
-          curl --fail --show-error --silent --output /tmp/flexdoc-dotnet-docs.html http://127.0.0.1:5087/docs
-          curl --fail --show-error --silent --output /tmp/flexdoc-dotnet-docs-slash.html http://127.0.0.1:5087/docs/
+          curl --fail --show-error --silent -D /tmp/flexdoc-dotnet-docs.headers --output /tmp/flexdoc-dotnet-docs.html http://127.0.0.1:5087/docs
+          curl --fail --show-error --silent -D /tmp/flexdoc-dotnet-docs-slash.headers --output /tmp/flexdoc-dotnet-docs-slash.html http://127.0.0.1:5087/docs/
           grep 'FlexDoc ASP.NET Core Example' /tmp/flexdoc-dotnet-docs.html
           grep 'window.__FLEXDOC_SPEC_URL__="/openapi.json"' /tmp/flexdoc-dotnet-docs.html
           grep 'FlexDoc ASP.NET Core Example' /tmp/flexdoc-dotnet-docs-slash.html
+          grep -Fi 'cache-control: no-cache' /tmp/flexdoc-dotnet-docs.headers
+          grep -Fi 'cache-control: no-cache' /tmp/flexdoc-dotnet-docs-slash.headers
 
-          curl --fail --show-error --silent --output /tmp/flexdoc-dotnet-renderer.js http://127.0.0.1:5087/docs/__flexdoc/renderer.js
-          curl --fail --show-error --silent --output /tmp/flexdoc-dotnet-renderer.css http://127.0.0.1:5087/docs/__flexdoc/renderer.css
+          curl --fail --show-error --silent -D /tmp/flexdoc-dotnet-renderer-js.headers --output /tmp/flexdoc-dotnet-renderer.js http://127.0.0.1:5087/docs/__flexdoc/renderer.js
+          curl --fail --show-error --silent -D /tmp/flexdoc-dotnet-renderer-css.headers --output /tmp/flexdoc-dotnet-renderer.css http://127.0.0.1:5087/docs/__flexdoc/renderer.css
+          grep -Fi 'cache-control: public, max-age=31536000, immutable' /tmp/flexdoc-dotnet-renderer-js.headers
+          grep -Fi 'cache-control: public, max-age=31536000, immutable' /tmp/flexdoc-dotnet-renderer-css.headers
           cmp /tmp/flexdoc-dotnet-renderer.js packages/client/dist/standalone/flexdoc.standalone.js
           cmp /tmp/flexdoc-dotnet-renderer.css packages/client/dist/standalone/flexdoc.standalone.css

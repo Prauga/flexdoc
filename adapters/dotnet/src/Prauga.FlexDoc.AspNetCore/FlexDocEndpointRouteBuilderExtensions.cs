@@ -31,30 +31,55 @@ public static class FlexDocEndpointRouteBuilderExtensions
         var group = endpoints.MapGroup(path);
         group.MapGet("/__flexdoc/renderer.js", context => WriteAsset(
             context,
-            RendererAssets.JavaScript,
+            static () => RendererAssets.JavaScript,
             "application/javascript; charset=utf-8"));
         group.MapGet("/__flexdoc/renderer.css", context => WriteAsset(
             context,
-            RendererAssets.CssText,
+            static () => RendererAssets.CssText,
             "text/css; charset=utf-8"));
         return group;
     }
 
     private static async Task WriteHtml(HttpContext context, FlexDocOptions options, string path)
     {
-        context.Response.StatusCode = StatusCodes.Status200OK;
-        context.Response.ContentType = "text/html; charset=utf-8";
-        context.Response.Headers.CacheControl = "no-cache";
-        await context.Response.WriteAsync(CreateHtml(options, path), context.RequestAborted);
+        try
+        {
+            var html = CreateHtml(options, path);
+            context.Response.StatusCode = StatusCodes.Status200OK;
+            context.Response.ContentType = "text/html; charset=utf-8";
+            context.Response.Headers.CacheControl = "no-cache";
+            await context.Response.WriteAsync(html, context.RequestAborted);
+        }
+        catch (InvalidOperationException)
+        {
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Response.ContentType = "text/plain; charset=utf-8";
+            context.Response.Headers.CacheControl = "no-cache";
+            await context.Response.WriteAsync("FlexDoc renderer asset unavailable", context.RequestAborted);
+        }
     }
 
-    private static async Task WriteAsset(HttpContext context, ReadOnlyMemory<byte> body, string contentType)
+    private static async Task WriteAsset(
+        HttpContext context,
+        Func<ReadOnlyMemory<byte>> bodyFactory,
+        string contentType)
     {
-        context.Response.StatusCode = StatusCodes.Status200OK;
-        context.Response.ContentType = contentType;
-        context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
-        context.Response.ContentLength = body.Length;
-        await context.Response.Body.WriteAsync(body, context.RequestAborted);
+        try
+        {
+            var body = bodyFactory();
+            context.Response.StatusCode = StatusCodes.Status200OK;
+            context.Response.ContentType = contentType;
+            context.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+            context.Response.ContentLength = body.Length;
+            await context.Response.Body.WriteAsync(body, context.RequestAborted);
+        }
+        catch (InvalidOperationException)
+        {
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Response.ContentType = "text/plain; charset=utf-8";
+            context.Response.Headers.CacheControl = "no-cache";
+            await context.Response.WriteAsync("FlexDoc renderer asset unavailable", context.RequestAborted);
+        }
     }
 
     private static string CreateHtml(FlexDocOptions options, string path)
@@ -66,8 +91,8 @@ public static class FlexDocEndpointRouteBuilderExtensions
             theme = options.Theme,
             tryIt = new { enabled = options.TryItEnabled },
         };
-        var specUrl = JsonSerializer.Serialize(options.SpecUrl);
-        var serializedOptions = JsonSerializer.Serialize(rendererOptions);
+        var specUrl = SafeJson(options.SpecUrl);
+        var serializedOptions = SafeJson(rendererOptions);
         var title = HtmlEncoder.Default.Encode(options.Title);
         var assetPath = HtmlEncoder.Default.Encode(path);
         var version = RendererAssets.Fingerprint;
@@ -80,6 +105,19 @@ public static class FlexDocEndpointRouteBuilderExtensions
             .Replace("@@VERSION@@", version, StringComparison.Ordinal)
             .Replace("@@SPEC_URL@@", specUrl, StringComparison.Ordinal)
             .Replace("@@OPTIONS@@", serializedOptions, StringComparison.Ordinal);
+    }
+
+    private static string SafeJson<T>(T value)
+    {
+        return JsonSerializer.Serialize(value)
+            .Replace("<", "\\u003c", StringComparison.Ordinal)
+            .Replace(">", "\\u003e", StringComparison.Ordinal)
+            .Replace("&", "\\u0026", StringComparison.Ordinal)
+            .Replace("\u2028", "\\u2028", StringComparison.Ordinal)
+            .Replace("\u2029", "\\u2029", StringComparison.Ordinal)
+            .Replace("\\u003C", "\\u003c", StringComparison.Ordinal)
+            .Replace("\\u003E", "\\u003e", StringComparison.Ordinal)
+            .Replace("\\u0026", "\\u0026", StringComparison.Ordinal);
     }
 
     private static string NormalizePath(string path)
