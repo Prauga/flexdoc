@@ -1,0 +1,66 @@
+name: PHP Adapters
+
+on:
+  pull_request:
+    paths:
+      - 'adapters/php/**'
+      - 'examples/php-*/**'
+      - 'packages/client/**'
+      - '.github/workflows/php.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'adapters/php/**'
+      - 'examples/php-*/**'
+      - 'packages/client/**'
+      - '.github/workflows/php.yml'
+
+concurrency:
+  group: php-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-php-family:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+
+      - run: npm ci
+      - run: npm run build:client
+
+      - name: Validate Composer package
+        working-directory: adapters/php
+        run: composer validate --strict --no-check-publish
+
+      - name: Install PHP integration dependencies
+        working-directory: adapters/php
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Lint PHP sources
+        run: find adapters/php examples/php-laravel examples/php-symfony -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Test generic, Laravel, and Symfony integrations
+        working-directory: adapters/php
+        run: composer test
+
+      - name: Verify canonical renderer parity
+        run: |
+          cmp adapters/php/assets/flexdoc.standalone.js packages/client/dist/standalone/flexdoc.standalone.js
+          cmp adapters/php/assets/flexdoc.standalone.css packages/client/dist/standalone/flexdoc.standalone.css
+
+      - name: Validate framework example manifests
+        run: |
+          composer validate --working-dir=examples/php-laravel --no-check-publish
+          composer validate --working-dir=examples/php-symfony --no-check-publish

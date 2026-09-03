@@ -1,0 +1,29 @@
+{
+  "name": "prauga/flexdoc",
+  "description": "Self-hosted FlexDoc OpenAPI renderer integration for PHP, Laravel, and Symfony",
+  "type": "library",
+  "license": "AGPL-3.0-or-later",
+  "authors": [{"name": "Prauga"}],
+  "require": {"php": ">=8.2"},
+  "require-dev": {
+    "illuminate/config": "^11.0 || ^12.0",
+    "illuminate/container": "^11.0 || ^12.0",
+    "illuminate/events": "^11.0 || ^12.0",
+    "illuminate/http": "^11.0 || ^12.0",
+    "illuminate/routing": "^11.0 || ^12.0",
+    "illuminate/support": "^11.0 || ^12.0",
+    "symfony/http-foundation": "^7.2"
+  },
+  "suggest": {
+    "illuminate/routing": "Required for the Laravel integration",
+    "illuminate/support": "Required for Laravel service-provider auto-discovery",
+    "symfony/http-foundation": "Required for the Symfony controller integration"
+  },
+  "autoload": {"psr-4": {"Prauga\\FlexDoc\\": "src/"}},
+  "scripts": {"test": "php tests/run.php"},
+  "extra": {"laravel": {"providers": ["Prauga\\FlexDoc\\Laravel\\FlexDocServiceProvider"]}},
+  "support": {
+    "issues": "https://github.com/prauga/flexdoc/issues",
+    "source": "https://github.com/prauga/flexdoc"
+  }
+}

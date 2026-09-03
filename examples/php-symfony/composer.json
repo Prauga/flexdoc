@@ -1,0 +1,9 @@
+{
+  "name": "prauga/flexdoc-symfony-example",
+  "type": "project",
+  "require": {
+    "php": ">=8.2",
+    "prauga/flexdoc": "0.1.0",
+    "symfony/framework-bundle": "^7.2"
+  }
+}

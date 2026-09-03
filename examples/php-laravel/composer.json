@@ -1,0 +1,9 @@
+{
+  "name": "prauga/flexdoc-laravel-example",
+  "type": "project",
+  "require": {
+    "php": ">=8.2",
+    "laravel/framework": "^12.0",
+    "prauga/flexdoc": "0.1.0"
+  }
+}

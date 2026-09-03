@@ -1,0 +1,33 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Prauga\FlexDoc\Laravel;
+
+use Illuminate\Routing\Router;
+use Illuminate\Support\ServiceProvider;
+use Prauga\FlexDoc\FlexDocConfig;
+use Prauga\FlexDoc\FlexDocHost;
+
+final class FlexDocServiceProvider extends ServiceProvider
+{
+    public function register(): void
+    {
+        $this->mergeConfigFrom(dirname(__DIR__, 2) . '/config/flexdoc.php', 'flexdoc');
+        $this->app->singleton(FlexDocHost::class, function ($app): FlexDocHost {
+            $config = $app['config']->get('flexdoc', []);
+            return new FlexDocHost(new FlexDocConfig(
+                path: (string) ($config['path'] ?? '/docs'),
+                specUrl: (string) ($config['spec_url'] ?? '/openapi.json'),
+                title: (string) ($config['title'] ?? 'API Reference'),
+                theme: (string) ($config['theme'] ?? 'system'),
+                tryItEnabled: (bool) ($config['try_it_enabled'] ?? true),
+            ));
+        });
+    }
+
+    public function boot(Router $router): void
+    {
+        LaravelFlexDoc::register($router, $this->app->make(FlexDocHost::class));
+    }
+}

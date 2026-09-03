@@ -1,0 +1,26 @@
+# Prauga FlexDoc for PHP
+
+`prauga/flexdoc` `0.1.0` provides a framework-neutral PHP 8.2+ host for the canonical FlexDoc renderer, plus thin Laravel and Symfony integrations. It is self-hosted and does not require a runtime CDN.
+
+## Generic PHP
+
+```php
+use Prauga\FlexDoc\FlexDocConfig;
+use Prauga\FlexDoc\FlexDocHost;
+
+$host = new FlexDocHost(new FlexDocConfig(path: '/docs', specUrl: '/openapi.json', title: 'My API'));
+```
+
+Map `responseForPath()` or the three explicit response methods through your HTTP framework.
+
+## Laravel
+
+Laravel package auto-discovery loads `FlexDocServiceProvider`, which binds `FlexDocHost` and registers the docs and renderer routes. Configure `flexdoc.path`, `flexdoc.spec_url`, `flexdoc.title`, `flexdoc.theme`, and `flexdoc.try_it_enabled` in the application config. `LaravelFlexDoc::register($router, $host)` is also available for manual routing.
+
+## Symfony
+
+Register `FlexDocHost` as a service and inject it into `Prauga\FlexDoc\Symfony\FlexDocController`. Route `/docs`, `/docs/__flexdoc/renderer.js`, and `/docs/__flexdoc/renderer.css` to the controller's corresponding methods.
+
+## Packaging
+
+The package contains the version-matched `assets/flexdoc.standalone.{js,css}`. PHP CI byte-compares them with `packages/client/dist/standalone`.
