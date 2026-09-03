@@ -51,7 +51,7 @@ describe('api-client-workspace', () => {
       }],
     });
 
-    expect(migrated.version).toBe(4);
+    expect(migrated.version).toBe(5);
     expect(migrated.collections[0].name).toBe('Legacy');
     expect(migrated.requests[0].request.url).toBe('{{baseUrl}}/pets');
     expect(migrated.requests[0].scripts).toBeUndefined();
@@ -69,7 +69,7 @@ describe('api-client-workspace', () => {
       activeEnvironmentId: 'environment-1',
     });
 
-    expect(migrated.version).toBe(4);
+    expect(migrated.version).toBe(5);
     expect(migrated.environments).toHaveLength(1);
     expect(migrated.activeEnvironmentId).toBe('environment-1');
     expect(migrated.history).toEqual([]);
@@ -92,9 +92,56 @@ describe('api-client-workspace', () => {
       environments: [],
     });
 
-    expect(migrated.version).toBe(4);
+    expect(migrated.version).toBe(5);
     expect(migrated.requests[0].scripts?.preRequest).toBe('console.log(1)');
     expect(migrated.history).toEqual([]);
+  });
+
+  it('migrates flat version 4 folders as root folders', () => {
+    const migrated = normalizeApiClientWorkspace({
+      version: 4,
+      collections: [{ id: 'collection-1', name: 'Legacy folders', variables: [], createdAt: '2026-09-01', updatedAt: '2026-09-01' }],
+      folders: [{ id: 'folder-1', collectionId: 'collection-1', name: 'Pets', createdAt: '2026-09-01', updatedAt: '2026-09-01' }],
+      requests: [],
+      environments: [],
+      history: [],
+    });
+
+    expect(migrated.version).toBe(5);
+    expect(migrated.folders).toEqual([
+      { id: 'folder-1', collectionId: 'collection-1', parentFolderId: undefined, name: 'Pets', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+    ]);
+  });
+
+  it('preserves valid nested folders while repairing invalid parents and cycles', () => {
+    const normalized = normalizeApiClientWorkspace({
+      version: 5,
+      collections: [
+        { id: 'collection-1', name: 'One', variables: [], createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+        { id: 'collection-2', name: 'Two', variables: [], createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+      ],
+      folders: [
+        { id: 'root', collectionId: 'collection-1', name: 'Root', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+        { id: 'child', collectionId: 'collection-1', parentFolderId: 'root', name: 'Child', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+        { id: 'cross', collectionId: 'collection-1', parentFolderId: 'other-root', name: 'Cross', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+        { id: 'missing', collectionId: 'collection-1', parentFolderId: 'missing-id', name: 'Missing', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+        { id: 'self', collectionId: 'collection-1', parentFolderId: 'self', name: 'Self', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+        { id: 'other-root', collectionId: 'collection-2', name: 'Other', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+        { id: 'cycle-a', collectionId: 'collection-1', parentFolderId: 'cycle-b', name: 'A', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+        { id: 'cycle-b', collectionId: 'collection-1', parentFolderId: 'cycle-a', name: 'B', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+      ],
+      requests: [],
+      environments: [],
+      history: [],
+    });
+
+    expect(normalized.folders.find((folder) => folder.id === 'child')?.parentFolderId).toBe('root');
+    expect(normalized.folders.find((folder) => folder.id === 'cross')?.parentFolderId).toBeUndefined();
+    expect(normalized.folders.find((folder) => folder.id === 'missing')?.parentFolderId).toBeUndefined();
+    expect(normalized.folders.find((folder) => folder.id === 'self')?.parentFolderId).toBeUndefined();
+    const cycleA = normalized.folders.find((folder) => folder.id === 'cycle-a');
+    const cycleB = normalized.folders.find((folder) => folder.id === 'cycle-b');
+    expect(cycleA?.parentFolderId === undefined || cycleB?.parentFolderId === undefined).toBe(true);
   });
 
   it('preserves valid saved scripts and strips malformed script payloads', () => {
@@ -261,7 +308,7 @@ describe('api-client-workspace', () => {
     expect(next.activeEnvironmentId).toBeUndefined();
   });
 
-  it('moves requests to unfiled when a folder is deleted', () => {
+  it('moves requests to unfiled when a root folder is deleted', () => {
     const workspace = createDefaultApiClientWorkspace();
     const collectionId = workspace.collections[0].id;
     workspace.folders.push({
@@ -284,6 +331,29 @@ describe('api-client-workspace', () => {
     const next = deleteApiClientFolder(workspace, 'folder-1');
     expect(next.folders).toHaveLength(0);
     expect(next.requests[0].folderId).toBeUndefined();
+  });
+
+  it('promotes child folders and direct requests when a nested folder is deleted', () => {
+    const workspace = createDefaultApiClientWorkspace();
+    const collectionId = workspace.collections[0].id;
+    workspace.folders.push(
+      { id: 'parent', collectionId, name: 'Parent', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+      { id: 'middle', collectionId, parentFolderId: 'parent', name: 'Middle', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+      { id: 'child', collectionId, parentFolderId: 'middle', name: 'Child', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+    );
+    workspace.requests.push({
+      id: 'request-1',
+      collectionId,
+      folderId: 'middle',
+      name: 'List pets',
+      request: { method: 'GET', url: '/pets' },
+      createdAt: '2026-09-01',
+      updatedAt: '2026-09-01',
+    });
+
+    const next = deleteApiClientFolder(workspace, 'middle');
+    expect(next.folders.find((folder) => folder.id === 'child')?.parentFolderId).toBe('parent');
+    expect(next.requests[0].folderId).toBe('parent');
   });
 
   it('cascades collection contents while always keeping one collection, environments, and history', () => {

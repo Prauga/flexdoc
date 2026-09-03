@@ -41,7 +41,9 @@ function RequestEditor() {
 }
 ```
 
-For a local API-development workspace with reusable collections, collection variables, folders, saved requests, named environments, request scripts, response tests, and request history, use `ApiClientWorkspace`. Workspace data is persisted in IndexedDB by default and stays local to the browser. Set `persistenceKey={false}` to disable persistence, or provide a custom string to isolate multiple workspaces.
+For a local API-development workspace with reusable collections, collection variables, nested folders, saved requests, named environments, request scripts, response tests, and request history, use `ApiClientWorkspace`. Workspace data is persisted in IndexedDB by default and stays local to the browser. Set `persistenceKey={false}` to disable persistence, or provide a custom string to isolate multiple workspaces.
+
+Folders can be nested to arbitrary depth. Creating a folder while another folder is selected creates it as a child of that selection; select the collection root to create a top-level folder. Saved requests retain their selected leaf folder across reloads. Legacy flat folders migrate as top-level folders. Deleting a folder is intentionally non-destructive: its direct child folders and direct requests are promoted to the deleted folder's parent, or to the collection root when a top-level folder is deleted.
 
 Saved request drafts, scripts, collection variables, environment values, and request history are stored as entered, including authentication values such as bearer tokens, basic-auth passwords, API keys, tokens placed in collection or environment variables or scripts, and sensitive values present in historical request headers or bodies. Collection and environment values are displayed as plain text. IndexedDB is scoped by the browser origin, but FlexDoc does not encrypt these values or create an additional security boundary between persistence keys on the same origin. Only persist secrets on origins and devices you trust.
 

@@ -20,6 +20,7 @@ export interface ApiClientCollection {
 export interface ApiClientFolder {
   id: string;
   collectionId: string;
+  parentFolderId?: string;
   name: string;
   createdAt: string;
   updatedAt: string;
@@ -69,7 +70,7 @@ export interface ApiClientHistoryInput {
 }
 
 export interface ApiClientWorkspaceState {
-  version: 4;
+  version: 5;
   collections: ApiClientCollection[];
   folders: ApiClientFolder[];
   requests: ApiClientSavedRequest[];
@@ -152,13 +153,53 @@ function normalizeCollection(value: unknown): ApiClientCollection | null {
   };
 }
 
-function isFolder(value: unknown): value is ApiClientFolder {
-  return isRecord(value)
-    && hasString(value, 'id')
-    && hasString(value, 'collectionId')
-    && hasString(value, 'name')
-    && hasString(value, 'createdAt')
-    && hasString(value, 'updatedAt');
+function normalizeFolder(value: unknown): ApiClientFolder | null {
+  if (!isRecord(value)
+    || !hasString(value, 'id')
+    || !hasString(value, 'collectionId')
+    || (value.parentFolderId !== undefined && typeof value.parentFolderId !== 'string')
+    || !hasString(value, 'name')
+    || !hasString(value, 'createdAt')
+    || !hasString(value, 'updatedAt')) return null;
+
+  return {
+    id: value.id as string,
+    collectionId: value.collectionId as string,
+    parentFolderId: value.parentFolderId as string | undefined,
+    name: value.name as string,
+    createdAt: value.createdAt as string,
+    updatedAt: value.updatedAt as string,
+  };
+}
+
+function normalizeFolderHierarchy(values: unknown[], collectionIds: Set<string>): ApiClientFolder[] {
+  const folders = values
+    .map(normalizeFolder)
+    .filter((folder): folder is ApiClientFolder => folder !== null)
+    .filter((folder) => collectionIds.has(folder.collectionId));
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+
+  for (const folder of folders) {
+    if (!folder.parentFolderId) continue;
+    const parent = byId.get(folder.parentFolderId);
+    if (!parent || parent.collectionId !== folder.collectionId || parent.id === folder.id) folder.parentFolderId = undefined;
+  }
+
+  for (const folder of folders) {
+    if (!folder.parentFolderId) continue;
+    const seen = new Set([folder.id]);
+    let parentId: string | undefined = folder.parentFolderId;
+    while (parentId) {
+      if (seen.has(parentId)) {
+        folder.parentFolderId = undefined;
+        break;
+      }
+      seen.add(parentId);
+      parentId = byId.get(parentId)?.parentFolderId;
+    }
+  }
+
+  return folders;
 }
 
 function normalizeScripts(value: unknown): ApiClientRequestScripts | undefined {
@@ -266,7 +307,7 @@ export function cloneRequestDraft(request: HttpRequestDraft): HttpRequestDraft {
 export function createDefaultApiClientWorkspace(): ApiClientWorkspaceState {
   const timestamp = now();
   return {
-    version: 4,
+    version: 5,
     collections: [{ id: createApiClientId('collection'), name: DEFAULT_COLLECTION_NAME, variables: [], createdAt: timestamp, updatedAt: timestamp }],
     folders: [],
     requests: [],
@@ -276,7 +317,7 @@ export function createDefaultApiClientWorkspace(): ApiClientWorkspaceState {
 }
 
 export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceState {
-  if (!isRecord(value) || (value.version !== 1 && value.version !== 2 && value.version !== 3 && value.version !== 4)) return createDefaultApiClientWorkspace();
+  if (!isRecord(value) || ![1, 2, 3, 4, 5].includes(value.version as number)) return createDefaultApiClientWorkspace();
 
   const collectionValues = (Array.isArray(value.collections) ? value.collections : [])
     .map(normalizeCollection)
@@ -284,8 +325,7 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
   if (collectionValues.length === 0) return createDefaultApiClientWorkspace();
   const collectionIds = new Set(collectionValues.map((collection) => collection.id));
 
-  const folderValues = (Array.isArray(value.folders) ? value.folders.filter(isFolder) : [])
-    .filter((folder) => collectionIds.has(folder.collectionId));
+  const folderValues = normalizeFolderHierarchy(Array.isArray(value.folders) ? value.folders : [], collectionIds);
   const foldersById = new Map(folderValues.map((folder) => [folder.id, folder]));
 
   const requestValues = (Array.isArray(value.requests) ? value.requests : [])
@@ -300,7 +340,7 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
 
   if (value.version === 1) {
     return {
-      version: 4,
+      version: 5,
       collections: collectionValues,
       folders: folderValues,
       requests: requestValues,
@@ -316,7 +356,7 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
     && environmentValues.some((environment) => environment.id === value.activeEnvironmentId)
     ? value.activeEnvironmentId
     : undefined;
-  const historyValues = value.version === 4 && Array.isArray(value.history)
+  const historyValues = (value.version === 4 || value.version === 5) && Array.isArray(value.history)
     ? value.history
       .map(normalizeHistoryEntry)
       .filter((entry): entry is ApiClientHistoryEntry => entry !== null)
@@ -324,7 +364,7 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
     : [];
 
   return {
-    version: 4,
+    version: 5,
     collections: collectionValues,
     folders: folderValues,
     requests: requestValues,
@@ -369,10 +409,19 @@ export function deleteApiClientEnvironment(workspace: ApiClientWorkspaceState, e
 }
 
 export function deleteApiClientFolder(workspace: ApiClientWorkspaceState, folderId: string): ApiClientWorkspaceState {
+  const folder = workspace.folders.find((candidate) => candidate.id === folderId);
+  if (!folder) return workspace;
+  const updatedAt = now();
   return {
     ...workspace,
-    folders: workspace.folders.filter((folder) => folder.id !== folderId),
-    requests: workspace.requests.map((request) => request.folderId === folderId ? { ...request, folderId: undefined, updatedAt: now() } : request),
+    folders: workspace.folders
+      .filter((candidate) => candidate.id !== folderId)
+      .map((candidate) => candidate.parentFolderId === folderId
+        ? { ...candidate, parentFolderId: folder.parentFolderId, updatedAt }
+        : candidate),
+    requests: workspace.requests.map((request) => request.folderId === folderId
+      ? { ...request, folderId: folder.parentFolderId, updatedAt }
+      : request),
   };
 }
 
