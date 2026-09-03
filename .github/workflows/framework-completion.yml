@@ -1,0 +1,121 @@
+name: Framework Coverage Completion
+
+on:
+  pull_request:
+    paths:
+      - 'packages/backend/**'
+      - 'adapters/rust-actix/**'
+      - 'adapters/elixir/**'
+      - 'examples/javascript-hono/**'
+      - 'examples/go-gin/**'
+      - 'examples/go-chi/**'
+      - 'examples/go-echo/**'
+      - 'examples/go-fiber/**'
+      - 'examples/kotlin-ktor/**'
+      - 'examples/rust-actix/**'
+      - 'examples/elixir-phoenix/**'
+      - 'scripts/sync-adapter-assets.mjs'
+      - '.github/workflows/framework-completion.yml'
+  push:
+    branches: [main]
+
+concurrency:
+  group: framework-completion-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  completion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.x'
+          cache: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '28.3'
+          elixir-version: '1.20.4'
+
+      - run: npm ci
+      - run: npm run build:client
+      - run: npm run build:backend
+
+      - name: Verify every committed adapter renderer is canonical
+        run: npm run check:adapter-assets
+
+      - name: Smoke test Hono helper
+        run: |
+          npm install --prefix examples/javascript-hono --no-save --package-lock=false --ignore-scripts --no-audit --no-fund "${{ github.workspace }}/packages/backend" hono@4.13.5
+          node - <<'NODE'
+          import('./examples/javascript-hono/index.mjs').then(async ({app}) => {
+            const docs = await app.request('/docs');
+            if (docs.status !== 200) throw new Error(`Hono docs returned ${docs.status}`);
+            const html = await docs.text();
+            if (!html.includes('Hono FlexDoc Example')) throw new Error('Hono docs title missing');
+            const js = await app.request('/docs/__flexdoc/renderer.js');
+            if (js.status !== 200 || !String(js.headers.get('cache-control')).includes('immutable')) throw new Error('Hono renderer route failed');
+          }).catch((error) => { console.error(error); process.exit(1); });
+          NODE
+
+      - name: Build Go router examples against local adapter
+        run: |
+          for example in go-gin go-chi go-echo go-fiber; do
+            pushd "examples/$example"
+            go mod edit -replace github.com/prauga/flexdoc/adapters/go=../../adapters/go
+            go mod tidy
+            go build ./...
+            popd
+          done
+
+      - name: Test and package Actix adapter
+        run: |
+          cargo test --manifest-path adapters/rust-actix/Cargo.toml --all-targets
+          cargo package --manifest-path adapters/rust-actix/Cargo.toml --allow-dirty
+          cargo check --manifest-path examples/rust-actix/Cargo.toml --config 'patch.crates-io.prauga-flexdoc-actix.path="adapters/rust-actix"'
+
+      - name: Install JVM family release candidate
+        run: mvn -f adapters/java/pom.xml --batch-mode -DskipTests install
+
+      - name: Build Ktor example against neutral JVM host
+        run: mvn -f examples/kotlin-ktor/pom.xml --batch-mode -DskipTests package
+
+      - name: Smoke test Ktor docs host
+        run: |
+          mvn -f examples/kotlin-ktor/pom.xml --batch-mode exec:java >/tmp/flexdoc-ktor.log 2>&1 &
+          APP_PID=$!
+          trap 'kill $APP_PID 2>/dev/null || true' EXIT
+          READY=0
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:5088/docs >/tmp/flexdoc-ktor-docs.html; then READY=1; break; fi
+            sleep 1
+          done
+          if [ "$READY" -ne 1 ]; then cat /tmp/flexdoc-ktor.log; exit 1; fi
+          grep 'Ktor FlexDoc Example' /tmp/flexdoc-ktor-docs.html
+          curl --fail --silent http://127.0.0.1:5088/docs/__flexdoc/renderer.js >/tmp/flexdoc-ktor.js
+          cmp /tmp/flexdoc-ktor.js packages/client/dist/standalone/flexdoc.standalone.js
+
+      - name: Test and package Plug adapter
+        working-directory: adapters/elixir
+        run: |
+          mix local.hex --force
+          mix deps.get
+          mix test
+          mix hex.build
+
+      - name: Verify Plug renderer parity
+        run: |
+          cmp adapters/elixir/assets/flexdoc.standalone.js packages/client/dist/standalone/flexdoc.standalone.js
+          cmp adapters/elixir/assets/flexdoc.standalone.css packages/client/dist/standalone/flexdoc.standalone.css

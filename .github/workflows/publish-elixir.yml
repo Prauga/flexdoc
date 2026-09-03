@@ -1,0 +1,40 @@
+name: Publish FlexDoc Plug adapter
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: startsWith(github.event.release.tag_name, 'elixir/v')
+    runs-on: ubuntu-latest
+    environment: hex
+    steps:
+      - uses: actions/checkout@v6
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '28.3'
+          elixir-version: '1.20.4'
+      - name: Install Hex and dependencies
+        working-directory: adapters/elixir
+        run: |
+          mix local.hex --force
+          mix deps.get
+      - name: Verify release tag
+        working-directory: adapters/elixir
+        run: |
+          VERSION=$(mix run -e 'IO.write(Mix.Project.config()[:version])')
+          test "${{ github.event.release.tag_name }}" = "elixir/v${VERSION}"
+      - name: Test package
+        working-directory: adapters/elixir
+        run: |
+          mix test
+          mix hex.build
+      - name: Publish to Hex
+        working-directory: adapters/elixir
+        run: mix hex.publish --yes
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}

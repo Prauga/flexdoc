@@ -4,3 +4,5 @@ export { FlexDocOptions, FlexDocModuleOptions } from './interfaces';
 export { setupFlexDoc } from './setup';
 export { setupExpressFlexDoc, setupFastifyFlexDoc, setupFastifySwaggerFlexDoc, setupNestFlexDoc } from './framework-adapters';
 export type { ExpressLikeApplication, FastifyLikeApplication, FastifyLikeReply, FastifyLikeRequest, NestLikeApplication } from './framework-adapters';
+export { setupHonoFlexDoc } from './hono-adapter';
+export type { HonoLikeApplication, HonoLikeContext } from './hono-adapter';

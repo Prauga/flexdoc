@@ -1,0 +1,20 @@
+[package]
+name = "prauga-flexdoc-actix"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+description = "Self-hosted FlexDoc OpenAPI renderer integration for Actix Web"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/prauga/flexdoc"
+homepage = "https://github.com/prauga/flexdoc"
+readme = "README.md"
+keywords = ["openapi", "actix", "api-documentation", "flexdoc"]
+categories = ["web-programming", "development-tools"]
+include = ["src/**", "assets/**", "README.md", "LICENSE", "Cargo.toml"]
+
+[dependencies]
+actix-web = "4"
+serde_json = "1"
+
+[dev-dependencies]
+actix-rt = "2"

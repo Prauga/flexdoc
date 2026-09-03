@@ -8,6 +8,10 @@ const destinations = [
   path.join(root, 'adapters/go/assets'),
   path.join(root, 'adapters/python/src/prauga_flexdoc/_assets'),
   path.join(root, 'adapters/rust/assets'),
+  path.join(root, 'adapters/php/assets'),
+  path.join(root, 'adapters/ruby/assets'),
+  path.join(root, 'adapters/rust-actix/assets'),
+  path.join(root, 'adapters/elixir/assets'),
 ];
 const files = ['flexdoc.standalone.js', 'flexdoc.standalone.css'];
 const check = process.argv.includes('--check');

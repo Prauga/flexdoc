@@ -1,0 +1,11 @@
+{
+  "name": "flexdoc-hono-example",
+  "version": "0.1.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "dependencies": {
+    "@prauga/flexdoc-backend": "2.2.0",
+    "hono": "^4.13.5"
+  }
+}
