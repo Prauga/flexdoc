@@ -1,10 +1,8 @@
 # Prauga FlexDoc Spring Boot Starter
 
-Java/Spring adapter for the canonical FlexDoc browser renderer. The JAR packages the same version-matched `flexdoc.standalone.js` and `flexdoc.standalone.css` used by the other integrations; it does not implement a Java-specific OpenAPI renderer.
+Spring Boot transport for the canonical FlexDoc browser renderer. Starting with the Java `0.4.x` family, the starter delegates renderer hosting to the framework-neutral `com.prauga.flexdoc:flexdoc-jvm` package rather than maintaining a Spring-specific HTML/asset implementation.
 
-Current source version: `0.2.0`. It targets renderer contract v1 / FlexDoc renderer 2.x.
-
-> `com.prauga.flexdoc` is a new Maven coordinate. Do not announce it as generally available until the Prauga namespace has been verified in Maven Central and the first publication has completed.
+Current source version: `0.4.0`. It targets Java 17+, Spring Boot 3, renderer contract v1, and the FlexDoc renderer 2.x line.
 
 Coordinates:
 
@@ -12,11 +10,11 @@ Coordinates:
 <dependency>
   <groupId>com.prauga.flexdoc</groupId>
   <artifactId>flexdoc-spring-boot-starter</artifactId>
-  <version>0.2.0</version>
+  <version>0.4.0</version>
 </dependency>
 ```
 
-The Java package namespace is `com.prauga.flexdoc.spring`.
+The Java package namespace is `com.prauga.flexdoc.spring`. The starter depends on `com.prauga.flexdoc:flexdoc-jvm:0.4.0`, whose JAR owns the version-matched `flexdoc.standalone.js` and `flexdoc.standalone.css` assets.
 
 ## Spring Boot + springdoc
 
@@ -53,18 +51,23 @@ FlexDocSpecProvider flexDocSpecProvider(ObjectMapper mapper, OpenAPI openApi) {
 }
 ```
 
-A provider takes precedence over `spec-url`. `spec-location` creates the default provider only when explicitly configured.
+A provider takes precedence over `spec-url`. `spec-location` creates the default provider only when explicitly configured. The Spring auto-configuration serializes that provider into the neutral `FlexDocHost`; the MVC controller only converts `FlexDocHttpResponse` into a `ResponseEntity`.
 
 ## Building in this repository
 
-Build the standalone renderer first, then package and verify the JAR:
+Build the standalone renderer first, then build the coordinated Java family:
 
 ```bash
 npm run build:client
-mvn -f adapters/java-spring/pom.xml verify
-jar tf adapters/java-spring/target/flexdoc-spring-boot-starter-0.2.0.jar | grep META-INF/flexdoc
+mvn -f adapters/java/pom.xml verify
 ```
 
-The release build attaches source and Javadoc JARs. CI verifies that the resulting JAR contains both canonical renderer assets before publication.
+The renderer assets should be present in the neutral JVM artifact, not duplicated in the Spring starter:
 
-See [`docs/distribution.md`](../../docs/distribution.md).
+```bash
+jar tf adapters/java-jvm/target/flexdoc-jvm-0.4.0.jar | grep META-INF/flexdoc
+```
+
+The Java release build attaches source and Javadoc JARs for `flexdoc-jvm`, `flexdoc-jaxrs`, and `flexdoc-spring-boot-starter`. CI byte-compares the renderer in `flexdoc-jvm` with the canonical browser build and regression-builds the Spring example.
+
+See [`../java-jvm`](../java-jvm/README.md), [`../java-jaxrs`](../java-jaxrs/README.md), and [`docs/distribution.md`](../../docs/distribution.md) for the wider Java family.
