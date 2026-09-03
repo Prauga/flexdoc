@@ -123,7 +123,7 @@ jobs:
       - name: Build Rust example against local release candidate
         run: |
           cargo check --manifest-path examples/rust-axum/Cargo.toml --config 'patch.crates-io.prauga-flexdoc-axum.path="adapters/rust"'
-          rm -f examples/rust-axum/Cargo.lock
+          git checkout -- examples/rust-axum/Cargo.lock
 
       - name: Install CLI dependencies using local client bootstrap
         run: npm install --prefix tools/flexdoc-cli --no-save --package-lock=false --ignore-scripts --no-audit --no-fund "${{ github.workspace }}/packages/client" js-yaml@^4.1.0

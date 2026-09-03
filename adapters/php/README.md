@@ -2,6 +2,8 @@
 
 `prauga/flexdoc` `0.1.0` provides a framework-neutral PHP 8.2+ host for the canonical FlexDoc renderer, plus thin Laravel and Symfony integrations. It is self-hosted and does not require a runtime CDN.
 
+The canonical source remains in the FlexDoc monorepo. [`Prauga/flexdoc-php`](https://github.com/Prauga/flexdoc-php) is the Composer/Packagist distribution repository and is synchronized automatically from this package directory.
+
 ## Generic PHP
 
 ```php

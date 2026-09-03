@@ -23,7 +23,7 @@
   "scripts": {"test": "php tests/run.php"},
   "extra": {"laravel": {"providers": ["Prauga\\FlexDoc\\Laravel\\FlexDocServiceProvider"]}},
   "support": {
-    "issues": "https://github.com/prauga/flexdoc/issues",
-    "source": "https://github.com/prauga/flexdoc"
+    "issues": "https://github.com/Prauga/flexdoc/issues",
+    "source": "https://github.com/Prauga/flexdoc-php"
   }
 }

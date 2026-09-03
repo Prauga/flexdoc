@@ -15,6 +15,7 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.4.0` | `java/v0.4.0` | Jakarta REST/JAX-RS transport over `flexdoc-jvm` |
 | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.4.0` | `java/v0.4.0` | Spring Boot 3 transport over `flexdoc-jvm` |
 | `prauga-flexdoc` | `0.2.0` | `python/v0.2.0` | ASGI adapter + embedded renderer |
+| `prauga/flexdoc` | `0.1.0` | `php/v0.1.0` | PHP 8.2+; Composer/Packagist distribution mirrored to `Prauga/flexdoc-php` |
 | `prauga-flexdoc-axum` | `0.2.0` | `rust/v0.2.0` | Axum adapter + embedded renderer |
 | `github.com/prauga/flexdoc/adapters/go` | `0.2.0` | `adapters/go/v0.2.0` | net/http adapter + embedded renderer |
 
@@ -73,6 +74,12 @@ A single `java/v0.4.0` release validates the family version, installs the comple
 
 The distribution name is `prauga-flexdoc`; the import package is `prauga_flexdoc`. The wheel contains the canonical renderer assets. `python/v<version>` builds the wheel/sdist and publishes through PyPI Trusted Publishing.
 
+## Composer / Packagist
+
+The Composer package is `prauga/flexdoc`. Its canonical source remains under `adapters/php` in `Prauga/flexdoc`; [`Prauga/flexdoc-php`](https://github.com/Prauga/flexdoc-php) is the standalone distribution repository intended for Composer/Packagist consumption and is synchronized from the monorepo.
+
+The distribution repository owns its standalone Composer validation/CI surface. Product development continues in `Prauga/flexdoc`, so fixes should be made in the monorepo first and then mirrored to `Prauga/flexdoc-php` rather than edited independently in the distribution copy.
+
 ## crates.io
 
 The crate is `prauga-flexdoc-axum`, imported as `prauga_flexdoc_axum`. `rust/v<version>` tests/packages the crate and uses crates.io Trusted Publishing for the release.
@@ -81,7 +88,7 @@ The crate is `prauga-flexdoc-axum`, imported as `prauga_flexdoc_axum`. `rust/v<v
 
 The module is `github.com/prauga/flexdoc/adapters/go`. Because it is a module in a monorepo subdirectory, its semantic tags use Go's submodule convention: `adapters/go/v<version>`. The renderer is embedded in the tagged module source, so there is no additional registry publication step.
 
-Release-preparation CI keeps `examples/go-net-http/go.sum` committed even before a future Go tag exists. `scripts/verify-go-example-sum.mjs` deterministically hashes the exact tracked submodule release tree, including the root `LICENSE` that Go copies into submodule archives, and verifies the future-version checksum pin before the example is built with a local `replace`.
+Release-preparation CI keeps `examples/go-net-http/go.sum` committed even before a future Go tag exists. `scripts/verify-go-example-sum.mjs` first asks the public Go module infrastructure for the pinned version. A published version must match the proxy-provided checksum exactly; an explicit proxy miss is reported separately and falls back to deterministically hashing the exact tracked submodule release tree, including the root `LICENSE` that Go copies into submodule archives. Other proxy/query failures are treated as errors instead of being mistaken for an unpublished tag.
 
 ## Coordinated renderer release order
 
