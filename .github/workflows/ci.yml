@@ -194,15 +194,23 @@ jobs:
           });
           NODE
 
-      - name: Test and install Java Spring adapter release candidate
-        run: mvn -f adapters/java-spring/pom.xml --batch-mode -Prelease -Dgpg.skip=true install
+      - name: Test and install Java adapter family release candidate
+        run: mvn -f adapters/java/pom.xml --batch-mode install
 
-      - name: Verify Java adapter packages renderer assets
+      - name: Verify JVM host packages renderer assets
         run: |
-          JAVA_VERSION=$(grep -m1 '<version>' adapters/java-spring/pom.xml | sed -E 's/.*<version>([^<]+)<\/version>.*/\1/')
-          JAR="adapters/java-spring/target/flexdoc-spring-boot-starter-${JAVA_VERSION}.jar"
-          jar tf "$JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.js'
-          jar tf "$JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.css'
+          JAVA_VERSION=$(mvn -q -f adapters/java-jvm/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)
+          JVM_JAR="adapters/java-jvm/target/flexdoc-jvm-${JAVA_VERSION}.jar"
+          jar tf "$JVM_JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.js'
+          jar tf "$JVM_JAR" | grep 'META-INF/flexdoc/flexdoc.standalone.css'
+          unzip -p "$JVM_JAR" META-INF/flexdoc/flexdoc.standalone.js > /tmp/flexdoc-jvm.js
+          unzip -p "$JVM_JAR" META-INF/flexdoc/flexdoc.standalone.css > /tmp/flexdoc-jvm.css
+          cmp /tmp/flexdoc-jvm.js packages/client/dist/standalone/flexdoc.standalone.js
+          cmp /tmp/flexdoc-jvm.css packages/client/dist/standalone/flexdoc.standalone.css
+          test -s "adapters/java-jvm/target/flexdoc-jvm-${JAVA_VERSION}-sources.jar"
+          test -s "adapters/java-jvm/target/flexdoc-jvm-${JAVA_VERSION}-javadoc.jar"
+          test -s "adapters/java-jaxrs/target/flexdoc-jaxrs-${JAVA_VERSION}-sources.jar"
+          test -s "adapters/java-jaxrs/target/flexdoc-jaxrs-${JAVA_VERSION}-javadoc.jar"
           test -s "adapters/java-spring/target/flexdoc-spring-boot-starter-${JAVA_VERSION}-sources.jar"
           test -s "adapters/java-spring/target/flexdoc-spring-boot-starter-${JAVA_VERSION}-javadoc.jar"
 
