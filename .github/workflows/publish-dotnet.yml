@@ -1,0 +1,73 @@
+name: Publish FlexDoc ASP.NET Core adapter
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: startsWith(github.event.release.tag_name, 'dotnet/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - run: npm ci
+      - run: npm run build:client
+      - name: Verify release tag
+        shell: bash
+        run: |
+          VERSION=$(grep -oPm1 '(?<=<Version>)[^<]+' adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNetCore.csproj)
+          test "${{ github.event.release.tag_name }}" = "dotnet/v${VERSION}"
+      - name: Build adapter
+        run: dotnet build adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNetCore.csproj --configuration Release
+      - name: Pack adapter
+        run: |
+          rm -rf adapters/dotnet/dist
+          dotnet pack adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNetCore.csproj --configuration Release --no-build --output adapters/dotnet/dist
+      - name: Verify package
+        shell: bash
+        run: |
+          VERSION=$(grep -oPm1 '(?<=<Version>)[^<]+' adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNetCore.csproj)
+          PACKAGE="adapters/dotnet/dist/Prauga.FlexDoc.AspNetCore.${VERSION}.nupkg"
+          test -s "$PACKAGE"
+          unzip -p "$PACKAGE" Prauga.FlexDoc.AspNetCore.nuspec | grep '<license type="expression">AGPL-3.0-or-later</license>'
+          unzip -l "$PACKAGE" | grep 'README.md'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dotnet-dist
+          path: adapters/dotnet/dist/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: nuget
+      url: https://www.nuget.org/packages/Prauga.FlexDoc.AspNetCore
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dotnet-dist
+          path: dist
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+      - name: NuGet login
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+      - name: Publish NuGet package
+        run: dotnet nuget push dist/*.nupkg --api-key '${{ steps.login.outputs.NUGET_API_KEY }}' --source https://api.nuget.org/v3/index.json --skip-duplicate

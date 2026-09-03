@@ -14,6 +14,7 @@ CI runs `npm run check:example-versions` and fails if an example drifts behind t
 | [`nestjs`](./nestjs) | NestJS + `@prauga/flexdoc-backend` `2.2.0` |
 | [`javascript-express`](./javascript-express) | `@prauga/flexdoc-backend` `2.2.0` |
 | [`javascript-fastify`](./javascript-fastify) | `@prauga/flexdoc-backend` `2.2.0` |
+| [`dotnet-aspnetcore`](./dotnet-aspnetcore) | `Prauga.FlexDoc.AspNetCore` `0.1.0` |
 | [`python-fastapi`](./python-fastapi) | `prauga-flexdoc` `0.2.0` |
 | [`java-spring`](./java-spring) | `com.prauga.flexdoc:flexdoc-spring-boot-starter` `0.3.0` |
 | [`go-net-http`](./go-net-http) | `github.com/prauga/flexdoc/adapters/go` `v0.2.0` |
@@ -31,6 +32,6 @@ npm run example:api-client
 
 ## Release-candidate validation
 
-Examples keep exact release versions in their manifests. Before those versions are published, CI substitutes the package/adapter built from the same commit (npm workspace/local path, Maven local repository, Cargo patch, Go replace, or local Python wheel). That means the release PR validates the artifact that will be published while preserving copy-pasteable post-release manifests.
+Examples keep exact release versions in their manifests. Before those versions are published, CI substitutes the package/adapter built from the same commit (npm workspace/local path, Maven local repository, Cargo patch, Go replace, local Python wheel, or project reference). That means the release PR validates the artifact that will be published while preserving copy-pasteable post-release manifests.
 
 Third-party framework versions are independent of the FlexDoc version guard and may use compatible ranges.

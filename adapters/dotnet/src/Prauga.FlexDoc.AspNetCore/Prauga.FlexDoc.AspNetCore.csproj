@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <PackageId>Prauga.FlexDoc.AspNetCore</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Prauga</Authors>
+    <Company>Prauga</Company>
+    <Description>Self-hosted FlexDoc integration for ASP.NET Core.</Description>
+    <PackageTags>flexdoc;openapi;aspnetcore;api-documentation;api-client</PackageTags>
+    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/Prauga/flexdoc</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Prauga/flexdoc</PackageProjectUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <None Include="../../README.md" Pack="true" PackagePath="/" Link="README.md" />
+    <EmbeddedResource Include="../../../../packages/client/dist/standalone/flexdoc.standalone.js" LogicalName="Prauga.FlexDoc.AspNetCore.Assets.flexdoc.standalone.js" />
+    <EmbeddedResource Include="../../../../packages/client/dist/standalone/flexdoc.standalone.css" LogicalName="Prauga.FlexDoc.AspNetCore.Assets.flexdoc.standalone.css" />
+  </ItemGroup>
+</Project>

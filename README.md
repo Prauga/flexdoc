@@ -1,6 +1,6 @@
 # FlexDoc
 
-FlexDoc is Prauga's open-source, self-hosted OpenAPI documentation renderer and API explorer. It ships one canonical browser renderer and thin ecosystem adapters, so React, Node backends, Spring Boot, Go, Python, Rust, and static exports use the same OpenAPI behavior and UI.
+FlexDoc is Prauga's open-source, self-hosted OpenAPI documentation renderer and API explorer. It ships one canonical browser renderer and thin ecosystem adapters, so React, Node backends, ASP.NET Core, Spring Boot, Go, Python, Rust, and static exports use the same OpenAPI behavior and UI.
 
 No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is required.
 
@@ -19,7 +19,7 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - light/dark theming and renderer options
 - standalone browser JS/CSS with no runtime CDN dependency
 - CLI local serving and static export
-- Express, Fastify, NestJS, Spring Boot, Go `net/http`, Python ASGI and Rust Axum integrations
+- Express, Fastify, NestJS, ASP.NET Core, Spring Boot, Go `net/http`, Python ASGI and Rust Axum integrations
 
 ## Package family
 
@@ -29,6 +29,7 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 | npm | `@prauga/flexdoc-backend` | `2.2.0` |
 | npm | `@prauga/flexdoc-core` | `0.2.0` |
 | npm | `@prauga/flexdoc-cli` | `0.2.0` |
+| NuGet | `Prauga.FlexDoc.AspNetCore` | `0.1.0` |
 | Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.3.0` |
 | PyPI | `prauga-flexdoc` | `0.2.0` |
 | crates.io | `prauga-flexdoc-axum` | `0.2.0` |
@@ -38,7 +39,7 @@ These versions are independent across ecosystems. Renderer contract v1 is the co
 
 ## Examples
 
-All runnable examples are consolidated in [`examples/`](./examples/README.md), including React, the standalone API Client, NestJS, Express, Fastify, FastAPI, Spring Boot, Go and Rust.
+All runnable examples are consolidated in [`examples/`](./examples/README.md), including React, the standalone API Client, NestJS, Express, Fastify, ASP.NET Core, FastAPI, Spring Boot, Go and Rust.
 
 The examples use the full OpenAPI 3.1 feature showcase where the framework allows a direct specification. FlexDoc dependencies use exact current release versions. `npm run check:example-versions` derives the expected versions from the package and adapter manifests and CI rejects stale example pins whenever a release version changes.
 
@@ -80,6 +81,26 @@ app.listen(3000);
 ```
 
 `setupFastifyFlexDoc` and `setupNestFlexDoc` use the same canonical renderer.
+
+## ASP.NET Core
+
+```csharp
+using Prauga.FlexDoc.AspNetCore;
+
+var builder = WebApplication.CreateBuilder(args);
+var app = builder.Build();
+
+app.MapFlexDoc(options =>
+{
+    options.Path = "/docs";
+    options.SpecUrl = "/openapi.json";
+    options.Title = "My API";
+});
+
+app.Run();
+```
+
+`Prauga.FlexDoc.AspNetCore` embeds the canonical renderer into the NuGet package at build time and works with any OpenAPI producer, including ASP.NET Core's built-in OpenAPI support, Swashbuckle, or NSwag. See [`adapters/dotnet`](./adapters/dotnet/README.md).
 
 ## CLI / static export
 
@@ -155,6 +176,7 @@ canonical browser renderer
       +--> React
       +--> standalone / CLI
       +--> Express / Fastify / NestJS
+      +--> ASP.NET Core
       +--> Spring Boot
       +--> Go net/http
       +--> Python ASGI
@@ -175,6 +197,7 @@ npm run build:client
 npm test -w packages/client -- --runInBand
 npm test -w packages/backend -- --runInBand
 npm run check:adapter-assets
+dotnet build adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNetCore.csproj
 (cd adapters/go && go test ./...)
 python3 -m unittest discover -s adapters/python/tests -v
 cargo test --manifest-path adapters/rust/Cargo.toml --all-targets

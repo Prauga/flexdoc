@@ -4,9 +4,10 @@ All language integrations are intentionally thin. They host a small HTML shell, 
 
 Current adapters:
 
+- C# / ASP.NET Core 8+ (`dotnet`)
 - Java 17+ / Spring Boot 3 (`java-spring`)
 - Go / `net/http` (`go`)
 - Python 3.10+ / ASGI (`python`)
 - Rust / Axum (`rust`)
 
-The Go/Python/Rust adapters accept a local renderer asset directory/filesystem. Use the version-matched files produced by `packages/client/dist/standalone`; release packaging can copy these exact assets without introducing another renderer implementation.
+The Go/Python/Rust adapters package committed renderer assets because those ecosystems publish source trees or source-derived artifacts. The ASP.NET Core and Spring Boot packages embed/copy the canonical renderer during package builds. In every case the source of truth is `packages/client/dist/standalone`; adapters do not introduce another renderer implementation.
