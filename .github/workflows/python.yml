@@ -1,0 +1,105 @@
+name: Python Adapters
+
+on:
+  pull_request:
+    paths:
+      - 'adapters/python/**'
+      - 'examples/python-*/**'
+      - 'packages/client/**'
+      - '.github/workflows/python.yml'
+      - '.github/workflows/publish-python.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'adapters/python/**'
+      - 'examples/python-*/**'
+      - 'packages/client/**'
+      - '.github/workflows/python.yml'
+      - '.github/workflows/publish-python.yml'
+
+concurrency:
+  group: python-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-python-family:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - run: npm ci
+      - run: npm run build:client
+
+      - name: Test Python host transports
+        run: |
+          python -m compileall -q adapters/python/src
+          PYTHONPATH=adapters/python/src python -m unittest discover -s adapters/python/tests -v
+
+      - name: Build wheel and source distribution
+        run: |
+          python -m pip install --disable-pip-version-check -q build
+          rm -rf /tmp/flexdoc-python-dist adapters/python/build adapters/python/src/*.egg-info
+          mkdir -p /tmp/flexdoc-python-dist
+          python -m build --outdir /tmp/flexdoc-python-dist adapters/python
+
+      - name: Verify packaged renderer parity
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          wheel = next(Path('/tmp/flexdoc-python-dist').glob('*.whl'))
+          with ZipFile(wheel) as z:
+              js = z.read('prauga_flexdoc/_assets/flexdoc.standalone.js')
+              css = z.read('prauga_flexdoc/_assets/flexdoc.standalone.css')
+          assert js == Path('packages/client/dist/standalone/flexdoc.standalone.js').read_bytes()
+          assert css == Path('packages/client/dist/standalone/flexdoc.standalone.css').read_bytes()
+          PY
+
+      - name: Install local wheel with framework integrations
+        run: |
+          python -m pip install --disable-pip-version-check -q /tmp/flexdoc-python-dist/*.whl 'fastapi>=0.116,<1' 'flask>=3,<4' 'django>=5,<6'
+
+      - name: Smoke test FastAPI integration
+        run: |
+          PYTHONPATH=examples/python-fastapi python - <<'PY'
+          from fastapi.testclient import TestClient
+          from app import app
+          client = TestClient(app)
+          assert client.get('/docs').status_code == 200
+          assert client.get('/docs/__flexdoc/renderer.js').content == open('packages/client/dist/standalone/flexdoc.standalone.js','rb').read()
+          PY
+
+      - name: Smoke test Flask integration
+        run: |
+          PYTHONPATH=examples/python-flask python - <<'PY'
+          from app import app
+          client = app.test_client()
+          assert client.get('/docs').status_code == 200
+          assert client.get('/docs/').status_code == 200
+          assert client.get('/docs/__flexdoc/renderer.js').data == open('packages/client/dist/standalone/flexdoc.standalone.js','rb').read()
+          PY
+
+      - name: Smoke test Django integration
+        env:
+          DJANGO_SETTINGS_MODULE: flexdoc_django.settings
+          PYTHONPATH: examples/python-django
+        run: |
+          python - <<'PY'
+          import django
+          django.setup()
+          from django.test import Client
+          client = Client()
+          assert client.get('/docs').status_code == 200
+          assert client.get('/docs/').status_code == 200
+          assert client.get('/docs/__flexdoc/renderer.css').content == open('packages/client/dist/standalone/flexdoc.standalone.css','rb').read()
+          PY

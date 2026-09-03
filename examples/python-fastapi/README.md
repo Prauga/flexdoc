@@ -12,4 +12,4 @@ uvicorn app:app --reload
 
 Open `http://127.0.0.1:8000/docs`.
 
-`prauga-flexdoc` is pinned to `0.2.0`. During this release PR, CI installs the wheel built from the same commit; after `0.2.0` is published, the requirements file is directly installable as written.
+`prauga-flexdoc` is pinned to `0.3.0`. During this release PR, CI installs the wheel built from the same commit; after `0.3.0` is published, the requirements file is directly installable as written.

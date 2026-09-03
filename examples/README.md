@@ -15,7 +15,9 @@ CI runs `npm run check:example-versions` and fails if an example drifts behind t
 | [`javascript-express`](./javascript-express) | `@prauga/flexdoc-backend` `2.2.0` |
 | [`javascript-fastify`](./javascript-fastify) | `@prauga/flexdoc-backend` `2.2.0` |
 | [`dotnet-aspnetcore`](./dotnet-aspnetcore) | `Prauga.FlexDoc.AspNetCore` `0.1.0` |
-| [`python-fastapi`](./python-fastapi) | `prauga-flexdoc` `0.2.0` |
+| [`python-fastapi`](./python-fastapi) | `prauga-flexdoc` `0.3.0` |
+| [`python-flask`](./python-flask) | Flask + `prauga-flexdoc` `0.3.0` |
+| [`python-django`](./python-django) | Django + `prauga-flexdoc` `0.3.0` |
 | [`java-spring`](./java-spring) | `com.prauga.flexdoc:flexdoc-spring-boot-starter` `0.4.0` |
 | [`java-quarkus`](./java-quarkus) | Quarkus + `com.prauga.flexdoc:flexdoc-jaxrs` `0.4.0` |
 | [`java-micronaut`](./java-micronaut) | Micronaut + `com.prauga.flexdoc:flexdoc-jvm` `0.4.0` |
@@ -36,6 +38,10 @@ npm run example:api-client
 ## JVM coverage
 
 The Java 0.4.0 family intentionally separates renderer hosting from frameworks. `java-spring` proves the existing Spring Boot starter still works after delegating to `flexdoc-jvm`; `java-quarkus` exercises the Jakarta REST adapter in a real Quarkus test runtime; `java-micronaut` maps Micronaut HTTP routes directly to the neutral host; and `java-guice` binds the same host through Guice and serves it with the JDK HTTP server, which is also the integration model for Governator-style Guice applications.
+
+## Python coverage
+
+The Python 0.3.0 package follows the same pattern: `FlexDocHost` owns renderer hosting, `FlexDocASGI` and `FlexDocWSGI` are protocol transports, and the FastAPI/Flask/Django helpers are thin native integrations. CI exercises all three framework examples against the locally built wheel.
 
 ## Release-candidate validation
 

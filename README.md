@@ -19,7 +19,7 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - light/dark theming and renderer options
 - standalone browser JS/CSS with no runtime CDN dependency
 - CLI local serving and static export
-- Express, Fastify, NestJS, ASP.NET Core, Spring Boot, Jakarta REST/Quarkus, Micronaut, Guice-style JVM, Go `net/http`, Python ASGI and Rust Axum integrations
+- Express, Fastify, NestJS, ASP.NET Core, Spring Boot, Jakarta REST/Quarkus, Micronaut, Guice-style JVM, FastAPI/ASGI, Flask/WSGI, Django, Go `net/http`, and Rust Axum integrations
 
 ## Package family
 
@@ -33,7 +33,7 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 | Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.4.0` |
 | Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.4.0` |
 | Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.4.0` |
-| PyPI | `prauga-flexdoc` | `0.2.0` |
+| PyPI | `prauga-flexdoc` | `0.3.0` |
 | crates.io | `prauga-flexdoc-axum` | `0.2.0` |
 | Go | `github.com/prauga/flexdoc/adapters/go` | `0.2.0` |
 
@@ -41,23 +41,12 @@ These versions are independent across ecosystems. Renderer contract v1 is the co
 
 ## Examples
 
-All runnable examples are consolidated in [`examples/`](./examples/README.md), including React, the standalone API Client, NestJS, Express, Fastify, ASP.NET Core, FastAPI, Spring Boot, Quarkus, Micronaut, Guice, Go and Rust.
-
-The examples use the full OpenAPI 3.1 feature showcase where the framework allows a direct specification. FlexDoc dependencies use exact current release versions. `npm run check:example-versions` derives the expected versions from the package and adapter manifests and CI rejects stale example pins whenever a release version changes.
+All runnable examples are consolidated in [`examples/`](./examples/README.md), including React, the standalone API Client, Node frameworks, ASP.NET Core, FastAPI, Flask, Django, Spring Boot, Quarkus, Micronaut, Guice, Go and Rust.
 
 ## React
 
 ```bash
 npm install @prauga/flexdoc-client@^2.2
-```
-
-```tsx
-import { FlexDoc } from '@prauga/flexdoc-client';
-import '@prauga/flexdoc-client/styles.css';
-
-export function Docs({ spec }) {
-  return <FlexDoc spec={spec} theme="light" />;
-}
 ```
 
 ## Node backend integrations
@@ -66,138 +55,54 @@ export function Docs({ spec }) {
 npm install @prauga/flexdoc-backend@^2.2
 ```
 
-```ts
-import express from 'express';
-import { setupExpressFlexDoc } from '@prauga/flexdoc-backend';
-
-const app = express();
-setupExpressFlexDoc(app, '/docs', {
-  spec,
-  options: {
-    title: 'Example API',
-    tryIt: { enabled: true },
-    codeSamples: { enabled: true, languages: ['curl', 'javascript', 'python', 'go', 'java'] },
-  },
-});
-app.listen(3000);
-```
-
-`setupFastifyFlexDoc` and `setupNestFlexDoc` use the same canonical renderer.
+Express, Fastify, and NestJS helpers use the same canonical renderer.
 
 ## ASP.NET Core
 
 ```csharp
-using Prauga.FlexDoc.AspNetCore;
-
-var builder = WebApplication.CreateBuilder(args);
-var app = builder.Build();
-
-app.MapFlexDoc(options =>
-{
+app.MapFlexDoc(options => {
     options.Path = "/docs";
     options.SpecUrl = "/openapi.json";
     options.Title = "My API";
 });
-
-app.Run();
 ```
-
-`Prauga.FlexDoc.AspNetCore` embeds the canonical renderer into the NuGet package at build time and works with any OpenAPI producer, including ASP.NET Core's built-in OpenAPI support, Swashbuckle, or NSwag. See [`adapters/dotnet`](./adapters/dotnet/README.md).
-
-## CLI / static export
-
-```bash
-npx @prauga/flexdoc-cli serve openapi.yaml --watch
-npx @prauga/flexdoc-cli build openapi.yaml --out ./docs
-```
-
-Static output contains `index.html`, `flexdoc.js`, `flexdoc.css`, and a bundled `openapi.json`. External `$ref` documents are resolved at build time.
 
 ## Java / JVM
 
-The Java family is coordinated at `0.4.0`. `flexdoc-jvm` owns the renderer host with no web-framework dependency; Spring Boot and Jakarta REST are thin transports over it.
+The Java family is coordinated at `0.4.0`. `flexdoc-jvm` owns the renderer host with no web-framework dependency; Spring Boot and Jakarta REST are thin transports over it. Quarkus, Micronaut, and Guice/Governator-style applications are exercised through real examples.
 
-```xml
-<dependency>
-  <groupId>com.prauga.flexdoc</groupId>
-  <artifactId>flexdoc-jvm</artifactId>
-  <version>0.4.0</version>
-</dependency>
+## Python
+
+The Python package is `prauga-flexdoc` `0.3.0`. `FlexDocHost` owns renderer hosting; `FlexDocASGI` and `FlexDocWSGI` are thin protocol transports.
+
+FastAPI:
+
+```python
+from prauga_flexdoc import setup_fastapi_flexdoc
+setup_fastapi_flexdoc(app, '/docs', title='My API')
 ```
 
-```java
-FlexDocHost host = new FlexDocHost(
-    FlexDocConfig.builder()
-        .path("/docs")
-        .specUrl("/openapi.json")
-        .title("My API")
-        .build());
+Flask:
+
+```python
+from prauga_flexdoc import setup_flask_flexdoc
+setup_flask_flexdoc(app, '/docs', spec_url='/openapi.json', title='My API')
 ```
 
-Map `host.documentation()`, `host.rendererJavaScript()`, and `host.rendererCss()` through the framework's native HTTP response type. This is the direct integration path for Micronaut and for Guice/Governator-style services.
+Django:
 
-For Jakarta REST/JAX-RS runtimes such as Quarkus:
-
-```xml
-<dependency>
-  <groupId>com.prauga.flexdoc</groupId>
-  <artifactId>flexdoc-jaxrs</artifactId>
-  <version>0.4.0</version>
-</dependency>
+```python
+from prauga_flexdoc import django_urlpatterns
+urlpatterns = [*django_urlpatterns('/docs', spec_url='/openapi.json', title='My API')]
 ```
-
-Provide a `FlexDocHost` through CDI and expose `FlexDocJaxRsResource` or delegate to it from an application resource.
-
-For Spring Boot:
-
-```xml
-<dependency>
-  <groupId>com.prauga.flexdoc</groupId>
-  <artifactId>flexdoc-spring-boot-starter</artifactId>
-  <version>0.4.0</version>
-</dependency>
-```
-
-With springdoc's conventional `/v3/api-docs` endpoint, the default integration exposes FlexDoc at `/docs`. The starter now delegates renderer hosting to `flexdoc-jvm` instead of maintaining a Spring-specific renderer host.
 
 ## Go
 
-```go
-import flexdoc "github.com/prauga/flexdoc/adapters/go"
-
-http.Handle("/docs", flexdoc.Handler(flexdoc.Config{
-    Path: "/docs",
-    SpecURL: "/openapi.json",
-    Title: "My API",
-    TryItEnabled: true,
-}))
-```
-
-The module embeds the exact canonical renderer assets at release time.
-
-## Python / ASGI
-
-```python
-from prauga_flexdoc import FlexDocASGI, FlexDocConfig
-
-app.mount("/docs", FlexDocASGI(
-    FlexDocConfig(path="/docs", spec_url="/openapi.json", title="My API")
-))
-```
-
-The `prauga-flexdoc` wheel includes the renderer assets and has no runtime FlexDoc service dependency.
+The Go module exposes a standard `net/http` handler and embeds the exact canonical renderer assets at release time.
 
 ## Rust / Axum
 
-```rust
-let docs = prauga_flexdoc_axum::router(prauga_flexdoc_axum::Config {
-    path: "/docs".into(),
-    spec_url: "/openapi.json".into(),
-    ..Default::default()
-});
-```
-
-The crate embeds the canonical JS/CSS with `include_bytes!`.
+The Axum crate embeds the canonical JS/CSS with `include_bytes!`.
 
 ## Architecture
 
@@ -210,21 +115,18 @@ framework-neutral normalization / request engine
       v
 canonical browser renderer
       |
-      +--> React
-      +--> standalone / CLI
+      +--> React / standalone / CLI
       +--> Express / Fastify / NestJS
       +--> ASP.NET Core
       +--> JVM host --> Spring Boot / Jakarta REST / Quarkus / Micronaut / Guice-Governator
+      +--> Python host --> ASGI / WSGI / FastAPI / Flask / Django
       +--> Go net/http
-      +--> Python ASGI
       +--> Rust Axum
 ```
 
 Adapters obtain or expose the OpenAPI document, host a small page, and serve version-matched local renderer assets. They do not reimplement schemas, request serialization, code samples, Try It, API Client behavior, navigation, or theming.
 
 ## Development
-
-Monorepo development and CI use Node.js `22.22.3` or newer, matching the root `engines.node` contract. The published CLI intentionally keeps the broader Node.js `>=20` runtime contract because consumers execute built CLI/runtime code rather than the repository's ESLint/Vite development toolchain.
 
 ```bash
 npm ci
@@ -234,10 +136,7 @@ npm run build:client
 npm test -w packages/client -- --runInBand
 npm test -w packages/backend -- --runInBand
 npm run check:adapter-assets
-dotnet build adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNetCore.csproj
-(cd adapters/go && go test ./...)
 python3 -m unittest discover -s adapters/python/tests -v
-cargo test --manifest-path adapters/rust/Cargo.toml --all-targets
 mvn -f adapters/java/pom.xml verify
 ```
 
