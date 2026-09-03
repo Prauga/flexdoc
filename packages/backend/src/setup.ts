@@ -1,8 +1,7 @@
 import { FlexDocModuleOptions } from './interfaces';
 import { generateFlexDocHTML } from './template';
 import { getRendererAssets } from './renderer-assets';
-import * as crypto from 'crypto';
-import * as jwt from 'jsonwebtoken';
+import { authorizeFlexDocRequest, FlexDocAuthOptions } from './auth';
 import * as http from 'http';
 import * as https from 'https';
 
@@ -13,84 +12,14 @@ interface AppWithUse {
   ) => void;
 }
 
-function generatePassword(username: string, secret: string): string {
-  const hmac = crypto.createHmac('sha256', secret);
-  hmac.update(username);
-  const hash = hmac.digest('base64');
-  const basePassword = hash.substring(0, 12);
-
-  let password = basePassword;
-  if (!/[A-Z]/.test(password)) password += 'A';
-  if (!/[a-z]/.test(password)) password += 'a';
-  if (!/[0-9]/.test(password)) password += '1';
-  if (!/[^A-Za-z0-9]/.test(password)) password += '!';
-
-  return password;
-}
-
-function createAuthMiddleware(authOptions: {
-  secretKey: string;
-  type: 'basic' | 'bearer';
-}) {
+function createAuthMiddleware(authOptions: FlexDocAuthOptions) {
   return (req: any, res: any, next: any) => {
-    const { type, secretKey } = authOptions;
-    const authHeader = req.headers.authorization;
+    const decision = authorizeFlexDocRequest(req.headers.authorization, authOptions);
+    if (decision.authorized) return next();
 
-    if (type === 'basic') {
-      if (!authHeader || !authHeader.startsWith('Basic ')) {
-        res.statusCode = 401;
-        res.setHeader('WWW-Authenticate', 'Basic');
-        return res.end('Authentication required');
-      }
-
-      const credentials = Buffer.from(authHeader.split(' ')[1], 'base64').toString(
-        'ascii'
-      );
-      const separatorIndex = credentials.indexOf(':');
-      const username =
-        separatorIndex === -1 ? credentials : credentials.slice(0, separatorIndex);
-      const password =
-        separatorIndex === -1 ? '' : credentials.slice(separatorIndex + 1);
-
-      if (password !== generatePassword(username, secretKey)) {
-        res.statusCode = 401;
-        res.setHeader('WWW-Authenticate', 'Basic');
-        return res.end('Invalid credentials');
-      }
-
-      return next();
-    }
-
-    if (type === 'bearer') {
-      let token: string | undefined;
-
-      if (authHeader?.startsWith('Bearer ')) {
-        token = authHeader.split(' ')[1];
-      } else if (authHeader?.startsWith('Basic ')) {
-        const credentials = Buffer.from(authHeader.split(' ')[1], 'base64').toString(
-          'ascii'
-        );
-        const separatorIndex = credentials.indexOf(':');
-        token = separatorIndex === -1 ? undefined : credentials.slice(separatorIndex + 1);
-      }
-
-      if (token) {
-        try {
-          jwt.verify(token, secretKey);
-          return next();
-        } catch {
-          res.statusCode = 401;
-          res.setHeader('WWW-Authenticate', 'Basic realm="Enter token as password"');
-          return res.end('Invalid or expired token');
-        }
-      }
-
-      res.statusCode = 401;
-      res.setHeader('WWW-Authenticate', 'Basic realm="Enter token as password"');
-      return res.end('Authentication required');
-    }
-
-    return next();
+    res.statusCode = 401;
+    if (decision.challenge) res.setHeader('WWW-Authenticate', decision.challenge);
+    return res.end(decision.message || 'Authentication required');
   };
 }
 

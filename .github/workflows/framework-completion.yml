@@ -52,6 +52,7 @@ jobs:
       - run: npm ci
       - run: npm run build:client
       - run: npm run build:backend
+      - run: npm test -w packages/backend
 
       - name: Verify every committed adapter renderer is canonical
         run: npm run check:adapter-assets
@@ -70,13 +71,13 @@ jobs:
           }).catch((error) => { console.error(error); process.exit(1); });
           NODE
 
-      - name: Build Go router examples against local adapter
+      - name: Test Go router examples against local adapter
         run: |
           for example in go-gin go-chi go-echo go-fiber; do
             pushd "examples/$example"
             go mod edit -replace github.com/prauga/flexdoc/adapters/go=../../adapters/go
             go mod tidy
-            go build ./...
+            go test ./...
             popd
           done
 
