@@ -16,7 +16,10 @@ CI runs `npm run check:example-versions` and fails if an example drifts behind t
 | [`javascript-fastify`](./javascript-fastify) | `@prauga/flexdoc-backend` `2.2.0` |
 | [`dotnet-aspnetcore`](./dotnet-aspnetcore) | `Prauga.FlexDoc.AspNetCore` `0.1.0` |
 | [`python-fastapi`](./python-fastapi) | `prauga-flexdoc` `0.2.0` |
-| [`java-spring`](./java-spring) | `com.prauga.flexdoc:flexdoc-spring-boot-starter` `0.3.0` |
+| [`java-spring`](./java-spring) | `com.prauga.flexdoc:flexdoc-spring-boot-starter` `0.4.0` |
+| [`java-quarkus`](./java-quarkus) | Quarkus + `com.prauga.flexdoc:flexdoc-jaxrs` `0.4.0` |
+| [`java-micronaut`](./java-micronaut) | Micronaut + `com.prauga.flexdoc:flexdoc-jvm` `0.4.0` |
+| [`java-guice`](./java-guice) | Guice/JDK HTTP + `com.prauga.flexdoc:flexdoc-jvm` `0.4.0` |
 | [`go-net-http`](./go-net-http) | `github.com/prauga/flexdoc/adapters/go` `v0.2.0` |
 | [`rust-axum`](./rust-axum) | `prauga-flexdoc-axum` `0.2.0` |
 
@@ -29,6 +32,10 @@ Run it from the repository root:
 ```bash
 npm run example:api-client
 ```
+
+## JVM coverage
+
+The Java 0.4.0 family intentionally separates renderer hosting from frameworks. `java-spring` proves the existing Spring Boot starter still works after delegating to `flexdoc-jvm`; `java-quarkus` exercises the Jakarta REST adapter in a real Quarkus test runtime; `java-micronaut` maps Micronaut HTTP routes directly to the neutral host; and `java-guice` binds the same host through Guice and serves it with the JDK HTTP server, which is also the integration model for Governator-style Guice applications.
 
 ## Release-candidate validation
 
