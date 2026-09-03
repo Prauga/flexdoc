@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
 use Illuminate\Events\Dispatcher;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Router;
+use Illuminate\Support\Env;
 use Prauga\FlexDoc\FlexDocConfig;
 use Prauga\FlexDoc\FlexDocHost;
+use Prauga\FlexDoc\Laravel\FlexDocServiceProvider;
 use Prauga\FlexDoc\Laravel\LaravelFlexDoc;
 use Prauga\FlexDoc\Symfony\FlexDocController;
 
@@ -26,23 +30,38 @@ check($host->rendererJavaScript()->body === file_get_contents(dirname(__DIR__) .
 check($host->rendererCss()->body === file_get_contents(dirname(__DIR__) . '/assets/flexdoc.standalone.css'), 'CSS parity');
 check($host->responseForPath('/missing')->status === 404, '404 route');
 
-putenv('FLEXDOC_TRY_IT=false');
-$_ENV['FLEXDOC_TRY_IT'] = 'false';
-$_SERVER['FLEXDOC_TRY_IT'] = 'false';
+$environment = Env::getRepository();
+$environment->set('FLEXDOC_TRY_IT', 'false');
 $laravelConfig = require dirname(__DIR__) . '/config/flexdoc.php';
 check($laravelConfig['try_it_enabled'] === false, 'Laravel FLEXDOC_TRY_IT=false');
-putenv('FLEXDOC_TRY_IT');
-unset($_ENV['FLEXDOC_TRY_IT'], $_SERVER['FLEXDOC_TRY_IT']);
+$environment->clear('FLEXDOC_TRY_IT');
+
+$providerContainer = new Container();
+$providerContainer->instance('config', new Repository([
+    'flexdoc' => [
+        'path' => '/provider-docs',
+        'spec_url' => '/openapi.json',
+        'title' => 'Provider API',
+        'theme' => 'system',
+        'try_it_enabled' => 'false',
+    ],
+]));
+$provider = new FlexDocServiceProvider($providerContainer);
+$provider->register();
+$providerHost = $providerContainer->make(FlexDocHost::class);
+check($providerHost->config()->tryItEnabled === false, 'Laravel service provider parses string false');
 
 $container = new Container();
 $router = new Router(new Dispatcher($container), $container);
 LaravelFlexDoc::register($router, $host);
+
+$docsResponse = $router->dispatch(Request::create('/reference', 'GET'));
+$slashResponse = $router->dispatch(Request::create('/reference/', 'GET'));
+check($docsResponse->getStatusCode() === 200, 'Laravel docs route');
+check($slashResponse->getStatusCode() === 200, 'Laravel trailing-slash docs route');
+check(str_contains((string) $slashResponse->getContent(), 'PHP &lt;API&gt;'), 'Laravel trailing-slash docs body');
+
 $uris = array_map(static fn ($route) => $route->uri(), $router->getRoutes()->getRoutes());
-$documentationRouteCount = count(array_filter(
-    $uris,
-    static fn (string $uri): bool => rtrim($uri, '/') === 'reference',
-));
-check($documentationRouteCount === 2, 'Laravel docs and trailing-slash routes');
 check(in_array('reference/__flexdoc/renderer.js', $uris, true), 'Laravel JS route');
 check(in_array('reference/__flexdoc/renderer.css', $uris, true), 'Laravel CSS route');
 
