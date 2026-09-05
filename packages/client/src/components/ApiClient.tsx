@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Loader2, Play, Plus, Trash2 } from 'lucide-react';
 import { CodeBlock } from './CodeBlock';
+import { OAuthEditor } from './ApiClientAuthEditor';
 import { buildHttpRequest } from '../utils/http-client';
 import { cloneApiClientScripts, runApiClientScript } from '../utils/api-client-scripting';
 import { replaceRequestServer, requestUsesServer, resolveServerUrl } from '../utils/server-url';
 import type { HttpAuth, HttpKeyValue, HttpRequestDraft, HttpVariables } from '../utils/http-client';
-import type { ApiClientRequestScripts, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from '../utils/api-client-scripting';
+import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from '../utils/api-client-scripting';
 import type { BuiltRequest } from '../utils/request-builder';
 import type { Server } from '../types/openapi';
 
@@ -18,6 +19,9 @@ export interface ApiClientExecutionResult {
   statusText?: string;
   responseTime?: number;
   error?: string;
+  scriptTests?: ApiClientScriptTestResult[];
+  scriptLogs?: string[];
+  scriptError?: string;
 }
 
 export interface ApiClientProps {
@@ -31,8 +35,12 @@ export interface ApiClientProps {
   onScriptsChange?: (scripts: ApiClientRequestScripts) => void;
   onExecutionStart?: () => void;
   onExecutionComplete?: (result: ApiClientExecutionResult) => void;
+  resolveAuth?: (auth: HttpAuth | undefined) => HttpAuth;
   variables?: HttpVariables;
+  collectionVariables?: HttpVariables;
+  externalVariables?: HttpVariables;
   environmentVariables?: HttpVariables;
+  onCollectionChanges?: (changes: ApiClientScriptCollectionChange[]) => void;
   onEnvironmentChanges?: (changes: ApiClientScriptEnvironmentChange[]) => void;
   serverOptions?: Server[];
   initialServerUrl?: string;
@@ -53,11 +61,16 @@ function withDefaults(initialRequest?: Partial<HttpRequestDraft>): HttpRequestDr
 }
 
 function cloneDraft(draft: HttpRequestDraft): HttpRequestDraft {
+  const auth = draft.auth
+    ? draft.auth.type === 'oauth2'
+      ? { ...draft.auth, scopes: draft.auth.scopes ? [...draft.auth.scopes] : undefined }
+      : { ...draft.auth }
+    : undefined;
   return {
     ...draft,
     query: draft.query?.map((entry) => ({ ...entry })),
     headers: draft.headers?.map((entry) => ({ ...entry })),
-    auth: draft.auth ? { ...draft.auth } : undefined,
+    auth,
   };
 }
 
@@ -92,8 +105,12 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   onScriptsChange,
   onExecutionStart,
   onExecutionComplete,
+  resolveAuth,
   variables = {},
+  collectionVariables = {},
+  externalVariables = {},
   environmentVariables = {},
+  onCollectionChanges,
   onEnvironmentChanges,
   serverOptions = [],
   initialServerUrl,
@@ -130,7 +147,8 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   useEffect(() => { onScriptsChangeRef.current?.(cloneApiClientScripts(scripts)); }, [scripts]);
   useEffect(() => {
     try {
-      const request = buildHttpRequest(draft, { variables });
+      const previewDraft = resolveAuth ? { ...draft, auth: resolveAuth(draft.auth) } : draft;
+      const request = buildHttpRequest(previewDraft, { variables });
       const signature = JSON.stringify([
         request.method,
         request.url,
@@ -142,7 +160,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
       lastRequestSignatureRef.current = signature;
       onRequestChangeRef.current?.(request);
     } catch { /* an empty or unresolved URL is valid while editing */ }
-  }, [draft, variables]);
+  }, [draft, resolveAuth, variables]);
 
   const method = (draft.method || 'GET').toUpperCase();
   const inputClass = theme === 'dark' ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900';
@@ -157,7 +175,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   };
 
   const setAuthType = (type: HttpAuth['type']) => {
-    const auth: HttpAuth = type === 'bearer' ? { type, token: '' } : type === 'basic' ? { type, username: '', password: '' } : type === 'apiKey' ? { type, key: '', value: '', in: 'header' } : { type: 'none' };
+    const auth: HttpAuth = type === 'inherit' ? { type: 'inherit' } : type === 'bearer' ? { type, token: '' } : type === 'oauth2' ? { type, accessToken: '' } : type === 'basic' ? { type, username: '', password: '' } : type === 'apiKey' ? { type, key: '', value: '', in: 'header' } : { type: 'none' };
     setDraft((current) => ({ ...current, auth }));
   };
 
@@ -170,6 +188,9 @@ export const ApiClient: React.FC<ApiClientProps> = ({
     let startedAt = 0;
     let requestAttempted = false;
     let historyRecorded = false;
+    let historyScriptTests: ApiClientScriptTestResult[] = [];
+    let historyScriptLogs: string[] = [];
+    let historyScriptError: string | undefined;
 
     setLoading(true);
     setError(null);
@@ -180,6 +201,8 @@ export const ApiClient: React.FC<ApiClientProps> = ({
     try {
       let executionDraft = cloneDraft(draft);
       let executionVariables = Object.assign(Object.create(null) as HttpVariables, variables);
+      let executionCollectionVariables = Object.assign(Object.create(null) as HttpVariables, collectionVariables);
+      const executionExternalVariables = Object.assign(Object.create(null) as HttpVariables, externalVariables);
       let executionEnvironmentVariables = Object.assign(Object.create(null) as HttpVariables, environmentVariables);
       let logs: string[] = [];
 
@@ -189,12 +212,17 @@ export const ApiClient: React.FC<ApiClientProps> = ({
           phase: 'pre-request',
           draft: executionDraft,
           variables: executionVariables,
+          collectionVariables: executionCollectionVariables,
+          externalVariables: executionExternalVariables,
           environmentVariables: executionEnvironmentVariables,
         });
         executionDraft = preRequestResult.draft;
         executionVariables = preRequestResult.variables;
+        executionCollectionVariables = preRequestResult.collectionVariables;
         executionEnvironmentVariables = preRequestResult.environmentVariables;
         logs = [...logs, ...preRequestResult.logs];
+        historyScriptLogs = [...logs];
+        if (preRequestResult.collectionChanges.length > 0) onCollectionChanges?.(preRequestResult.collectionChanges);
         if (preRequestResult.environmentChanges.length > 0) onEnvironmentChanges?.(preRequestResult.environmentChanges);
         if (preRequestResult.error) {
           setScriptLogs(logs);
@@ -203,6 +231,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
         }
       }
 
+      if (resolveAuth) executionDraft = { ...executionDraft, auth: resolveAuth(executionDraft.auth) };
       const request = buildHttpRequest(executionDraft, { variables: executionVariables });
       executedMethod = request.method;
       resolvedUrl = request.url;
@@ -223,23 +252,14 @@ export const ApiClient: React.FC<ApiClientProps> = ({
         headers: responseHeaders.map(([key, value]) => `${key}: ${value}`).join('\n'),
         body,
       });
-      onExecutionComplete?.({
-        request: historyRequest,
-        scripts: historyScripts,
-        executedMethod,
-        resolvedUrl,
-        status: result.status,
-        statusText: result.statusText,
-        responseTime,
-      });
-      historyRecorded = true;
-
       if (scripts.tests.trim()) {
         const testResult = await runApiClientScript({
           script: scripts.tests,
           phase: 'tests',
           draft: executionDraft,
           variables: executionVariables,
+          collectionVariables: executionCollectionVariables,
+          externalVariables: executionExternalVariables,
           environmentVariables: executionEnvironmentVariables,
           response: {
             status: result.status,
@@ -250,11 +270,31 @@ export const ApiClient: React.FC<ApiClientProps> = ({
           },
         });
         logs = [...logs, ...testResult.logs];
+        historyScriptLogs = [...logs];
+        historyScriptTests = testResult.tests.map((test) => ({ ...test }));
         setScriptTests(testResult.tests);
+        if (testResult.collectionChanges.length > 0) onCollectionChanges?.(testResult.collectionChanges);
         if (testResult.environmentChanges.length > 0) onEnvironmentChanges?.(testResult.environmentChanges);
-        if (testResult.error) setScriptError(`Test script: ${testResult.error}`);
+        if (testResult.error) {
+          historyScriptError = `Test script: ${testResult.error}`;
+          setScriptError(historyScriptError);
+        }
       }
+      historyScriptLogs = [...logs];
       setScriptLogs(logs);
+      onExecutionComplete?.({
+        request: historyRequest,
+        scripts: historyScripts,
+        executedMethod,
+        resolvedUrl,
+        status: result.status,
+        statusText: result.statusText,
+        responseTime,
+        ...(historyScriptTests.length ? { scriptTests: historyScriptTests } : {}),
+        ...(historyScriptLogs.length ? { scriptLogs: historyScriptLogs } : {}),
+        ...(historyScriptError ? { scriptError: historyScriptError } : {}),
+      });
+      historyRecorded = true;
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'Request failed';
       setError(message);
@@ -266,6 +306,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
           resolvedUrl,
           responseTime: startedAt ? Date.now() - startedAt : undefined,
           error: message,
+          ...(historyScriptLogs.length ? { scriptLogs: historyScriptLogs } : {}),
         });
       }
     } finally { setLoading(false); }
@@ -308,10 +349,16 @@ export const ApiClient: React.FC<ApiClientProps> = ({
       <div className='space-y-3'>
         <label className='text-sm font-medium'>Authorization
           <select aria-label='Authorization type' className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} value={draft.auth?.type || 'none'} onChange={(e) => setAuthType(e.target.value as HttpAuth['type'])}>
-            <option value='none'>None</option><option value='bearer'>Bearer token</option><option value='basic'>Basic auth</option><option value='apiKey'>API key</option>
+            {resolveAuth && <option value='inherit'>Inherit from parent</option>}<option value='none'>None</option><option value='bearer'>Bearer token</option><option value='oauth2'>OAuth 2.0 access token</option><option value='basic'>Basic auth</option><option value='apiKey'>API key</option>
           </select>
         </label>
         {draft.auth?.type === 'bearer' && <input aria-label='Bearer token' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} value={draft.auth.token} onChange={(e) => { const token = e.target.value; setDraft((current) => ({ ...current, auth: { type: 'bearer', token } })); }} />}
+        {draft.auth?.type === 'oauth2' && <OAuthEditor
+          auth={draft.auth}
+          fieldClass={`w-full rounded-md border px-3 py-2 text-sm ${inputClass}`}
+          label=''
+          onChange={(auth) => setDraft((current) => ({ ...current, auth }))}
+        />}
         {draft.auth?.type === 'basic' && <div className='flex gap-2'><input aria-label='Basic auth username' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Username' value={draft.auth.username} onChange={(e) => { const username = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'basic' }>), type: 'basic', username } })); }} /><input aria-label='Basic auth password' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Password' value={draft.auth.password} onChange={(e) => { const password = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'basic' }>), type: 'basic', password } })); }} /></div>}
         {draft.auth?.type === 'apiKey' && <div className='flex gap-2'><input aria-label='API key name' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Key name' value={draft.auth.key} onChange={(e) => { const key = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'apiKey' }>), type: 'apiKey', key } })); }} /><input aria-label='API key value' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Value' value={draft.auth.value} onChange={(e) => { const value = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'apiKey' }>), type: 'apiKey', value } })); }} /><select aria-label='API key location' className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} value={draft.auth.in} onChange={(e) => { const location = e.target.value as 'header' | 'query'; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'apiKey' }>), type: 'apiKey', in: location } })); }}><option value='header'>Header</option><option value='query'>Query</option></select></div>}
       </div>

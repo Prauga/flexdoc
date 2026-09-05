@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { AlertCircle, ChevronDown, ChevronRight, Lock, Unlock } from 'lucide-react';
 import { OpenAPISpec, Operation, RequestBody, Response } from '../types/openapi';
-import { FlexDocRendererOptions } from '../types/options';
+import { ExpandSection, FlexDocRendererOptions } from '../types/options';
+import { resolveExpandSections } from '../utils/renderer-preferences';
 import { OpenAPIParser } from '../utils/openapi-parser';
 import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
 import { CodeSampleLanguage, generateCodeSample, languageLabel } from '../utils/code-samples';
@@ -15,14 +16,19 @@ interface EndpointDetailProps {
   method: string;
   theme?: 'light' | 'dark';
   options?: FlexDocRendererOptions;
+  defaultExpandedSections?: ExpandSection[];
 }
 
 const DEFAULT_LANGUAGES: CodeSampleLanguage[] = ['curl', 'javascript', 'python', 'go', 'java'];
 
-export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, method, theme = 'light', options = {} }) => {
-  const defaultExpanded = ['parameters', 'requestBody', 'tryIt', 'examples'];
-  if (options.expandResponses !== 'none') defaultExpanded.push('responses');
-  const [expandedSections, setExpandedSections] = useState(new Set(defaultExpanded));
+export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, method, theme = 'light', options = {}, defaultExpandedSections }) => {
+  const defaultExpanded = defaultExpandedSections ?? resolveExpandSections(options.expand, options.expand === undefined ? options.expandResponses : undefined);
+  const expansionKey = `${method}:${path}:${defaultExpanded.join('|')}`;
+  const [expansionState, setExpansionState] = useState<{ key: string; sections: Set<ExpandSection> }>(() => ({
+    key: expansionKey,
+    sections: new Set(defaultExpanded),
+  }));
+  const expandedSections = expansionState.key === expansionKey ? expansionState.sections : new Set(defaultExpanded);
   const [sampleLanguage, setSampleLanguage] = useState<CodeSampleLanguage>((options.codeSamples?.languages?.[0] as CodeSampleLanguage) || 'curl');
   const initialBuiltRequest = useMemo(() => buildRequest(spec, path, method, initialRequestValues(spec, path, method)), [spec, path, method]);
   const [sampleRequest, setSampleRequest] = useState(initialBuiltRequest);
@@ -39,16 +45,16 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
   const security = operation.security ?? spec.security;
   const schemaOptions = { requiredPropsFirst: options.requiredPropsFirst, sortPropsAlphabetically: options.sortPropsAlphabetically };
 
-  const toggle = (id: string) => setExpandedSections((current) => {
-    const next = new Set(current);
+  const toggle = (id: ExpandSection) => setExpansionState((current) => {
+    const next = new Set(current.key === expansionKey ? current.sections : defaultExpanded);
     if (next.has(id)) next.delete(id);
     else next.add(id);
-    return next;
+    return { key: expansionKey, sections: next };
   });
 
-  const section = (title: string, id: string, children: React.ReactNode) => (
+  const section = (title: string, id: ExpandSection, children: React.ReactNode) => (
     <section className='mb-8' aria-labelledby={`${id}-heading`}>
-      <button id={`${id}-heading`} onClick={() => toggle(id)} className='mb-4 flex min-h-10 w-full items-center gap-2 text-left text-base font-semibold sm:text-lg'>
+      <button id={`${id}-heading`} aria-expanded={expandedSections.has(id)} onClick={() => toggle(id)} className='mb-4 flex min-h-10 w-full items-center gap-2 text-left text-base font-semibold sm:text-lg'>
         {expandedSections.has(id) ? <ChevronDown className='h-5 w-5 shrink-0' /> : <ChevronRight className='h-5 w-5 shrink-0' />}{title}
       </button>
       {expandedSections.has(id) && children}
@@ -130,7 +136,7 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
         onRequestChange={setSampleRequest}
       />)}
 
-      {options.codeSamples?.enabled !== false && section('Code Examples', 'examples', <div className='min-w-0'>
+      {options.codeSamples?.enabled !== false && section('Code Examples', 'codeSamples', <div className='min-w-0'>
         <div className='mb-3 flex max-w-full gap-1 overflow-x-auto pb-1' role='tablist' aria-label='Code example language'>
           {languages.map((language) => <button key={language} role='tab' aria-selected={sampleLanguage === language} onClick={() => setSampleLanguage(language)} className={`shrink-0 rounded-md px-3 py-2 text-sm ${sampleLanguage === language ? 'bg-blue-600 text-white' : theme === 'dark' ? 'bg-gray-800 text-gray-200' : 'bg-gray-100 text-gray-700'}`}>{languageLabel(language)}</button>)}
         </div>

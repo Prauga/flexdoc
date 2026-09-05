@@ -12,6 +12,8 @@ let app = prauga_flexdoc_axum::router(prauga_flexdoc_axum::Config {
 });
 ```
 
+`Config` also accepts `expand`, `try_it_default_server`, `try_it_credentials`, and `try_it_api_client_persistence_key`. The flexible renderer values use `serde_json::Value`, so `expand` can be a preset string or section array and persistence can be a string or JSON `false`.
+
 For code-first APIs using `utoipa`, pass the generated document directly:
 
 ```rust

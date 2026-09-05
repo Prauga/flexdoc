@@ -18,6 +18,8 @@ host = Prauga::FlexDoc::Host.new(
 run Prauga::FlexDoc::RackApp.new(host)
 ```
 
+`Prauga::FlexDoc::Config` also accepts `expand`, `try_it_default_server`, `try_it_credentials`, and `try_it_api_client_persistence_key`; `expand` may be a preset string or section array, and persistence may be a string or `false`.
+
 The Rack app reconstructs `SCRIPT_NAME + PATH_INFO`, so it also works correctly when mounted beneath another Rack application.
 
 ## Rails

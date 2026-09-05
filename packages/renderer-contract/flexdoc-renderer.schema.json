@@ -23,11 +23,13 @@
         "tagGroups": { "type": "array", "items": { "type": "object", "required": ["name", "tags"], "properties": { "name": { "type": "string" }, "tags": { "type": "array", "items": { "type": "string" } } } } },
         "hideDownloadButton": { "type": "boolean" },
         "hideTopbar": { "type": "boolean" },
+        "expand": { "oneOf": [{ "enum": ["all", "none", "minimal", "documentation", "interactive"] }, { "type": "array", "items": { "enum": ["minimal", "documentation", "interactive", "parameters", "requestBody", "responses", "tryIt", "codeSamples"] } }] },
+        "expandResponses": { "type": "string" },
         "hideHostname": { "type": "boolean" },
         "showRequestHeaders": { "type": "boolean" },
         "requiredPropsFirst": { "type": "boolean" },
         "sortPropsAlphabetically": { "type": "boolean" },
-        "tryIt": { "type": "object", "properties": { "enabled": { "type": "boolean" }, "defaultServer": { "type": "string" }, "credentials": { "enum": ["omit", "same-origin", "include"] } } },
+        "tryIt": { "type": "object", "properties": { "enabled": { "type": "boolean" }, "defaultServer": { "type": "string" }, "credentials": { "enum": ["omit", "same-origin", "include"] }, "apiClientPersistenceKey": { "oneOf": [{ "type": "string" }, { "const": false }] } } },
         "codeSamples": { "type": "object", "properties": { "enabled": { "type": "boolean" }, "languages": { "type": "array", "items": { "enum": ["curl", "javascript", "python", "go", "java"] } } } },
         "footer": { "type": "object" }
       }

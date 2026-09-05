@@ -82,15 +82,26 @@ public static class FlexDocEndpointRouteBuilderExtensions
         }
     }
 
-    private static string CreateHtml(FlexDocOptions options, string path)
+    internal static string CreateHtml(FlexDocOptions options, string path)
     {
-        var rendererOptions = new
+        var tryIt = new Dictionary<string, object?>
         {
-            contractVersion = "1",
-            title = options.Title,
-            theme = options.Theme,
-            tryIt = new { enabled = options.TryItEnabled },
+            ["enabled"] = options.TryItEnabled,
         };
+        if (options.TryItDefaultServer is not null) tryIt["defaultServer"] = options.TryItDefaultServer;
+        if (options.TryItCredentials is not null) tryIt["credentials"] = options.TryItCredentials;
+        if (options.TryItApiClientPersistenceKey is not null)
+            tryIt["apiClientPersistenceKey"] = options.TryItApiClientPersistenceKey;
+
+        var rendererOptions = new Dictionary<string, object?>
+        {
+            ["contractVersion"] = "1",
+            ["title"] = options.Title,
+            ["theme"] = options.Theme,
+            ["tryIt"] = tryIt,
+        };
+        if (options.Expand is not null) rendererOptions["expand"] = options.Expand;
+
         var specUrl = SafeJson(options.SpecUrl);
         var serializedOptions = SafeJson(rendererOptions);
         var title = HtmlEncoder.Default.Encode(options.Title);
@@ -136,5 +147,18 @@ public static class FlexDocEndpointRouteBuilderExtensions
             throw new ArgumentException("FlexDoc Title cannot be empty.", nameof(options));
         if (options.Theme is not ("system" or "light" or "dark"))
             throw new ArgumentException("FlexDoc Theme must be system, light, or dark.", nameof(options));
+        if (options.TryItCredentials is not null && options.TryItCredentials is not ("omit" or "same-origin" or "include"))
+            throw new ArgumentException("FlexDoc TryItCredentials must be omit, same-origin, or include.", nameof(options));
+        if (options.TryItApiClientPersistenceKey is bool enabled && enabled)
+            throw new ArgumentException("FlexDoc TryItApiClientPersistenceKey supports a string or false.", nameof(options));
+        if (options.TryItApiClientPersistenceKey is not null
+            && options.TryItApiClientPersistenceKey is not string
+            && options.TryItApiClientPersistenceKey is not bool)
+            throw new ArgumentException("FlexDoc TryItApiClientPersistenceKey supports a string or false.", nameof(options));
+        if (options.Expand is not null
+            && options.Expand is not string
+            && options.Expand is not IEnumerable<string>
+            && options.Expand is not JsonElement)
+            throw new ArgumentException("FlexDoc Expand supports a preset string or a string list.", nameof(options));
     }
 }

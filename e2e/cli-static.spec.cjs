@@ -22,6 +22,10 @@ test('CLI static export renders, deep-links, and executes Try It', async ({ page
   await sidebar.locator('button').filter({ hasText: '/pets/{id}' }).click();
   await expect(page).toHaveURL(/#get-pets-id$/);
   await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
+  const tryIt = page.getByRole('button', { name: 'Try It', exact: true });
+  await expect(tryIt).toHaveAttribute('aria-expanded', 'false');
+  await tryIt.click();
+  await expect(tryIt).toHaveAttribute('aria-expanded', 'true');
   await page.getByLabel('path id').fill('42');
   await page.getByRole('button', { name: 'Send request' }).click();
   await expect(page.getByText(/Response\s+200\s+OK/)).toBeVisible();

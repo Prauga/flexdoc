@@ -9,7 +9,7 @@ export { App as ApiDocsDemo } from './App';
 export type { AppProps } from './App';
 export type { OpenAPISpec } from './types/openapi';
 export type { FlexDocProps } from './components/FlexDoc';
-export type { FlexDocRendererOptions, ThemeConfig, LogoOptions } from './types/options';
+export type { ExpandOption, ExpandPreset, ExpandSection, FlexDocRendererOptions, ThemeConfig, LogoOptions } from './types/options';
 export { OpenAPIParser } from './utils/openapi-parser';
 export { bundleExternalReferences, EXTERNAL_DOCUMENTS_KEY } from './utils/openapi-resolver';
 export type { BundleOptions, DocumentLoader } from './utils/openapi-resolver';
@@ -17,6 +17,8 @@ export { normalizeOperation, resolveObject, resolvePathItem, resolveServerVariab
 export type { NormalizedOperation } from './utils/openapi-normalizer';
 export { buildRequest, initialRequestValues, parametersFor } from './utils/request-builder';
 export type { BuiltRequest, RequestValues, RequestValue } from './utils/request-builder';
+export { createOpenApiApiClientSession } from './utils/openapi-api-client-session';
+export type { OpenApiApiClientSession } from './utils/openapi-api-client-session';
 export { buildHttpRequest, requestDraftFromBuiltRequest, resolveHttpRequestDraftVariables } from './utils/http-client';
 export type { HttpAuth, HttpKeyValue, HttpRequestBuildOptions, HttpRequestDraft, HttpVariables } from './utils/http-client';
 export { cloneApiClientScripts, EMPTY_API_CLIENT_SCRIPTS, runApiClientScript } from './utils/api-client-scripting';

@@ -28,12 +28,18 @@ module Prauga
       end
 
       def documentation
+        try_it = { enabled: config.try_it_enabled }
+        try_it[:defaultServer] = config.try_it_default_server unless config.try_it_default_server.nil?
+        try_it[:credentials] = config.try_it_credentials unless config.try_it_credentials.nil?
+        try_it[:apiClientPersistenceKey] = config.try_it_api_client_persistence_key unless config.try_it_api_client_persistence_key.nil?
+
         options = {
           contractVersion: "1",
           title: config.title,
           theme: config.theme,
-          tryIt: { enabled: config.try_it_enabled }
+          tryIt: try_it
         }
+        options[:expand] = config.expand unless config.expand.nil?
         title = CGI.escapeHTML(config.title.to_s)
         path = CGI.escapeHTML(config.path)
         spec_url = safe_json(config.spec_url)

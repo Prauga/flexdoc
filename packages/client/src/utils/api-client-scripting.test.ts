@@ -29,6 +29,45 @@ describe('api-client-scripting', () => {
     expect(result.logs).toEqual(['prepared PATCH']);
   });
 
+  it('supports collection variables without bypassing higher-priority sources', async () => {
+    const result = await runApiClientScript({
+      phase: 'pre-request',
+      script: `
+        flex.collection.set('baseUrl', 'https://changed.example.test');
+        flex.collection.set('shared', 'collection-changed');
+        flex.collection.set('petId', '77');
+        flex.environment.unset('envOnly');
+      `,
+      draft: { method: 'GET', url: '{{baseUrl}}/pets/{{petId}}' },
+      collectionVariables: { baseUrl: 'https://collection.example.test', shared: 'collection', envOnly: 'collection-fallback' },
+      externalVariables: { shared: 'external' },
+      environmentVariables: { envOnly: 'environment' },
+      variables: {
+        baseUrl: 'https://collection.example.test',
+        shared: 'external',
+        envOnly: 'environment',
+      },
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.collectionVariables).toMatchObject({
+      baseUrl: 'https://changed.example.test',
+      shared: 'collection-changed',
+      petId: '77',
+      envOnly: 'collection-fallback',
+    });
+    expect(result.variables.baseUrl).toBe('https://changed.example.test');
+    expect(result.variables.shared).toBe('external');
+    expect(result.variables.envOnly).toBe('collection-fallback');
+    expect(result.variables.petId).toBe('77');
+    expect(result.collectionChanges).toEqual([
+      { action: 'set', key: 'baseUrl', value: 'https://changed.example.test' },
+      { action: 'set', key: 'shared', value: 'collection-changed' },
+      { action: 'set', key: 'petId', value: '77' },
+    ]);
+    expect(result.environmentChanges).toEqual([{ action: 'unset', key: 'envOnly' }]);
+  });
+
   it('runs post-response tests and records failures without aborting the script', async () => {
     const result = await runApiClientScript({
       phase: 'tests',

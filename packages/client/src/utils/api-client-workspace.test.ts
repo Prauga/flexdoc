@@ -8,6 +8,7 @@ import {
   deleteApiClientEnvironment,
   deleteApiClientFolder,
   normalizeApiClientWorkspace,
+  resolveApiClientAuth,
 } from './api-client-workspace';
 
 describe('api-client-workspace', () => {
@@ -51,7 +52,7 @@ describe('api-client-workspace', () => {
       }],
     });
 
-    expect(migrated.version).toBe(5);
+    expect(migrated.version).toBe(6);
     expect(migrated.collections[0].name).toBe('Legacy');
     expect(migrated.requests[0].request.url).toBe('{{baseUrl}}/pets');
     expect(migrated.requests[0].scripts).toBeUndefined();
@@ -69,7 +70,7 @@ describe('api-client-workspace', () => {
       activeEnvironmentId: 'environment-1',
     });
 
-    expect(migrated.version).toBe(5);
+    expect(migrated.version).toBe(6);
     expect(migrated.environments).toHaveLength(1);
     expect(migrated.activeEnvironmentId).toBe('environment-1');
     expect(migrated.history).toEqual([]);
@@ -92,7 +93,7 @@ describe('api-client-workspace', () => {
       environments: [],
     });
 
-    expect(migrated.version).toBe(5);
+    expect(migrated.version).toBe(6);
     expect(migrated.requests[0].scripts?.preRequest).toBe('console.log(1)');
     expect(migrated.history).toEqual([]);
   });
@@ -107,9 +108,9 @@ describe('api-client-workspace', () => {
       history: [],
     });
 
-    expect(migrated.version).toBe(5);
+    expect(migrated.version).toBe(6);
     expect(migrated.folders).toEqual([
-      { id: 'folder-1', collectionId: 'collection-1', parentFolderId: undefined, name: 'Pets', createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+      { id: 'folder-1', collectionId: 'collection-1', parentFolderId: undefined, name: 'Pets', auth: { type: 'inherit' }, createdAt: '2026-09-01', updatedAt: '2026-09-01' },
     ]);
   });
 
@@ -187,6 +188,7 @@ describe('api-client-workspace', () => {
         {
           id: 'history-good',
           collectionId: 'deleted-collection',
+          folderId: 'deleted-folder',
           request: { method: 'GET', url: '{{baseUrl}}/pets' },
           scripts: { preRequest: '', tests: '' },
           executedMethod: 'GET',
@@ -210,11 +212,41 @@ describe('api-client-workspace', () => {
     expect(normalized.history[0]).toMatchObject({
       id: 'history-good',
       collectionId: 'deleted-collection',
+      folderId: 'deleted-folder',
       executedMethod: 'GET',
       resolvedUrl: 'https://api.example.test/pets',
       status: 200,
       responseTime: 18,
     });
+  });
+
+  it('persists and normalizes script test outcomes in history', () => {
+    const workspace = createDefaultApiClientWorkspace();
+    const next = addApiClientHistoryEntry(workspace, {
+      request: { method: 'GET', url: 'https://api.example.test/pets' },
+      executedMethod: 'GET',
+      resolvedUrl: 'https://api.example.test/pets',
+      status: 200,
+      scriptTests: [
+        { name: 'status is 200', passed: true },
+        { name: 'body matches', passed: false, error: 'expected mismatch' },
+      ],
+      scriptLogs: ['prepared 77', 'tested 200'],
+      scriptError: 'Test script: late failure',
+    });
+
+    expect(next.history[0]).toMatchObject({
+      scriptTests: [
+        { name: 'status is 200', passed: true },
+        { name: 'body matches', passed: false, error: 'expected mismatch' },
+      ],
+      scriptLogs: ['prepared 77', 'tested 200'],
+      scriptError: 'Test script: late failure',
+    });
+
+    const normalized = normalizeApiClientWorkspace(JSON.parse(JSON.stringify(next)));
+    expect(normalized.history[0].scriptTests).toEqual(next.history[0].scriptTests);
+    expect(normalized.history[0].scriptLogs).toEqual(['prepared 77', 'tested 200']);
   });
 
   it('keeps only the 100 most recent request history entries', () => {
@@ -380,4 +412,54 @@ describe('api-client-workspace', () => {
     expect(next.activeEnvironmentId).toBe('environment-1');
     expect(next.history).toHaveLength(1);
   });
+
+  it('migrates pre-auth workspaces with behavior-preserving auth defaults', () => {
+    const normalized = normalizeApiClientWorkspace({
+      version: 5,
+      collections: [{ id: 'collection-1', name: 'Legacy', variables: [], createdAt: '2026-09-01', updatedAt: '2026-09-01' }],
+      folders: [{ id: 'folder-1', collectionId: 'collection-1', name: 'Pets', createdAt: '2026-09-01', updatedAt: '2026-09-01' }],
+      requests: [{
+        id: 'request-1',
+        collectionId: 'collection-1',
+        folderId: 'folder-1',
+        name: 'List pets',
+        request: { method: 'GET', url: '/pets', auth: { type: 'none' } },
+        createdAt: '2026-09-01',
+        updatedAt: '2026-09-01',
+      }],
+      environments: [],
+      history: [],
+    });
+
+    expect(normalized.version).toBe(6);
+    expect(normalized.collections[0].auth).toEqual({ type: 'none' });
+    expect(normalized.folders[0].auth).toEqual({ type: 'inherit' });
+    expect(normalized.requests[0].request.auth).toEqual({ type: 'none' });
+  });
+
+  it('resolves request, nearest-folder, ancestor-folder, and collection auth in order', () => {
+    const workspace = createDefaultApiClientWorkspace();
+    const collectionId = workspace.collections[0].id;
+    workspace.collections[0].auth = { type: 'bearer', token: 'collection-token' };
+    workspace.folders.push(
+      { id: 'root', collectionId, name: 'Root', auth: { type: 'basic', username: 'root', password: 'secret' }, createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+      { id: 'child', collectionId, parentFolderId: 'root', name: 'Child', auth: { type: 'inherit' }, createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+      { id: 'leaf', collectionId, parentFolderId: 'child', name: 'Leaf', auth: { type: 'apiKey', key: 'X-Key', value: 'leaf', in: 'header' }, createdAt: '2026-09-01', updatedAt: '2026-09-01' },
+    );
+
+    expect(resolveApiClientAuth(workspace, collectionId, 'leaf', { type: 'bearer', token: 'request-token' })).toEqual({ type: 'bearer', token: 'request-token' });
+    expect(resolveApiClientAuth(workspace, collectionId, 'leaf', { type: 'inherit' })).toEqual({ type: 'apiKey', key: 'X-Key', value: 'leaf', in: 'header' });
+    workspace.folders.find((folder) => folder.id === 'leaf')!.auth = { type: 'inherit' };
+    expect(resolveApiClientAuth(workspace, collectionId, 'leaf', { type: 'inherit' })).toEqual({ type: 'basic', username: 'root', password: 'secret' });
+    workspace.folders.find((folder) => folder.id === 'root')!.auth = { type: 'inherit' };
+    expect(resolveApiClientAuth(workspace, collectionId, 'leaf', { type: 'inherit' })).toEqual({ type: 'bearer', token: 'collection-token' });
+  });
+
+  it('treats explicit no-auth as an override instead of inheriting', () => {
+    const workspace = createDefaultApiClientWorkspace();
+    const collectionId = workspace.collections[0].id;
+    workspace.collections[0].auth = { type: 'bearer', token: 'collection-token' };
+    expect(resolveApiClientAuth(workspace, collectionId, undefined, { type: 'none' })).toEqual({ type: 'none' });
+  });
+
 });

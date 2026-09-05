@@ -11,6 +11,8 @@ plug PraugaFlexDoc.Plug,
   title: "My API"
 ```
 
+The Plug config also accepts `expand`, `try_it_default_server`, `try_it_credentials`, and `try_it_api_client_persistence_key`; expansion may be a preset string or section list, and persistence may be a string or `false`.
+
 ## Phoenix
 
 Phoenix routers can forward directly to the same Plug:

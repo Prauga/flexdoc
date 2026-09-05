@@ -50,6 +50,7 @@ setupFlexDoc(app, {
 | `version`                  | `string`                     | `"1.0.0"`                         | The version of your API                                                  |
 | `theme`                    | `object`                     | See [Theming Guide](./theming.md) | Custom theme options                                                     |
 | `hideHostname`             | `boolean`                    | `false`                           | Whether to hide the hostname in the API endpoints                        |
+| `expand`                   | `string | string[]`          | omitted (compact)                 | Default expanded endpoint sections; accepts presets or explicit sections |
 | `pathInMiddlePanel`        | `boolean`                    | `false`                           | Whether to show the path in the middle panel instead of the left sidebar |
 | `defaultModelsExpandDepth` | `number`                     | `1`                               | The default expand depth for models                                      |
 | `defaultModelExpandDepth`  | `number`                     | `1`                               | The default expand depth for model properties                            |
@@ -65,6 +66,38 @@ setupFlexDoc(app, {
 | `operationSorter`          | `(a, b) => number`           | `null`                            | A function to sort operations                                            |
 | `favicon`                  | `string`                     | `null`                            | The URL to a custom favicon                                              |
 | `auth`                     | `object`                     | `null`                            | Authentication configuration (see below)                                 |
+
+## Expansion Defaults and Viewer Preferences
+
+FlexDoc keeps endpoint pages compact by default. Hosts can set the initial expansion baseline with `expand`:
+
+```typescript
+options: {
+  expand: 'all'
+  // or: expand: 'documentation'
+  // or: expand: ['documentation', 'tryIt']
+  // or explicit sections: ['parameters', 'responses', 'codeSamples']
+}
+```
+
+Supported presets are `minimal`, `documentation`, `interactive`, `all`, and `none`. Explicit section names are `parameters`, `requestBody`, `responses`, `tryIt`, and `codeSamples`. `expandResponses` remains accepted for backwards compatibility when `expand` is not supplied, but new integrations should use `expand`.
+
+The host value is a default rather than a policy. Readers can open **Settings** and choose their own expansion baseline. When the top bar is hidden in an embed, FlexDoc provides a floating Settings entry point. The preference is stored locally per documentation origin and API title and takes precedence over the host default. **Reset to documentation defaults** removes the viewer override. Individual section clicks are transient and are not persisted.
+
+## Language Adapter Renderer Options
+
+The self-hosted Go, Python, PHP, Ruby, Elixir, Rust (Axum and Actix), .NET, and Java adapters expose the same renderer settings as the JavaScript host. Existing first-class adapter fields such as `path`, `specUrl`, `title`, `theme`, and `tryIt.enabled` remain authoritative. The following additional values are injected into `window.__FLEXDOC_OPTIONS__` only when the host supplies them:
+
+| Renderer field | Type | Omitted behavior |
+| --- | --- | --- |
+| `expand` | preset string or section list | compact renderer default |
+| `tryIt.defaultServer` | string | renderer chooses the operation/spec server |
+| `tryIt.credentials` | `omit`, `same-origin`, or `include` | renderer fetch default |
+| `tryIt.apiClientPersistenceKey` | string or `false` | renderer derives its normal workspace key; `false` disables IndexedDB workspace persistence |
+
+For typed languages, adapter APIs use the closest native representation. Java Spring additionally exposes `expand-sections`; when both `expand` and `expand-sections` are configured, the section list wins. All language hosts preserve JSON types, so `apiClientPersistenceKey: false` is emitted as JSON `false`, never the string `"false"`.
+
+The JavaScript backend integrations (Express, Fastify, NestJS, and Hono) already pass the complete `options` object through and therefore do not need a separate adapter mapping for these fields.
 
 ## Authentication Options
 
@@ -104,7 +137,7 @@ options: {
   requestInterceptor: (req) => {
     req.headers['X-Custom-Header'] = 'value';
     return req;
-  };
+  },
 }
 ```
 
@@ -115,7 +148,7 @@ options: {
   responseInterceptor: (res) => {
     console.log(res);
     return res;
-  };
+  },
 }
 ```
 

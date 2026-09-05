@@ -29,7 +29,14 @@ flexdoc:
   title: My API
   theme: dark
   try-it-enabled: true
+  expand: documentation
+  # expand-sections: [parameters, tryIt] # list wins over expand when both are set
+  try-it-default-server: https://api.example.com
+  try-it-credentials: include
+  try-it-api-client-persistence-key: my-api-workspace # use false to disable persistence
 ```
+
+The four renderer settings (`expand`, Try It default server/credentials, and API Client persistence key) are omitted when unset, preserving the renderer's compact/default behavior.
 
 The renderer assets are served locally at `/docs/__flexdoc/*`, so the integration has no runtime CDN dependency.
 

@@ -15,6 +15,8 @@ http.Handle("/docs", flexdoc.Handler(flexdoc.Config{
 }))
 ```
 
+`Config` also accepts `Expand` (a preset string or `[]string`), `TryItDefaultServer`, `TryItCredentials`, and `TryItAPIClientPersistenceKey` (a string or `false`); unset values are omitted from `window.__FLEXDOC_OPTIONS__`.
+
 For code-first generators such as Huma, pass the generated OpenAPI document directly:
 
 ```go

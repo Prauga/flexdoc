@@ -32,12 +32,19 @@ final class FlexDocHost
 
     public function documentation(): FlexDocResponse
     {
+        $tryIt = ['enabled' => $this->config->tryItEnabled];
+        if ($this->config->tryItDefaultServer !== null) $tryIt['defaultServer'] = $this->config->tryItDefaultServer;
+        if ($this->config->tryItCredentials !== null) $tryIt['credentials'] = $this->config->tryItCredentials;
+        if ($this->config->tryItApiClientPersistenceKey !== null) $tryIt['apiClientPersistenceKey'] = $this->config->tryItApiClientPersistenceKey;
+
         $options = [
             'contractVersion' => '1',
             'title' => $this->config->title,
             'theme' => $this->config->theme,
-            'tryIt' => ['enabled' => $this->config->tryItEnabled],
+            'tryIt' => $tryIt,
         ];
+        if ($this->config->expand !== null) $options['expand'] = $this->config->expand;
+
         $title = htmlspecialchars($this->config->title, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $path = htmlspecialchars($this->config->path, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $specUrl = self::safeJson($this->config->specUrl);

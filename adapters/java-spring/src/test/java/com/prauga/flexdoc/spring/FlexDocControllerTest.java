@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prauga.flexdoc.jvm.FlexDocHost;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +20,30 @@ class FlexDocControllerTest {
     assertThat(html).contains("/docs/__flexdoc/renderer.js?v=");
     assertThat(html).contains("window.__FLEXDOC_SPEC__=null");
     assertThat(html).contains("window.__FLEXDOC_SPEC_URL__=\"/v3/api-docs\"");
+    assertThat(html).contains("\"tryIt\":{\"enabled\":true}");
+    assertThat(html).doesNotContain("\"expand\":");
     assertThat(html).contains("FlexDocStandalone.mountAsync");
+  }
+
+  @Test
+  void forwardsRendererPropertiesWithSectionListPrecedence() throws Exception {
+    FlexDocProperties properties = new FlexDocProperties();
+    properties.setExpand("all");
+    properties.setExpandSections(List.of("parameters", "tryIt"));
+    properties.setTryItDefaultServer("https://api.example.test");
+    properties.setTryItCredentials("include");
+    properties.setTryItApiClientPersistenceKey("false");
+
+    FlexDocHost host = new FlexDocHost(properties.toConfig());
+    FlexDocController controller = new FlexDocController(properties, host);
+    String html = new String(controller.documentation().getBody(), StandardCharsets.UTF_8);
+
+    assertThat(html).contains("\"expand\":[\"parameters\",\"tryIt\"]");
+    assertThat(html).doesNotContain("\"expand\":\"all\"");
+    assertThat(html).contains("\"defaultServer\":\"https://api.example.test\"");
+    assertThat(html).contains("\"credentials\":\"include\"");
+    assertThat(html).contains("\"apiClientPersistenceKey\":false");
+    assertThat(html).doesNotContain("\"apiClientPersistenceKey\":\"false\"");
   }
 
   @Test

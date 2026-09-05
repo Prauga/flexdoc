@@ -35,13 +35,17 @@ export interface MethodColors {
 }
 export interface ThemeConfig { colors?: ThemeColors; typography?: ThemeTypography; sidebar?: ThemeSidebar; methodColors?: MethodColors; }
 
+export type ExpandSection = 'parameters' | 'requestBody' | 'responses' | 'tryIt' | 'codeSamples';
+export type ExpandPreset = 'all' | 'none' | 'minimal' | 'documentation' | 'interactive';
+export type ExpandOption = ExpandPreset | Array<ExpandSection | Exclude<ExpandPreset, 'all' | 'none'>>;
+
 export interface FlexDocOptions {
   contractVersion?: '1';
   title?: string; description?: string; altDescription?: string; version?: string;
   tagGroups?: { name: string; tags: string[] }[];
   theme?: 'light' | 'dark' | ThemeConfig;
   customCss?: string; customJs?: string; favicon?: string; logo?: string | LogoOptions;
-  hideDownloadButton?: boolean; hideTopbar?: boolean; expandResponses?: string; defaultModelsExpandDepth?: number;
+  hideDownloadButton?: boolean; hideTopbar?: boolean; expand?: ExpandOption; expandResponses?: string; defaultModelsExpandDepth?: number;
   showExtensions?: boolean; showCommonExtensions?: boolean; hideHostname?: boolean; hideLoading?: boolean; nativeScrollbars?: boolean;
   pathInMiddlePanel?: boolean; requiredPropsFirst?: boolean; sortPropsAlphabetically?: boolean; showRequestHeaders?: boolean;
   noAutoAuth?: boolean; lazyRendering?: boolean; scrollYOffset?: number | string; suppressWarnings?: boolean; payloadSampleIdx?: number;

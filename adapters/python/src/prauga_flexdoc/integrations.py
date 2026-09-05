@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from typing import Literal
 
 from .asgi import FlexDocASGI
 from .host import FlexDocConfig, FlexDocHost, FlexDocResponse
@@ -10,6 +11,21 @@ def _normalized_path(path: str) -> str:
     return "/" + path.strip("/")
 
 
+def _config_options(
+    *,
+    expand: str | list[str] | None,
+    try_it_default_server: str | None,
+    try_it_credentials: Literal["omit", "same-origin", "include"] | None,
+    try_it_api_client_persistence_key: str | Literal[False] | None,
+) -> dict:
+    return {
+        "expand": expand,
+        "try_it_default_server": try_it_default_server,
+        "try_it_credentials": try_it_credentials,
+        "try_it_api_client_persistence_key": try_it_api_client_persistence_key,
+    }
+
+
 def setup_fastapi_flexdoc(
     app,
     path: str = "/docs",
@@ -17,6 +33,10 @@ def setup_fastapi_flexdoc(
     title: str = "API Reference",
     theme: str = "system",
     try_it_enabled: bool = True,
+    expand: str | list[str] | None = None,
+    try_it_default_server: str | None = None,
+    try_it_credentials: Literal["omit", "same-origin", "include"] | None = None,
+    try_it_api_client_persistence_key: str | Literal[False] | None = None,
 ) -> FlexDocASGI:
     """Mount FlexDoc on FastAPI using the application's generated OpenAPI endpoint."""
     spec_url = getattr(app, "openapi_url", None)
@@ -37,6 +57,12 @@ def setup_fastapi_flexdoc(
         title=title,
         theme=theme,
         try_it_enabled=try_it_enabled,
+        **_config_options(
+            expand=expand,
+            try_it_default_server=try_it_default_server,
+            try_it_credentials=try_it_credentials,
+            try_it_api_client_persistence_key=try_it_api_client_persistence_key,
+        ),
     ))
     app.mount(normalized_path, docs)
     return docs
@@ -50,9 +76,25 @@ def setup_flask_flexdoc(
     title: str = "API Reference",
     theme: str = "system",
     try_it_enabled: bool = True,
+    expand: str | list[str] | None = None,
+    try_it_default_server: str | None = None,
+    try_it_credentials: Literal["omit", "same-origin", "include"] | None = None,
+    try_it_api_client_persistence_key: str | Literal[False] | None = None,
 ) -> FlexDocHost:
     """Register FlexDoc routes on a Flask application without making Flask a hard dependency."""
-    host = FlexDocHost(FlexDocConfig(path, spec_url, title, theme, try_it_enabled))
+    host = FlexDocHost(FlexDocConfig(
+        path=path,
+        spec_url=spec_url,
+        title=title,
+        theme=theme,
+        try_it_enabled=try_it_enabled,
+        **_config_options(
+            expand=expand,
+            try_it_default_server=try_it_default_server,
+            try_it_credentials=try_it_credentials,
+            try_it_api_client_persistence_key=try_it_api_client_persistence_key,
+        ),
+    ))
     normalized = host.path
     endpoint_prefix = "flexdoc_" + re.sub(r"[^a-zA-Z0-9_]", "_", normalized).strip("_")
 
@@ -75,6 +117,10 @@ def django_urlpatterns(
     title: str = "API Reference",
     theme: str = "system",
     try_it_enabled: bool = True,
+    expand: str | list[str] | None = None,
+    try_it_default_server: str | None = None,
+    try_it_credentials: Literal["omit", "same-origin", "include"] | None = None,
+    try_it_api_client_persistence_key: str | Literal[False] | None = None,
 ):
     """Return Django URL patterns for FlexDoc. Django is imported lazily and remains optional."""
     try:
@@ -83,7 +129,19 @@ def django_urlpatterns(
     except ImportError as error:
         raise RuntimeError("Django is required to use django_urlpatterns(); install prauga-flexdoc[django]") from error
 
-    host = FlexDocHost(FlexDocConfig(path, spec_url, title, theme, try_it_enabled))
+    host = FlexDocHost(FlexDocConfig(
+        path=path,
+        spec_url=spec_url,
+        title=title,
+        theme=theme,
+        try_it_enabled=try_it_enabled,
+        **_config_options(
+            expand=expand,
+            try_it_default_server=try_it_default_server,
+            try_it_credentials=try_it_credentials,
+            try_it_api_client_persistence_key=try_it_api_client_persistence_key,
+        ),
+    ))
     route = host.path.strip("/")
 
     def to_django(request, request_path: str):

@@ -2,8 +2,8 @@ const { createHash } = require('node:crypto');
 const { test, expect } = require('@playwright/test');
 
 const overviewDigests = {
-  'chromium-desktop': '3b1db4cc58e169c89cf179a05d0412af49556c7c42554d571a4c917c275eca7c',
-  'chromium-mobile': '244c39f50f4ab2f44a664bf4b2637dfc596d239e62b9f005cc9802521e3af750',
+  'chromium-desktop': 'e5a005c79be6a8bffb5846ae5decf8300d230b8ea487009d47b276e2575a91aa',
+  'chromium-mobile': '17b9b02d35c147b3252e3bf386a2994f09a2559ddb28d07c51309e4bdc27ebd7',
 };
 
 const API_CLIENT_SPEC_TITLE = 'FlexDoc Browser Fixture';
@@ -94,6 +94,7 @@ test('Try It hands live values and custom servers to the API Client', async ({ p
   await page.getByLabel('path id').fill('42');
   await page.getByLabel('query locale').fill('de');
   await page.getByLabel('header X-Trace').fill('trace-42');
+  await page.getByLabel('bearer credential').fill('handoff-token');
   await page.getByLabel('Custom server URL').fill('http://localhost:8080');
   await page.getByRole('button', { name: 'Open in API Client' }).click();
 
@@ -104,6 +105,9 @@ test('Try It hands live values and custom servers to the API Client', async ({ p
   await expect(page.getByLabel('Query parameters 1 value')).toHaveValue('de');
   await expect(page.getByLabel('Headers 1 key')).toHaveValue('X-Trace');
   await expect(page.getByLabel('Headers 1 value')).toHaveValue('trace-42');
+  await expect(page.getByLabel(/^Headers \d+ key$/)).toHaveCount(1);
+  await expect(page.getByLabel('Authorization type', { exact: true })).toHaveValue('bearer');
+  await expect(page.getByLabel('Bearer token')).toHaveValue('handoff-token');
 
   await page.getByLabel('API Client server').selectOption('https://backup.example.test');
   await expect(page.getByLabel('Request URL')).toHaveValue('https://backup.example.test/pets/42');
@@ -183,7 +187,7 @@ test('API Client environments resolve templates while saved requests keep raw dr
       url: saved?.request?.url,
       header: saved?.request?.headers?.[0]?.value,
     };
-  }).toEqual({ version: 5, activeEnvironment: 'Local', url: '{{baseUrl}}/pets/{{petId}}', header: '{{petId}}' });
+  }).toEqual({ version: 6, activeEnvironment: 'Local', url: '{{baseUrl}}/pets/{{petId}}', header: '{{petId}}' });
 
   await page.reload();
   await page.getByLabel('path id').fill('42');

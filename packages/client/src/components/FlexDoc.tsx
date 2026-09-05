@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu, Settings as SettingsIcon, X } from 'lucide-react';
 import { OpenAPISpec } from '../types/openapi';
 import { Sidebar } from './Sidebar';
 import { EndpointDetail } from './EndpointDetail';
@@ -8,7 +8,9 @@ import '../index.css';
 import { Footer } from './Footer';
 import { themeVariant } from '../utils/theme';
 import { OpenAPIParser } from '../utils/openapi-parser';
-import { FlexDocRendererOptions, LogoOptions, ThemeConfig } from '../types/options';
+import { ExpandOption, FlexDocRendererOptions, LogoOptions, ThemeConfig } from '../types/options';
+import { createFlexDocViewerPreferencesKey, readFlexDocViewerPreferences, resolveExpandSections, writeFlexDocViewerExpandPreference } from '../utils/renderer-preferences';
+import { FlexDocSettings } from './FlexDocSettings';
 
 export interface FlexDocProps {
   spec: OpenAPISpec;
@@ -84,6 +86,15 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
     typeof window === 'undefined' ? null : endpointFromHash(spec, window.location.hash)
   );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const preferenceKey = createFlexDocViewerPreferencesKey(spec.info.title, typeof window === 'undefined' ? undefined : window.location.host);
+  const [viewerPreferenceState, setViewerPreferenceState] = useState<{ key: string; expand?: ExpandOption }>(() => ({
+    key: preferenceKey,
+    expand: readFlexDocViewerPreferences(preferenceKey).expand,
+  }));
+  const viewerExpand = viewerPreferenceState.key === preferenceKey
+    ? viewerPreferenceState.expand
+    : readFlexDocViewerPreferences(preferenceKey).expand;
   const themeConfig = typeof options.theme === 'object' ? options.theme : undefined;
   const mergedStyles = useMemo(() => ({ ...themeStyles(theme, themeConfig), ...customStyles }), [theme, themeConfig, customStyles]);
 
@@ -122,8 +133,25 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
     if (typeof window !== 'undefined') window.location.hash = endpointHash(path, method);
   };
 
+  const hostExpandedSections = resolveExpandSections(options.expand, options.expand === undefined ? options.expandResponses : undefined);
+  const defaultExpandedSections = viewerExpand === undefined ? hostExpandedSections : resolveExpandSections(viewerExpand);
+  const handleViewerExpandChange = (expand?: ExpandOption) => {
+    setViewerPreferenceState({ key: preferenceKey, expand });
+    writeFlexDocViewerExpandPreference(preferenceKey, expand);
+  };
+
   const footerClasses = themeVariant(theme, 'border-gray-200 bg-white text-gray-600', 'border-gray-700 bg-gray-800 text-gray-300');
   const rootClasses = theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900';
+
+  const settingsButton = (floating = false) => <button
+    type='button'
+    className={floating
+      ? `fixed bottom-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg ${theme === 'dark' ? 'border-gray-700 bg-gray-900 text-gray-100' : 'border-gray-200 bg-white text-gray-900'}`
+      : 'inline-flex h-11 w-11 items-center justify-center rounded-md border'}
+    aria-label='Open settings'
+    aria-expanded={settingsOpen}
+    onClick={() => setSettingsOpen(true)}
+  ><SettingsIcon className='h-5 w-5' /></button>;
 
   return (
     <div className={`flexdoc-root flex min-h-screen flex-col ${rootClasses}`} style={mergedStyles}>
@@ -136,8 +164,10 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
             {!options.hideHostname && spec.servers?.[0]?.url && <div className='truncate text-xs opacity-60'>{spec.servers[0].url}</div>}
           </div>
           {!options.hideDownloadButton && <a className='hidden rounded-md border px-3 py-2 text-sm sm:inline-flex' href={`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(spec, null, 2))}`} download='openapi.json'>Download spec</a>}
+          {settingsButton()}
         </header>
       )}
+      {options.hideTopbar && settingsButton(true)}
 
       <div className='relative flex min-h-0 flex-1 overflow-hidden'>
         <aside className='hidden w-80 shrink-0 lg:block' style={{ background: 'var(--flexdoc-sidebar-bg)', color: 'var(--flexdoc-sidebar-text)' }}>
@@ -157,13 +187,21 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
 
         <main className='min-w-0 flex-1 overflow-hidden'>
           {selectedEndpoint ? (
-            <EndpointDetail spec={spec} path={selectedEndpoint.path} method={selectedEndpoint.method} theme={theme} options={options} />
+            <EndpointDetail spec={spec} path={selectedEndpoint.path} method={selectedEndpoint.method} theme={theme} options={options} defaultExpandedSections={defaultExpandedSections} />
           ) : (
             <Overview spec={spec} onEndpointSelect={handleEndpointSelect} theme={theme} />
           )}
         </main>
       </div>
       <Footer footerClasses={footerClasses} footer={options.footer} />
+      <FlexDocSettings
+        open={settingsOpen}
+        theme={theme}
+        viewerExpand={viewerExpand}
+        effectiveExpandedSections={defaultExpandedSections}
+        onExpandChange={handleViewerExpandChange}
+        onClose={() => setSettingsOpen(false)}
+      />
     </div>
   );
 };

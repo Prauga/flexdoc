@@ -1,6 +1,6 @@
 import type { HttpAuth, HttpKeyValue, HttpRequestDraft } from './http-client';
 import { cloneApiClientScripts } from './api-client-scripting';
-import type { ApiClientRequestScripts } from './api-client-scripting';
+import type { ApiClientRequestScripts, ApiClientScriptTestResult } from './api-client-scripting';
 
 export interface ApiClientEnvironmentVariable {
   id: string;
@@ -12,6 +12,7 @@ export interface ApiClientEnvironmentVariable {
 export interface ApiClientCollection {
   id: string;
   name: string;
+  auth: HttpAuth;
   variables: ApiClientEnvironmentVariable[];
   createdAt: string;
   updatedAt: string;
@@ -22,6 +23,7 @@ export interface ApiClientFolder {
   collectionId: string;
   parentFolderId?: string;
   name: string;
+  auth: HttpAuth;
   createdAt: string;
   updatedAt: string;
 }
@@ -48,6 +50,7 @@ export interface ApiClientEnvironment {
 export interface ApiClientHistoryEntry {
   id: string;
   collectionId?: string;
+  folderId?: string;
   request: HttpRequestDraft;
   scripts?: ApiClientRequestScripts;
   executedMethod: string;
@@ -56,11 +59,15 @@ export interface ApiClientHistoryEntry {
   statusText?: string;
   responseTime?: number;
   error?: string;
+  scriptTests?: ApiClientScriptTestResult[];
+  scriptLogs?: string[];
+  scriptError?: string;
   createdAt: string;
 }
 
 export interface ApiClientHistoryInput {
   collectionId?: string;
+  folderId?: string;
   request: HttpRequestDraft;
   scripts?: ApiClientRequestScripts;
   executedMethod: string;
@@ -69,10 +76,13 @@ export interface ApiClientHistoryInput {
   statusText?: string;
   responseTime?: number;
   error?: string;
+  scriptTests?: ApiClientScriptTestResult[];
+  scriptLogs?: string[];
+  scriptError?: string;
 }
 
 export interface ApiClientWorkspaceState {
-  version: 5;
+  version: 6;
   collections: ApiClientCollection[];
   folders: ApiClientFolder[];
   requests: ApiClientSavedRequest[];
@@ -113,8 +123,18 @@ function isHttpKeyValue(value: unknown): value is HttpKeyValue {
 
 function isHttpAuth(value: unknown): value is HttpAuth {
   if (!isRecord(value) || typeof value.type !== 'string') return false;
-  if (value.type === 'none') return true;
+  if (value.type === 'none' || value.type === 'inherit') return true;
   if (value.type === 'bearer') return hasString(value, 'token');
+  if (value.type === 'oauth2') {
+    if (!hasString(value, 'accessToken')) return false;
+    const grantTypes = new Set(['accessToken', 'authorizationCode', 'clientCredentials', 'password', 'implicit']);
+    if (value.grantType !== undefined && (typeof value.grantType !== 'string' || !grantTypes.has(value.grantType))) return false;
+    if (value.clientAuthentication !== undefined && value.clientAuthentication !== 'body' && value.clientAuthentication !== 'basic') return false;
+    for (const key of ['authorizationUrl', 'tokenUrl', 'clientId', 'clientSecret', 'redirectUri', 'username', 'password', 'refreshToken']) {
+      if (value[key] !== undefined && typeof value[key] !== 'string') return false;
+    }
+    return value.scopes === undefined || (Array.isArray(value.scopes) && value.scopes.every((scope) => typeof scope === 'string'));
+  }
   if (value.type === 'basic') return hasString(value, 'username') && hasString(value, 'password');
   return value.type === 'apiKey'
     && hasString(value, 'key')
@@ -149,6 +169,7 @@ function normalizeCollection(value: unknown): ApiClientCollection | null {
   return {
     id: value.id as string,
     name: value.name as string,
+    auth: isHttpAuth(value.auth) ? value.auth : { type: 'none' },
     variables: Array.isArray(value.variables) ? value.variables.filter(isEnvironmentVariable) : [],
     createdAt: value.createdAt as string,
     updatedAt: value.updatedAt as string,
@@ -169,6 +190,7 @@ function normalizeFolder(value: unknown): ApiClientFolder | null {
     collectionId: value.collectionId as string,
     parentFolderId: value.parentFolderId as string | undefined,
     name: value.name as string,
+    auth: isHttpAuth(value.auth) ? value.auth : { type: 'inherit' },
     createdAt: value.createdAt as string,
     updatedAt: value.updatedAt as string,
   };
@@ -249,6 +271,16 @@ function normalizeEnvironment(value: unknown): ApiClientEnvironment | null {
   };
 }
 
+function normalizeScriptTestResult(value: unknown): ApiClientScriptTestResult | null {
+  if (!isRecord(value) || !hasString(value, 'name') || typeof value.passed !== 'boolean') return null;
+  if (value.error !== undefined && typeof value.error !== 'string') return null;
+  return {
+    name: value.name as string,
+    passed: value.passed as boolean,
+    error: value.error as string | undefined,
+  };
+}
+
 function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
   if (!isRecord(value)
     || !hasString(value, 'id')
@@ -259,12 +291,18 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     || (value.statusText !== undefined && typeof value.statusText !== 'string')
     || !isOptionalFiniteNumber(value, 'responseTime')
     || (value.error !== undefined && typeof value.error !== 'string')
+    || (value.scriptError !== undefined && typeof value.scriptError !== 'string')
     || !hasString(value, 'createdAt')) return null;
 
   const scripts = normalizeScripts(value.scripts);
+  const scriptTests = Array.isArray(value.scriptTests)
+    ? value.scriptTests.map(normalizeScriptTestResult).filter((test): test is ApiClientScriptTestResult => test !== null)
+    : [];
+  const scriptLogs = Array.isArray(value.scriptLogs) ? value.scriptLogs.filter((log): log is string => typeof log === 'string') : [];
   return {
     id: value.id as string,
     collectionId: typeof value.collectionId === 'string' ? value.collectionId : undefined,
+    folderId: typeof value.folderId === 'string' ? value.folderId : undefined,
     request: value.request,
     ...(scripts ? { scripts } : {}),
     executedMethod: value.executedMethod as string,
@@ -273,6 +311,9 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     statusText: value.statusText as string | undefined,
     responseTime: value.responseTime as number | undefined,
     error: value.error as string | undefined,
+    ...(scriptTests.length ? { scriptTests } : {}),
+    ...(scriptLogs.length ? { scriptLogs } : {}),
+    scriptError: value.scriptError as string | undefined,
     createdAt: value.createdAt as string,
   };
 }
@@ -299,19 +340,24 @@ export function createDefaultApiClientPersistenceKey(title?: string, host?: stri
 }
 
 export function cloneRequestDraft(request: HttpRequestDraft): HttpRequestDraft {
+  const auth = request.auth
+    ? request.auth.type === 'oauth2'
+      ? { ...request.auth, scopes: request.auth.scopes ? [...request.auth.scopes] : undefined }
+      : { ...request.auth }
+    : undefined;
   return {
     ...request,
     query: request.query?.map((entry) => ({ ...entry })),
     headers: request.headers?.map((entry) => ({ ...entry })),
-    auth: request.auth ? { ...request.auth } : undefined,
+    auth,
   };
 }
 
 export function createDefaultApiClientWorkspace(): ApiClientWorkspaceState {
   const timestamp = now();
   return {
-    version: 5,
-    collections: [{ id: createApiClientId('collection'), name: DEFAULT_COLLECTION_NAME, variables: [], createdAt: timestamp, updatedAt: timestamp }],
+    version: 6,
+    collections: [{ id: createApiClientId('collection'), name: DEFAULT_COLLECTION_NAME, auth: { type: 'none' }, variables: [], createdAt: timestamp, updatedAt: timestamp }],
     folders: [],
     requests: [],
     environments: [],
@@ -320,7 +366,7 @@ export function createDefaultApiClientWorkspace(): ApiClientWorkspaceState {
 }
 
 export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceState {
-  if (!isRecord(value) || ![1, 2, 3, 4, 5].includes(value.version as number)) return createDefaultApiClientWorkspace();
+  if (!isRecord(value) || ![1, 2, 3, 4, 5, 6].includes(value.version as number)) return createDefaultApiClientWorkspace();
 
   const collectionValues = (Array.isArray(value.collections) ? value.collections : [])
     .map(normalizeCollection)
@@ -343,7 +389,7 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
 
   if (value.version === 1) {
     return {
-      version: 5,
+      version: 6,
       collections: collectionValues,
       folders: folderValues,
       requests: requestValues,
@@ -359,7 +405,7 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
     && environmentValues.some((environment) => environment.id === value.activeEnvironmentId)
     ? value.activeEnvironmentId
     : undefined;
-  const historyValues = (value.version === 4 || value.version === 5) && Array.isArray(value.history)
+  const historyValues = (value.version === 4 || value.version === 5 || value.version === 6) && Array.isArray(value.history)
     ? value.history
       .map(normalizeHistoryEntry)
       .filter((entry): entry is ApiClientHistoryEntry => entry !== null)
@@ -367,7 +413,7 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
     : [];
 
   return {
-    version: 5,
+    version: 6,
     collections: collectionValues,
     folders: folderValues,
     requests: requestValues,
@@ -381,6 +427,7 @@ export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, inp
   const entry: ApiClientHistoryEntry = {
     id: createApiClientId('history'),
     collectionId: input.collectionId,
+    folderId: input.folderId,
     request: cloneRequestDraft(input.request),
     ...(input.scripts ? { scripts: cloneApiClientScripts(input.scripts) } : {}),
     executedMethod: input.executedMethod,
@@ -389,9 +436,35 @@ export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, inp
     statusText: input.statusText,
     responseTime: input.responseTime,
     error: input.error,
+    ...(input.scriptTests?.length ? { scriptTests: input.scriptTests.map((test) => ({ ...test })) } : {}),
+    ...(input.scriptLogs?.length ? { scriptLogs: [...input.scriptLogs] } : {}),
+    scriptError: input.scriptError,
     createdAt: now(),
   };
   return { ...workspace, history: [entry, ...workspace.history].slice(0, HISTORY_LIMIT) };
+}
+
+
+export function resolveApiClientAuth(
+  workspace: ApiClientWorkspaceState,
+  collectionId?: string,
+  folderId?: string,
+  requestAuth: HttpAuth = { type: 'none' },
+): HttpAuth {
+  if (requestAuth.type !== 'inherit') return { ...requestAuth };
+
+  const folderById = new Map(workspace.folders.map((folder) => [folder.id, folder]));
+  const seen = new Set<string>();
+  let folder = folderId ? folderById.get(folderId) : undefined;
+  while (folder && folder.collectionId === collectionId && !seen.has(folder.id)) {
+    seen.add(folder.id);
+    if (folder.auth.type !== 'inherit') return { ...folder.auth };
+    folder = folder.parentFolderId ? folderById.get(folder.parentFolderId) : undefined;
+  }
+
+  const collection = workspace.collections.find((candidate) => candidate.id === collectionId);
+  if (collection && collection.auth.type !== 'inherit') return { ...collection.auth };
+  return { type: 'none' };
 }
 
 export function apiClientCollectionVariables(workspace: ApiClientWorkspaceState, collectionId?: string): Record<string, string> {
