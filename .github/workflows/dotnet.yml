@@ -51,6 +51,9 @@ jobs:
       - name: Build ASP.NET Core adapter
         run: dotnet build adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNetCore.csproj --configuration Release
 
+      - name: Test ASP.NET Core renderer options
+        run: dotnet run --project adapters/dotnet/tests/Prauga.FlexDoc.AspNetCore.Tests/Prauga.FlexDoc.AspNetCore.Tests.csproj --configuration Release
+
       - name: Pack NuGet release candidate
         run: dotnet pack adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNetCore.csproj --configuration Release --no-build --output /tmp/flexdoc-dotnet
 

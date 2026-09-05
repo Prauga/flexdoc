@@ -11,6 +11,8 @@ FlexDocHost host = new FlexDocHost(
         .build());
 ```
 
+The builder also exposes `expand(...)` or `expandSections(...)`, `tryItDefaultServer(...)`, `tryItCredentials(...)`, and `tryItApiClientPersistenceKey(...)`; the persistence key may be a string or `false`, and unset fields are omitted from `window.__FLEXDOC_OPTIONS__`.
+
 An HTTP framework only needs to map three responses from the host: `documentation()`, `rendererJavaScript()`, and `rendererCss()`.
 
 For Guice or Governator-style applications, bind a configured `FlexDocHost` as a singleton and have the application's existing HTTP layer translate `FlexDocHttpResponse` into its native response type. Governator is built around Guice lifecycle/DI, so no renderer-specific Governator integration is required.

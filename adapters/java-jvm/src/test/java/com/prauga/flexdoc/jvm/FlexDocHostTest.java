@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class FlexDocHostTest {
@@ -15,6 +16,8 @@ class FlexDocHostTest {
     assertTrue(html.contains("/docs/__flexdoc/renderer.js?v="));
     assertTrue(html.contains("window.__FLEXDOC_SPEC__=null"));
     assertTrue(html.contains("window.__FLEXDOC_SPEC_URL__=\"/openapi.json\""));
+    assertTrue(html.contains("\"tryIt\":{\"enabled\":true}"));
+    assertFalse(html.contains("\"expand\":"));
     assertTrue(host.rendererJavaScript().cacheControl().contains("immutable"));
     assertTrue(host.rendererCss().cacheControl().contains("immutable"));
     assertTrue(host.rendererJavaScript().body().length > 1000);
@@ -23,10 +26,30 @@ class FlexDocHostTest {
   }
 
   @Test
+  void serializesRendererSettingsStructurally() throws Exception {
+    FlexDocHost presetHost = new FlexDocHost(
+        FlexDocConfig.builder()
+            .expand("documentation")
+            .tryItDefaultServer("https://api.example.test")
+            .tryItCredentials("include")
+            .tryItApiClientPersistenceKey(false)
+            .build());
+    String presetHtml = presetHost.documentation().bodyUtf8();
+
+    assertTrue(presetHtml.contains("\"expand\":\"documentation\""));
+    assertTrue(presetHtml.contains("\"tryIt\":{\"enabled\":true,\"defaultServer\":\"https://api.example.test\",\"credentials\":\"include\",\"apiClientPersistenceKey\":false}"));
+    assertFalse(presetHtml.contains("\"apiClientPersistenceKey\":\"false\""));
+
+    FlexDocHost listHost = new FlexDocHost(
+        FlexDocConfig.builder().expandSections(List.of("parameters", "tryIt")).build());
+    assertTrue(listHost.documentation().bodyUtf8().contains("\"expand\":[\"parameters\",\"tryIt\"]"));
+  }
+
+  @Test
   void safelyEmbedsInlineSpecAndCustomPath() throws Exception {
     String json = "{\"openapi\":\"3.1.0\",\"x-test\":\"</script><script>alert(1)</script>\"}";
     FlexDocHost host = new FlexDocHost(
-        FlexDocConfig.builder().path("reference/").title("Example <API>").build(),
+        FlexDocConfig.builder().path("reference/").specUrl("</script><script>alert(2)</script>").title("Example <API>").build(),
         () -> json);
     String html = host.documentation().bodyUtf8();
 
@@ -34,6 +57,7 @@ class FlexDocHostTest {
     assertTrue(html.contains("Example &lt;API&gt;"));
     assertTrue(html.contains("window.__FLEXDOC_SPEC_URL__=null"));
     assertFalse(html.contains("</script><script>alert(1)</script>"));
+    assertFalse(html.contains("</script><script>alert(2)</script>"));
     assertTrue(html.contains("\\u003c/script\\u003e"));
   }
 }

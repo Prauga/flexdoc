@@ -24,12 +24,20 @@ defmodule PraugaFlexDoc.Plug do
   end
 
   defp docs(conn, config) do
-    options = %{
-      contractVersion: "1",
-      title: config.title,
-      theme: config.theme,
-      tryIt: %{enabled: config.try_it_enabled}
-    }
+    try_it =
+      %{enabled: config.try_it_enabled}
+      |> maybe_put(:defaultServer, config.try_it_default_server)
+      |> maybe_put(:credentials, config.try_it_credentials)
+      |> maybe_put(:apiClientPersistenceKey, config.try_it_api_client_persistence_key)
+
+    options =
+      %{
+        contractVersion: "1",
+        title: config.title,
+        theme: config.theme,
+        tryIt: try_it
+      }
+      |> maybe_put(:expand, config.expand)
 
     html = """
     <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>#{escape_html(config.title)}</title><link rel="stylesheet" href="#{config.path}/__flexdoc/renderer.css?v=#{@fingerprint}"></head><body><div id="flexdoc-root"></div><script>window.__FLEXDOC_SPEC_URL__=#{safe_json(config.spec_url)};window.__FLEXDOC_OPTIONS__=#{safe_json(options)};</script><script src="#{config.path}/__flexdoc/renderer.js?v=#{@fingerprint}"></script><script>(async function(){const root=document.getElementById('flexdoc-root');try{const baseUri=new URL(window.__FLEXDOC_SPEC_URL__,window.location.href).toString();const response=await fetch(baseUri);if(!response.ok)throw new Error('Unable to load OpenAPI specification: HTTP '+response.status);const spec=await response.json();const config={spec:spec,options:window.__FLEXDOC_OPTIONS__||{},baseUri:baseUri};if(window.FlexDocStandalone.mountAsync)await window.FlexDocStandalone.mountAsync(root,config);else window.FlexDocStandalone.mount(root,config);}catch(error){root.textContent=error instanceof Error?error.message:String(error);}})();</script></body></html>
@@ -40,6 +48,9 @@ defmodule PraugaFlexDoc.Plug do
     |> put_resp_header("cache-control", "no-cache")
     |> send_resp(200, html)
   end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp asset(conn, body, content_type) do
     conn

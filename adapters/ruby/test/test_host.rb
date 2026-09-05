@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "json"
 require "minitest/autorun"
 require "rack/mock"
 require "action_dispatch"
@@ -12,6 +13,12 @@ class FlexDocHostTest < Minitest::Test
     )
   end
 
+  def renderer_options(host)
+    body = host.response_for_path(host.config.path).body
+    json = body.match(/window\.__FLEXDOC_OPTIONS__=(.*?);<\/script>/)[1]
+    JSON.parse(json)
+  end
+
   def test_host_serves_docs_and_assets
     docs = @host.response_for_path("/reference")
     assert_equal 200, docs.status
@@ -19,10 +26,51 @@ class FlexDocHostTest < Minitest::Test
     assert_includes docs.body, "Ruby &lt;API&gt;"
     assert_includes docs.body, 'window.__FLEXDOC_SPEC_URL__="/openapi.json"'
 
+    options = renderer_options(@host)
+    assert_equal true, options.dig("tryIt", "enabled")
+    refute options.key?("expand")
+
     js = @host.renderer_javascript
     assert_equal 200, js.status
     assert_includes js.cache_control, "immutable"
     assert_operator js.body.bytesize, :>, 1000
+  end
+
+  def test_renderer_settings_use_renderer_shape
+    host = Prauga::FlexDoc::Host.new(
+      Prauga::FlexDoc::Config.new(
+        expand: "documentation",
+        try_it_default_server: "https://api.example.test",
+        try_it_credentials: "include",
+        try_it_api_client_persistence_key: false
+      )
+    )
+    options = renderer_options(host)
+
+    assert_equal "documentation", options["expand"]
+    assert_equal true, options.dig("tryIt", "enabled")
+    assert_equal "https://api.example.test", options.dig("tryIt", "defaultServer")
+    assert_equal "include", options.dig("tryIt", "credentials")
+    assert_equal false, options.dig("tryIt", "apiClientPersistenceKey")
+
+    list_host = Prauga::FlexDoc::Host.new(
+      Prauga::FlexDoc::Config.new(expand: ["parameters", "tryIt"])
+    )
+    assert_equal ["parameters", "tryIt"], renderer_options(list_host)["expand"]
+  end
+
+  def test_renderer_json_remains_script_safe
+    host = Prauga::FlexDoc::Host.new(
+      Prauga::FlexDoc::Config.new(
+        spec_url: "</script><script>alert('spec')</script>",
+        title: "</script><script>alert('title')</script>"
+      )
+    )
+    body = host.response_for_path("/docs").body
+
+    refute_includes body, "</script><script>alert('spec')</script>"
+    refute_includes body, "</script><script>alert('title')</script>"
+    assert_includes body, "\\u003c/script\\u003e"
   end
 
   def test_rack_app_preserves_mount_prefix

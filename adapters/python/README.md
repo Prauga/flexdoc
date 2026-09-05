@@ -22,6 +22,8 @@ app.mount('/docs', FlexDocASGI(
 ))
 ```
 
+`FlexDocConfig` and the FastAPI/Flask/Django helpers also accept `expand`, `try_it_default_server`, `try_it_credentials`, and `try_it_api_client_persistence_key`; the persistence key may be a string or `False`, and unset values are omitted from renderer options.
+
 ## Flask / WSGI
 
 ```python

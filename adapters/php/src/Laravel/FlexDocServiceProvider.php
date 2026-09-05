@@ -27,6 +27,10 @@ final class FlexDocServiceProvider extends ServiceProvider
             FILTER_VALIDATE_BOOLEAN,
             FILTER_NULL_ON_FAILURE,
         ) ?? true;
+        $persistenceKey = $config['try_it_api_client_persistence_key'] ?? null;
+        if (is_string($persistenceKey) && strtolower($persistenceKey) === 'false') $persistenceKey = false;
+        $credentials = isset($config['try_it_credentials']) ? trim((string) $config['try_it_credentials']) : null;
+        if ($credentials === '') $credentials = null;
 
         return new FlexDocHost(new FlexDocConfig(
             path: (string) ($config['path'] ?? '/docs'),
@@ -34,6 +38,10 @@ final class FlexDocServiceProvider extends ServiceProvider
             title: (string) ($config['title'] ?? 'API Reference'),
             theme: (string) ($config['theme'] ?? 'system'),
             tryItEnabled: $tryItEnabled,
+            expand: $config['expand'] ?? null,
+            tryItDefaultServer: isset($config['try_it_default_server']) ? (string) $config['try_it_default_server'] : null,
+            tryItCredentials: $credentials,
+            tryItApiClientPersistenceKey: $persistenceKey === false ? false : (isset($persistenceKey) ? (string) $persistenceKey : null),
         ));
     }
 

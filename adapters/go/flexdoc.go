@@ -16,11 +16,15 @@ import (
 var embeddedRenderer embed.FS
 
 type Config struct {
-    Path         string
-    SpecURL      string
-    Title        string
-    Theme        string
-    TryItEnabled bool
+    Path                          string
+    SpecURL                       string
+    Title                         string
+    Theme                         string
+    TryItEnabled                  bool
+    Expand                        any
+    TryItDefaultServer            string
+    TryItCredentials              string
+    TryItAPIClientPersistenceKey  any
 }
 
 type handler struct { cfg Config; assets fs.FS; spec []byte; rendererVersion string }
@@ -98,7 +102,14 @@ func safeJSON(value any) string {
 }
 
 func (h *handler) html() string {
-    options := map[string]any{"contractVersion":"1", "title":h.cfg.Title, "theme":h.cfg.Theme, "tryIt":map[string]bool{"enabled":h.cfg.TryItEnabled}}
+    tryIt := map[string]any{"enabled": h.cfg.TryItEnabled}
+    if h.cfg.TryItDefaultServer != "" { tryIt["defaultServer"] = h.cfg.TryItDefaultServer }
+    if h.cfg.TryItCredentials != "" { tryIt["credentials"] = h.cfg.TryItCredentials }
+    if h.cfg.TryItAPIClientPersistenceKey != nil { tryIt["apiClientPersistenceKey"] = h.cfg.TryItAPIClientPersistenceKey }
+
+    options := map[string]any{"contractVersion":"1", "title":h.cfg.Title, "theme":h.cfg.Theme, "tryIt":tryIt}
+    if h.cfg.Expand != nil { options["expand"] = h.cfg.Expand }
+
     base := path.Clean(h.cfg.Path)
     return fmt.Sprintf(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>%s</title><link rel="stylesheet" href="%s/__flexdoc/renderer.css?v=%s"></head><body><div id="flexdoc-root"></div><script>window.__FLEXDOC_SPEC_URL__=%s;window.__FLEXDOC_OPTIONS__=%s;</script><script src="%s/__flexdoc/renderer.js?v=%s"></script><script>(async function(){const root=document.getElementById('flexdoc-root');try{const baseUri=new URL(window.__FLEXDOC_SPEC_URL__,window.location.href).toString();const response=await fetch(baseUri);if(!response.ok)throw new Error('Unable to load OpenAPI specification: HTTP '+response.status);const spec=await response.json();const config={spec:spec,options:window.__FLEXDOC_OPTIONS__||{},baseUri:baseUri};if(window.FlexDocStandalone.mountAsync)await window.FlexDocStandalone.mountAsync(root,config);else window.FlexDocStandalone.mount(root,config);}catch(error){root.textContent=error instanceof Error?error.message:String(error);}})();</script></body></html>`, html.EscapeString(h.cfg.Title), base, h.rendererVersion, safeJSON(h.cfg.SpecURL), safeJSON(options), base, h.rendererVersion)
 }

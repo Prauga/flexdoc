@@ -2,6 +2,8 @@
 
 `com.prauga.flexdoc:flexdoc-jaxrs` is a thin Jakarta REST/JAX-RS wrapper around `flexdoc-jvm`. Provide a `FlexDocHost` through CDI and register `FlexDocJaxRsResource`; the default resource serves `/docs` and its local renderer assets.
 
+Renderer settings are configured on the shared JVM `FlexDocConfig`, including `expand(...)`/`expandSections(...)`, `tryItDefaultServer(...)`, `tryItCredentials(...)`, and `tryItApiClientPersistenceKey(...)`; JAX-RS does not maintain a second options model.
+
 `FlexDocJaxRsResource` uses `@Path("/docs")` because Jakarta REST resource paths are annotation values and therefore compile-time constants. `FlexDocConfig.path()` cannot dynamically change that class-level route. For a custom path, subclass the resource (or create the same thin resource in your application) with a new `@Path` while keeping the injected `FlexDocHost` configured to the same path:
 
 ```java

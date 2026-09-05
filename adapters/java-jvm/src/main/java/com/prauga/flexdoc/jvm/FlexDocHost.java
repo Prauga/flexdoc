@@ -6,6 +6,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /** Framework-neutral FlexDoc host that serves the documentation shell and canonical renderer assets. */
@@ -41,9 +43,23 @@ public final class FlexDocHost {
     boolean hasInlineSpec = supplied != null && !supplied.isBlank();
     String spec = hasInlineSpec ? safeInlineJson(supplied) : "null";
     String specUrl = jsonString(hasInlineSpec ? null : config.specUrl());
-    String options = "{\"contractVersion\":\"1\",\"title\":" + jsonString(config.title())
-        + ",\"theme\":" + jsonString(config.theme())
-        + ",\"tryIt\":{\"enabled\":" + config.tryItEnabled() + "}}";
+
+    Map<String, Object> tryIt = new LinkedHashMap<>();
+    tryIt.put("enabled", config.tryItEnabled());
+    if (config.tryItDefaultServer() != null) tryIt.put("defaultServer", config.tryItDefaultServer());
+    if (config.tryItCredentials() != null) tryIt.put("credentials", config.tryItCredentials());
+    if (config.tryItApiClientPersistenceKey() != null) {
+      tryIt.put("apiClientPersistenceKey", config.tryItApiClientPersistenceKey());
+    }
+
+    Map<String, Object> rendererOptions = new LinkedHashMap<>();
+    rendererOptions.put("contractVersion", "1");
+    rendererOptions.put("title", config.title());
+    rendererOptions.put("theme", config.theme());
+    rendererOptions.put("tryIt", tryIt);
+    if (config.expand() != null) rendererOptions.put("expand", config.expand());
+    String options = jsonValue(rendererOptions);
+
     String base = escapeHtmlAttribute(config.path());
     String html = "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1,viewport-fit=cover\">"
         + "<meta name=\"color-scheme\" content=\"light dark\"><title>" + escapeHtml(config.title()) + "</title><link rel=\"stylesheet\" href=\"" + base + "/__flexdoc/renderer.css?v=" + fingerprint + "\"></head>"
@@ -90,6 +106,36 @@ public final class FlexDocHost {
   private static String safeInlineJson(String json) {
     return json.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
         .replace("\u2028", "\\u2028").replace("\u2029", "\\u2029");
+  }
+
+  private static String jsonValue(Object value) {
+    if (value == null) return "null";
+    if (value instanceof String string) return jsonString(string);
+    if (value instanceof Boolean || value instanceof Number) return value.toString();
+    if (value instanceof Map<?, ?> map) {
+      StringBuilder out = new StringBuilder("{");
+      boolean first = true;
+      for (Map.Entry<?, ?> entry : map.entrySet()) {
+        if (!(entry.getKey() instanceof String key)) {
+          throw new IllegalArgumentException("JSON object keys must be strings");
+        }
+        if (!first) out.append(',');
+        first = false;
+        out.append(jsonString(key)).append(':').append(jsonValue(entry.getValue()));
+      }
+      return out.append('}').toString();
+    }
+    if (value instanceof Iterable<?> values) {
+      StringBuilder out = new StringBuilder("[");
+      boolean first = true;
+      for (Object item : values) {
+        if (!first) out.append(',');
+        first = false;
+        out.append(jsonValue(item));
+      }
+      return out.append(']').toString();
+    }
+    throw new IllegalArgumentException("Unsupported JSON value type: " + value.getClass().getName());
   }
 
   private static String jsonString(String value) {

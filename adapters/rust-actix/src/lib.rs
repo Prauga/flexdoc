@@ -1,5 +1,5 @@
 use actix_web::{http::header, web, HttpResponse, Scope};
-use serde_json::json;
+use serde_json::{json, Value};
 
 static RENDERER_JS: &[u8] = include_bytes!("../assets/flexdoc.standalone.js");
 static RENDERER_CSS: &[u8] = include_bytes!("../assets/flexdoc.standalone.css");
@@ -11,6 +11,10 @@ pub struct Config {
     pub title: String,
     pub theme: String,
     pub try_it_enabled: bool,
+    pub expand: Option<Value>,
+    pub try_it_default_server: Option<String>,
+    pub try_it_credentials: Option<String>,
+    pub try_it_api_client_persistence_key: Option<Value>,
 }
 
 impl Default for Config {
@@ -21,6 +25,10 @@ impl Default for Config {
             title: "API Reference".into(),
             theme: "system".into(),
             try_it_enabled: true,
+            expand: None,
+            try_it_default_server: None,
+            try_it_credentials: None,
+            try_it_api_client_persistence_key: None,
         }
     }
 }
@@ -81,13 +89,34 @@ fn escape_html(value: &str) -> String {
         .replace('\'', "&#39;")
 }
 
-fn render_html(cfg: &Config) -> String {
-    let options = json!({
+fn renderer_options(cfg: &Config) -> Value {
+    let mut options = json!({
         "contractVersion": "1",
         "title": cfg.title,
         "theme": cfg.theme,
         "tryIt": {"enabled": cfg.try_it_enabled}
     });
+
+    if let Some(expand) = &cfg.expand {
+        options["expand"] = expand.clone();
+    }
+
+    let try_it = options["tryIt"].as_object_mut().expect("Try It options are an object");
+    if let Some(default_server) = &cfg.try_it_default_server {
+        try_it.insert("defaultServer".into(), json!(default_server));
+    }
+    if let Some(credentials) = &cfg.try_it_credentials {
+        try_it.insert("credentials".into(), json!(credentials));
+    }
+    if let Some(persistence_key) = &cfg.try_it_api_client_persistence_key {
+        try_it.insert("apiClientPersistenceKey".into(), persistence_key.clone());
+    }
+
+    options
+}
+
+fn render_html(cfg: &Config) -> String {
+    let options = renderer_options(cfg);
     let version = renderer_version();
     format!(r#"<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>{}</title><link rel="stylesheet" href="{}/__flexdoc/renderer.css?v={}"></head><body><div id="flexdoc-root"></div><script>window.__FLEXDOC_SPEC_URL__={};window.__FLEXDOC_OPTIONS__={};</script><script src="{}/__flexdoc/renderer.js?v={}"></script><script>(async function(){{const root=document.getElementById('flexdoc-root');try{{const baseUri=new URL(window.__FLEXDOC_SPEC_URL__,window.location.href).toString();const response=await fetch(baseUri);if(!response.ok)throw new Error('Unable to load OpenAPI specification: HTTP '+response.status);const spec=await response.json();const config={{spec:spec,options:window.__FLEXDOC_OPTIONS__||{{}},baseUri:baseUri}};if(window.FlexDocStandalone.mountAsync)await window.FlexDocStandalone.mountAsync(root,config);else window.FlexDocStandalone.mount(root,config);}}catch(error){{root.textContent=error instanceof Error?error.message:String(error);}}}})();</script></body></html>"#,
         escape_html(&cfg.title), cfg.path, version, safe_json(json!(cfg.spec_url)), safe_json(options), cfg.path, version)
@@ -99,10 +128,36 @@ mod tests {
     use actix_web::{test, App};
 
     #[actix_rt::test]
+    async fn renderer_settings_are_omitted_until_configured() {
+        let default_options = renderer_options(&Config::default());
+        assert_eq!(default_options["tryIt"]["enabled"], true);
+        assert!(default_options.get("expand").is_none());
+        assert!(default_options["tryIt"].get("defaultServer").is_none());
+
+        let configured = Config {
+            expand: Some(json!("documentation")),
+            try_it_default_server: Some("https://api.example.test".into()),
+            try_it_credentials: Some("include".into()),
+            try_it_api_client_persistence_key: Some(json!(false)),
+            ..Default::default()
+        };
+        let options = renderer_options(&configured);
+        assert_eq!(options["expand"], "documentation");
+        assert_eq!(options["tryIt"]["enabled"], true);
+        assert_eq!(options["tryIt"]["defaultServer"], "https://api.example.test");
+        assert_eq!(options["tryIt"]["credentials"], "include");
+        assert_eq!(options["tryIt"]["apiClientPersistenceKey"], false);
+
+        let list_options = renderer_options(&Config { expand: Some(json!(["parameters", "tryIt"])), ..Default::default() });
+        assert_eq!(list_options["expand"], json!(["parameters", "tryIt"]));
+    }
+
+    #[actix_rt::test]
     async fn serves_docs_and_canonical_assets() {
         let app = test::init_service(App::new().service(scope(Config {
             path: "/reference".into(),
-            title: "Actix <API>".into(),
+            spec_url: "</script><script>alert(2)</script>".into(),
+            title: "Actix </script><script>alert(1)</script>".into(),
             ..Default::default()
         }))).await;
 
@@ -110,7 +165,9 @@ mod tests {
         assert!(docs.status().is_success());
         let docs_body = test::read_body(docs).await;
         let docs_text = String::from_utf8(docs_body.to_vec()).unwrap();
-        assert!(docs_text.contains("Actix &lt;API&gt;"));
+        assert!(!docs_text.contains("</script><script>alert(1)</script>"));
+        assert!(!docs_text.contains("</script><script>alert(2)</script>"));
+        assert!(docs_text.contains("\\u003c/script\\u003e"));
         assert!(docs_text.contains("/reference/__flexdoc/renderer.js?v="));
 
         let js = test::call_service(&app, test::TestRequest::get().uri("/reference/__flexdoc/renderer.js").to_request()).await;

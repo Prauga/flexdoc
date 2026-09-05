@@ -32,6 +32,8 @@ app.MapFlexDoc(options =>
 app.Run();
 ```
 
+`FlexDocOptions` also exposes `Expand`, `TryItDefaultServer`, `TryItCredentials`, and `TryItApiClientPersistenceKey`. `Expand` accepts a preset string or string list, while the persistence key accepts a string or `false`; unset values are omitted from renderer options.
+
 FlexDoc serves the docs shell at `/docs` and version-fingerprinted renderer assets beneath `/docs/__flexdoc/`. ASP.NET Core endpoint routing also accepts the equivalent trailing-slash request `/docs/`; CI exercises both forms. The HTML shell is `no-cache`; renderer JS/CSS are immutable and self-hosted.
 
 The integration only needs an OpenAPI JSON URL. It deliberately has no dependency on Swashbuckle, NSwag, or a particular OpenAPI generator.
