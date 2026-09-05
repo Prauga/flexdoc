@@ -14,7 +14,7 @@ interface Props {
   theme: 'light' | 'dark';
   options?: FlexDocRendererOptions;
   onRequestChange?: (request: ReturnType<typeof buildRequest>) => void;
-  onOpenInApiClient?: (request: ReturnType<typeof buildRequest>, serverUrl?: string) => void;
+  onOpenInApiClient?: (request: ReturnType<typeof buildRequest>, serverUrl?: string, values?: RequestValues) => void;
 }
 
 function displayValue(value: unknown): string | number | readonly string[] {
@@ -104,7 +104,7 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
   const openInApiClient = () => {
     try {
       const request = buildRequest(spec, path, method, valuesRef.current);
-      onOpenInApiClient?.(request, valuesRef.current.serverUrl || configuredDefault || undefined);
+      onOpenInApiClient?.(request, valuesRef.current.serverUrl || configuredDefault || undefined, valuesRef.current);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Request is incomplete');
     }

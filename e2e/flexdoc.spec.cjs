@@ -94,6 +94,7 @@ test('Try It hands live values and custom servers to the API Client', async ({ p
   await page.getByLabel('path id').fill('42');
   await page.getByLabel('query locale').fill('de');
   await page.getByLabel('header X-Trace').fill('trace-42');
+  await page.getByLabel('bearer credential').fill('handoff-token');
   await page.getByLabel('Custom server URL').fill('http://localhost:8080');
   await page.getByRole('button', { name: 'Open in API Client' }).click();
 
@@ -104,6 +105,9 @@ test('Try It hands live values and custom servers to the API Client', async ({ p
   await expect(page.getByLabel('Query parameters 1 value')).toHaveValue('de');
   await expect(page.getByLabel('Headers 1 key')).toHaveValue('X-Trace');
   await expect(page.getByLabel('Headers 1 value')).toHaveValue('trace-42');
+  await expect(page.getByLabel(/^Headers \d+ key$/)).toHaveCount(1);
+  await expect(page.getByLabel('Authorization type', { exact: true })).toHaveValue('bearer');
+  await expect(page.getByLabel('Bearer token')).toHaveValue('handoff-token');
 
   await page.getByLabel('API Client server').selectOption('https://backup.example.test');
   await expect(page.getByLabel('Request URL')).toHaveValue('https://backup.example.test/pets/42');

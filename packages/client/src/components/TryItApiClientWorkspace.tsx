@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
 import type { OpenAPISpec, Operation } from '../types/openapi';
 import type { FlexDocRendererOptions } from '../types/options';
-import type { BuiltRequest } from '../utils/request-builder';
-import { requestDraftFromBuiltRequest } from '../utils/http-client';
+import type { BuiltRequest, RequestValues } from '../utils/request-builder';
+import { requestDraftFromOpenApiRequest } from '../utils/openapi-api-client-auth';
 import { createDefaultApiClientPersistenceKey } from '../utils/api-client-workspace';
 import { ApiClientWorkspace } from './ApiClientWorkspace';
 import { RequestPlayground } from './RequestPlayground';
@@ -20,6 +20,7 @@ interface ApiClientSession {
   id: number;
   request: BuiltRequest;
   serverUrl?: string;
+  values: RequestValues;
 }
 
 /**
@@ -29,19 +30,18 @@ interface ApiClientSession {
 export const TryItApiClientWorkspace: React.FC<Props> = ({ spec, path, method, theme, options, onRequestChange }) => {
   const [session, setSession] = useState<ApiClientSession | null>(null);
   const nextSessionId = useRef(0);
-  // BuiltRequest only retains final transport headers/query values, not the
-  // OpenAPI auth scheme that produced them. Handoff therefore keeps those
-  // credentials as editable request entries and leaves API Client auth at None.
-  const draft = session ? requestDraftFromBuiltRequest(session.request) : null;
+  // Translate supported OpenAPI credentials into canonical API Client auth.
+  // Unsupported or compound requirements stay as raw transport data.
+  const draft = session ? requestDraftFromOpenApiRequest(spec, path, method, session.values, session.request) : null;
   const pathItem = spec.paths[path];
   const operation = pathItem?.[method.toLowerCase() as keyof typeof pathItem] as Operation | undefined;
   const servers = operation?.servers || pathItem?.servers || spec.servers || [];
   const persistenceKey = options?.tryIt?.apiClientPersistenceKey
     ?? createDefaultApiClientPersistenceKey(spec.info?.title, typeof window === 'undefined' ? undefined : window.location.host);
 
-  const openInApiClient = (request: BuiltRequest, serverUrl?: string) => {
+  const openInApiClient = (request: BuiltRequest, serverUrl?: string, values: RequestValues = {}) => {
     nextSessionId.current += 1;
-    setSession({ id: nextSessionId.current, request, serverUrl });
+    setSession({ id: nextSessionId.current, request, serverUrl, values });
   };
 
   return <>
