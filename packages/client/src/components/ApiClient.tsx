@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Loader2, Play, Plus, Trash2 } from 'lucide-react';
 import { CodeBlock } from './CodeBlock';
+import { OAuthEditor } from './ApiClientAuthEditor';
 import { buildHttpRequest } from '../utils/http-client';
 import { cloneApiClientScripts, runApiClientScript } from '../utils/api-client-scripting';
 import { replaceRequestServer, requestUsesServer, resolveServerUrl } from '../utils/server-url';
@@ -60,11 +61,16 @@ function withDefaults(initialRequest?: Partial<HttpRequestDraft>): HttpRequestDr
 }
 
 function cloneDraft(draft: HttpRequestDraft): HttpRequestDraft {
+  const auth = draft.auth
+    ? draft.auth.type === 'oauth2'
+      ? { ...draft.auth, scopes: draft.auth.scopes ? [...draft.auth.scopes] : undefined }
+      : { ...draft.auth }
+    : undefined;
   return {
     ...draft,
     query: draft.query?.map((entry) => ({ ...entry })),
     headers: draft.headers?.map((entry) => ({ ...entry })),
-    auth: draft.auth ? { ...draft.auth } : undefined,
+    auth,
   };
 }
 
@@ -347,7 +353,12 @@ export const ApiClient: React.FC<ApiClientProps> = ({
           </select>
         </label>
         {draft.auth?.type === 'bearer' && <input aria-label='Bearer token' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} value={draft.auth.token} onChange={(e) => { const token = e.target.value; setDraft((current) => ({ ...current, auth: { type: 'bearer', token } })); }} />}
-        {draft.auth?.type === 'oauth2' && <input aria-label='OAuth access token' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} value={draft.auth.accessToken} onChange={(e) => { const accessToken = e.target.value; setDraft((current) => ({ ...current, auth: { type: 'oauth2', accessToken } })); }} />}
+        {draft.auth?.type === 'oauth2' && <OAuthEditor
+          auth={draft.auth}
+          fieldClass={`w-full rounded-md border px-3 py-2 text-sm ${inputClass}`}
+          label=''
+          onChange={(auth) => setDraft((current) => ({ ...current, auth }))}
+        />}
         {draft.auth?.type === 'basic' && <div className='flex gap-2'><input aria-label='Basic auth username' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Username' value={draft.auth.username} onChange={(e) => { const username = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'basic' }>), type: 'basic', username } })); }} /><input aria-label='Basic auth password' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Password' value={draft.auth.password} onChange={(e) => { const password = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'basic' }>), type: 'basic', password } })); }} /></div>}
         {draft.auth?.type === 'apiKey' && <div className='flex gap-2'><input aria-label='API key name' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Key name' value={draft.auth.key} onChange={(e) => { const key = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'apiKey' }>), type: 'apiKey', key } })); }} /><input aria-label='API key value' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Value' value={draft.auth.value} onChange={(e) => { const value = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'apiKey' }>), type: 'apiKey', value } })); }} /><select aria-label='API key location' className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} value={draft.auth.in} onChange={(e) => { const location = e.target.value as 'header' | 'query'; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'apiKey' }>), type: 'apiKey', in: location } })); }}><option value='header'>Header</option><option value='query'>Query</option></select></div>}
       </div>

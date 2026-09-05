@@ -6,11 +6,29 @@ export interface HttpKeyValue {
   enabled?: boolean;
 }
 
+export type HttpOAuth2GrantType = 'accessToken' | 'authorizationCode' | 'clientCredentials' | 'password' | 'implicit';
+
+export interface HttpOAuth2Auth {
+  type: 'oauth2';
+  accessToken: string;
+  grantType?: HttpOAuth2GrantType;
+  authorizationUrl?: string;
+  tokenUrl?: string;
+  clientId?: string;
+  clientSecret?: string;
+  clientAuthentication?: 'body' | 'basic';
+  redirectUri?: string;
+  scopes?: string[];
+  username?: string;
+  password?: string;
+  refreshToken?: string;
+}
+
 export type HttpAuth =
   | { type: 'none' }
   | { type: 'inherit' }
   | { type: 'bearer'; token: string }
-  | { type: 'oauth2'; accessToken: string }
+  | HttpOAuth2Auth
   | { type: 'basic'; username: string; password: string }
   | { type: 'apiKey'; key: string; value: string; in: 'header' | 'query' };
 
@@ -129,7 +147,22 @@ function resolveTemplateValue(value: string | undefined, variables: HttpVariable
 function resolveAuthVariables(auth: HttpAuth | undefined, variables: HttpVariables): HttpAuth | undefined {
   if (!auth || auth.type === 'none' || auth.type === 'inherit') return auth;
   if (auth.type === 'bearer') return { type: 'bearer', token: resolveTemplateValue(auth.token, variables) || '' };
-  if (auth.type === 'oauth2') return { type: 'oauth2', accessToken: resolveTemplateValue(auth.accessToken, variables) || '' };
+  if (auth.type === 'oauth2') {
+    const resolved: HttpOAuth2Auth = {
+      ...auth,
+      accessToken: resolveTemplateValue(auth.accessToken, variables) || '',
+    };
+    if (auth.authorizationUrl !== undefined) resolved.authorizationUrl = resolveTemplateValue(auth.authorizationUrl, variables);
+    if (auth.tokenUrl !== undefined) resolved.tokenUrl = resolveTemplateValue(auth.tokenUrl, variables);
+    if (auth.clientId !== undefined) resolved.clientId = resolveTemplateValue(auth.clientId, variables);
+    if (auth.clientSecret !== undefined) resolved.clientSecret = resolveTemplateValue(auth.clientSecret, variables);
+    if (auth.redirectUri !== undefined) resolved.redirectUri = resolveTemplateValue(auth.redirectUri, variables);
+    if (auth.scopes !== undefined) resolved.scopes = auth.scopes.map((scope) => resolveTemplateValue(scope, variables) || '');
+    if (auth.username !== undefined) resolved.username = resolveTemplateValue(auth.username, variables);
+    if (auth.password !== undefined) resolved.password = resolveTemplateValue(auth.password, variables);
+    if (auth.refreshToken !== undefined) resolved.refreshToken = resolveTemplateValue(auth.refreshToken, variables);
+    return resolved;
+  }
   if (auth.type === 'basic') {
     return {
       type: 'basic',

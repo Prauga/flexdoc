@@ -62,7 +62,7 @@ describe('OpenAPI auth handoff', () => {
       },
     };
     const draft = handoff(spec, '/pets/{id}', 'get', { auth: 'access-token' });
-    expect(draft.auth).toEqual({ type: 'oauth2', accessToken: 'access-token' });
+    expect(draft.auth).toEqual(expect.objectContaining({ type: 'oauth2', accessToken: 'access-token' }));
   });
 
   it('keeps cookie API keys as raw transport data', () => {
@@ -99,4 +99,68 @@ describe('OpenAPI auth handoff', () => {
     const draft = handoff(spec, '/pets/{id}', 'get', { bearer: 'ignored', apiKeyHeader: 'operation-value' });
     expect(draft.auth).toEqual({ type: 'apiKey', key: 'X-API-Key', value: 'operation-value', in: 'header' });
   });
+
+  test('uses inherited auth when an OpenAPI security requirement exists but Try It has no credential', () => {
+    const spec: OpenAPISpec = { ...openapi30Spec, security: [{ bearer: [] }] };
+    const draft = handoff(spec, '/pets/{id}', 'get', {});
+    expect(draft.auth).toEqual({ type: 'inherit' });
+  });
+
+  test('does not seed OAuth flow metadata when an empty secured Try It handoff inherits', () => {
+    const spec: OpenAPISpec = {
+      ...openapi30Spec,
+      security: [{ auth: ['pets.read'] }],
+      components: {
+        ...openapi30Spec.components,
+        securitySchemes: {
+          ...openapi30Spec.components?.securitySchemes,
+          auth: {
+            type: 'oauth2',
+            flows: {
+              authorizationCode: {
+                authorizationUrl: 'https://identity.example.test/authorize',
+                tokenUrl: 'https://identity.example.test/token',
+                scopes: { 'pets.read': 'Read pets' },
+              },
+            },
+          },
+        },
+      },
+    };
+    const draft = handoff(spec, '/pets/{id}', 'get', {});
+    expect(draft.auth).toEqual({ type: 'inherit' });
+  });
+
+  test('carries OAuth authorization-code flow metadata with an explicit Try It token', () => {
+    const spec: OpenAPISpec = {
+      ...openapi30Spec,
+      security: [{ auth: ['pets.read'] }],
+      components: {
+        ...openapi30Spec.components,
+        securitySchemes: {
+          ...openapi30Spec.components?.securitySchemes,
+          auth: {
+            type: 'oauth2',
+            flows: {
+              authorizationCode: {
+                authorizationUrl: 'https://identity.example.test/authorize',
+                tokenUrl: 'https://identity.example.test/token',
+                scopes: { 'pets.read': 'Read pets' },
+              },
+            },
+          },
+        },
+      },
+    };
+    const draft = handoff(spec, '/pets/{id}', 'get', { auth: 'oauth-token' });
+    expect(draft.auth).toEqual(expect.objectContaining({
+      type: 'oauth2',
+      accessToken: 'oauth-token',
+      grantType: 'authorizationCode',
+      authorizationUrl: 'https://identity.example.test/authorize',
+      tokenUrl: 'https://identity.example.test/token',
+      scopes: ['pets.read'],
+    }));
+  });
+
 });

@@ -11,11 +11,29 @@ export interface HttpKeyValue {
   enabled?: boolean;
 }
 
+export type HttpOAuth2GrantType = 'accessToken' | 'authorizationCode' | 'clientCredentials' | 'password' | 'implicit';
+
+export interface HttpOAuth2Auth {
+  type: 'oauth2';
+  accessToken: string;
+  grantType?: HttpOAuth2GrantType;
+  authorizationUrl?: string;
+  tokenUrl?: string;
+  clientId?: string;
+  clientSecret?: string;
+  clientAuthentication?: 'body' | 'basic';
+  redirectUri?: string;
+  scopes?: string[];
+  username?: string;
+  password?: string;
+  refreshToken?: string;
+}
+
 export type HttpAuth =
   | { type: 'none' }
   | { type: 'inherit' }
   | { type: 'bearer'; token: string }
-  | { type: 'oauth2'; accessToken: string }
+  | HttpOAuth2Auth
   | { type: 'basic'; username: string; password: string }
   | { type: 'apiKey'; key: string; value: string; in: 'header' | 'query' };
 

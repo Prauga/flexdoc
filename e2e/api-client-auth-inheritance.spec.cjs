@@ -18,7 +18,7 @@ test('API Client resolves collection and nested-folder auth inheritance', async 
 
   await apiClient.getByLabel('Collection authorization type').selectOption('bearer');
   await apiClient.getByLabel('Collection bearer token').fill('collection-token');
-  await apiClient.getByLabel('Authorization type', { exact: true }).selectOption('inherit');
+  await expect(apiClient.getByLabel('Authorization type', { exact: true })).toHaveValue('inherit');
   await apiClient.getByRole('button', { name: 'Send request' }).click();
   await expect(apiClient.getByText(/Response\s+200\s+OK/)).toBeVisible();
   expect(requests[0].headers.authorization).toBe('Bearer collection-token');

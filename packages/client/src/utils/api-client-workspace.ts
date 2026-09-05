@@ -125,7 +125,16 @@ function isHttpAuth(value: unknown): value is HttpAuth {
   if (!isRecord(value) || typeof value.type !== 'string') return false;
   if (value.type === 'none' || value.type === 'inherit') return true;
   if (value.type === 'bearer') return hasString(value, 'token');
-  if (value.type === 'oauth2') return hasString(value, 'accessToken');
+  if (value.type === 'oauth2') {
+    if (!hasString(value, 'accessToken')) return false;
+    const grantTypes = new Set(['accessToken', 'authorizationCode', 'clientCredentials', 'password', 'implicit']);
+    if (value.grantType !== undefined && (typeof value.grantType !== 'string' || !grantTypes.has(value.grantType))) return false;
+    if (value.clientAuthentication !== undefined && value.clientAuthentication !== 'body' && value.clientAuthentication !== 'basic') return false;
+    for (const key of ['authorizationUrl', 'tokenUrl', 'clientId', 'clientSecret', 'redirectUri', 'username', 'password', 'refreshToken']) {
+      if (value[key] !== undefined && typeof value[key] !== 'string') return false;
+    }
+    return value.scopes === undefined || (Array.isArray(value.scopes) && value.scopes.every((scope) => typeof scope === 'string'));
+  }
   if (value.type === 'basic') return hasString(value, 'username') && hasString(value, 'password');
   return value.type === 'apiKey'
     && hasString(value, 'key')
@@ -331,11 +340,16 @@ export function createDefaultApiClientPersistenceKey(title?: string, host?: stri
 }
 
 export function cloneRequestDraft(request: HttpRequestDraft): HttpRequestDraft {
+  const auth = request.auth
+    ? request.auth.type === 'oauth2'
+      ? { ...request.auth, scopes: request.auth.scopes ? [...request.auth.scopes] : undefined }
+      : { ...request.auth }
+    : undefined;
   return {
     ...request,
     query: request.query?.map((entry) => ({ ...entry })),
     headers: request.headers?.map((entry) => ({ ...entry })),
-    auth: request.auth ? { ...request.auth } : undefined,
+    auth,
   };
 }
 

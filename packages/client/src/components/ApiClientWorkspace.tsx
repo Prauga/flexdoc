@@ -33,7 +33,7 @@ function withWorkspaceDefaults(initialRequest?: Partial<HttpRequestDraft>): Http
     headers: initialRequest?.headers?.map((entry) => ({ ...entry })) || [],
     body: initialRequest?.body || '',
     contentType: initialRequest?.contentType || 'application/json',
-    auth: initialRequest?.auth ? { ...initialRequest.auth } : { type: 'none' },
+    auth: initialRequest?.auth ? { ...initialRequest.auth } : { type: 'inherit' },
   };
 }
 

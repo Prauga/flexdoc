@@ -39,7 +39,7 @@ function selectedRequirement(spec: OpenAPISpec, path: string, method: string, au
   return requirements.find((requirement) => Object.keys(requirement).length === 0) ?? requirements[0];
 }
 
-function translateScheme(scheme: SecurityScheme, value: string): HttpAuth | undefined {
+function translateScheme(scheme: SecurityScheme, value: string, requiredScopes: string[] = []): HttpAuth | undefined {
   if (!value) return undefined;
   if (scheme.type === 'http' && scheme.scheme?.toLowerCase() === 'bearer') return { type: 'bearer', token: value };
   if (scheme.type === 'http' && scheme.scheme?.toLowerCase() === 'basic') {
@@ -51,7 +51,28 @@ function translateScheme(scheme: SecurityScheme, value: string): HttpAuth | unde
   if (scheme.type === 'apiKey' && (scheme.in === 'header' || scheme.in === 'query') && scheme.name) {
     return { type: 'apiKey', key: scheme.name, value, in: scheme.in };
   }
-  if (scheme.type === 'oauth2' || scheme.type === 'openIdConnect') return { type: 'oauth2', accessToken: value };
+  if (scheme.type === 'openIdConnect') return { type: 'oauth2', accessToken: value, grantType: 'accessToken', scopes: requiredScopes };
+  if (scheme.type === 'oauth2') {
+    const flows = scheme.flows;
+    const selected = flows?.authorizationCode
+      ? ['authorizationCode', flows.authorizationCode] as const
+      : flows?.clientCredentials
+        ? ['clientCredentials', flows.clientCredentials] as const
+        : flows?.password
+          ? ['password', flows.password] as const
+          : flows?.implicit
+            ? ['implicit', flows.implicit] as const
+            : undefined;
+    const flow = selected?.[1];
+    return {
+      type: 'oauth2',
+      accessToken: value,
+      grantType: selected?.[0] || 'accessToken',
+      authorizationUrl: flow?.authorizationUrl,
+      tokenUrl: flow?.tokenUrl,
+      scopes: requiredScopes.length ? requiredScopes : Object.keys(flow?.scopes || {}),
+    };
+  }
   return undefined;
 }
 
@@ -77,9 +98,10 @@ export function requestDraftFromOpenApiRequest(
   const schemeName = Object.keys(requirement)[0];
   const scheme = resolveSecurityScheme(spec, schemeName);
   const credential = values.auth?.[schemeName] || '';
-  if (!scheme || !credential) return draft;
+  if (!scheme) return draft;
+  if (!credential) return { ...draft, auth: { type: 'inherit' } };
 
-  const auth = translateScheme(scheme, credential);
+  const auth = translateScheme(scheme, credential, requirement[schemeName] || []);
   if (!auth) return draft;
 
   if (auth.type === 'bearer' || auth.type === 'oauth2' || auth.type === 'basic') draft = withoutHeader(draft, 'Authorization');
