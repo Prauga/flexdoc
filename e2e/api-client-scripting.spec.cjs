@@ -104,6 +104,8 @@ test('API Client runs scripts, persists history, and replays requests', async ({
       historyMethod: history?.executedMethod,
       historyUrl: history?.resolvedUrl,
       historyStatus: history?.status,
+      historyTests: history?.scriptTests?.map((test) => [test.name, test.passed]),
+      historyLogs: history?.scriptLogs,
       historyRequestUrl: history?.request?.url,
     };
   }).toEqual({
@@ -118,6 +120,8 @@ test('API Client runs scripts, persists history, and replays requests', async ({
     historyMethod: 'GET',
     historyUrl: 'https://script.example.test/pets/77?locale=fr',
     historyStatus: 200,
+    historyTests: [['status is 200', true], ['body id is 77', true], ['collection pet id is 77', true]],
+    historyLogs: ['prepared 77', 'tested 200'],
     historyRequestUrl: '{{baseUrl}}/pets/{{petId}}',
   });
 
@@ -135,7 +139,13 @@ test('API Client runs scripts, persists history, and replays requests', async ({
   await expect(apiClient.getByLabel('Pre-request script')).toHaveValue(preRequestScript);
   await expect(apiClient.getByLabel('Tests script')).toHaveValue(testScript);
 
-  await apiClient.getByRole('button', { name: 'Clear history' }).click();
-  await expect(historyLoad).toHaveCount(0);
+  await page.reload();
+  await page.getByLabel('path id').fill('42');
+  await page.getByRole('button', { name: 'Open in API Client' }).click();
+  const reopenedClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  await expect(reopenedClient.getByText('3/3 tests passed')).toBeVisible();
+
+  await reopenedClient.getByRole('button', { name: 'Clear history' }).click();
+  await expect(reopenedClient.getByRole('button', { name: 'Load history request GET https://script.example.test/pets/77?locale=fr' })).toHaveCount(0);
   await expect.poll(async () => (await readApiClientWorkspace(page))?.history?.length).toBe(0);
 });

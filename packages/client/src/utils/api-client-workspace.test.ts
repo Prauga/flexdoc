@@ -220,6 +220,35 @@ describe('api-client-workspace', () => {
     });
   });
 
+  it('persists and normalizes script test outcomes in history', () => {
+    const workspace = createDefaultApiClientWorkspace();
+    const next = addApiClientHistoryEntry(workspace, {
+      request: { method: 'GET', url: 'https://api.example.test/pets' },
+      executedMethod: 'GET',
+      resolvedUrl: 'https://api.example.test/pets',
+      status: 200,
+      scriptTests: [
+        { name: 'status is 200', passed: true },
+        { name: 'body matches', passed: false, error: 'expected mismatch' },
+      ],
+      scriptLogs: ['prepared 77', 'tested 200'],
+      scriptError: 'Test script: late failure',
+    });
+
+    expect(next.history[0]).toMatchObject({
+      scriptTests: [
+        { name: 'status is 200', passed: true },
+        { name: 'body matches', passed: false, error: 'expected mismatch' },
+      ],
+      scriptLogs: ['prepared 77', 'tested 200'],
+      scriptError: 'Test script: late failure',
+    });
+
+    const normalized = normalizeApiClientWorkspace(JSON.parse(JSON.stringify(next)));
+    expect(normalized.history[0].scriptTests).toEqual(next.history[0].scriptTests);
+    expect(normalized.history[0].scriptLogs).toEqual(['prepared 77', 'tested 200']);
+  });
+
   it('keeps only the 100 most recent request history entries', () => {
     let workspace = createDefaultApiClientWorkspace();
     for (let index = 0; index < 105; index += 1) {

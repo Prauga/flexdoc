@@ -18,6 +18,9 @@ export interface ApiClientExecutionResult {
   statusText?: string;
   responseTime?: number;
   error?: string;
+  scriptTests?: ApiClientScriptTestResult[];
+  scriptLogs?: string[];
+  scriptError?: string;
 }
 
 export interface ApiClientProps {
@@ -179,6 +182,9 @@ export const ApiClient: React.FC<ApiClientProps> = ({
     let startedAt = 0;
     let requestAttempted = false;
     let historyRecorded = false;
+    let historyScriptTests: ApiClientScriptTestResult[] = [];
+    let historyScriptLogs: string[] = [];
+    let historyScriptError: string | undefined;
 
     setLoading(true);
     setError(null);
@@ -209,6 +215,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
         executionCollectionVariables = preRequestResult.collectionVariables;
         executionEnvironmentVariables = preRequestResult.environmentVariables;
         logs = [...logs, ...preRequestResult.logs];
+        historyScriptLogs = [...logs];
         if (preRequestResult.collectionChanges.length > 0) onCollectionChanges?.(preRequestResult.collectionChanges);
         if (preRequestResult.environmentChanges.length > 0) onEnvironmentChanges?.(preRequestResult.environmentChanges);
         if (preRequestResult.error) {
@@ -239,17 +246,6 @@ export const ApiClient: React.FC<ApiClientProps> = ({
         headers: responseHeaders.map(([key, value]) => `${key}: ${value}`).join('\n'),
         body,
       });
-      onExecutionComplete?.({
-        request: historyRequest,
-        scripts: historyScripts,
-        executedMethod,
-        resolvedUrl,
-        status: result.status,
-        statusText: result.statusText,
-        responseTime,
-      });
-      historyRecorded = true;
-
       if (scripts.tests.trim()) {
         const testResult = await runApiClientScript({
           script: scripts.tests,
@@ -268,12 +264,31 @@ export const ApiClient: React.FC<ApiClientProps> = ({
           },
         });
         logs = [...logs, ...testResult.logs];
+        historyScriptLogs = [...logs];
+        historyScriptTests = testResult.tests.map((test) => ({ ...test }));
         setScriptTests(testResult.tests);
         if (testResult.collectionChanges.length > 0) onCollectionChanges?.(testResult.collectionChanges);
         if (testResult.environmentChanges.length > 0) onEnvironmentChanges?.(testResult.environmentChanges);
-        if (testResult.error) setScriptError(`Test script: ${testResult.error}`);
+        if (testResult.error) {
+          historyScriptError = `Test script: ${testResult.error}`;
+          setScriptError(historyScriptError);
+        }
       }
+      historyScriptLogs = [...logs];
       setScriptLogs(logs);
+      onExecutionComplete?.({
+        request: historyRequest,
+        scripts: historyScripts,
+        executedMethod,
+        resolvedUrl,
+        status: result.status,
+        statusText: result.statusText,
+        responseTime,
+        ...(historyScriptTests.length ? { scriptTests: historyScriptTests } : {}),
+        ...(historyScriptLogs.length ? { scriptLogs: historyScriptLogs } : {}),
+        ...(historyScriptError ? { scriptError: historyScriptError } : {}),
+      });
+      historyRecorded = true;
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'Request failed';
       setError(message);
@@ -285,6 +300,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
           resolvedUrl,
           responseTime: startedAt ? Date.now() - startedAt : undefined,
           error: message,
+          ...(historyScriptLogs.length ? { scriptLogs: historyScriptLogs } : {}),
         });
       }
     } finally { setLoading(false); }

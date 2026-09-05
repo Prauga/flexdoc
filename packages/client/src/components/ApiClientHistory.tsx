@@ -55,6 +55,8 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
           ? `${entry.status}${entry.statusText ? ` ${entry.statusText}` : ''}`
           : entry.error ? 'Error' : 'Sent';
         const timing = entry.responseTime !== undefined ? ` · ${entry.responseTime} ms` : '';
+        const passedTests = entry.scriptTests?.filter((test) => test.passed).length || 0;
+        const testSummary = entry.scriptTests?.length ? `${passedTests}/${entry.scriptTests.length} tests passed` : entry.scriptError ? 'Script error' : undefined;
         const origin = entry.collectionId
           ? workspace.collections.find((collection) => collection.id === entry.collectionId)?.name || 'Deleted collection'
           : undefined;
@@ -70,6 +72,7 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
               <span className={entry.error ? 'text-red-600' : mutedClass}>{result}{timing}</span>
             </div>
             <div className='truncate font-mono text-xs' title={entry.resolvedUrl}>{entry.resolvedUrl}</div>
+            {testSummary && <div className={`mt-1 text-[11px] ${entry.scriptError ? 'text-red-600' : mutedClass}`}>{testSummary}</div>}
             <div className={`mt-1 text-[11px] ${mutedClass}`}>{displayTime(entry.createdAt)}{origin ? ` · ${origin}` : ''}</div>
           </button>
           <button type='button' className='rounded-md p-2 opacity-70 hover:opacity-100' aria-label={`Delete history request ${entry.executedMethod.toUpperCase()} ${entry.resolvedUrl}`} onClick={() => removeHistory(entry.id)}>

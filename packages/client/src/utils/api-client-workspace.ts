@@ -1,6 +1,6 @@
 import type { HttpAuth, HttpKeyValue, HttpRequestDraft } from './http-client';
 import { cloneApiClientScripts } from './api-client-scripting';
-import type { ApiClientRequestScripts } from './api-client-scripting';
+import type { ApiClientRequestScripts, ApiClientScriptTestResult } from './api-client-scripting';
 
 export interface ApiClientEnvironmentVariable {
   id: string;
@@ -59,6 +59,9 @@ export interface ApiClientHistoryEntry {
   statusText?: string;
   responseTime?: number;
   error?: string;
+  scriptTests?: ApiClientScriptTestResult[];
+  scriptLogs?: string[];
+  scriptError?: string;
   createdAt: string;
 }
 
@@ -73,6 +76,9 @@ export interface ApiClientHistoryInput {
   statusText?: string;
   responseTime?: number;
   error?: string;
+  scriptTests?: ApiClientScriptTestResult[];
+  scriptLogs?: string[];
+  scriptError?: string;
 }
 
 export interface ApiClientWorkspaceState {
@@ -256,6 +262,16 @@ function normalizeEnvironment(value: unknown): ApiClientEnvironment | null {
   };
 }
 
+function normalizeScriptTestResult(value: unknown): ApiClientScriptTestResult | null {
+  if (!isRecord(value) || !hasString(value, 'name') || typeof value.passed !== 'boolean') return null;
+  if (value.error !== undefined && typeof value.error !== 'string') return null;
+  return {
+    name: value.name as string,
+    passed: value.passed as boolean,
+    error: value.error as string | undefined,
+  };
+}
+
 function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
   if (!isRecord(value)
     || !hasString(value, 'id')
@@ -266,9 +282,14 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     || (value.statusText !== undefined && typeof value.statusText !== 'string')
     || !isOptionalFiniteNumber(value, 'responseTime')
     || (value.error !== undefined && typeof value.error !== 'string')
+    || (value.scriptError !== undefined && typeof value.scriptError !== 'string')
     || !hasString(value, 'createdAt')) return null;
 
   const scripts = normalizeScripts(value.scripts);
+  const scriptTests = Array.isArray(value.scriptTests)
+    ? value.scriptTests.map(normalizeScriptTestResult).filter((test): test is ApiClientScriptTestResult => test !== null)
+    : [];
+  const scriptLogs = Array.isArray(value.scriptLogs) ? value.scriptLogs.filter((log): log is string => typeof log === 'string') : [];
   return {
     id: value.id as string,
     collectionId: typeof value.collectionId === 'string' ? value.collectionId : undefined,
@@ -281,6 +302,9 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     statusText: value.statusText as string | undefined,
     responseTime: value.responseTime as number | undefined,
     error: value.error as string | undefined,
+    ...(scriptTests.length ? { scriptTests } : {}),
+    ...(scriptLogs.length ? { scriptLogs } : {}),
+    scriptError: value.scriptError as string | undefined,
     createdAt: value.createdAt as string,
   };
 }
@@ -398,6 +422,9 @@ export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, inp
     statusText: input.statusText,
     responseTime: input.responseTime,
     error: input.error,
+    ...(input.scriptTests?.length ? { scriptTests: input.scriptTests.map((test) => ({ ...test })) } : {}),
+    ...(input.scriptLogs?.length ? { scriptLogs: [...input.scriptLogs] } : {}),
+    scriptError: input.scriptError,
     createdAt: now(),
   };
   return { ...workspace, history: [entry, ...workspace.history].slice(0, HISTORY_LIMIT) };
