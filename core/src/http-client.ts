@@ -10,6 +10,7 @@ export type HttpAuth =
   | { type: 'none' }
   | { type: 'inherit' }
   | { type: 'bearer'; token: string }
+  | { type: 'oauth2'; accessToken: string }
   | { type: 'basic'; username: string; password: string }
   | { type: 'apiKey'; key: string; value: string; in: 'header' | 'query' };
 
@@ -128,6 +129,7 @@ function resolveTemplateValue(value: string | undefined, variables: HttpVariable
 function resolveAuthVariables(auth: HttpAuth | undefined, variables: HttpVariables): HttpAuth | undefined {
   if (!auth || auth.type === 'none' || auth.type === 'inherit') return auth;
   if (auth.type === 'bearer') return { type: 'bearer', token: resolveTemplateValue(auth.token, variables) || '' };
+  if (auth.type === 'oauth2') return { type: 'oauth2', accessToken: resolveTemplateValue(auth.accessToken, variables) || '' };
   if (auth.type === 'basic') {
     return {
       type: 'basic',
@@ -168,6 +170,10 @@ function applyAuth(draft: HttpRequestDraft, headers: Array<[string, string]>, qu
   if (!auth || auth.type === 'none' || auth.type === 'inherit') return;
   if (auth.type === 'bearer') {
     if (auth.token) replaceHeader(headers, 'Authorization', `Bearer ${auth.token}`);
+    return;
+  }
+  if (auth.type === 'oauth2') {
+    if (auth.accessToken) replaceHeader(headers, 'Authorization', `Bearer ${auth.accessToken}`);
     return;
   }
   if (auth.type === 'basic') {

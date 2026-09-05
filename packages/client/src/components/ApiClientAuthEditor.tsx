@@ -12,6 +12,7 @@ interface Props {
 function authForType(type: HttpAuth['type']): HttpAuth {
   if (type === 'inherit') return { type: 'inherit' };
   if (type === 'bearer') return { type: 'bearer', token: '' };
+  if (type === 'oauth2') return { type: 'oauth2', accessToken: '' };
   if (type === 'basic') return { type: 'basic', username: '', password: '' };
   if (type === 'apiKey') return { type: 'apiKey', key: '', value: '', in: 'header' };
   return { type: 'none' };
@@ -31,10 +32,12 @@ export const ApiClientAuthEditor: React.FC<Props> = ({ auth, label, allowInherit
       {allowInherit && <option value='inherit'>Inherit from parent</option>}
       <option value='none'>No auth</option>
       <option value='bearer'>Bearer token</option>
+      <option value='oauth2'>OAuth 2.0 access token</option>
       <option value='basic'>Basic auth</option>
       <option value='apiKey'>API key</option>
     </select>
-    {auth.type === 'bearer' && <input aria-label={`${label} bearer token`} type='password' autoComplete='off' className={fieldClass} value={auth.token} onChange={(event) => onChange({ type: 'bearer', token: event.target.value })} />}
+    {auth.type === 'bearer' && <input aria-label={`${label} bearer token`} type='password' autoComplete='off' className={fieldClass} value={auth.token} onChange={(event) => onChange({ type: 'bearer', token: event.target.value })}/>}
+    {auth.type === 'oauth2' && <input aria-label={`${label} OAuth access token`} type='password' autoComplete='off' className={fieldClass} value={auth.accessToken} onChange={(event) => onChange({ type: 'oauth2', accessToken: event.target.value })} />}
     {auth.type === 'basic' && <div className='grid grid-cols-2 gap-2'>
       <input aria-label={`${label} basic username`} className={fieldClass} placeholder='Username' value={auth.username} onChange={(event) => onChange({ ...auth, username: event.target.value })} />
       <input aria-label={`${label} basic password`} type='password' autoComplete='off' className={fieldClass} placeholder='Password' value={auth.password} onChange={(event) => onChange({ ...auth, password: event.target.value })} />

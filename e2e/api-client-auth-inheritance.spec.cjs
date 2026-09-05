@@ -51,4 +51,10 @@ test('API Client resolves collection and nested-folder auth inheritance', async 
   expect(requests[4].headers.authorization).toBeUndefined();
   expect(requests[4].headers['x-admin-key']).toBeUndefined();
   expect(requests[4].url).not.toContain('X-Admin-Key=');
+
+
+  await apiClient.getByLabel('Authorization type', { exact: true }).selectOption('oauth2');
+  await apiClient.getByLabel('OAuth access token').fill('oauth-request-token');
+  await apiClient.getByRole('button', { name: 'Send request' }).click();
+  expect(requests[5].headers.authorization).toBe('Bearer oauth-request-token');
 });

@@ -47,7 +47,7 @@ describe('OpenAPI auth handoff', () => {
     else expect(draft.query?.some((entry) => entry.key === key)).toBe(false);
   });
 
-  it.each(['oauth2', 'openIdConnect'] as const)('maps %s access tokens to bearer auth', (type) => {
+  it.each(['oauth2', 'openIdConnect'] as const)('preserves %s access tokens as OAuth auth', (type) => {
     const spec: OpenAPISpec = {
       ...openapi30Spec,
       security: [{ auth: [] }],
@@ -62,7 +62,7 @@ describe('OpenAPI auth handoff', () => {
       },
     };
     const draft = handoff(spec, '/pets/{id}', 'get', { auth: 'access-token' });
-    expect(draft.auth).toEqual({ type: 'bearer', token: 'access-token' });
+    expect(draft.auth).toEqual({ type: 'oauth2', accessToken: 'access-token' });
   });
 
   it('keeps cookie API keys as raw transport data', () => {

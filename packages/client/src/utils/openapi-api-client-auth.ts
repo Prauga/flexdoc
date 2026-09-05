@@ -51,7 +51,7 @@ function translateScheme(scheme: SecurityScheme, value: string): HttpAuth | unde
   if (scheme.type === 'apiKey' && (scheme.in === 'header' || scheme.in === 'query') && scheme.name) {
     return { type: 'apiKey', key: scheme.name, value, in: scheme.in };
   }
-  if (scheme.type === 'oauth2' || scheme.type === 'openIdConnect') return { type: 'bearer', token: value };
+  if (scheme.type === 'oauth2' || scheme.type === 'openIdConnect') return { type: 'oauth2', accessToken: value };
   return undefined;
 }
 
@@ -82,7 +82,7 @@ export function requestDraftFromOpenApiRequest(
   const auth = translateScheme(scheme, credential);
   if (!auth) return draft;
 
-  if (auth.type === 'bearer' || auth.type === 'basic') draft = withoutHeader(draft, 'Authorization');
+  if (auth.type === 'bearer' || auth.type === 'oauth2' || auth.type === 'basic') draft = withoutHeader(draft, 'Authorization');
   else if (auth.type === 'apiKey' && auth.in === 'header') draft = withoutHeader(draft, auth.key);
   else if (auth.type === 'apiKey' && auth.in === 'query') draft = withoutQuery(draft, auth.key);
 

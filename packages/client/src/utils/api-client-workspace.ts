@@ -119,6 +119,7 @@ function isHttpAuth(value: unknown): value is HttpAuth {
   if (!isRecord(value) || typeof value.type !== 'string') return false;
   if (value.type === 'none' || value.type === 'inherit') return true;
   if (value.type === 'bearer') return hasString(value, 'token');
+  if (value.type === 'oauth2') return hasString(value, 'accessToken');
   if (value.type === 'basic') return hasString(value, 'username') && hasString(value, 'password');
   return value.type === 'apiKey'
     && hasString(value, 'key')

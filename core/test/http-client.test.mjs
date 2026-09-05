@@ -46,6 +46,21 @@ test('applies common auth without coupling to OpenAPI', () => {
   assert.equal(apiKey.url, 'https://api.example.test/pets?api_key=123');
 });
 
+test('applies OAuth 2.0 access tokens as bearer authorization and resolves variables', () => {
+  const request = buildHttpRequest({
+    method: 'GET',
+    url: 'https://api.example.test/pets',
+    auth: { type: 'oauth2', accessToken: '{{accessToken}}' },
+  }, { variables: { accessToken: 'oauth-secret' } });
+  assert.equal(request.headers.Authorization, 'Bearer oauth-secret');
+
+  const resolved = resolveHttpRequestDraftVariables(
+    { method: 'GET', url: '/pets', auth: { type: 'oauth2', accessToken: '{{accessToken}}' } },
+    { accessToken: 'resolved-token' },
+  );
+  assert.deepEqual(resolved.auth, { type: 'oauth2', accessToken: 'resolved-token' });
+});
+
 test('uses a real Base64 fallback for Basic auth when btoa is unavailable', () => {
   const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'btoa');
   Object.defineProperty(globalThis, 'btoa', { value: undefined, configurable: true });
