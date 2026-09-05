@@ -17,6 +17,8 @@ export { normalizeOperation, resolveObject, resolvePathItem, resolveServerVariab
 export type { NormalizedOperation } from './utils/openapi-normalizer';
 export { buildRequest, initialRequestValues, parametersFor } from './utils/request-builder';
 export type { BuiltRequest, RequestValues, RequestValue } from './utils/request-builder';
+export { createOpenApiApiClientSession } from './utils/openapi-api-client-session';
+export type { OpenApiApiClientSession } from './utils/openapi-api-client-session';
 export { buildHttpRequest, requestDraftFromBuiltRequest, resolveHttpRequestDraftVariables } from './utils/http-client';
 export type { HttpAuth, HttpKeyValue, HttpRequestBuildOptions, HttpRequestDraft, HttpVariables } from './utils/http-client';
 export { cloneApiClientScripts, EMPTY_API_CLIENT_SCRIPTS, runApiClientScript } from './utils/api-client-scripting';

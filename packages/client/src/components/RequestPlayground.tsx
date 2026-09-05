@@ -4,6 +4,8 @@ import { OpenAPISpec, Operation } from '../types/openapi';
 import { FlexDocRendererOptions } from '../types/options';
 import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
 import type { RequestValues } from '../utils/request-builder';
+import { createOpenApiApiClientSession } from '../utils/openapi-api-client-session';
+import type { OpenApiApiClientSession } from '../utils/openapi-api-client-session';
 import { resolveServerUrl } from '../utils/server-url';
 import { CodeBlock } from './CodeBlock';
 
@@ -14,7 +16,7 @@ interface Props {
   theme: 'light' | 'dark';
   options?: FlexDocRendererOptions;
   onRequestChange?: (request: ReturnType<typeof buildRequest>) => void;
-  onOpenInApiClient?: (request: ReturnType<typeof buildRequest>, serverUrl?: string, values?: RequestValues) => void;
+  onOpenInApiClient?: (session: OpenApiApiClientSession) => void;
 }
 
 function displayValue(value: unknown): string | number | readonly string[] {
@@ -103,8 +105,13 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
 
   const openInApiClient = () => {
     try {
-      const request = buildRequest(spec, path, method, valuesRef.current);
-      onOpenInApiClient?.(request, valuesRef.current.serverUrl || configuredDefault || undefined, valuesRef.current);
+      onOpenInApiClient?.(createOpenApiApiClientSession(
+        spec,
+        path,
+        method,
+        valuesRef.current,
+        configuredDefault || undefined,
+      ));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Request is incomplete');
     }

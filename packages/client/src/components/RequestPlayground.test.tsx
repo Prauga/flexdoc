@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { RequestPlayground } from './RequestPlayground';
-import { requestDraftFromBuiltRequest } from '../utils/http-client';
 import type { OpenAPISpec } from '../types/openapi';
 
 const spec: OpenAPISpec = {
@@ -29,7 +28,7 @@ const spec: OpenAPISpec = {
   },
 };
 
-test('hands the exact live editor request to the API Client callback', () => {
+test('hands the exact live editor session to the API Client callback', () => {
   const onOpenInApiClient = jest.fn();
   render(<RequestPlayground spec={spec} path='/pets' method='get' theme='light' onOpenInApiClient={onOpenInApiClient} />);
 
@@ -38,14 +37,11 @@ test('hands the exact live editor request to the API Client callback', () => {
   fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
 
   expect(onOpenInApiClient).toHaveBeenCalledTimes(1);
-  const request = onOpenInApiClient.mock.calls[0][0];
-  expect(request.url).toBe('https://api.example.test/pets?limit=10');
-  expect(request.headers).toEqual({ 'X-Trace': 'abc' });
-
-  const draft = requestDraftFromBuiltRequest(request);
-  expect(draft.url).toBe('https://api.example.test/pets');
-  expect(draft.query).toEqual([{ key: 'limit', value: '10' }]);
-  expect(draft.headers).toEqual([{ key: 'X-Trace', value: 'abc' }]);
+  const session = onOpenInApiClient.mock.calls[0][0];
+  expect(session.serverUrl).toBe('https://api.example.test');
+  expect(session.request.url).toBe('https://api.example.test/pets');
+  expect(session.request.query).toEqual([{ key: 'limit', value: '10' }]);
+  expect(session.request.headers).toEqual([{ key: 'X-Trace', value: 'abc' }]);
 });
 
 test('resets direct-use form state when operation defaults change', () => {
@@ -56,14 +52,20 @@ test('resets direct-use form state when operation defaults change', () => {
 
   fireEvent.change(screen.getByLabelText('query limit'), { target: { value: '10' } });
   fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
-  expect(onOpenInApiClient.mock.calls.at(-1)?.[0].url).toBe('https://api.example.test/pets?limit=10');
+  expect(onOpenInApiClient.mock.calls.at(-1)?.[0].request).toMatchObject({
+    url: 'https://api.example.test/pets',
+    query: [{ key: 'limit', value: '10' }],
+  });
 
   rerender(
     <RequestPlayground spec={spec} path='/archived-pets' method='get' theme='light' onOpenInApiClient={onOpenInApiClient} />
   );
   fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
 
-  expect(onOpenInApiClient.mock.calls.at(-1)?.[0].url).toBe('https://api.example.test/archived-pets?limit=25');
+  expect(onOpenInApiClient.mock.calls.at(-1)?.[0].request).toMatchObject({
+    url: 'https://api.example.test/archived-pets',
+    query: [{ key: 'limit', value: '25' }],
+  });
   expect(screen.queryByLabelText('header X-Trace')).not.toBeInTheDocument();
 });
 
@@ -75,8 +77,8 @@ test('uses an arbitrary custom server override for Try It and API Client handoff
   fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
 
   expect(onOpenInApiClient).toHaveBeenCalledTimes(1);
-  expect(onOpenInApiClient.mock.calls[0][0].url).toBe('http://localhost:8080/pets');
-  expect(onOpenInApiClient.mock.calls[0][1]).toBe('http://localhost:8080');
+  expect(onOpenInApiClient.mock.calls[0][0].request.url).toBe('http://localhost:8080/pets');
+  expect(onOpenInApiClient.mock.calls[0][0].serverUrl).toBe('http://localhost:8080');
 });
 
 test('offers a custom server even when the OpenAPI document has no configured servers', () => {
@@ -88,5 +90,6 @@ test('offers a custom server even when the OpenAPI document has no configured se
   fireEvent.change(screen.getByLabelText('Custom server URL'), { target: { value: 'https://spot-canary.example.test' } });
   fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
 
-  expect(onOpenInApiClient.mock.calls[0][0].url).toBe('https://spot-canary.example.test/pets');
+  expect(onOpenInApiClient.mock.calls[0][0].request.url).toBe('https://spot-canary.example.test/pets');
+  expect(onOpenInApiClient.mock.calls[0][0].serverUrl).toBe('https://spot-canary.example.test');
 });
