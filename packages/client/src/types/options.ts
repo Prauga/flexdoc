@@ -46,6 +46,10 @@ export interface ThemeConfig {
   methodColors?: Record<string, { bg?: string; border?: string }>;
 }
 
+export type ExpandSection = 'parameters' | 'requestBody' | 'responses' | 'tryIt' | 'codeSamples';
+export type ExpandPreset = 'all' | 'none' | 'minimal' | 'documentation' | 'interactive';
+export type ExpandOption = ExpandPreset | Array<ExpandSection | Exclude<ExpandPreset, 'all' | 'none'>>;
+
 export interface FlexDocRendererOptions {
   contractVersion?: '1';
   title?: string;
@@ -60,6 +64,9 @@ export interface FlexDocRendererOptions {
   logo?: string | LogoOptions;
   hideDownloadButton?: boolean;
   hideTopbar?: boolean;
+  /** Default endpoint sections to expand. Viewer preferences override this host default. */
+  expand?: ExpandOption;
+  /** @deprecated Use `expand` instead. Explicit legacy values retain the pre-expand default behavior. */
   expandResponses?: string;
   defaultModelsExpandDepth?: number;
   showExtensions?: boolean;

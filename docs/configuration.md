@@ -50,6 +50,7 @@ setupFlexDoc(app, {
 | `version`                  | `string`                     | `"1.0.0"`                         | The version of your API                                                  |
 | `theme`                    | `object`                     | See [Theming Guide](./theming.md) | Custom theme options                                                     |
 | `hideHostname`             | `boolean`                    | `false`                           | Whether to hide the hostname in the API endpoints                        |
+| `expand`                   | `string | string[]`          | `minimal`                         | Default expanded endpoint sections; accepts presets or explicit sections |
 | `pathInMiddlePanel`        | `boolean`                    | `false`                           | Whether to show the path in the middle panel instead of the left sidebar |
 | `defaultModelsExpandDepth` | `number`                     | `1`                               | The default expand depth for models                                      |
 | `defaultModelExpandDepth`  | `number`                     | `1`                               | The default expand depth for model properties                            |
@@ -65,6 +66,24 @@ setupFlexDoc(app, {
 | `operationSorter`          | `(a, b) => number`           | `null`                            | A function to sort operations                                            |
 | `favicon`                  | `string`                     | `null`                            | The URL to a custom favicon                                              |
 | `auth`                     | `object`                     | `null`                            | Authentication configuration (see below)                                 |
+
+
+## Expansion Defaults and Viewer Preferences
+
+FlexDoc keeps endpoint pages compact by default. Hosts can set the initial expansion baseline with `expand`:
+
+```typescript
+options: {
+  expand: 'all'
+  // or: expand: 'documentation'
+  // or: expand: ['documentation', 'tryIt']
+  // or explicit sections: ['parameters', 'responses', 'codeSamples']
+}
+```
+
+Supported presets are `minimal`, `documentation`, `interactive`, `all`, and `none`. Explicit section names are `parameters`, `requestBody`, `responses`, `tryIt`, and `codeSamples`. `expandResponses` remains accepted for backwards compatibility when `expand` is not supplied, but new integrations should use `expand`.
+
+The host value is a default rather than a policy. Readers can open **Settings** in the FlexDoc top bar and choose their own expansion baseline. That preference is stored locally per documentation origin and API title and takes precedence over the host default. **Reset to documentation defaults** removes the viewer override. Individual section clicks are transient and are not persisted.
 
 ## Authentication Options
 

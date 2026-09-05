@@ -11,6 +11,7 @@ spec.servers = [
 ];
 spec.paths['/pets/{id}'].get.summary = 'Get a pet';
 spec.paths['/payload'].post.summary = 'Create a payload';
+const query = new URLSearchParams(window.location.search);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -18,6 +19,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       spec={spec}
       options={{
         hideDownloadButton: true,
+        hideTopbar: query.get('hideTopbar') === '1',
+        expand: 'all',
         tryIt: { enabled: true },
         codeSamples: { enabled: true, languages: ['curl', 'javascript', 'python', 'go', 'java'] },
       }}

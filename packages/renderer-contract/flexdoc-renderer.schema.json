@@ -23,6 +23,8 @@
         "tagGroups": { "type": "array", "items": { "type": "object", "required": ["name", "tags"], "properties": { "name": { "type": "string" }, "tags": { "type": "array", "items": { "type": "string" } } } } },
         "hideDownloadButton": { "type": "boolean" },
         "hideTopbar": { "type": "boolean" },
+        "expand": { "oneOf": [{ "enum": ["all", "none", "minimal", "documentation", "interactive"] }, { "type": "array", "items": { "enum": ["minimal", "documentation", "interactive", "parameters", "requestBody", "responses", "tryIt", "codeSamples"] } }] },
+        "expandResponses": { "type": "string" },
         "hideHostname": { "type": "boolean" },
         "showRequestHeaders": { "type": "boolean" },
         "requiredPropsFirst": { "type": "boolean" },

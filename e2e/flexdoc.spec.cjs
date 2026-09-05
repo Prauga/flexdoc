@@ -2,8 +2,8 @@ const { createHash } = require('node:crypto');
 const { test, expect } = require('@playwright/test');
 
 const overviewDigests = {
-  'chromium-desktop': '3b1db4cc58e169c89cf179a05d0412af49556c7c42554d571a4c917c275eca7c',
-  'chromium-mobile': '244c39f50f4ab2f44a664bf4b2637dfc596d239e62b9f005cc9802521e3af750',
+  'chromium-desktop': 'e5a005c79be6a8bffb5846ae5decf8300d230b8ea487009d47b276e2575a91aa',
+  'chromium-mobile': '17b9b02d35c147b3252e3bf386a2994f09a2559ddb28d07c51309e4bdc27ebd7',
 };
 
 const API_CLIENT_SPEC_TITLE = 'FlexDoc Browser Fixture';

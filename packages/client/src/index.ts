@@ -9,7 +9,7 @@ export { App as ApiDocsDemo } from './App';
 export type { AppProps } from './App';
 export type { OpenAPISpec } from './types/openapi';
 export type { FlexDocProps } from './components/FlexDoc';
-export type { FlexDocRendererOptions, ThemeConfig, LogoOptions } from './types/options';
+export type { ExpandOption, ExpandPreset, ExpandSection, FlexDocRendererOptions, ThemeConfig, LogoOptions } from './types/options';
 export { OpenAPIParser } from './utils/openapi-parser';
 export { bundleExternalReferences, EXTERNAL_DOCUMENTS_KEY } from './utils/openapi-resolver';
 export type { BundleOptions, DocumentLoader } from './utils/openapi-resolver';
