@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    prauga-flexdoc (0.1.0)
+    prauga-flexdoc (0.2.0)
 
 GEM
   remote: https://rubygems.org/

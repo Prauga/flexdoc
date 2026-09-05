@@ -19,9 +19,9 @@ function App() {
   }, [darkMode]);
 
   const options = useMemo<FlexDocRendererOptions>(() => ({
-    title: 'FlexDoc 2.2 feature showcase',
+    title: 'FlexDoc 2.3 feature showcase',
     description: 'One runnable example for the complete renderer, Try It and API Client workflow.',
-    version: '2.2.0',
+    version: '2.3.0',
     tagGroups: [
       { name: 'Core API', tags: ['Pets', 'Search'] },
       { name: 'Request bodies & auth', tags: ['Forms', 'Admin'] },
@@ -76,7 +76,7 @@ function App() {
     },
     codeSamples: { enabled: true, languages: ['curl', 'javascript', 'python', 'go', 'java'] },
     footer: {
-      copyright: 'Prauga FlexDoc 2.2 showcase',
+      copyright: 'Prauga FlexDoc 2.3 showcase',
       link: [
         { text: 'Repository', url: 'https://github.com/prauga/flexdoc' },
         { text: 'AGPL-3.0', url: 'https://www.gnu.org/licenses/agpl-3.0.html' },

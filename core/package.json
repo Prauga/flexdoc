@@ -1,6 +1,6 @@
 {
   "name": "@prauga/flexdoc-core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Framework-neutral OpenAPI engine for FlexDoc request construction, resolution, and serialization",
   "type": "module",
   "main": "./dist/index.js",

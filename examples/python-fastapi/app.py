@@ -7,8 +7,8 @@ from prauga_flexdoc import FlexDocASGI, FlexDocConfig
 
 app = FastAPI(
     title="FlexDoc FastAPI Showcase API",
-    description="Code-first OpenAPI 3.1 example covering servers, auth, parameters, JSON and multipart bodies with the FlexDoc 0.2 ASGI adapter.",
-    version="2.2.0",
+    description="Code-first OpenAPI 3.1 example covering servers, auth, parameters, JSON and multipart bodies with the FlexDoc 0.4 ASGI adapter.",
+    version="2.3.0",
     docs_url=None,
     redoc_url=None,
     servers=[

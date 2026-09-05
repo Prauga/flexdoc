@@ -9,7 +9,7 @@
     <micronaut.maven.plugin.version>4.11.6</micronaut.maven.plugin.version>
     <micronaut.test.resources.version>2.10.1</micronaut.test.resources.version>
     <micronaut.test.resources.enabled>false</micronaut.test.resources.enabled>
-    <flexdoc.version>0.4.0</flexdoc.version>
+    <flexdoc.version>0.5.0</flexdoc.version>
     <packaging>jar</packaging>
     <micronaut.runtime>netty</micronaut.runtime>
   </properties>

@@ -1,4 +1,4 @@
 source "https://rubygems.org"
 
 gem "rails", ">= 7.2", "< 9"
-gem "prauga-flexdoc", "0.1.0"
+gem "prauga-flexdoc", "0.2.0"

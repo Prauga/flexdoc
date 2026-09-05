@@ -22,7 +22,7 @@ async function buildApp() {
     options: {
       title: 'FlexDoc Fastify showcase',
       description: 'Full OpenAPI 3.1 feature showcase served through Fastify.',
-      version: '2.2.0',
+      version: '2.3.0',
       showExtensions: true,
       showCommonExtensions: true,
       requiredPropsFirst: true,

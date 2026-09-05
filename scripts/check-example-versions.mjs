@@ -23,6 +23,7 @@ for (const path of ['adapters/java-jvm/pom.xml', 'adapters/java-jaxrs/pom.xml', 
   if (!pom.includes(`<version>${javaVersion}</version>`)) fail(`${path} is not aligned to Java family ${javaVersion}`);
 }
 
+const dotnetVersion = read('adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNetCore.csproj').match(/<Version>([^<]+)<\/Version>/)?.[1];
 const pythonVersion = read('adapters/python/pyproject.toml').match(/\[project\][\s\S]*?\nversion\s*=\s*"([^"]+)"/)?.[1];
 const phpVersion = read('adapters/php/VERSION').trim();
 const rubyVersion = read('adapters/ruby/lib/prauga/flexdoc/version.rb').match(/VERSION = "([^"]+)"/)?.[1];
@@ -30,7 +31,7 @@ const rustAxumVersion = read('adapters/rust/Cargo.toml').match(/\[package\][\s\S
 const rustActixVersion = read('adapters/rust-actix/Cargo.toml').match(/\[package\][\s\S]*?\nversion\s*=\s*"([^"]+)"/)?.[1];
 const goVersion = read('adapters/go/VERSION').trim();
 const elixirVersion = read('adapters/elixir/mix.exs').match(/@version\s+"([^"]+)"/)?.[1];
-for (const [name, version] of Object.entries({pythonVersion, phpVersion, rubyVersion, rustAxumVersion, rustActixVersion, goVersion, elixirVersion})) {
+for (const [name, version] of Object.entries({dotnetVersion, pythonVersion, phpVersion, rubyVersion, rustAxumVersion, rustActixVersion, goVersion, elixirVersion})) {
   if (!version) fail(`Unable to read ${name}`);
 }
 
@@ -66,6 +67,7 @@ const checks = [
   ['examples/javascript-express/README.md', `pinned to \`${backendVersion}\``],
   ['examples/javascript-fastify/README.md', `pinned to \`${backendVersion}\``],
   ['examples/javascript-hono/README.md', `\`@prauga/flexdoc-backend\` \`${backendVersion}\``],
+  ['examples/dotnet-aspnetcore/README.md', `\`Prauga.FlexDoc.AspNetCore\` \`${dotnetVersion}\``],
   ['examples/python-fastapi/README.md', `pinned to \`${pythonVersion}\``],
   ['examples/python-flask/README.md', `pinned to \`${pythonVersion}\``],
   ['examples/python-django/README.md', `pinned to \`${pythonVersion}\``],
@@ -86,6 +88,7 @@ const checks = [
   ['examples/README.md', `| [\`javascript-express\`](./javascript-express) | Express + \`@prauga/flexdoc-backend\` \`${backendVersion}\` |`],
   ['examples/README.md', `| [\`javascript-fastify\`](./javascript-fastify) | Fastify + \`@prauga/flexdoc-backend\` \`${backendVersion}\` |`],
   ['examples/README.md', `| [\`javascript-hono\`](./javascript-hono) | Hono + \`@prauga/flexdoc-backend\` \`${backendVersion}\` |`],
+  ['examples/README.md', `| [\`dotnet-aspnetcore\`](./dotnet-aspnetcore) | \`Prauga.FlexDoc.AspNetCore\` \`${dotnetVersion}\` |`],
   ['examples/README.md', `| [\`java-spring\`](./java-spring) | Spring Boot + \`flexdoc-spring-boot-starter\` \`${javaVersion}\` |`],
   ['examples/README.md', `| [\`java-quarkus\`](./java-quarkus) | Quarkus/Jakarta REST + \`flexdoc-jaxrs\` \`${javaVersion}\` |`],
   ['examples/README.md', `| [\`java-micronaut\`](./java-micronaut) | Micronaut + \`flexdoc-jvm\` \`${javaVersion}\` |`],
@@ -111,6 +114,7 @@ const checks = [
   ['README.md', `| npm | \`@prauga/flexdoc-backend\` | \`${backendVersion}\` |`],
   ['README.md', `| npm | \`@prauga/flexdoc-core\` | \`${coreVersion}\` |`],
   ['README.md', `| npm | \`@prauga/flexdoc-cli\` | \`${cliVersion}\` |`],
+  ['README.md', `| NuGet | \`Prauga.FlexDoc.AspNetCore\` | \`${dotnetVersion}\` |`],
   ['README.md', `| Maven | \`com.prauga.flexdoc:flexdoc-jvm\` | \`${javaVersion}\` |`],
   ['README.md', `| Maven | \`com.prauga.flexdoc:flexdoc-jaxrs\` | \`${javaVersion}\` |`],
   ['README.md', `| Maven | \`com.prauga.flexdoc:flexdoc-spring-boot-starter\` | \`${javaVersion}\` |`],
@@ -121,6 +125,10 @@ const checks = [
   ['README.md', `| crates.io | \`prauga-flexdoc-actix\` | \`${rustActixVersion}\` |`],
   ['README.md', `| Hex | \`prauga_flexdoc\` | \`${elixirVersion}\` |`],
   ['README.md', `| Go | \`github.com/prauga/flexdoc/adapters/go\` | \`${goVersion}\` |`],
+
+  ['docs/distribution.md', `| \`prauga-flexdoc\` (RubyGems) | \`${rubyVersion}\` | \`ruby/v${rubyVersion}\` |`],
+  ['docs/distribution.md', `| \`prauga-flexdoc-actix\` | \`${rustActixVersion}\` | \`rust-actix/v${rustActixVersion}\` |`],
+  ['docs/distribution.md', `| \`prauga_flexdoc\` (Hex) | \`${elixirVersion}\` | \`elixir/v${elixirVersion}\` |`],
 ];
 
 for (const [path, expected] of checks) {
@@ -132,4 +140,4 @@ if (read('examples/go-net-http/showcase-openapi.json') !== read('examples/showca
   fail('examples/go-net-http/showcase-openapi.json is stale; copy examples/showcase-openapi.json so the embedded Go showcase stays in sync');
 }
 
-console.log(`Examples, lockfiles, Java modules, and README version tables match current FlexDoc versions: client ${clientVersion}, backend ${backendVersion}, core ${coreVersion}, CLI ${cliVersion}, Java ${javaVersion}, Python ${pythonVersion}, PHP ${phpVersion}, Ruby ${rubyVersion}, Go ${goVersion}, Rust ${rustAxumVersion}/${rustActixVersion}, Elixir ${elixirVersion}`);
+console.log(`Examples, lockfiles, Java modules, and README version tables match current FlexDoc versions: client ${clientVersion}, backend ${backendVersion}, core ${coreVersion}, CLI ${cliVersion}, .NET ${dotnetVersion}, Java ${javaVersion}, Python ${pythonVersion}, PHP ${phpVersion}, Ruby ${rubyVersion}, Go ${goVersion}, Rust ${rustAxumVersion}/${rustActixVersion}, Elixir ${elixirVersion}`);
