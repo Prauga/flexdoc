@@ -1,6 +1,6 @@
 # Ktor + FlexDoc
 
-Ktor 3.5.2 maps the framework-neutral JVM `FlexDocHost` `0.5.0` responses directly into Ktor responses. There is no Ktor-specific renderer package.
+Ktor 3.5.2 maps the framework-neutral JVM `FlexDocHost` `0.6.0` responses directly into Ktor responses. There is no Ktor-specific renderer package.
 
 ```bash
 mvn package

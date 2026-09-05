@@ -1,6 +1,6 @@
 # Prauga FlexDoc Python adapter
 
-`prauga-flexdoc` `0.4.0` packages one framework-neutral Python host plus ASGI and WSGI transports. The wheel is self-contained, includes the canonical renderer assets, and keeps FastAPI, Flask, and Django optional.
+`prauga-flexdoc` `0.5.0` packages one framework-neutral Python host plus ASGI and WSGI transports. The wheel is self-contained, includes the canonical renderer assets, and keeps FastAPI, Flask, and Django optional.
 
 ## FastAPI / ASGI
 

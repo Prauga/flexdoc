@@ -6,5 +6,5 @@ publish = false
 
 [dependencies]
 actix-web = "4"
-prauga-flexdoc-actix = "0.2.0"
+prauga-flexdoc-actix = "0.3.0"
 serde_json = "1"

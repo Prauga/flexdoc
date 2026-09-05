@@ -1,6 +1,6 @@
 # Rails + FlexDoc
 
-Add `prauga-flexdoc` `0.2.0`, then mount the packaged Rack integration from `config/routes.rb`:
+Add `prauga-flexdoc` `0.3.0`, then mount the packaged Rack integration from `config/routes.rb`:
 
 ```ruby
 host = Prauga::FlexDoc::Host.new(

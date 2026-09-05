@@ -5,7 +5,7 @@ Self-contained ASP.NET Core integration for FlexDoc. The NuGet package embeds th
 ## Package
 
 ```text
-Prauga.FlexDoc.AspNetCore 0.2.0
+Prauga.FlexDoc.AspNetCore 0.3.0
 ```
 
 The library targets `net8.0`, so it can be consumed by supported ASP.NET Core applications on .NET 8 and later runtimes.

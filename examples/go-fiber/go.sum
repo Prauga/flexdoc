@@ -1,3 +1,5 @@
+github.com/prauga/flexdoc/adapters/go v0.4.0 h1:lTqHzWV+HR8gDSvnq5tko8dft+qRNsWvkVDogW3vM3s=
+github.com/prauga/flexdoc/adapters/go v0.4.0/go.mod h1:tMdyVXq3OY5uhengBClaE9XC0/fD/BuMIx2GUcDMi9k=
 github.com/andybalholm/brotli v1.2.2 h1:HzTuoo2ErYQqf5qvcJInB8uvqSVxRttzkFexPWtnceM=
 github.com/andybalholm/brotli v1.2.2/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
@@ -22,8 +24,6 @@ github.com/philhofer/fwd v1.2.0 h1:e6DnBTl7vGY+Gz322/ASL4Gyp1FspeMvx1RNDoToZuM=
 github.com/philhofer/fwd v1.2.0/go.mod h1:RqIHx9QI14HlwKwm98g9Re5prTQ6LdeRQn+gXJFxsJM=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/prauga/flexdoc/adapters/go v0.2.0 h1:EoY0eFFRg4kWOpr+oyhmyFSM6cT+scPQA+SVETzBhMU=
-github.com/prauga/flexdoc/adapters/go v0.2.0/go.mod h1:tMdyVXq3OY5uhengBClaE9XC0/fD/BuMIx2GUcDMi9k=
 github.com/shamaton/msgpack/v3 v3.2.0 h1:1q2Ms+MWmuRju+PuDMSFDB7p7621npeX4zprJN5Zck8=
 github.com/shamaton/msgpack/v3 v3.2.0/go.mod h1:sgBYvEiyz8JR1NC3yGRoPVME9xXovpnh3l/plW1nfRo=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=

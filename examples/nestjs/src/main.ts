@@ -24,7 +24,7 @@ async function bootstrap() {
     options: {
       title: 'FlexDoc NestJS showcase',
       description: 'The NestJS helper generates the OpenAPI document and serves the same canonical renderer used by every FlexDoc adapter.',
-      version: '2.3.0',
+      version: '2.8.0',
       theme: 'dark',
       logo: { url: logo, alt: 'FlexDoc', clickable: false, maxHeight: 32 },
       hideDownloadButton: false,

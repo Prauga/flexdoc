@@ -29,6 +29,19 @@ export type {
   ApiClientScriptRunResult,
   ApiClientScriptTestResult,
 } from './utils/api-client-scripting';
+export {
+  importPostmanCollection,
+  importPostmanDocument,
+  importPostmanEnvironment,
+  mergePostmanCollectionImport,
+  mergePostmanEnvironmentImport,
+} from './utils/api-client-postman';
+export type {
+  ApiClientImportWarning,
+  PostmanCollectionImportResult,
+  PostmanDocumentImportResult,
+  PostmanEnvironmentImportResult,
+} from './utils/api-client-postman';
 export type {
   ApiClientCollection,
   ApiClientEnvironment,

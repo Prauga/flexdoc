@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/gin-gonic/gin v1.12.0
-	github.com/prauga/flexdoc/adapters/go v0.3.0
+	github.com/prauga/flexdoc/adapters/go v0.4.0
 )
 
 require (

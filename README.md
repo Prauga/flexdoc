@@ -16,29 +16,31 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - **Rust:** Axum, Actix Web
 - **Elixir:** Plug, Phoenix
 
+The backend-coverage program shipped in 2.3.0. API Client development then continued through internal 2.4–2.7 milestones without publishing artificial intermediate FlexDoc package releases. The next coordinated product release is **2.8.0**
+
 ## Package family
 
 | Ecosystem | Package | Source version |
 | --- | --- | ---: |
-| npm | `@prauga/flexdoc-client` | `2.3.0` |
-| npm | `@prauga/flexdoc-backend` | `2.3.0` |
+| npm | `@prauga/flexdoc-client` | `2.8.0` |
+| npm | `@prauga/flexdoc-backend` | `2.8.0` |
 | npm | `@prauga/flexdoc-core` | `0.3.0` |
-| npm | `@prauga/flexdoc-cli` | `0.3.0` |
-| NuGet | `Prauga.FlexDoc.AspNetCore` | `0.2.0` |
-| Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.5.0` |
-| Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.5.0` |
-| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.5.0` |
-| PyPI | `prauga-flexdoc` | `0.4.0` |
-| Composer | `prauga/flexdoc` | `0.2.0` |
-| RubyGems | `prauga-flexdoc` | `0.2.0` |
-| crates.io | `prauga-flexdoc-axum` | `0.3.0` |
-| crates.io | `prauga-flexdoc-actix` | `0.2.0` |
-| Hex | `prauga_flexdoc` | `0.2.0` |
-| Go | `github.com/prauga/flexdoc/adapters/go` | `0.3.0` |
+| npm | `@prauga/flexdoc-cli` | `0.4.0` |
+| NuGet | `Prauga.FlexDoc.AspNetCore` | `0.3.0` |
+| Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.6.0` |
+| Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.6.0` |
+| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.6.0` |
+| PyPI | `prauga-flexdoc` | `0.5.0` |
+| Composer | `prauga/flexdoc` | `0.3.0` |
+| RubyGems | `prauga-flexdoc` | `0.3.0` |
+| crates.io | `prauga-flexdoc-axum` | `0.4.0` |
+| crates.io | `prauga-flexdoc-actix` | `0.3.0` |
+| Hex | `prauga_flexdoc` | `0.3.0` |
+| Go | `github.com/prauga/flexdoc/adapters/go` | `0.4.0` |
 
 Ecosystem package versions are intentionally independent. Renderer contract v1 is the cross-language compatibility boundary.
 
-> This source tree is prepared for the coordinated **FlexDoc 2.3.0** release. Ecosystem packages keep independent semantic versions while sharing renderer contract v1.
+> The package table reflects the versions encoded by the current source commit. Release-preparation commits update these source versions only when the matching release candidate is ready; source version numbers alone do not mean an artifact has been published.
 
 ## Architecture
 

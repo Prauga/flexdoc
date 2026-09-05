@@ -6,25 +6,25 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 
 | Artifact | Version represented by source | Release tag | Compatibility |
 | --- | --- | --- | --- |
-| `@prauga/flexdoc-client` | `2.3.0` | `js/v2.3.0` | canonical renderer; renderer contract v1 |
-| `@prauga/flexdoc-backend` | `2.3.0` | `js/v2.3.0` | matching renderer; contract v1 |
+| `@prauga/flexdoc-client` | `2.8.0` | `js/v2.8.0` | canonical renderer; renderer contract v1 |
+| `@prauga/flexdoc-backend` | `2.8.0` | `js/v2.8.0` | matching renderer; contract v1 |
 | `@prauga/flexdoc-core` | `0.3.0` | `core/v0.3.0` | framework-neutral OpenAPI engine |
-| `@prauga/flexdoc-cli` | `0.3.0` | `cli/v0.3.0` | compatible Prauga renderer |
-| `Prauga.FlexDoc.AspNetCore` | `0.2.0` | `dotnet/v0.2.0` | ASP.NET Core 8+; renderer contract v1 |
-| `com.prauga.flexdoc:flexdoc-jvm` | `0.5.0` | `java/v0.5.0` | Java 17+ framework-neutral renderer host |
-| `com.prauga.flexdoc:flexdoc-jaxrs` | `0.5.0` | `java/v0.5.0` | Jakarta REST/JAX-RS transport over `flexdoc-jvm` |
-| `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.5.0` | `java/v0.5.0` | Spring Boot 3 transport over `flexdoc-jvm` |
-| `prauga-flexdoc` (PyPI) | `0.4.0` | `python/v0.4.0` | ASGI/WSGI adapter + embedded renderer |
-| `prauga/flexdoc` | `0.2.0` | `php/v0.2.0` | PHP 8.2+; Composer/Packagist distribution mirrored to `Prauga/flexdoc-php` |
-| `prauga-flexdoc` (RubyGems) | `0.2.0` | `ruby/v0.2.0` | Ruby 3.2+ Rack/Rails host + embedded renderer |
-| `prauga-flexdoc-axum` | `0.3.0` | `rust/v0.3.0` | Axum adapter + embedded renderer |
-| `prauga-flexdoc-actix` | `0.2.0` | `rust-actix/v0.2.0` | Actix Web adapter + embedded renderer |
-| `prauga_flexdoc` (Hex) | `0.2.0` | `elixir/v0.2.0` | Plug/Phoenix adapter + embedded renderer |
-| `github.com/prauga/flexdoc/adapters/go` | `0.3.0` | `adapters/go/v0.3.0` | net/http adapter + embedded renderer |
+| `@prauga/flexdoc-cli` | `0.4.0` | `cli/v0.4.0` | compatible Prauga renderer |
+| `Prauga.FlexDoc.AspNetCore` | `0.3.0` | `dotnet/v0.3.0` | ASP.NET Core 8+; renderer contract v1 |
+| `com.prauga.flexdoc:flexdoc-jvm` | `0.6.0` | `java/v0.6.0` | Java 17+ framework-neutral renderer host |
+| `com.prauga.flexdoc:flexdoc-jaxrs` | `0.6.0` | `java/v0.6.0` | Jakarta REST/JAX-RS transport over `flexdoc-jvm` |
+| `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.6.0` | `java/v0.6.0` | Spring Boot 3 transport over `flexdoc-jvm` |
+| `prauga-flexdoc` (PyPI) | `0.5.0` | `python/v0.5.0` | ASGI/WSGI adapter + embedded renderer |
+| `prauga/flexdoc` | `0.3.0` | `php/v0.3.0` | PHP 8.2+; Composer/Packagist distribution mirrored to `Prauga/flexdoc-php` |
+| `prauga-flexdoc` (RubyGems) | `0.3.0` | `ruby/v0.3.0` | Ruby 3.2+ Rack/Rails host + embedded renderer |
+| `prauga-flexdoc-axum` | `0.4.0` | `rust/v0.4.0` | Axum adapter + embedded renderer |
+| `prauga-flexdoc-actix` | `0.3.0` | `rust-actix/v0.3.0` | Actix Web adapter + embedded renderer |
+| `prauga_flexdoc` (Hex) | `0.3.0` | `elixir/v0.3.0` | Plug/Phoenix adapter + embedded renderer |
+| `github.com/prauga/flexdoc/adapters/go` | `0.4.0` | `adapters/go/v0.4.0` | net/http adapter + embedded renderer |
 
 The table describes the versions encoded by the current source tree. A new source version is not considered published merely because it appears here; publication still requires its matching release workflow to complete successfully.
 
-Versions are intentionally independent across ecosystems. The FlexDoc product milestone (`2.2.5` through `2.3.0`) tracks coordinated product capability; the renderer contract, not matching package numbers, is the cross-ecosystem compatibility boundary.
+Versions are intentionally independent across ecosystems. The FlexDoc product release line now advances from shipped `2.3.0` to the `2.8.0` release candidate; the renderer contract, not matching package numbers, is the cross-ecosystem compatibility boundary.
 
 ## Self-contained adapter artifacts
 
@@ -63,17 +63,17 @@ Before the first publish, configure a NuGet.org Trusted Publishing policy for re
 
 ## Maven Central
 
-The FlexDoc Java family for the 2.3.0 release is coordinated at `0.5.0`:
+The FlexDoc Java family for the 2.8.0 release candidate is coordinated at `0.6.0`:
 
 ```text
-com.prauga.flexdoc:flexdoc-jvm:0.5.0
-com.prauga.flexdoc:flexdoc-jaxrs:0.5.0
-com.prauga.flexdoc:flexdoc-spring-boot-starter:0.5.0
+com.prauga.flexdoc:flexdoc-jvm:0.6.0
+com.prauga.flexdoc:flexdoc-jaxrs:0.6.0
+com.prauga.flexdoc:flexdoc-spring-boot-starter:0.6.0
 ```
 
 `flexdoc-jvm` is the framework-neutral Java 17+ host and owns the packaged renderer. `flexdoc-jaxrs` is a Jakarta REST/JAX-RS response adapter. The Spring Boot starter preserves its existing configuration API while delegating HTML and asset hosting to `flexdoc-jvm`.
 
-A single `java/v0.5.0` release validates the family version, installs the complete reactor locally, then publishes in dependency order: `flexdoc-jvm`, `flexdoc-jaxrs`, and `flexdoc-spring-boot-starter`. This allows Quarkus/Jakarta REST, Micronaut, Guice/Governator-style services, and Spring Boot to share one renderer host contract without package-level renderer forks.
+A single `java/v0.6.0` release validates the family version, installs the complete reactor locally, then publishes in dependency order: `flexdoc-jvm`, `flexdoc-jaxrs`, and `flexdoc-spring-boot-starter`. This allows Quarkus/Jakarta REST, Micronaut, Guice/Governator-style services, and Spring Boot to share one renderer host contract without package-level renderer forks.
 
 ## PyPI
 

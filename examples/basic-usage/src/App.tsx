@@ -19,9 +19,9 @@ function App() {
   }, [darkMode]);
 
   const options = useMemo<FlexDocRendererOptions>(() => ({
-    title: 'FlexDoc 2.3 feature showcase',
+    title: 'FlexDoc 2.8 feature showcase',
     description: 'One runnable example for the complete renderer, Try It and API Client workflow.',
-    version: '2.3.0',
+    version: '2.8.0',
     tagGroups: [
       { name: 'Core API', tags: ['Pets', 'Search'] },
       { name: 'Request bodies & auth', tags: ['Forms', 'Admin'] },

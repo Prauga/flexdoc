@@ -1,6 +1,6 @@
 {
   "name": "@prauga/flexdoc-backend",
-  "version": "2.3.0",
+  "version": "2.8.0",
   "description": "Thin self-hosted FlexDoc integrations for Express, Fastify, and NestJS",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

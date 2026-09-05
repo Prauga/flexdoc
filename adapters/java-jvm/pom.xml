@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.prauga.flexdoc</groupId>
   <artifactId>flexdoc-jvm</artifactId>
-  <version>0.5.0</version>
+  <version>0.6.0</version>
   <name>Prauga FlexDoc JVM Host</name>
   <description>Framework-neutral Java host for the self-hosted FlexDoc OpenAPI renderer and API explorer</description>
   <url>https://github.com/prauga/flexdoc</url>

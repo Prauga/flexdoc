@@ -4,6 +4,7 @@ import type { ApiClientExecutionResult, ApiClientProps } from './ApiClient';
 import { ApiClientCollections } from './ApiClientCollections';
 import { ApiClientEnvironments } from './ApiClientEnvironments';
 import { ApiClientHistory } from './ApiClientHistory';
+import { ApiClientImport } from './ApiClientImport';
 import type { HttpAuth, HttpRequestDraft } from '../utils/http-client';
 import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange } from '../utils/api-client-scripting';
 import type { BuiltRequest } from '../utils/request-builder';
@@ -249,7 +250,14 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
 
   return <div className='grid gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]'>
     <aside className={`space-y-5 rounded-xl border p-4 ${panelClass}`}>
-      <ApiClientEnvironments workspace={workspace} onWorkspaceChange={setWorkspace} theme={theme} />
+      <ApiClientImport
+        onWorkspaceChange={setWorkspace}
+        onSelectedCollectionChange={handleSelectedCollectionChange}
+        theme={theme}
+      />
+      <div className='border-t pt-4'>
+        <ApiClientEnvironments workspace={workspace} onWorkspaceChange={setWorkspace} theme={theme} />
+      </div>
       <div className='border-t pt-4'>
         <ApiClientCollections
           request={currentRequest}
