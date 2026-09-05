@@ -5,7 +5,7 @@ import { buildHttpRequest } from '../utils/http-client';
 import { cloneApiClientScripts, runApiClientScript } from '../utils/api-client-scripting';
 import { replaceRequestServer, requestUsesServer, resolveServerUrl } from '../utils/server-url';
 import type { HttpAuth, HttpKeyValue, HttpRequestDraft, HttpVariables } from '../utils/http-client';
-import type { ApiClientRequestScripts, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from '../utils/api-client-scripting';
+import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from '../utils/api-client-scripting';
 import type { BuiltRequest } from '../utils/request-builder';
 import type { Server } from '../types/openapi';
 
@@ -33,7 +33,10 @@ export interface ApiClientProps {
   onExecutionComplete?: (result: ApiClientExecutionResult) => void;
   resolveAuth?: (auth: HttpAuth | undefined) => HttpAuth;
   variables?: HttpVariables;
+  collectionVariables?: HttpVariables;
+  externalVariables?: HttpVariables;
   environmentVariables?: HttpVariables;
+  onCollectionChanges?: (changes: ApiClientScriptCollectionChange[]) => void;
   onEnvironmentChanges?: (changes: ApiClientScriptEnvironmentChange[]) => void;
   serverOptions?: Server[];
   initialServerUrl?: string;
@@ -95,7 +98,10 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   onExecutionComplete,
   resolveAuth,
   variables = {},
+  collectionVariables = {},
+  externalVariables = {},
   environmentVariables = {},
+  onCollectionChanges,
   onEnvironmentChanges,
   serverOptions = [],
   initialServerUrl,
@@ -183,6 +189,8 @@ export const ApiClient: React.FC<ApiClientProps> = ({
     try {
       let executionDraft = cloneDraft(draft);
       let executionVariables = Object.assign(Object.create(null) as HttpVariables, variables);
+      let executionCollectionVariables = Object.assign(Object.create(null) as HttpVariables, collectionVariables);
+      const executionExternalVariables = Object.assign(Object.create(null) as HttpVariables, externalVariables);
       let executionEnvironmentVariables = Object.assign(Object.create(null) as HttpVariables, environmentVariables);
       let logs: string[] = [];
 
@@ -192,12 +200,16 @@ export const ApiClient: React.FC<ApiClientProps> = ({
           phase: 'pre-request',
           draft: executionDraft,
           variables: executionVariables,
+          collectionVariables: executionCollectionVariables,
+          externalVariables: executionExternalVariables,
           environmentVariables: executionEnvironmentVariables,
         });
         executionDraft = preRequestResult.draft;
         executionVariables = preRequestResult.variables;
+        executionCollectionVariables = preRequestResult.collectionVariables;
         executionEnvironmentVariables = preRequestResult.environmentVariables;
         logs = [...logs, ...preRequestResult.logs];
+        if (preRequestResult.collectionChanges.length > 0) onCollectionChanges?.(preRequestResult.collectionChanges);
         if (preRequestResult.environmentChanges.length > 0) onEnvironmentChanges?.(preRequestResult.environmentChanges);
         if (preRequestResult.error) {
           setScriptLogs(logs);
@@ -244,6 +256,8 @@ export const ApiClient: React.FC<ApiClientProps> = ({
           phase: 'tests',
           draft: executionDraft,
           variables: executionVariables,
+          collectionVariables: executionCollectionVariables,
+          externalVariables: executionExternalVariables,
           environmentVariables: executionEnvironmentVariables,
           response: {
             status: result.status,
@@ -255,6 +269,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
         });
         logs = [...logs, ...testResult.logs];
         setScriptTests(testResult.tests);
+        if (testResult.collectionChanges.length > 0) onCollectionChanges?.(testResult.collectionChanges);
         if (testResult.environmentChanges.length > 0) onEnvironmentChanges?.(testResult.environmentChanges);
         if (testResult.error) setScriptError(`Test script: ${testResult.error}`);
       }

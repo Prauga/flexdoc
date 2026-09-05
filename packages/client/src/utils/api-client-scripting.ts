@@ -11,6 +11,12 @@ export interface ApiClientScriptEnvironmentChange {
   value?: string;
 }
 
+export interface ApiClientScriptCollectionChange {
+  action: 'set' | 'unset';
+  key: string;
+  value?: string;
+}
+
 export interface ApiClientScriptTestResult {
   name: string;
   passed: boolean;
@@ -28,7 +34,10 @@ export interface ApiClientScriptResponse {
 export interface ApiClientScriptRunResult {
   draft: HttpRequestDraft;
   variables: HttpVariables;
+  collectionVariables: HttpVariables;
+  externalVariables: HttpVariables;
   environmentVariables: HttpVariables;
+  collectionChanges: ApiClientScriptCollectionChange[];
   environmentChanges: ApiClientScriptEnvironmentChange[];
   tests: ApiClientScriptTestResult[];
   logs: string[];
@@ -184,16 +193,28 @@ export async function runApiClientScript(options: {
   phase: 'pre-request' | 'tests';
   draft: HttpRequestDraft;
   variables?: HttpVariables;
+  collectionVariables?: HttpVariables;
+  externalVariables?: HttpVariables;
   environmentVariables?: HttpVariables;
   response?: ApiClientScriptResponse;
 }): Promise<ApiClientScriptRunResult> {
   const draft = cloneDraft(options.draft);
   const variables = safeVariables(options.variables || {});
+  const collectionVariables = safeVariables(options.collectionVariables || {});
+  const externalVariables = safeVariables(options.externalVariables || {});
   const environmentVariables = safeVariables(options.environmentVariables || {});
+  const collectionChanges: ApiClientScriptCollectionChange[] = [];
   const environmentChanges: ApiClientScriptEnvironmentChange[] = [];
   const tests: ApiClientScriptTestResult[] = [];
   const logs: string[] = [];
   const pendingTests: Promise<void>[] = [];
+
+  const restoreEffectiveVariable = (key: string): void => {
+    if (Object.prototype.hasOwnProperty.call(environmentVariables, key)) variables[key] = environmentVariables[key];
+    else if (Object.prototype.hasOwnProperty.call(externalVariables, key)) variables[key] = externalVariables[key];
+    else if (Object.prototype.hasOwnProperty.call(collectionVariables, key)) variables[key] = collectionVariables[key];
+    else delete variables[key];
+  };
 
   const environment = {
     get(key: string): string | undefined { return environmentVariables[key]; },
@@ -206,13 +227,35 @@ export async function runApiClientScript(options: {
     },
     unset(key: string): void {
       delete environmentVariables[key];
-      delete variables[key];
+      restoreEffectiveVariable(key);
       environmentChanges.push({ action: 'unset', key });
     },
     replaceIn(value: string): string {
       return value.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (match, rawName: string) => {
         const name = rawName.trim();
         return Object.prototype.hasOwnProperty.call(environmentVariables, name) ? environmentVariables[name] : match;
+      });
+    },
+  };
+
+  const collection = {
+    get(key: string): string | undefined { return collectionVariables[key]; },
+    has(key: string): boolean { return Object.prototype.hasOwnProperty.call(collectionVariables, key); },
+    set(key: string, value: unknown): void {
+      const stringValue = String(value);
+      collectionVariables[key] = stringValue;
+      restoreEffectiveVariable(key);
+      collectionChanges.push({ action: 'set', key, value: stringValue });
+    },
+    unset(key: string): void {
+      delete collectionVariables[key];
+      restoreEffectiveVariable(key);
+      collectionChanges.push({ action: 'unset', key });
+    },
+    replaceIn(value: string): string {
+      return value.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (match, rawName: string) => {
+        const name = rawName.trim();
+        return Object.prototype.hasOwnProperty.call(collectionVariables, name) ? collectionVariables[name] : match;
       });
     },
   };
@@ -256,6 +299,7 @@ export async function runApiClientScript(options: {
     request,
     response,
     environment,
+    collection,
     variables: localVariables,
     expect: createExpectation,
     test(name: string, callback: () => unknown | Promise<unknown>): void {
@@ -283,13 +327,16 @@ export async function runApiClientScript(options: {
     const execute = new Function('flex', 'console', `"use strict"; return (async () => {\n${options.script}\n})();`) as (api: FlexApi, logger: ScriptConsole) => Promise<void>;
     await execute(flex, scriptConsole);
     await Promise.all(pendingTests);
-    return { draft, variables, environmentVariables, environmentChanges, tests, logs };
+    return { draft, variables, collectionVariables, externalVariables, environmentVariables, collectionChanges, environmentChanges, tests, logs };
   } catch (cause) {
     await Promise.all(pendingTests);
     return {
       draft,
       variables,
+      collectionVariables,
+      externalVariables,
       environmentVariables,
+      collectionChanges,
       environmentChanges,
       tests,
       logs,
