@@ -101,7 +101,7 @@ export const ApiClientCollections: React.FC<Props> = ({
     const id = createApiClientId('collection');
     onWorkspaceChange((current) => ({
       ...current,
-      collections: [...current.collections, { id, name, variables: [], createdAt, updatedAt: createdAt }],
+      collections: [...current.collections, { id, name, auth: { type: 'none' }, variables: [], createdAt, updatedAt: createdAt }],
     }));
     onSelectedCollectionChange?.(id);
     setSelectedFolderId('');
@@ -160,6 +160,7 @@ export const ApiClientCollections: React.FC<Props> = ({
         collectionId: selectedCollection.id,
         parentFolderId: selectedFolderId || undefined,
         name,
+        auth: { type: 'inherit' },
         createdAt,
         updatedAt: createdAt,
       }],

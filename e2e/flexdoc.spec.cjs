@@ -183,7 +183,7 @@ test('API Client environments resolve templates while saved requests keep raw dr
       url: saved?.request?.url,
       header: saved?.request?.headers?.[0]?.value,
     };
-  }).toEqual({ version: 5, activeEnvironment: 'Local', url: '{{baseUrl}}/pets/{{petId}}', header: '{{petId}}' });
+  }).toEqual({ version: 6, activeEnvironment: 'Local', url: '{{baseUrl}}/pets/{{petId}}', header: '{{petId}}' });
 
   await page.reload();
   await page.getByLabel('path id').fill('42');

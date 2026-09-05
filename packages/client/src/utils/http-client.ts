@@ -13,6 +13,7 @@ export interface HttpKeyValue {
 
 export type HttpAuth =
   | { type: 'none' }
+  | { type: 'inherit' }
   | { type: 'bearer'; token: string }
   | { type: 'basic'; username: string; password: string }
   | { type: 'apiKey'; key: string; value: string; in: 'header' | 'query' };

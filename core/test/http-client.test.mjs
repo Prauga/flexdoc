@@ -160,3 +160,14 @@ test('round-trips ordered duplicate query parameters without duplicating them on
   const rebuilt = buildHttpRequest(draft);
   assert.equal(rebuilt.url, built.url);
 });
+
+
+test('buildHttpRequest treats unresolved inherited auth as no auth', () => {
+  const request = buildHttpRequest({
+    method: 'GET',
+    url: 'https://api.example.test/pets',
+    auth: { type: 'inherit' },
+  });
+  assert.equal(request.headers.Authorization, undefined);
+  assert.equal(request.url, 'https://api.example.test/pets');
+});

@@ -100,7 +100,7 @@ test('API Client runs scripts, persists history, and replays requests', async ({
       historyRequestUrl: history?.request?.url,
     };
   }).toEqual({
-    version: 5,
+    version: 6,
     preRequest: preRequestScript,
     tests: testScript,
     lastRun: 'pre',

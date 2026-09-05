@@ -8,6 +8,7 @@ export interface HttpKeyValue {
 
 export type HttpAuth =
   | { type: 'none' }
+  | { type: 'inherit' }
   | { type: 'bearer'; token: string }
   | { type: 'basic'; username: string; password: string }
   | { type: 'apiKey'; key: string; value: string; in: 'header' | 'query' };
@@ -125,7 +126,7 @@ function resolveTemplateValue(value: string | undefined, variables: HttpVariable
 }
 
 function resolveAuthVariables(auth: HttpAuth | undefined, variables: HttpVariables): HttpAuth | undefined {
-  if (!auth || auth.type === 'none') return auth;
+  if (!auth || auth.type === 'none' || auth.type === 'inherit') return auth;
   if (auth.type === 'bearer') return { type: 'bearer', token: resolveTemplateValue(auth.token, variables) || '' };
   if (auth.type === 'basic') {
     return {
@@ -164,7 +165,7 @@ export function resolveHttpRequestDraftVariables(draft: HttpRequestDraft, variab
 
 function applyAuth(draft: HttpRequestDraft, headers: Array<[string, string]>, query: HttpKeyValue[]): void {
   const auth = draft.auth;
-  if (!auth || auth.type === 'none') return;
+  if (!auth || auth.type === 'none' || auth.type === 'inherit') return;
   if (auth.type === 'bearer') {
     if (auth.token) replaceHeader(headers, 'Authorization', `Bearer ${auth.token}`);
     return;
