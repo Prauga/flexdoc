@@ -265,9 +265,9 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "prauga-flexdoc-axum"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "012d9b6bea0edfc5fa203b35e6df561d831a61c5dc138c27da3731b7d42fd8cd"
+checksum = "74382bfef4f7a32db7cce0aa2aceacc9852bb36f9297afbb2b19ba0f2baee148"
 dependencies = [
  "axum",
  "serde",
