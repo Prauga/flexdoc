@@ -16,6 +16,7 @@ interface Props {
   scripts: ApiClientRequestScripts;
   onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts) => void;
   onSelectedCollectionChange?: (collectionId?: string) => void;
+  selectedCollectionId?: string;
   workspace: ApiClientWorkspaceState;
   onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
   theme: 'light' | 'dark';
@@ -30,11 +31,11 @@ export const ApiClientCollections: React.FC<Props> = ({
   scripts,
   onLoadRequest,
   onSelectedCollectionChange,
+  selectedCollectionId,
   workspace,
   onWorkspaceChange,
   theme,
 }) => {
-  const [selectedCollectionId, setSelectedCollectionId] = useState(workspace.collections[0]?.id || '');
   const [selectedFolderId, setSelectedFolderId] = useState('');
   const [collectionName, setCollectionName] = useState('');
   const [folderName, setFolderName] = useState('');
@@ -102,7 +103,7 @@ export const ApiClientCollections: React.FC<Props> = ({
       ...current,
       collections: [...current.collections, { id, name, variables: [], createdAt, updatedAt: createdAt }],
     }));
-    setSelectedCollectionId(id);
+    onSelectedCollectionChange?.(id);
     setSelectedFolderId('');
     setCollectionName('');
     setActiveRequestId(null);
@@ -205,7 +206,7 @@ export const ApiClientCollections: React.FC<Props> = ({
     const saved = workspace.requests.find((item) => item.id === requestId);
     if (!saved) return;
     setActiveRequestId(saved.id);
-    setSelectedCollectionId(saved.collectionId);
+    onSelectedCollectionChange?.(saved.collectionId);
     setSelectedFolderId(saved.folderId || '');
     setRequestName(saved.name);
     onLoadRequest(cloneRequestDraft(saved.request), saved.scripts ? cloneApiClientScripts(saved.scripts) : undefined);
@@ -229,7 +230,7 @@ export const ApiClientCollections: React.FC<Props> = ({
     const next = deleteApiClientCollection(workspace, collectionId);
     onWorkspaceChange(next);
     if (selectedCollectionId === collectionId) {
-      setSelectedCollectionId(next.collections[0]?.id || '');
+      onSelectedCollectionChange?.(next.collections[0]?.id || '');
       setSelectedFolderId('');
       setActiveRequestId(null);
       setRequestName('');
@@ -316,7 +317,7 @@ export const ApiClientCollections: React.FC<Props> = ({
           type='button'
           className={`min-w-0 flex-1 rounded-md px-2 py-2 text-left text-sm font-medium ${collection.id === selectedCollection?.id ? selectedClass : ''}`}
           onClick={() => {
-            setSelectedCollectionId(collection.id);
+            onSelectedCollectionChange?.(collection.id);
             setSelectedFolderId('');
             setActiveRequestId(null);
             setRequestName('');

@@ -186,6 +186,7 @@ describe('api-client-workspace', () => {
       history: [
         {
           id: 'history-good',
+          collectionId: 'deleted-collection',
           request: { method: 'GET', url: '{{baseUrl}}/pets' },
           scripts: { preRequest: '', tests: '' },
           executedMethod: 'GET',
@@ -208,6 +209,7 @@ describe('api-client-workspace', () => {
     expect(normalized.history).toHaveLength(1);
     expect(normalized.history[0]).toMatchObject({
       id: 'history-good',
+      collectionId: 'deleted-collection',
       executedMethod: 'GET',
       resolvedUrl: 'https://api.example.test/pets',
       status: 200,
@@ -219,6 +221,7 @@ describe('api-client-workspace', () => {
     let workspace = createDefaultApiClientWorkspace();
     for (let index = 0; index < 105; index += 1) {
       workspace = addApiClientHistoryEntry(workspace, {
+        collectionId: 'collection-history',
         request: { method: 'GET', url: `/pets/${index}` },
         executedMethod: 'GET',
         resolvedUrl: `https://api.example.test/pets/${index}`,
@@ -227,6 +230,7 @@ describe('api-client-workspace', () => {
     }
 
     expect(workspace.history).toHaveLength(100);
+    expect(workspace.history[0].collectionId).toBe('collection-history');
     expect(workspace.history[0].resolvedUrl).toBe('https://api.example.test/pets/104');
     expect(workspace.history[99].resolvedUrl).toBe('https://api.example.test/pets/5');
   });

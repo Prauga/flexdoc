@@ -9,7 +9,7 @@ import type { HttpRequestDraft } from '../utils/http-client';
 interface Props {
   workspace: ApiClientWorkspaceState;
   onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
-  onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts) => void;
+  onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts, collectionId?: string) => void;
   theme: 'light' | 'dark';
 }
 
@@ -27,6 +27,7 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
     onLoadRequest(
       cloneRequestDraft(entry.request),
       entry.scripts ? cloneApiClientScripts(entry.scripts) : undefined,
+      entry.collectionId,
     );
   };
 
@@ -53,6 +54,9 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
           ? `${entry.status}${entry.statusText ? ` ${entry.statusText}` : ''}`
           : entry.error ? 'Error' : 'Sent';
         const timing = entry.responseTime !== undefined ? ` · ${entry.responseTime} ms` : '';
+        const origin = entry.collectionId
+          ? workspace.collections.find((collection) => collection.id === entry.collectionId)?.name || 'Deleted collection'
+          : undefined;
         return <div key={entry.id} className='group flex items-start gap-1 rounded-md'>
           <button
             type='button'
@@ -65,7 +69,7 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
               <span className={entry.error ? 'text-red-600' : mutedClass}>{result}{timing}</span>
             </div>
             <div className='truncate font-mono text-xs' title={entry.resolvedUrl}>{entry.resolvedUrl}</div>
-            <div className={`mt-1 text-[11px] ${mutedClass}`}>{displayTime(entry.createdAt)}</div>
+            <div className={`mt-1 text-[11px] ${mutedClass}`}>{displayTime(entry.createdAt)}{origin ? ` · ${origin}` : ''}</div>
           </button>
           <button type='button' className='rounded-md p-2 opacity-70 hover:opacity-100' aria-label={`Delete history request ${entry.executedMethod.toUpperCase()} ${entry.resolvedUrl}`} onClick={() => removeHistory(entry.id)}>
             <Trash2 className='h-4 w-4' />

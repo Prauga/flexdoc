@@ -29,6 +29,7 @@ export interface ApiClientProps {
   onRequestChange?: (request: BuiltRequest) => void;
   onDraftChange?: (draft: HttpRequestDraft) => void;
   onScriptsChange?: (scripts: ApiClientRequestScripts) => void;
+  onExecutionStart?: () => void;
   onExecutionComplete?: (result: ApiClientExecutionResult) => void;
   variables?: HttpVariables;
   environmentVariables?: HttpVariables;
@@ -89,6 +90,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   onRequestChange,
   onDraftChange,
   onScriptsChange,
+  onExecutionStart,
   onExecutionComplete,
   variables = {},
   environmentVariables = {},
@@ -160,6 +162,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   };
 
   const execute = async () => {
+    onExecutionStart?.();
     const historyRequest = cloneDraft(draft);
     const historyScripts = cloneApiClientScripts(scripts);
     let executedMethod = '';
