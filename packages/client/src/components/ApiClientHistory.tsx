@@ -9,7 +9,7 @@ import type { HttpRequestDraft } from '../utils/http-client';
 interface Props {
   workspace: ApiClientWorkspaceState;
   onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
-  onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts, collectionId?: string) => void;
+  onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts, collectionId?: string, folderId?: string) => void;
   theme: 'light' | 'dark';
 }
 
@@ -28,6 +28,7 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
       cloneRequestDraft(entry.request),
       entry.scripts ? cloneApiClientScripts(entry.scripts) : undefined,
       entry.collectionId,
+      entry.folderId,
     );
   };
 

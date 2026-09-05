@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FolderPlus, Library, Plus, Save, Trash2 } from 'lucide-react';
-import type { HttpRequestDraft } from '../utils/http-client';
+import type { HttpAuth, HttpRequestDraft } from '../utils/http-client';
+import { ApiClientAuthEditor } from './ApiClientAuthEditor';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import type { ApiClientRequestScripts } from '../utils/api-client-scripting';
 import {
@@ -14,9 +15,11 @@ import type { ApiClientFolder, ApiClientWorkspaceState } from '../utils/api-clie
 interface Props {
   request: HttpRequestDraft;
   scripts: ApiClientRequestScripts;
-  onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts) => void;
+  onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts, collectionId?: string, folderId?: string) => void;
   onSelectedCollectionChange?: (collectionId?: string) => void;
+  onSelectedFolderChange?: (folderId: string) => void;
   selectedCollectionId?: string;
+  selectedFolderId?: string;
   workspace: ApiClientWorkspaceState;
   onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
   theme: 'light' | 'dark';
@@ -31,12 +34,13 @@ export const ApiClientCollections: React.FC<Props> = ({
   scripts,
   onLoadRequest,
   onSelectedCollectionChange,
+  onSelectedFolderChange,
   selectedCollectionId,
+  selectedFolderId = '',
   workspace,
   onWorkspaceChange,
   theme,
 }) => {
-  const [selectedFolderId, setSelectedFolderId] = useState('');
   const [collectionName, setCollectionName] = useState('');
   const [folderName, setFolderName] = useState('');
   const [requestName, setRequestName] = useState('');
@@ -51,6 +55,7 @@ export const ApiClientCollections: React.FC<Props> = ({
     () => workspace.requests.filter((saved) => saved.collectionId === selectedCollection?.id),
     [selectedCollection?.id, workspace.requests],
   );
+  const selectedFolder = collectionFolders.find((folder) => folder.id === selectedFolderId);
   const folderById = useMemo(
     () => new Map(collectionFolders.map((folder) => [folder.id, folder])),
     [collectionFolders],
@@ -104,9 +109,29 @@ export const ApiClientCollections: React.FC<Props> = ({
       collections: [...current.collections, { id, name, auth: { type: 'none' }, variables: [], createdAt, updatedAt: createdAt }],
     }));
     onSelectedCollectionChange?.(id);
-    setSelectedFolderId('');
+    onSelectedFolderChange?.('');
     setCollectionName('');
     setActiveRequestId(null);
+  };
+
+
+
+  const updateCollectionAuth = (auth: HttpAuth) => {
+    if (!selectedCollection) return;
+    const updatedAt = timestamp();
+    onWorkspaceChange((current) => ({
+      ...current,
+      collections: current.collections.map((collection) => collection.id === selectedCollection.id ? { ...collection, auth, updatedAt } : collection),
+    }));
+  };
+
+  const updateFolderAuth = (auth: HttpAuth) => {
+    if (!selectedFolder) return;
+    const updatedAt = timestamp();
+    onWorkspaceChange((current) => ({
+      ...current,
+      folders: current.folders.map((folder) => folder.id === selectedFolder.id ? { ...folder, auth, updatedAt } : folder),
+    }));
   };
 
   const addCollectionVariable = () => {
@@ -165,7 +190,7 @@ export const ApiClientCollections: React.FC<Props> = ({
         updatedAt: createdAt,
       }],
     }));
-    setSelectedFolderId(id);
+    onSelectedFolderChange?.(id);
     setFolderName('');
   };
 
@@ -208,9 +233,9 @@ export const ApiClientCollections: React.FC<Props> = ({
     if (!saved) return;
     setActiveRequestId(saved.id);
     onSelectedCollectionChange?.(saved.collectionId);
-    setSelectedFolderId(saved.folderId || '');
+    onSelectedFolderChange?.(saved.folderId || '');
     setRequestName(saved.name);
-    onLoadRequest(cloneRequestDraft(saved.request), saved.scripts ? cloneApiClientScripts(saved.scripts) : undefined);
+    onLoadRequest(cloneRequestDraft(saved.request), saved.scripts ? cloneApiClientScripts(saved.scripts) : undefined, saved.collectionId, saved.folderId);
   };
 
   const removeRequest = (requestId: string) => {
@@ -224,7 +249,7 @@ export const ApiClientCollections: React.FC<Props> = ({
   const removeFolder = (folderId: string) => {
     const folder = workspace.folders.find((candidate) => candidate.id === folderId);
     onWorkspaceChange((current) => deleteApiClientFolder(current, folderId));
-    if (selectedFolderId === folderId) setSelectedFolderId(folder?.parentFolderId || '');
+    if (selectedFolderId === folderId) onSelectedFolderChange?.(folder?.parentFolderId || '');
   };
 
   const removeCollection = (collectionId: string) => {
@@ -232,7 +257,7 @@ export const ApiClientCollections: React.FC<Props> = ({
     onWorkspaceChange(next);
     if (selectedCollectionId === collectionId) {
       onSelectedCollectionChange?.(next.collections[0]?.id || '');
-      setSelectedFolderId('');
+      onSelectedFolderChange?.('');
       setActiveRequestId(null);
       setRequestName('');
     }
@@ -272,7 +297,7 @@ export const ApiClientCollections: React.FC<Props> = ({
           aria-label={`Select folder ${path}`}
           className={`min-w-0 flex-1 rounded-md py-2 pr-2 text-left text-sm ${selectedFolderId === folder.id ? 'bg-blue-500/10' : ''}`}
           style={{ paddingLeft: `${8 + depth * 16}px` }}
-          onClick={() => setSelectedFolderId(folder.id)}
+          onClick={() => onSelectedFolderChange?.(folder.id)}
         >
           {folder.name}
         </button>
@@ -319,7 +344,7 @@ export const ApiClientCollections: React.FC<Props> = ({
           className={`min-w-0 flex-1 rounded-md px-2 py-2 text-left text-sm font-medium ${collection.id === selectedCollection?.id ? selectedClass : ''}`}
           onClick={() => {
             onSelectedCollectionChange?.(collection.id);
-            setSelectedFolderId('');
+            onSelectedFolderChange?.('');
             setActiveRequestId(null);
             setRequestName('');
           }}
@@ -331,6 +356,13 @@ export const ApiClientCollections: React.FC<Props> = ({
     </div>
 
     {selectedCollection && <>
+
+      <div className='space-y-2 border-t pt-3'>
+        <div className='text-xs font-semibold uppercase tracking-wide'>Collection authorization</div>
+        <ApiClientAuthEditor auth={selectedCollection.auth} label='Collection' onChange={updateCollectionAuth} theme={theme} />
+        <p className={`text-xs ${mutedClass}`}>Requests set to inherit use the nearest folder override, then this collection authorization.</p>
+      </div>
+
       <div className='space-y-2 border-t pt-3'>
         <div className='flex items-center justify-between'>
           <span className='text-xs font-semibold uppercase tracking-wide'>Collection variables</span>
@@ -356,13 +388,19 @@ export const ApiClientCollections: React.FC<Props> = ({
       </div>
 
       <div className='space-y-1'>
-        <button type='button' aria-label='Select collection root' className={`w-full rounded-md px-2 py-2 text-left text-sm ${selectedFolderId === '' ? 'bg-blue-500/10' : ''}`} onClick={() => setSelectedFolderId('')}>Unfiled / collection root</button>
+        <button type='button' aria-label='Select collection root' className={`w-full rounded-md px-2 py-2 text-left text-sm ${selectedFolderId === '' ? 'bg-blue-500/10' : ''}`} onClick={() => onSelectedFolderChange?.('')}>Unfiled / collection root</button>
         {rootFolders.map((folder) => renderFolderSelector(folder, 0))}
       </div>
 
+
+      {selectedFolder && <div className='space-y-2 border-t pt-3'>
+        <div className='text-xs font-semibold uppercase tracking-wide'>Folder authorization — {selectedFolderPath}</div>
+        <ApiClientAuthEditor auth={selectedFolder.auth} label='Folder' allowInherit onChange={updateFolderAuth} theme={theme} />
+      </div>}
+
       <div className='space-y-2 border-t pt-3'>
         <input aria-label='Saved request name' className={`w-full rounded-md border px-2 py-2 text-sm ${inputClass}`} value={requestName} onChange={(event) => setRequestName(event.target.value)} placeholder='Request name' />
-        <select aria-label='Saved request folder' className={`w-full rounded-md border px-2 py-2 text-sm ${inputClass}`} value={selectedFolderId} onChange={(event) => setSelectedFolderId(event.target.value)}>
+        <select aria-label='Saved request folder' className={`w-full rounded-md border px-2 py-2 text-sm ${inputClass}`} value={selectedFolderId} onChange={(event) => onSelectedFolderChange?.(event.target.value)}>
           <option value=''>Unfiled</option>
           {orderedFolders.map(({ folder, depth }) => <option key={folder.id} value={folder.id}>{`${'— '.repeat(depth)}${folder.name}`}</option>)}
         </select>

@@ -50,6 +50,7 @@ export interface ApiClientEnvironment {
 export interface ApiClientHistoryEntry {
   id: string;
   collectionId?: string;
+  folderId?: string;
   request: HttpRequestDraft;
   scripts?: ApiClientRequestScripts;
   executedMethod: string;
@@ -63,6 +64,7 @@ export interface ApiClientHistoryEntry {
 
 export interface ApiClientHistoryInput {
   collectionId?: string;
+  folderId?: string;
   request: HttpRequestDraft;
   scripts?: ApiClientRequestScripts;
   executedMethod: string;
@@ -269,6 +271,7 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
   return {
     id: value.id as string,
     collectionId: typeof value.collectionId === 'string' ? value.collectionId : undefined,
+    folderId: typeof value.folderId === 'string' ? value.folderId : undefined,
     request: value.request,
     ...(scripts ? { scripts } : {}),
     executedMethod: value.executedMethod as string,
@@ -385,6 +388,7 @@ export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, inp
   const entry: ApiClientHistoryEntry = {
     id: createApiClientId('history'),
     collectionId: input.collectionId,
+    folderId: input.folderId,
     request: cloneRequestDraft(input.request),
     ...(input.scripts ? { scripts: cloneApiClientScripts(input.scripts) } : {}),
     executedMethod: input.executedMethod,

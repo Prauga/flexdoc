@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiClient } from './ApiClient';
 import type { ApiClientExecutionResult, ApiClientProps } from './ApiClient';
 import { ApiClientCollections } from './ApiClientCollections';
 import { ApiClientEnvironments } from './ApiClientEnvironments';
 import { ApiClientHistory } from './ApiClientHistory';
-import type { HttpRequestDraft } from '../utils/http-client';
+import type { HttpAuth, HttpRequestDraft } from '../utils/http-client';
 import type { ApiClientRequestScripts, ApiClientScriptEnvironmentChange } from '../utils/api-client-scripting';
 import type { BuiltRequest } from '../utils/request-builder';
 import {
@@ -15,6 +15,7 @@ import {
   createApiClientId,
   createDefaultApiClientWorkspace,
   loadApiClientWorkspace,
+  resolveApiClientAuth,
   saveApiClientWorkspace,
 } from '../utils/api-client-workspace';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
@@ -103,7 +104,9 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   const [editorRevision, setEditorRevision] = useState(0);
   const [workspace, setWorkspace] = useState<ApiClientWorkspaceState>(initialWorkspace);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | undefined>(initialWorkspace.collections[0]?.id);
+  const [selectedFolderId, setSelectedFolderId] = useState('');
   const executionCollectionIdRef = useRef<string | undefined>(initialWorkspace.collections[0]?.id);
+  const executionFolderIdRef = useRef<string | undefined>(undefined);
   const [hydrated, setHydrated] = useState(persistenceKey === false);
 
   useEffect(() => {
@@ -114,6 +117,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
         if (cancelled) return;
         setWorkspace(next);
         setSelectedCollectionId(next.collections[0]?.id);
+        setSelectedFolderId('');
         setHydrated(true);
       })
       .catch(() => {
@@ -141,6 +145,19 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
     [collectionVariables, environmentVariables, externalVariables],
   );
 
+
+  const resolveAuth = useCallback((auth: HttpAuth | undefined) => resolveApiClientAuth(
+    workspace,
+    selectedCollectionId,
+    selectedFolderId || undefined,
+    auth || { type: 'none' },
+  ), [selectedCollectionId, selectedFolderId, workspace]);
+
+  const handleSelectedCollectionChange = useCallback((collectionId?: string) => {
+    setSelectedCollectionId(collectionId);
+    setSelectedFolderId('');
+  }, []);
+
   const handleRequestChange = (request: BuiltRequest) => {
     onRequestChange?.(request);
   };
@@ -163,16 +180,21 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
 
   const handleExecutionStart = () => {
     executionCollectionIdRef.current = selectedCollectionId;
+    executionFolderIdRef.current = selectedFolderId || undefined;
     onExecutionStart?.();
   };
 
   const handleExecutionComplete = (result: ApiClientExecutionResult) => {
-    setWorkspace((current) => addApiClientHistoryEntry(current, { ...result, collectionId: executionCollectionIdRef.current }));
+    setWorkspace((current) => addApiClientHistoryEntry(current, { ...result, collectionId: executionCollectionIdRef.current, folderId: executionFolderIdRef.current }));
     onExecutionComplete?.(result);
   };
 
-  const loadSavedRequest = (request: HttpRequestDraft, scripts?: ApiClientRequestScripts, collectionId?: string) => {
-    if (collectionId && workspace.collections.some((collection) => collection.id === collectionId)) setSelectedCollectionId(collectionId);
+  const loadSavedRequest = (request: HttpRequestDraft, scripts?: ApiClientRequestScripts, collectionId?: string, folderId?: string) => {
+    const validCollectionId = collectionId && workspace.collections.some((collection) => collection.id === collectionId) ? collectionId : undefined;
+    if (validCollectionId) setSelectedCollectionId(validCollectionId);
+    const targetCollectionId = validCollectionId || selectedCollectionId;
+    const validFolderId = folderId && workspace.folders.some((folder) => folder.id === folderId && folder.collectionId === targetCollectionId) ? folderId : '';
+    setSelectedFolderId(validFolderId);
     const nextRequest = cloneRequestDraft(request);
     const nextScripts = cloneApiClientScripts(scripts);
     setEditorRequest(nextRequest);
@@ -192,8 +214,10 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
           request={currentRequest}
           scripts={currentScripts}
           onLoadRequest={loadSavedRequest}
-          onSelectedCollectionChange={setSelectedCollectionId}
+          onSelectedCollectionChange={handleSelectedCollectionChange}
+          onSelectedFolderChange={setSelectedFolderId}
           selectedCollectionId={selectedCollectionId}
+          selectedFolderId={selectedFolderId}
           workspace={workspace}
           onWorkspaceChange={setWorkspace}
           theme={theme}
@@ -214,6 +238,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
       initialRequest={editorRequest}
       initialScripts={editorScripts}
       theme={theme}
+      resolveAuth={resolveAuth}
       variables={variables}
       environmentVariables={environmentVariables}
       onEnvironmentChanges={handleEnvironmentChanges}

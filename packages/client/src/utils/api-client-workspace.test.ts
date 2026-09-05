@@ -188,6 +188,7 @@ describe('api-client-workspace', () => {
         {
           id: 'history-good',
           collectionId: 'deleted-collection',
+          folderId: 'deleted-folder',
           request: { method: 'GET', url: '{{baseUrl}}/pets' },
           scripts: { preRequest: '', tests: '' },
           executedMethod: 'GET',
@@ -211,6 +212,7 @@ describe('api-client-workspace', () => {
     expect(normalized.history[0]).toMatchObject({
       id: 'history-good',
       collectionId: 'deleted-collection',
+      folderId: 'deleted-folder',
       executedMethod: 'GET',
       resolvedUrl: 'https://api.example.test/pets',
       status: 200,

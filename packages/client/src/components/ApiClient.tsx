@@ -31,6 +31,7 @@ export interface ApiClientProps {
   onScriptsChange?: (scripts: ApiClientRequestScripts) => void;
   onExecutionStart?: () => void;
   onExecutionComplete?: (result: ApiClientExecutionResult) => void;
+  resolveAuth?: (auth: HttpAuth | undefined) => HttpAuth;
   variables?: HttpVariables;
   environmentVariables?: HttpVariables;
   onEnvironmentChanges?: (changes: ApiClientScriptEnvironmentChange[]) => void;
@@ -92,6 +93,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   onScriptsChange,
   onExecutionStart,
   onExecutionComplete,
+  resolveAuth,
   variables = {},
   environmentVariables = {},
   onEnvironmentChanges,
@@ -130,7 +132,8 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   useEffect(() => { onScriptsChangeRef.current?.(cloneApiClientScripts(scripts)); }, [scripts]);
   useEffect(() => {
     try {
-      const request = buildHttpRequest(draft, { variables });
+      const previewDraft = resolveAuth ? { ...draft, auth: resolveAuth(draft.auth) } : draft;
+      const request = buildHttpRequest(previewDraft, { variables });
       const signature = JSON.stringify([
         request.method,
         request.url,
@@ -142,7 +145,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
       lastRequestSignatureRef.current = signature;
       onRequestChangeRef.current?.(request);
     } catch { /* an empty or unresolved URL is valid while editing */ }
-  }, [draft, variables]);
+  }, [draft, resolveAuth, variables]);
 
   const method = (draft.method || 'GET').toUpperCase();
   const inputClass = theme === 'dark' ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900';
@@ -157,7 +160,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   };
 
   const setAuthType = (type: HttpAuth['type']) => {
-    const auth: HttpAuth = type === 'bearer' ? { type, token: '' } : type === 'basic' ? { type, username: '', password: '' } : type === 'apiKey' ? { type, key: '', value: '', in: 'header' } : { type: 'none' };
+    const auth: HttpAuth = type === 'inherit' ? { type: 'inherit' } : type === 'bearer' ? { type, token: '' } : type === 'basic' ? { type, username: '', password: '' } : type === 'apiKey' ? { type, key: '', value: '', in: 'header' } : { type: 'none' };
     setDraft((current) => ({ ...current, auth }));
   };
 
@@ -203,6 +206,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
         }
       }
 
+      if (resolveAuth) executionDraft = { ...executionDraft, auth: resolveAuth(executionDraft.auth) };
       const request = buildHttpRequest(executionDraft, { variables: executionVariables });
       executedMethod = request.method;
       resolvedUrl = request.url;
@@ -308,7 +312,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
       <div className='space-y-3'>
         <label className='text-sm font-medium'>Authorization
           <select aria-label='Authorization type' className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} value={draft.auth?.type || 'none'} onChange={(e) => setAuthType(e.target.value as HttpAuth['type'])}>
-            <option value='none'>None</option><option value='bearer'>Bearer token</option><option value='basic'>Basic auth</option><option value='apiKey'>API key</option>
+            {resolveAuth && <option value='inherit'>Inherit from parent</option>}<option value='none'>None</option><option value='bearer'>Bearer token</option><option value='basic'>Basic auth</option><option value='apiKey'>API key</option>
           </select>
         </label>
         {draft.auth?.type === 'bearer' && <input aria-label='Bearer token' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} value={draft.auth.token} onChange={(e) => { const token = e.target.value; setDraft((current) => ({ ...current, auth: { type: 'bearer', token } })); }} />}
