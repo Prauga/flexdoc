@@ -1,6 +1,6 @@
 # Symfony + FlexDoc
 
-Install `prauga/flexdoc` `0.1.0`, register a `FlexDocHost` service, and inject it into `Prauga\FlexDoc\Symfony\FlexDocController`. Map three routes for the documentation shell and renderer assets.
+Install `prauga/flexdoc` `0.2.0`, register a `FlexDocHost` service, and inject it into `Prauga\FlexDoc\Symfony\FlexDocController`. Map three routes for the documentation shell and renderer assets.
 
 ```yaml
 flexdoc_docs:

@@ -10,8 +10,8 @@ async function bootstrap() {
 
   const openApiConfig = new DocumentBuilder()
     .setTitle('FlexDoc NestJS Showcase API')
-    .setDescription('Code-first OpenAPI documentation using NestJS 12, @nestjs/swagger and the FlexDoc 2.2 renderer.')
-    .setVersion('2.2.0')
+    .setDescription('Code-first OpenAPI documentation using NestJS 12, @nestjs/swagger and the FlexDoc 2.3 renderer.')
+    .setVersion('2.3.0')
     .addServer('http://localhost:3000', 'Local development')
     .addServer('https://canary.api.example.test', 'Spot canary example')
     .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'bearerAuth')
@@ -24,7 +24,7 @@ async function bootstrap() {
     options: {
       title: 'FlexDoc NestJS showcase',
       description: 'The NestJS helper generates the OpenAPI document and serves the same canonical renderer used by every FlexDoc adapter.',
-      version: '2.2.0',
+      version: '2.3.0',
       theme: 'dark',
       logo: { url: logo, alt: 'FlexDoc', clickable: false, maxHeight: 32 },
       hideDownloadButton: false,
@@ -44,7 +44,7 @@ async function bootstrap() {
         languages: ['curl', 'javascript', 'python', 'go', 'java'],
       },
       footer: {
-        copyright: 'Prauga FlexDoc 2.2 showcase',
+        copyright: 'Prauga FlexDoc 2.3 showcase',
         link: [
           { text: 'Repository', url: 'https://github.com/prauga/flexdoc', icon: 'github' },
           { text: 'Issues', url: 'https://github.com/prauga/flexdoc/issues', icon: 'help-circle' },

@@ -3,14 +3,14 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.prauga.flexdoc</groupId>
   <artifactId>flexdoc-spring-boot-starter</artifactId>
-  <version>0.4.0</version>
+  <version>0.5.0</version>
   <name>Prauga FlexDoc Spring Boot Starter</name>
   <description>Spring Boot adapter for the self-hosted FlexDoc OpenAPI renderer and API explorer</description>
   <url>https://github.com/prauga/flexdoc</url>
   <licenses><license><name>GNU Affero General Public License v3.0 or later</name><url>https://www.gnu.org/licenses/agpl-3.0.html</url><distribution>repo</distribution></license></licenses>
   <developers><developer><name>Prauga</name><organization>Prauga</organization><organizationUrl>https://prauga.com</organizationUrl></developer></developers>
   <scm><connection>scm:git:https://github.com/prauga/flexdoc.git</connection><developerConnection>scm:git:ssh://git@github.com/prauga/flexdoc.git</developerConnection><url>https://github.com/prauga/flexdoc</url><tag>HEAD</tag></scm>
-  <properties><java.version>17</java.version><spring-boot.version>3.3.0</spring-boot.version><flexdoc.version>0.4.0</flexdoc.version><maven.compiler.release>${java.version}</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding></properties>
+  <properties><java.version>17</java.version><spring-boot.version>3.3.0</spring-boot.version><flexdoc.version>0.5.0</flexdoc.version><maven.compiler.release>${java.version}</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding></properties>
   <dependencyManagement><dependencies><dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-dependencies</artifactId><version>${spring-boot.version}</version><type>pom</type><scope>import</scope></dependency></dependencies></dependencyManagement>
   <dependencies>
     <dependency><groupId>com.prauga.flexdoc</groupId><artifactId>flexdoc-jvm</artifactId><version>${flexdoc.version}</version></dependency>

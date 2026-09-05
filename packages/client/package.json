@@ -1,6 +1,6 @@
 {
   "name": "@prauga/flexdoc-client",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "FlexDoc's canonical self-hosted OpenAPI renderer, API explorer, and React components",
   "type": "module",
   "main": "./dist/flexdoc.umd.cjs",

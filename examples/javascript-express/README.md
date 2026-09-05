@@ -9,4 +9,4 @@ npm start
 
 Open `http://localhost:3000/docs`.
 
-The FlexDoc dependency is pinned to `2.2.0`. During this release PR, CI installs the backend package from the same commit and boots `/docs`; after `2.2.0` is published, the manifest is directly runnable as written.
+The FlexDoc dependency is pinned to `2.3.0`. During this release PR, CI installs the backend package from the same commit and boots `/docs`; after `2.3.0` is published, the manifest is directly runnable as written.

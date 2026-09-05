@@ -59,7 +59,8 @@ jobs:
 
       - name: Verify NuGet package metadata
         run: |
-          PACKAGE=/tmp/flexdoc-dotnet/Prauga.FlexDoc.AspNetCore.0.1.0.nupkg
+          VERSION=$(grep -oPm1 '(?<=<Version>)[^<]+' adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNetCore.csproj)
+          PACKAGE="/tmp/flexdoc-dotnet/Prauga.FlexDoc.AspNetCore.${VERSION}.nupkg"
           test -s "$PACKAGE"
           unzip -p "$PACKAGE" Prauga.FlexDoc.AspNetCore.nuspec | grep '<license type="expression">AGPL-3.0-or-later</license>'
           unzip -l "$PACKAGE" | grep 'README.md'
