@@ -145,7 +145,10 @@ test('API Client runs scripts, persists history, and replays requests', async ({
   const reopenedClient = page.locator('section[aria-labelledby="api-client-heading"]');
   await expect(reopenedClient.getByText('3/3 tests passed')).toBeVisible();
 
-  await reopenedClient.getByRole('button', { name: 'Clear history' }).click();
-  await expect(reopenedClient.getByRole('button', { name: 'Load history request GET https://script.example.test/pets/77?locale=fr' })).toHaveCount(0);
+  await reopenedClient.getByRole('button', { name: /Open full history ·/ }).click();
+  const history = page.locator('section[aria-labelledby="api-client-history-page-heading"]');
+  await expect(history).toBeVisible();
+  await history.getByRole('button', { name: 'Clear history' }).click();
+  await expect(history.getByText('0 persisted requests')).toBeVisible();
   await expect.poll(async () => (await readApiClientWorkspace(page))?.history?.length).toBe(0);
 });

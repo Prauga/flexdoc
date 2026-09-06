@@ -1,6 +1,6 @@
 import type { HttpAuth, HttpKeyValue, HttpRequestDraft } from './http-client';
 import { cloneApiClientScripts } from './api-client-scripting';
-import type { ApiClientRequestScripts, ApiClientScriptTestResult } from './api-client-scripting';
+import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from './api-client-scripting';
 
 export interface ApiClientEnvironmentVariable {
   id: string;
@@ -58,6 +58,9 @@ export interface ApiClientHistoryEntry {
   status?: number;
   statusText?: string;
   responseTime?: number;
+  responseHeaders?: Array<[string, string]>;
+  responseBody?: string;
+  responseBodyTruncated?: boolean;
   error?: string;
   scriptTests?: ApiClientScriptTestResult[];
   scriptLogs?: string[];
@@ -75,6 +78,9 @@ export interface ApiClientHistoryInput {
   status?: number;
   statusText?: string;
   responseTime?: number;
+  responseHeaders?: Array<[string, string]>;
+  responseBody?: string;
+  responseBodyTruncated?: boolean;
   error?: string;
   scriptTests?: ApiClientScriptTestResult[];
   scriptLogs?: string[];
@@ -96,6 +102,7 @@ const DATABASE_VERSION = 1;
 const STORE_NAME = 'workspaces';
 const DEFAULT_COLLECTION_NAME = 'My Collection';
 const HISTORY_LIMIT = 100;
+const HISTORY_RESPONSE_BODY_LIMIT = 256 * 1024;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -271,6 +278,13 @@ function normalizeEnvironment(value: unknown): ApiClientEnvironment | null {
   };
 }
 
+function isResponseHeader(value: unknown): value is [string, string] {
+  return Array.isArray(value)
+    && value.length === 2
+    && typeof value[0] === 'string'
+    && typeof value[1] === 'string';
+}
+
 function normalizeScriptTestResult(value: unknown): ApiClientScriptTestResult | null {
   if (!isRecord(value) || !hasString(value, 'name') || typeof value.passed !== 'boolean') return null;
   if (value.error !== undefined && typeof value.error !== 'string') return null;
@@ -290,6 +304,9 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     || !isOptionalFiniteNumber(value, 'status')
     || (value.statusText !== undefined && typeof value.statusText !== 'string')
     || !isOptionalFiniteNumber(value, 'responseTime')
+    || (value.responseHeaders !== undefined && (!Array.isArray(value.responseHeaders) || !value.responseHeaders.every(isResponseHeader)))
+    || (value.responseBody !== undefined && typeof value.responseBody !== 'string')
+    || (value.responseBodyTruncated !== undefined && typeof value.responseBodyTruncated !== 'boolean')
     || (value.error !== undefined && typeof value.error !== 'string')
     || (value.scriptError !== undefined && typeof value.scriptError !== 'string')
     || !hasString(value, 'createdAt')) return null;
@@ -310,6 +327,9 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     status: value.status as number | undefined,
     statusText: value.statusText as string | undefined,
     responseTime: value.responseTime as number | undefined,
+    responseHeaders: Array.isArray(value.responseHeaders) ? value.responseHeaders.map(([key, headerValue]) => [key, headerValue] as [string, string]) : undefined,
+    responseBody: typeof value.responseBody === 'string' ? value.responseBody : undefined,
+    responseBodyTruncated: value.responseBodyTruncated === true ? true : undefined,
     error: value.error as string | undefined,
     ...(scriptTests.length ? { scriptTests } : {}),
     ...(scriptLogs.length ? { scriptLogs } : {}),
@@ -424,6 +444,8 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
 }
 
 export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, input: ApiClientHistoryInput): ApiClientWorkspaceState {
+  const responseBody = input.responseBody === undefined ? undefined : input.responseBody.slice(0, HISTORY_RESPONSE_BODY_LIMIT);
+  const responseBodyTruncated = input.responseBodyTruncated === true || (input.responseBody?.length || 0) > HISTORY_RESPONSE_BODY_LIMIT;
   const entry: ApiClientHistoryEntry = {
     id: createApiClientId('history'),
     collectionId: input.collectionId,
@@ -435,6 +457,8 @@ export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, inp
     status: input.status,
     statusText: input.statusText,
     responseTime: input.responseTime,
+    ...(input.responseHeaders?.length ? { responseHeaders: input.responseHeaders.map(([key, value]) => [key, value] as [string, string]) } : {}),
+    ...(responseBody !== undefined ? { responseBody, ...(responseBodyTruncated ? { responseBodyTruncated: true } : {}) } : {}),
     error: input.error,
     ...(input.scriptTests?.length ? { scriptTests: input.scriptTests.map((test) => ({ ...test })) } : {}),
     ...(input.scriptLogs?.length ? { scriptLogs: [...input.scriptLogs] } : {}),
@@ -475,6 +499,92 @@ export function apiClientCollectionVariables(workspace: ApiClientWorkspaceState,
 export function activeApiClientEnvironmentVariables(workspace: ApiClientWorkspaceState): Record<string, string> {
   const environment = workspace.environments.find((candidate) => candidate.id === workspace.activeEnvironmentId);
   return variableMap(environment?.variables || []);
+}
+
+
+export function applyApiClientEnvironmentChanges(
+  workspace: ApiClientWorkspaceState,
+  changes: ApiClientScriptEnvironmentChange[],
+): ApiClientWorkspaceState {
+  if (!workspace.activeEnvironmentId || changes.length === 0) return workspace;
+  const environmentIndex = workspace.environments.findIndex((environment) => environment.id === workspace.activeEnvironmentId);
+  if (environmentIndex < 0) return workspace;
+
+  const environment = workspace.environments[environmentIndex];
+  let variables = environment.variables.map((variable) => ({ ...variable }));
+  let changed = false;
+  for (const change of changes) {
+    const key = change.key.trim();
+    if (!key) continue;
+    if (change.action === 'unset') {
+      const next = variables.filter((variable) => variable.key.trim() !== key);
+      if (next.length !== variables.length) {
+        variables = next;
+        changed = true;
+      }
+      continue;
+    }
+    const indexes = variables
+      .map((variable, index) => variable.key.trim() === key ? index : -1)
+      .filter((index) => index >= 0);
+    const value = change.value || '';
+    if (indexes.length > 0) {
+      const first = indexes[0];
+      variables[first] = { ...variables[first], key, value, enabled: true };
+      if (indexes.length > 1) variables = variables.filter((variable, index) => index === first || variable.key.trim() !== key);
+    } else {
+      variables.push({ id: createApiClientId('variable'), key, value, enabled: true });
+    }
+    changed = true;
+  }
+  if (!changed) return workspace;
+  const environments = workspace.environments.map((candidate, index) => index === environmentIndex
+    ? { ...candidate, variables, updatedAt: now() }
+    : candidate);
+  return { ...workspace, environments };
+}
+
+export function applyApiClientCollectionChanges(
+  workspace: ApiClientWorkspaceState,
+  collectionId: string | undefined,
+  changes: ApiClientScriptCollectionChange[],
+): ApiClientWorkspaceState {
+  if (!collectionId || changes.length === 0) return workspace;
+  const collectionIndex = workspace.collections.findIndex((collection) => collection.id === collectionId);
+  if (collectionIndex < 0) return workspace;
+
+  const collection = workspace.collections[collectionIndex];
+  let variables = collection.variables.map((variable) => ({ ...variable }));
+  let changed = false;
+  for (const change of changes) {
+    const key = change.key.trim();
+    if (!key) continue;
+    if (change.action === 'unset') {
+      const next = variables.filter((variable) => variable.key.trim() !== key);
+      if (next.length !== variables.length) {
+        variables = next;
+        changed = true;
+      }
+      continue;
+    }
+    const indexes = variables
+      .map((variable, index) => variable.key.trim() === key ? index : -1)
+      .filter((index) => index >= 0);
+    const value = change.value || '';
+    if (indexes.length > 0) {
+      const first = indexes[0];
+      variables[first] = { ...variables[first], key, value, enabled: true };
+      if (indexes.length > 1) variables = variables.filter((variable, index) => index === first || variable.key.trim() !== key);
+    } else {
+      variables.push({ id: createApiClientId('variable'), key, value, enabled: true });
+    }
+    changed = true;
+  }
+  if (!changed) return workspace;
+  const collections = workspace.collections.map((candidate, index) => index === collectionIndex
+    ? { ...candidate, variables, updatedAt: now() }
+    : candidate);
+  return { ...workspace, collections };
 }
 
 export function deleteApiClientEnvironment(workspace: ApiClientWorkspaceState, environmentId: string): ApiClientWorkspaceState {
