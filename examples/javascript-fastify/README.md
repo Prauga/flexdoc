@@ -9,4 +9,4 @@ npm start
 
 Open `http://localhost:3000/docs`.
 
-The FlexDoc dependency is pinned to `2.8.0` and resolves directly from the published npm package. Repository CI also installs the backend package built from the current commit and boots the app to verify source compatibility at runtime.
+The FlexDoc dependency is pinned to `2.9.0` and resolves directly from the published npm package. Repository CI also installs the backend package built from the current commit and boots the app to verify source compatibility at runtime.
