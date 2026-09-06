@@ -6,6 +6,7 @@ import { ApiClientEnvironments } from './ApiClientEnvironments';
 import { ApiClientHistory } from './ApiClientHistory';
 import { ApiClientHistoryPage } from './ApiClientHistoryPage';
 import { ApiClientImport } from './ApiClientImport';
+import { ApiClientRunnerPage } from './ApiClientRunnerPage';
 import type { HttpAuth, HttpRequestDraft } from '../utils/http-client';
 import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange } from '../utils/api-client-scripting';
 import type { BuiltRequest } from '../utils/request-builder';
@@ -64,7 +65,9 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   const [editorScripts, setEditorScripts] = useState<ApiClientRequestScripts>(initialScriptState);
   const [currentScripts, setCurrentScripts] = useState<ApiClientRequestScripts>(initialScriptState);
   const [editorRevision, setEditorRevision] = useState(0);
-  const [activeView, setActiveView] = useState<'request' | 'history'>('request');
+  const [activeView, setActiveView] = useState<'request' | 'history' | 'runner'>('request');
+  const [historyFocus, setHistoryFocus] = useState<{ entryId?: string; runId?: string }>({});
+  const [runnerTarget, setRunnerTarget] = useState<{ collectionId: string; folderId?: string }>();
   const [workspace, setWorkspace] = useState<ApiClientWorkspaceState>(initialWorkspace);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | undefined>(initialWorkspace.collections[0]?.id);
   const [selectedFolderId, setSelectedFolderId] = useState('');
@@ -174,6 +177,18 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
     setEditorRevision((revision) => revision + 1);
   };
 
+  const openRunner = (collectionId: string, folderId?: string) => {
+    setSelectedCollectionId(collectionId);
+    setSelectedFolderId(folderId || '');
+    setRunnerTarget({ collectionId, folderId });
+    setActiveView('runner');
+  };
+
+  const openHistory = (entryId?: string, runId?: string) => {
+    setHistoryFocus({ entryId, runId });
+    setActiveView('history');
+  };
+
   const panelClass = theme === 'dark' ? 'border-gray-700 bg-gray-900/40 text-gray-100' : 'border-gray-200 bg-white text-gray-900';
 
   return <div className='grid gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]'>
@@ -193,6 +208,8 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
           onLoadRequest={loadSavedRequest}
           onSelectedCollectionChange={handleSelectedCollectionChange}
           onSelectedFolderChange={setSelectedFolderId}
+          onRunCollection={(collectionId) => openRunner(collectionId)}
+          onRunFolder={(collectionId, folderId) => openRunner(collectionId, folderId)}
           selectedCollectionId={selectedCollectionId}
           selectedFolderId={selectedFolderId}
           workspace={workspace}
@@ -205,17 +222,34 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
           workspace={workspace}
           onWorkspaceChange={setWorkspace}
           onLoadRequest={loadSavedRequest}
-          onViewAll={() => setActiveView('history')}
+          onViewAll={() => openHistory()}
           theme={theme}
         />
       </div>
     </aside>
     {activeView === 'history' ? <ApiClientHistoryPage
+      key={`${historyFocus.runId || ''}:${historyFocus.entryId || ''}`}
       workspace={workspace}
       onWorkspaceChange={setWorkspace}
       onLoadRequest={loadSavedRequest}
       onBack={() => setActiveView('request')}
+      initialEntryId={historyFocus.entryId}
+      initialRunId={historyFocus.runId}
       theme={theme}
+    /> : activeView === 'runner' && runnerTarget ? <ApiClientRunnerPage
+      workspace={workspace}
+      onWorkspaceChange={setWorkspace}
+      collectionId={runnerTarget.collectionId}
+      folderId={runnerTarget.folderId}
+      theme={theme}
+      credentials={apiClientProps.credentials}
+      requestInterceptor={apiClientProps.requestInterceptor}
+      externalVariables={externalVariables}
+      externalEnvironmentVariables={externalEnvironmentVariables}
+      onCollectionChanges={onCollectionChanges}
+      onEnvironmentChanges={onEnvironmentChanges}
+      onOpenHistory={openHistory}
+      onBack={() => setActiveView('request')}
     /> : <ApiClient
       key={editorRevision}
       {...apiClientProps}

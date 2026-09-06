@@ -57,6 +57,7 @@ export interface ExecuteApiClientRequestOptions {
   onEnvironmentChanges?: (changes: ApiClientScriptEnvironmentChange[]) => void;
   fetcher?: typeof globalThis.fetch;
   now?: () => number;
+  signal?: AbortSignal;
 }
 
 function cloneDraft(draft: HttpRequestDraft): HttpRequestDraft {
@@ -136,8 +137,10 @@ scriptError: `Pre-request script: ${preRequestResult.error}`,
       ...request.init,
       url: request.url,
       credentials: options.credentials || 'same-origin',
+      ...(options.signal ? { signal: options.signal } : {}),
     };
     if (options.requestInterceptor) initWithUrl = await options.requestInterceptor(initWithUrl);
+    if (options.signal) initWithUrl.signal = options.signal;
     const { url, ...init } = initWithUrl;
     resolvedUrl = url;
     startedAt = now();
