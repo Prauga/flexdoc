@@ -37,7 +37,16 @@ function withWorkspaceDefaults(initialRequest?: Partial<HttpRequestDraft>): Http
     headers: initialRequest?.headers?.map((entry) => ({ ...entry })) || [],
     body: initialRequest?.body || '',
     contentType: initialRequest?.contentType || 'application/json',
-    auth: initialRequest?.auth ? { ...initialRequest.auth } : { type: 'inherit' },
+    bodyMode: initialRequest?.bodyMode,
+    urlencoded: initialRequest?.urlencoded?.map((entry) => ({ ...entry })),
+    formData: initialRequest?.formData?.map((entry) => ({ ...entry })),
+    binary: initialRequest?.binary ? { ...initialRequest.binary } : undefined,
+    graphql: initialRequest?.graphql ? { ...initialRequest.graphql } : undefined,
+    auth: initialRequest?.auth
+      ? initialRequest.auth.type === 'oauth2'
+        ? { ...initialRequest.auth, scopes: initialRequest.auth.scopes ? [...initialRequest.auth.scopes] : undefined }
+        : { ...initialRequest.auth }
+      : { type: 'inherit' },
   };
 }
 

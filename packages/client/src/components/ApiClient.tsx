@@ -52,6 +52,7 @@ function withDefaults(initialRequest?: Partial<HttpRequestDraft>): HttpRequestDr
     bodyMode: initialRequest?.bodyMode || inferHttpBodyMode(initialRequest || {}),
     urlencoded: initialRequest?.urlencoded?.length ? initialRequest.urlencoded.map((entry) => ({ ...entry })) : undefined,
     formData: initialRequest?.formData?.length ? initialRequest.formData.map((entry) => ({ ...entry })) : undefined,
+    binary: initialRequest?.binary ? { ...initialRequest.binary } : undefined,
     graphql: initialRequest?.graphql ? { ...initialRequest.graphql } : undefined,
     auth: initialRequest?.auth || { type: 'none' },
   };
@@ -69,6 +70,7 @@ function cloneDraft(draft: HttpRequestDraft): HttpRequestDraft {
     headers: draft.headers?.map((entry) => ({ ...entry })),
     urlencoded: draft.urlencoded?.map((entry) => ({ ...entry })),
     formData: draft.formData?.map((entry) => ({ ...entry })),
+    binary: draft.binary ? { ...draft.binary } : undefined,
     graphql: draft.graphql ? { ...draft.graphql } : undefined,
     auth,
   };

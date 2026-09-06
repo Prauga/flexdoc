@@ -79,3 +79,20 @@ test('binary body sends the selected file bytes without text conversion', async 
   expect([...captured.body]).toEqual([0, 1, 2, 255]);
   expect(captured.contentType).toBe('application/octet-stream');
 });
+
+
+test('saved structured bodies reopen with their mode and file metadata intact', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop structured-body persistence coverage');
+  const apiClient = await openApiClient(page);
+  await apiClient.getByLabel('HTTP method').selectOption('POST');
+  await apiClient.getByLabel('Request body type').selectOption('binary');
+  await apiClient.getByLabel('Binary file').setInputFiles({ name: 'saved-payload.bin', mimeType: 'application/octet-stream', buffer: Buffer.from([10, 20, 30]) });
+  await apiClient.getByLabel('Saved request name').fill('Saved binary upload');
+  await apiClient.getByRole('button', { name: 'Save request' }).click();
+  const saved = apiClient.getByRole('button', { name: 'Load saved request Saved binary upload' });
+  await expect(saved).toBeVisible();
+  await saved.click();
+  await expect(apiClient.getByLabel('Request body type')).toHaveValue('binary');
+  await expect(apiClient.getByText('saved-payload.bin')).toBeVisible();
+  await expect(apiClient.getByText(/re-select the file before a later send/i)).toBeVisible();
+});
