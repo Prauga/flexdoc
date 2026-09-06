@@ -16,27 +16,27 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - **Rust:** Axum, Actix Web
 - **Elixir:** Plug, Phoenix
 
-The backend-coverage program shipped in 2.3.0. API Client development then continued through internal 2.4–2.7 milestones without publishing artificial intermediate FlexDoc package releases. The current published coordinated product line remains **2.8.0**. The source tree is now prepared as the **2.9.0 release candidate**, adding the shared request executor, collection/folder runner product UI, scripting IntelliSense, grouped run history, and the full request-history inspector. After 2.9, roadmap priority shifts to backend-native **3.0 Runtime Intelligence** rather than more generic API-client parity. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the release definition and backend-native roadmap.
+The backend-coverage program shipped in 2.3.0, and the API Client workspace reached its first coordinated release in **2.9.0**. The source tree is now prepared as the **2.9.5 release candidate**, closing the remaining REST workspace parity gaps and adding the first capability-gated Node API-host execution path for browser-impossible cookies, certificates, and advanced auth. After this parity-hardening release, roadmap priority moves to backend-native **3.0 Runtime Intelligence**. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the release definition and backend-native roadmap.
 
 ## Package family
 
 | Ecosystem | Package | Source version |
 | --- | --- | ---: |
-| npm | `@prauga/flexdoc-client` | `2.9.0` |
-| npm | `@prauga/flexdoc-backend` | `2.9.0` |
-| npm | `@prauga/flexdoc-core` | `0.3.0` |
+| npm | `@prauga/flexdoc-client` | `2.9.5` |
+| npm | `@prauga/flexdoc-backend` | `2.9.5` |
+| npm | `@prauga/flexdoc-core` | `0.4.0` |
 | npm | `@prauga/flexdoc-cli` | `0.4.0` |
-| NuGet | `Prauga.FlexDoc.AspNetCore` | `0.4.0` |
-| Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.7.0` |
-| Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.7.0` |
-| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.7.0` |
-| PyPI | `prauga-flexdoc` | `0.6.0` |
-| Composer | `prauga/flexdoc` | `0.4.0` |
-| RubyGems | `prauga-flexdoc` | `0.4.0` |
-| crates.io | `prauga-flexdoc-axum` | `0.5.0` |
-| crates.io | `prauga-flexdoc-actix` | `0.4.0` |
-| Hex | `prauga_flexdoc` | `0.4.0` |
-| Go | `github.com/prauga/flexdoc/adapters/go` | `0.5.0` |
+| NuGet | `Prauga.FlexDoc.AspNetCore` | `0.4.1` |
+| Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.7.1` |
+| Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.7.1` |
+| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.7.1` |
+| PyPI | `prauga-flexdoc` | `0.6.1` |
+| Composer | `prauga/flexdoc` | `0.4.1` |
+| RubyGems | `prauga-flexdoc` | `0.4.1` |
+| crates.io | `prauga-flexdoc-axum` | `0.5.1` |
+| crates.io | `prauga-flexdoc-actix` | `0.4.1` |
+| Hex | `prauga_flexdoc` | `0.4.1` |
+| Go | `github.com/prauga/flexdoc/adapters/go` | `0.5.1` |
 
 Ecosystem package versions are intentionally independent. Renderer contract v1 is the cross-language compatibility boundary.
 

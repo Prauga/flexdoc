@@ -2,7 +2,7 @@
 
 FlexDoc 2.3.0 was the last coordinated product release before the API Client workspace grew through several focused development milestones. Those milestone numbers described source-development slices; they were not separate published FlexDoc package releases. The coordinated product line moved directly from published **2.3.0** to published **2.8.0** after the 2.8 source definition of done was satisfied.
 
-The current published coordinated product line is **2.9.0**. FlexDoc **2.9.5** is the active parity-hardening line: it closes the remaining REST workspace gaps and introduces the first capability-gated API-host execution slice without turning the embedded client into a generic proxy.
+The current published coordinated product line is **2.9.0**. FlexDoc **2.9.5 is source-complete and prepared as the coordinated parity-hardening and API-host execution release candidate**; the versions recorded in source do not imply publication until the matching release workflows complete successfully.
 
 Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and `@prauga/flexdoc-backend` carry the coordinated FlexDoc product version because they own and distribute the canonical renderer. Native adapters receive their own semantic-version increment when they package a new renderer, rather than being renamed to the product version.
 
@@ -17,7 +17,7 @@ Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and 
 | **2.7** | canonical Try It → API Client request sessions, inherit-first auth defaults, complete browser OAuth grant flows | complete |
 | **2.8** | Postman import into the canonical standalone workspace and coordinated product-version catch-up | shipped |
 | **2.9** | shared request executor, collection/folder runner product UI, scripting IntelliSense, grouped run history, and full request-history inspector | shipped |
-| **2.9.5** | REST workspace parity hardening plus capability-gated Node API-host execution for browser-impossible request features | in development |
+| **2.9.5** | REST workspace parity hardening plus capability-gated Node API-host execution for browser-impossible request features | source complete / release candidate |
 
 Viewer expansion defaults/settings and renderer-option parity landed before the 2.8 release and are included in the 2.8 product surface.
 
@@ -73,7 +73,7 @@ The 2.9 source release candidate is complete with the following satisfied:
 - [x] future-version example manifests and the deterministic future-tag Go checksum represent the release-candidate source tree without pretending registry artifacts already exist
 - [x] the canonical standalone renderer is rebuilt and synchronized across committed adapter assets, with parity checks passing before the release candidate is proposed
 
-2.9.0 is published. 2.9.5 remains a separate explicit release step after its exact product PR is green; source work in this branch does not imply publication.
+2.9.0 is published. 2.9.5 is now prepared as a separate coordinated release candidate; publication still starts only after this exact release-candidate PR is green.
 
 ## 2.8.0 definition of done
 
@@ -113,6 +113,6 @@ Cloud collaboration, teams, enterprise controls, CI workflow, and additional pro
 
 ## Release interpretation
 
-Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product line moved through published **2.8.0** to published **2.9.0**. The active source work targets **2.9.5** and remains unpublished until its own release workflow is explicitly started after the product PR is green.
+Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product line moved through published **2.8.0** to published **2.9.0**. The active source release candidate targets **2.9.5** and remains unpublished until its release workflow is explicitly started after this exact release-candidate PR is green.
 
 For native adapters, each package remains on its independently versioned semantic-release line while carrying the current coordinated renderer. `@prauga/flexdoc-core` remains independently versioned unless the framework-neutral engine itself changes. The CLI also remains independently versioned and consumes the coordinated client line.
