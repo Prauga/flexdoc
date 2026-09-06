@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FolderPlus, Library, Plus, Save, Trash2 } from 'lucide-react';
+import { FolderPlus, Library, Play, Plus, Save, Trash2 } from 'lucide-react';
 import type { HttpAuth, HttpRequestDraft } from '../utils/http-client';
 import { ApiClientAuthEditor } from './ApiClientAuthEditor';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
@@ -11,6 +11,7 @@ import {
   deleteApiClientFolder,
 } from '../utils/api-client-workspace';
 import type { ApiClientFolder, ApiClientWorkspaceState } from '../utils/api-client-workspace';
+import { apiClientCollectionRunRequests } from '../utils/api-client-runner';
 
 interface Props {
   request: HttpRequestDraft;
@@ -18,6 +19,8 @@ interface Props {
   onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts, collectionId?: string, folderId?: string) => void;
   onSelectedCollectionChange?: (collectionId?: string) => void;
   onSelectedFolderChange?: (folderId: string) => void;
+  onRunCollection?: (collectionId: string) => void;
+  onRunFolder?: (collectionId: string, folderId: string) => void;
   selectedCollectionId?: string;
   selectedFolderId?: string;
   workspace: ApiClientWorkspaceState;
@@ -35,6 +38,8 @@ export const ApiClientCollections: React.FC<Props> = ({
   onLoadRequest,
   onSelectedCollectionChange,
   onSelectedFolderChange,
+  onRunCollection,
+  onRunFolder,
   selectedCollectionId,
   selectedFolderId = '',
   workspace,
@@ -301,6 +306,7 @@ export const ApiClientCollections: React.FC<Props> = ({
         >
           {folder.name}
         </button>
+        <button type='button' disabled={apiClientCollectionRunRequests(workspace, folder.collectionId, folder.id).length === 0} aria-label={`Run folder ${path}`} className='rounded-md p-2 opacity-70 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30' onClick={() => onRunFolder?.(folder.collectionId, folder.id)}><Play className='h-4 w-4' /></button>
         <button type='button' aria-label={`Delete folder ${path}`} className='rounded-md p-2 opacity-70 hover:opacity-100' onClick={() => removeFolder(folder.id)}><Trash2 className='h-4 w-4' /></button>
       </div>
       {children.map((child) => renderFolderSelector(child, depth + 1, nextSeen))}
@@ -351,6 +357,7 @@ export const ApiClientCollections: React.FC<Props> = ({
         >
           {collection.name}
         </button>
+        <button type='button' disabled={apiClientCollectionRunRequests(workspace, collection.id).length === 0} aria-label={`Run collection ${collection.name}`} className='rounded-md p-2 opacity-70 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30' onClick={() => onRunCollection?.(collection.id)}><Play className='h-4 w-4' /></button>
         {workspace.collections.length > 1 && <button type='button' aria-label={`Delete collection ${collection.name}`} className='rounded-md p-2 opacity-70 hover:opacity-100' onClick={() => removeCollection(collection.id)}><Trash2 className='h-4 w-4' /></button>}
       </div>)}
     </div>

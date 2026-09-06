@@ -16,7 +16,7 @@ Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and 
 | **2.6** | persisted post-response tests and script output in request history | complete |
 | **2.7** | canonical Try It → API Client request sessions, inherit-first auth defaults, complete browser OAuth grant flows | complete |
 | **2.8** | Postman import into the canonical standalone workspace and coordinated product-version catch-up | shipped |
-| **2.9** | shared request executor, collection-runner core API, scripting IntelliSense, and full request-history inspector | in progress |
+| **2.9** | shared request executor, collection/folder runner product UI, scripting IntelliSense, grouped run history, and full request-history inspector | in progress |
 
 Viewer expansion defaults/settings and renderer-option parity landed before the 2.8 release and are included in the 2.8 product surface.
 
@@ -28,18 +28,19 @@ Imported data should become ordinary FlexDoc collections, folders, requests, var
 
 ## 2.9 source work in progress
 
-The current 2.9 branch adds reusable execution primitives and richer API Client tooling, but it is not yet a completed product release.
+The current 2.9 source now surfaces the collection runner in `ApiClientWorkspace`, while the milestone remains in progress until final release hardening and deliberate version advancement.
 
-- `executeApiClientRequest` is the shared request executor used by normal sends and by the collection-runner core.
-- `runApiClientCollection` is exported from `@prauga/flexdoc-client` as an API/core capability. `ApiClientWorkspace` does not invoke it yet, and there is currently no **Run collection** or **Run folder** control in the product UI.
-- Collection runs include descendant folders when a folder scope is supplied. Execution order is the current `workspace.requests` array order, which in practice follows saved/imported/created request order; it is not derived from folder-tree or visual UI order.
-- Runner `passed`/`failed` counts describe execution health: transport errors, script errors, or failed tests make an item fail. An HTTP status by itself does not, so an expected `4xx` response can pass a collection run.
-- Request History uses inspector-oriented outcome semantics: transport/script/test failures **and HTTP 4xx/5xx statuses** appear under its failed outcome filter and red status treatment. Therefore an expected `4xx` can be a passing collection-runner item while still appearing as a failed/error response in History.
+- `executeApiClientRequest` remains the shared request executor used by normal sends and collection/folder runs.
+- `runApiClientCollection` remains a public API/core capability and now backs **Run collection** and **Run folder** controls in the workspace. The main runner view shows the exact queue, active environment, progress, HTTP status/timing, test outcomes, stop-on-failure, and an explicit Stop action.
+- Folder runs include descendant folders. Execution order remains the current `workspace.requests` saved-request array order rather than folder-tree/UI order; the runner exposes that exact order before execution so it is not implicit.
+- Runner `passed`/`failed` counts describe execution health: transport errors, script errors, or failed tests make an item fail. An HTTP status by itself does not, so an expected `4xx` response can pass a collection run. History continues to use inspector-oriented HTTP failure semantics, and grouped run history preserves the separate runner pass/fail result for clarity.
+- Each collection/folder run receives a run ID and stable run label. History entries produced by that run persist the run ID, position, total, and runner outcome, allowing History to group the requests as one collection run while retaining per-request inspection and replay.
+- User-initiated Stop aborts the active **fetch** through `AbortController`, marks that request cancelled, leaves later requests not run, and does not persist an incomplete cancelled request as a history row. Script execution itself is not interrupted by the Stop signal: a long-running pre-request or post-response test script continues until that script phase returns, and any collection/environment mutations it performs remain applied.
 - New history entries persist response headers and response bodies locally in IndexedDB. History is bounded to 100 entries, and each stored response body is capped at 256 KiB. Response payloads can contain tokens, PII, or other sensitive data; users can remove individual entries or clear History to remove that persisted request data.
-- A pre-request script error that occurs before a request result exists does not append a history row. This matches the current single-request Send path.
+- A pre-request script error that occurs before a request result exists still does not append a history row. This matches the current single-request Send path; grouped history may therefore capture fewer rows than the run total and reports captured/total explicitly.
 - While scripting IntelliSense suggestions are open, `Tab` or `Enter` accepts the active suggestion. `Escape` closes the popup and restores normal indentation/newline behavior.
 
-These boundaries should remain explicit until the collection runner is surfaced as a user-facing workspace control and the final 2.9 release definition is complete.
+Iteration-data files, CSV/JSON data-driven runs, concurrency controls, and drag-and-drop request ordering are intentionally outside this slice. The active workspace environment and saved-request order are used as-is.
 
 ## 2.8.0 definition of done
 
