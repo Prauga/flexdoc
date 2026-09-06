@@ -5,7 +5,7 @@ import { getRendererAssets } from './renderer-assets';
 import { setupFlexDoc } from './setup';
 import { generateFlexDocHTML } from './template';
 import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
-import { runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
+import { hostExecutionRequestOrigin, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 
 export interface ExpressLikeApplication {
   use(path: string, handler: (req: any, res: any, next?: any) => void | Promise<void>): void;
@@ -21,6 +21,8 @@ export interface FastifyLikeReply {
 export interface FastifyLikeRequest {
   headers: Record<string, string | string[] | undefined>;
   body?: unknown;
+  protocol?: string;
+  raw?: { socket?: { encrypted?: boolean } };
 }
 
 export interface FastifyLikeApplication {
@@ -131,7 +133,13 @@ function setupFastifyFlexDocInternal(
     if (app.addContentTypeParser && !app.hasContentTypeParser?.('multipart/form-data')) {
       app.addContentTypeParser('multipart/form-data', { parseAs: 'buffer' }, (_request, body, done) => done(null, body));
     }
-    app.post?.(`${rendererBasePath}/execute`, routeOptions, async (request, reply) => sendHostResult(reply, await runHostExecutionRoute({ state: hostExecutionState, spec: await resolvedSpec(), headers: request.headers, body: request.body })));
+    app.post?.(`${rendererBasePath}/execute`, routeOptions, async (request, reply) => {
+      const docsOrigin = hostExecutionRequestOrigin({
+        headers: request.headers,
+        protocol: request.protocol || (request.raw?.socket?.encrypted ? 'https' : 'http'),
+      });
+      return sendHostResult(reply, await runHostExecutionRoute({ state: hostExecutionState, spec: await resolvedSpec(), headers: request.headers, body: request.body, docsOrigin }));
+    });
     app.get(`${rendererBasePath}/cookies`, routeOptions, async (request, reply) => sendHostResult(reply, runHostCookiesRoute({ state: hostExecutionState, headers: request.headers })));
     app.delete?.(`${rendererBasePath}/cookies`, routeOptions, async (request, reply) => sendHostResult(reply, runHostCookiesRoute({ state: hostExecutionState, headers: request.headers, clear: true })));
   }

@@ -30,6 +30,23 @@ function headerValue(headers: HostExecutionHeaderSource, name: string): string |
   return undefined;
 }
 
+export function hostExecutionRequestOrigin(input: {
+  headers: HostExecutionHeaderSource;
+  protocol?: string;
+  url?: string;
+}): string | undefined {
+  if (input.url) {
+    try {
+      const parsed = new URL(input.url);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return parsed.origin;
+    } catch { /* fall through to protocol + Host */ }
+  }
+  const host = headerValue(input.headers, 'Host');
+  const protocol = String(input.protocol || '').replace(/:$/, '').toLowerCase();
+  if (!host || (protocol !== 'http' && protocol !== 'https')) return undefined;
+  try { return new URL(`${protocol}://${host}`).origin; } catch { return undefined; }
+}
+
 function asBuffer(value: unknown): Buffer {
   if (Buffer.isBuffer(value)) return value;
   if (value instanceof Uint8Array) return Buffer.from(value);
@@ -161,6 +178,7 @@ export async function runHostExecutionRoute(input: {
   spec: unknown;
   headers: HostExecutionHeaderSource;
   body: unknown;
+  docsOrigin?: string;
 }): Promise<HostExecutionRouteResult> {
   if (headerValue(input.headers, 'X-FlexDoc-Execute') !== '1') return response(403, { error: 'Missing X-FlexDoc-Execute header.' });
   let session: { sessionId: string; setCookie?: string } = { sessionId: '' };
@@ -170,6 +188,7 @@ export async function runHostExecutionRoute(input: {
     const result = await executeHostRequest(input.state, envelope, {
       spec: input.spec,
       sessionId: session.sessionId,
+      docsOrigin: input.docsOrigin,
     });
     return response(200, result, session.setCookie);
   } catch (error) {

@@ -5,7 +5,7 @@ import { authorizeFlexDocRequest, FlexDocAuthOptions } from './auth';
 import * as http from 'http';
 import * as https from 'https';
 import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
-import { readNodeRequestBody, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
+import { hostExecutionRequestOrigin, readNodeRequestBody, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 
 interface AppWithUse {
   use: (
@@ -149,7 +149,11 @@ export function setupFlexDoc(
     app.use(`${rendererBasePath}/execute`, async (req: any, res: any) => {
       if (String(req.method || 'POST').toUpperCase() !== 'POST') return sendHostResult(res, { status: 405, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, body: JSON.stringify({ error: 'Method not allowed.' }) });
       const body = req.body !== undefined ? req.body : await readNodeRequestBody(req);
-      return sendHostResult(res, await runHostExecutionRoute({ state: hostExecutionState, spec: await getSpec(), headers: req.headers || {}, body }));
+      const docsOrigin = hostExecutionRequestOrigin({
+        headers: req.headers || {},
+        protocol: req.protocol || (req.socket?.encrypted ? 'https' : 'http'),
+      });
+      return sendHostResult(res, await runHostExecutionRoute({ state: hostExecutionState, spec: await getSpec(), headers: req.headers || {}, body, docsOrigin }));
     });
     app.use(`${rendererBasePath}/cookies`, async (req: any, res: any) => {
       const method = String(req.method || 'GET').toUpperCase();

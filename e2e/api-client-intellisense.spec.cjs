@@ -38,6 +38,13 @@ test('API Client scripting IntelliSense works through real browser keyboard inte
   expect(labels.some((label) => label.startsWith('response'))).toBe(false);
   expect(labels.some((label) => label.startsWith('test'))).toBe(false);
 
+  await preRequest.press('Home');
+  await expect.poll(() => preRequest.evaluate((editor) => editor.selectionStart)).toBe(0);
+  await expect(apiClient.getByRole('listbox')).toBeVisible();
+  await preRequest.press('End');
+  await expect.poll(() => preRequest.evaluate((editor) => editor.selectionStart)).toBe(5);
+  await expect(apiClient.getByRole('listbox')).toBeVisible();
+
   await preRequest.press('ArrowDown');
   await preRequest.press('ArrowDown');
   await preRequest.press('ArrowUp');

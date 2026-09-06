@@ -92,16 +92,6 @@ export const ApiClientScriptEditor: React.FC<ApiClientScriptEditorProps> = ({
       setSelectedIndex((current) => (current - 1 + completion.items.length) % completion.items.length);
       return;
     }
-    if (event.key === 'Home') {
-      event.preventDefault();
-      setSelectedIndex(0);
-      return;
-    }
-    if (event.key === 'End') {
-      event.preventDefault();
-      setSelectedIndex(completion.items.length - 1);
-      return;
-    }
     if (event.key === 'Enter' || event.key === 'Tab') {
       event.preventDefault();
       applyCompletion(completion.items[selectedIndex]);

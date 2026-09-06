@@ -1,4 +1,5 @@
 import * as crypto from 'crypto';
+import * as dns from 'dns';
 import * as http from 'http';
 import * as https from 'https';
 import * as net from 'net';
@@ -212,7 +213,13 @@ function parseSetCookie(value: string, url: URL): CookieRecord | undefined {
     const index = attribute.indexOf('=');
     const key = (index < 0 ? attribute : attribute.slice(0, index)).trim().toLowerCase();
     const raw = index < 0 ? '' : attribute.slice(index + 1).trim();
-    if (key === 'domain' && raw) { cookie.domain = raw.replace(/^\./, ''); cookie.hostOnly = false; }
+    if (key === 'domain' && raw) {
+      const domain = raw.replace(/^\./, '').toLowerCase();
+      const responseHost = url.hostname.toLowerCase();
+      if (responseHost !== domain && !responseHost.endsWith(`.${domain}`)) return undefined;
+      cookie.domain = domain;
+      cookie.hostOnly = false;
+    }
     else if (key === 'path' && raw) cookie.path = raw.startsWith('/') ? raw : '/';
     else if (key === 'secure') cookie.secure = true;
     else if (key === 'httponly') cookie.httpOnly = true;
@@ -286,8 +293,17 @@ function normalizedOrigin(value: string, base?: string): string | undefined {
 
 export function allowedHostExecutionOrigins(state: HostExecutionState, spec: any, docsOrigin?: string): Set<string> {
   const configured = state.options.allowedOrigins?.filter(Boolean);
-  const values = configured?.length ? configured : [...collectOpenApiServerUrls(spec), ...(docsOrigin ? [docsOrigin] : [])];
   const result = new Set<string>();
+  if (configured?.length) {
+    for (const value of configured) {
+      const origin = normalizedOrigin(value);
+      if (origin) result.add(origin);
+    }
+    return result;
+  }
+
+  const servers = collectOpenApiServerUrls(spec);
+  const values = servers.length ? servers : ['/'];
   for (const value of values) {
     const origin = normalizedOrigin(value, docsOrigin);
     if (origin) result.add(origin);
@@ -298,6 +314,7 @@ export function allowedHostExecutionOrigins(state: HostExecutionState, spec: any
 function isMetadataAddress(hostname: string): boolean {
   const value = hostname.replace(/^\[|\]$/g, '').toLowerCase();
   if (value === '169.254.169.254' || value === 'metadata.google.internal' || value === 'metadata.google') return true;
+  if (value.startsWith('::ffff:') && net.isIPv4(value.slice(7))) return isMetadataAddress(value.slice(7));
   if (net.isIPv4(value)) {
     const [a, b] = value.split('.').map(Number);
     return a === 169 && b === 254;
@@ -310,6 +327,10 @@ export function assertHostExecutionUrlAllowed(url: URL, allowedOrigins: Set<stri
   if (url.username || url.password) throw new HostExecutionForbiddenError('Host execution URLs cannot contain embedded credentials.');
   if (isMetadataAddress(url.hostname)) throw new HostExecutionForbiddenError('Host execution blocks link-local and cloud metadata endpoints.');
   if (!allowedOrigins.has(url.origin)) throw new HostExecutionForbiddenError(`Origin ${url.origin} is not allowed for host execution.`);
+}
+
+export function assertHostExecutionResolvedAddressAllowed(address: string): void {
+  if (isMetadataAddress(address)) throw new HostExecutionForbiddenError('Host execution blocks DNS resolutions to link-local and cloud metadata endpoints.');
 }
 
 function enabledEntries(entries: HostExecutionRequestDraft['headers'] | HostExecutionRequestDraft['query']): Array<{ key: string; value: string }> {
@@ -542,6 +563,19 @@ function headersForNode(entries: HeaderEntry[]): http.OutgoingHttpHeaders {
 
 interface RawResponse { status: number; statusText: string; headers: HeaderEntry[]; body: Buffer; setCookies: string[]; location?: string; }
 
+const safeLookup = ((hostname: string, options: any, callback: any) => {
+  dns.lookup(hostname, options, (error: NodeJS.ErrnoException | null, address: any, family?: number) => {
+    if (error) return callback(error, address, family);
+    try {
+      const addresses = Array.isArray(address) ? address.map((entry) => entry.address) : [address];
+      for (const resolved of addresses) assertHostExecutionResolvedAddressAllowed(String(resolved));
+    } catch (lookupError) {
+      return callback(lookupError);
+    }
+    return callback(null, address, family);
+  });
+}) as typeof dns.lookup;
+
 function requestOnce(url: URL, method: string, headers: HeaderEntry[], body: Buffer | undefined, timeoutMs: number, agent?: https.Agent): Promise<RawResponse> {
   return new Promise((resolve, reject) => {
     const client = url.protocol === 'https:' ? https : http;
@@ -549,6 +583,7 @@ function requestOnce(url: URL, method: string, headers: HeaderEntry[], body: Buf
     const request = client.request(url, {
       method,
       headers: headersForNode(headers),
+      lookup: safeLookup,
       ...(url.protocol === 'https:' && agent ? { agent } : {}),
     }, (response) => {
       const chunks: Buffer[] = [];

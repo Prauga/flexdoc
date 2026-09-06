@@ -3,7 +3,7 @@ import { FlexDocModuleOptions } from './interfaces';
 import { getRendererAssets } from './renderer-assets';
 import { generateFlexDocHTML } from './template';
 import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
-import { runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
+import { hostExecutionRequestOrigin, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 
 export interface HonoLikeRequest {
   header(name: string): string | undefined;
@@ -75,6 +75,7 @@ export function setupHonoFlexDoc(
     'authorization': context.req.header('Authorization'),
     'content-type': context.req.header('Content-Type'),
     'cookie': context.req.header('Cookie'),
+    'host': context.req.header('Host'),
     'x-flexdoc-execute': context.req.header('X-FlexDoc-Execute'),
   });
   const sendHostResult = (context: HonoLikeContext, result: { status: number; headers: Record<string, string>; body: string }) => context.body(result.body, result.status, result.headers);
@@ -84,7 +85,9 @@ export function setupHonoFlexDoc(
       if (denied !== undefined) return denied;
       if (!context.req.raw) return context.body(JSON.stringify({ error: 'Hono Request body is unavailable.' }), 500, { 'Content-Type': 'application/json; charset=utf-8' });
       const body = Buffer.from(await context.req.raw.arrayBuffer());
-      return sendHostResult(context, await runHostExecutionRoute({ state: hostExecutionState, spec: await resolvedSpec(), headers: honoHeaders(context), body }));
+      const headers = honoHeaders(context);
+      const docsOrigin = hostExecutionRequestOrigin({ headers, url: context.req.raw.url });
+      return sendHostResult(context, await runHostExecutionRoute({ state: hostExecutionState, spec: await resolvedSpec(), headers, body, docsOrigin }));
     });
     app.get(`${rendererBasePath}/cookies`, (context) => {
       const denied = denyUnauthorized(context);

@@ -21,7 +21,7 @@ setupFlexDoc(app, '/docs', {
 });
 ```
 
-`hostExecution: true` also enables the Node executor. When `allowedOrigins` is omitted, the executor derives its exact allowed origins from the OpenAPI `servers` entries available to the host. For production deployments, an explicit `allowedOrigins` list is recommended when the intended execution surface is narrower than the specification.
+`hostExecution: true` also enables the Node executor. When `allowedOrigins` is omitted, the executor derives its exact allowed origins from the OpenAPI `servers` entries available to the host. Relative server URLs are resolved against the documentation request origin, and an OpenAPI document with no `servers` entry uses the same-origin `/` default. An explicit absolute `servers` list does not implicitly add the docs origin. For production deployments, an explicit `allowedOrigins` list is recommended when the intended execution surface is narrower than the specification.
 
 The JVM, .NET, Python, Go, Ruby, PHP, Axum, Actix, and Elixir adapters mirror the host-execution opt-in in 2.9.5 so applications can keep one configuration shape across stacks. They do **not** implement host execution yet. With the native opt-in unset (the default), the public capability is omitted. With it explicitly enabled, those adapters advertise `available: false`, an empty capability list, and the conventional `__flexdoc/execute` endpoint shape **without registering that route**. This is intentionally not a 501 stub: the renderer sees the capability as unavailable and disables host-only controls honestly.
 
@@ -87,16 +87,17 @@ The Node executor applies these controls:
 - only HTTP and HTTPS URLs are accepted;
 - URL-embedded credentials are rejected;
 - outbound destinations must match an exact allowed origin;
-- link-local/cloud metadata destinations such as `169.254.169.254` are rejected even if configured;
+- link-local/cloud metadata destinations such as `169.254.169.254` are rejected both from literal URLs and again after DNS resolution at connection time;
 - cross-origin redirects are rejected, even when both origins are otherwise allowed, so credentials are not forwarded or re-signed onto another origin;
 - hop-by-hop, proxy, browser security, `Origin`, `Referer`, `Host`, `Content-Length`, and `Set-Cookie` request headers are not accepted from the browser draft;
 - responses are limited to 10 MiB;
 - host request envelopes are limited to 32 MiB;
 - execution timeout is bounded to 120 seconds;
 - same-origin redirect following is bounded to five redirects;
-- signed cookie-jar sessions are bounded in memory.
+- signed cookie-jar sessions are bounded in memory;
+- response `Set-Cookie` values with a `Domain` unrelated to the response host are rejected.
 
-`allowedOrigins` is a security boundary, not a convenience wildcard. Configure the smallest exact-origin set required by the documentation. Do not construct it from untrusted request input.
+`allowedOrigins` is a security boundary, not a convenience wildcard. Configure the smallest exact-origin set required by the documentation. Do not construct it from untrusted request input. Public documentation with host execution enabled should still be treated as a server-side proxy surface: protect the docs route with `auth` and prefer a tight explicit allowlist when the OpenAPI `servers` set is broader than the intended execution surface.
 
 ## Server-side interceptor
 

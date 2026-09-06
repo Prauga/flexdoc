@@ -1,6 +1,6 @@
 import * as http from 'http';
-import { createHostExecutionState, ensureHostExecutionSession } from './host-execution';
-import { parseHostExecutionRequestBody, runHostExecutionRoute } from './host-execution-route';
+import { allowedHostExecutionOrigins, assertHostExecutionResolvedAddressAllowed, createHostExecutionState, ensureHostExecutionSession } from './host-execution';
+import { hostExecutionRequestOrigin, parseHostExecutionRequestBody, runHostExecutionRoute } from './host-execution-route';
 
 function headers(contentType = 'application/json'): Record<string, string> {
   return { 'content-type': contentType, 'x-flexdoc-execute': '1' };
@@ -30,6 +30,65 @@ describe('host execution HTTP protocol', () => {
     const state = createHostExecutionState({ allowedOrigins: ['https://api.example.test'] });
     const result = await runHostExecutionRoute({ state, spec: {}, headers: { 'content-type': 'application/json' }, body: { request: { method: 'GET', url: 'https://api.example.test' } } });
     expect(result.status).toBe(403);
+  });
+
+  it('resolves relative OpenAPI servers against the documentation request origin', async () => {
+    const server = http.createServer((_request, response) => response.end('same-origin'));
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('test server address unavailable');
+    const origin = `http://127.0.0.1:${address.port}`;
+    try {
+      const state = createHostExecutionState(true);
+      const result = await runHostExecutionRoute({
+        state,
+        spec: { servers: [{ url: '/' }] },
+        headers: headers(),
+        body: { request: { method: 'GET', url: `${origin}/ping` } },
+        docsOrigin: origin,
+      });
+      expect(result.status).toBe(200);
+      expect(JSON.parse(result.body).body).toBe('same-origin');
+      expect([...allowedHostExecutionOrigins(state, { servers: [{ url: 'https://api.example.test' }] }, origin)]).toEqual(['https://api.example.test']);
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  });
+
+  it('derives the docs origin without trusting an arbitrary renderer draft header', () => {
+    expect(hostExecutionRequestOrigin({ headers: { host: 'docs.example.test:8443' }, protocol: 'https' })).toBe('https://docs.example.test:8443');
+    expect(hostExecutionRequestOrigin({ headers: {}, url: 'https://docs.example.test/docs/__flexdoc/execute' })).toBe('https://docs.example.test');
+    expect(hostExecutionRequestOrigin({ headers: { host: 'docs.example.test' }, protocol: 'ftp' })).toBeUndefined();
+  });
+
+  it('rejects DNS answers that resolve to metadata or link-local addresses', () => {
+    expect(() => assertHostExecutionResolvedAddressAllowed('169.254.169.254')).toThrow('DNS resolutions');
+    expect(() => assertHostExecutionResolvedAddressAllowed('fe80::a9fe:a9fe')).toThrow('DNS resolutions');
+    expect(() => assertHostExecutionResolvedAddressAllowed('::ffff:169.254.169.254')).toThrow('DNS resolutions');
+    expect(() => assertHostExecutionResolvedAddressAllowed('10.0.0.10')).not.toThrow();
+  });
+
+  it('rejects response cookies whose Domain does not match the response host', async () => {
+    const server = http.createServer((_request, response) => {
+      response.setHeader('Set-Cookie', 'sid=abc; Domain=example.com; Path=/');
+      response.end('ok');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('test server address unavailable');
+    const origin = `http://127.0.0.1:${address.port}`;
+    try {
+      const result = await runHostExecutionRoute({
+        state: createHostExecutionState({ allowedOrigins: [origin] }),
+        spec: {},
+        headers: headers(),
+        body: { request: { method: 'GET', url: origin }, cookieJar: 'session' },
+      });
+      expect(result.status).toBe(200);
+      expect(JSON.parse(result.body).cookies).toEqual([]);
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
   });
 
   it('rejects metadata and unlisted origins before network execution', async () => {
