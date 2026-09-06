@@ -16,7 +16,7 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - **Rust:** Axum, Actix Web
 - **Elixir:** Plug, Phoenix
 
-The backend-coverage program shipped in 2.3.0. API Client development then continued through internal 2.4–2.7 milestones without publishing artificial intermediate FlexDoc package releases. The next coordinated product release is **2.8.0**; see [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the milestone mapping and definition of done.
+The backend-coverage program shipped in 2.3.0. API Client development then continued through internal 2.4–2.7 milestones without publishing artificial intermediate FlexDoc package releases. The coordinated product line is now **2.8.0**, which adds the standalone API Client milestone catch-up and Postman import; see [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the milestone mapping and definition of done.
 
 ## Package family
 
