@@ -34,7 +34,8 @@ defmodule PraugaFlexDoc.PlugTest do
         expand: "documentation",
         try_it_default_server: "https://api.example.test",
         try_it_credentials: "include",
-        try_it_api_client_persistence_key: false
+        try_it_api_client_persistence_key: false,
+        try_it_host_execution: true
       )
 
     docs = conn(:get, "/docs") |> FlexDocPlug.call(opts)
@@ -45,6 +46,13 @@ defmodule PraugaFlexDoc.PlugTest do
     assert options["tryIt"]["defaultServer"] == "https://api.example.test"
     assert options["tryIt"]["credentials"] == "include"
     assert options["tryIt"]["apiClientPersistenceKey"] == false
+    assert options["tryIt"]["hostExecution"] == %{
+      "available" => false,
+      "endpoint" => "/docs/__flexdoc/execute",
+      "capabilities" => []
+    }
+    execute = conn(:post, "/docs/__flexdoc/execute") |> FlexDocPlug.call(opts)
+    assert execute.status == 404
 
     list_opts = FlexDocPlug.init(expand: ["parameters", "tryIt"])
     list_docs = conn(:get, "/docs") |> FlexDocPlug.call(list_opts)

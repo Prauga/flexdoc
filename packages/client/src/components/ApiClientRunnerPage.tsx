@@ -16,6 +16,7 @@ export interface ApiClientRunnerPageProps {
   theme: 'light' | 'dark';
   credentials?: RequestCredentials;
   requestInterceptor?: ExecuteApiClientRequestOptions['requestInterceptor'];
+  hostExecution?: ExecuteApiClientRequestOptions['hostExecution'];
   externalVariables?: HttpVariables;
   externalEnvironmentVariables?: HttpVariables;
   onCollectionChanges?: (changes: ApiClientScriptCollectionChange[]) => void;
@@ -59,6 +60,7 @@ export const ApiClientRunnerPage: React.FC<ApiClientRunnerPageProps> = ({
   theme,
   credentials,
   requestInterceptor,
+  hostExecution,
   externalVariables,
   externalEnvironmentVariables,
   onCollectionChanges,
@@ -100,6 +102,7 @@ export const ApiClientRunnerPage: React.FC<ApiClientRunnerPageProps> = ({
       runName,
       credentials,
       requestInterceptor,
+      hostExecution,
       externalVariables,
       externalEnvironmentVariables,
       stopOnFailure,

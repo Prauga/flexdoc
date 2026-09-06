@@ -1,4 +1,4 @@
-import type { HttpAuth, HttpKeyValue, HttpRequestDraft } from './http-client';
+import type { HttpAuth, HttpBinaryBody, HttpFormDataEntry, HttpKeyValue, HttpRequestDraft } from './http-client';
 import { cloneApiClientScripts } from './api-client-scripting';
 import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from './api-client-scripting';
 
@@ -140,6 +140,24 @@ function isHttpKeyValue(value: unknown): value is HttpKeyValue {
   return value.enabled === undefined || typeof value.enabled === 'boolean';
 }
 
+function isHttpFormDataEntry(value: unknown): value is HttpFormDataEntry {
+  if (!isHttpKeyValue(value)) return false;
+  const entry = value as HttpFormDataEntry;
+  if (entry.type !== undefined && entry.type !== 'text' && entry.type !== 'file') return false;
+  if (entry.fileName !== undefined && typeof entry.fileName !== 'string') return false;
+  if (entry.contentType !== undefined && typeof entry.contentType !== 'string') return false;
+  if (entry.file !== undefined && typeof File !== 'undefined' && !(entry.file instanceof File)) return false;
+  return true;
+}
+
+function isHttpBinaryBody(value: unknown): value is HttpBinaryBody {
+  if (!isRecord(value)) return false;
+  if (value.fileName !== undefined && typeof value.fileName !== 'string') return false;
+  if (value.contentType !== undefined && typeof value.contentType !== 'string') return false;
+  if (value.file !== undefined && typeof File !== 'undefined' && !(value.file instanceof File)) return false;
+  return true;
+}
+
 function isHttpAuth(value: unknown): value is HttpAuth {
   if (!isRecord(value) || typeof value.type !== 'string') return false;
   if (value.type === 'none' || value.type === 'inherit') return true;
@@ -149,16 +167,16 @@ function isHttpAuth(value: unknown): value is HttpAuth {
     const grantTypes = new Set(['accessToken', 'authorizationCode', 'clientCredentials', 'password', 'implicit']);
     if (value.grantType !== undefined && (typeof value.grantType !== 'string' || !grantTypes.has(value.grantType))) return false;
     if (value.clientAuthentication !== undefined && value.clientAuthentication !== 'body' && value.clientAuthentication !== 'basic') return false;
-    for (const key of ['authorizationUrl', 'tokenUrl', 'clientId', 'clientSecret', 'redirectUri', 'username', 'password', 'refreshToken']) {
-      if (value[key] !== undefined && typeof value[key] !== 'string') return false;
-    }
+    for (const key of ['authorizationUrl', 'tokenUrl', 'clientId', 'clientSecret', 'redirectUri', 'username', 'password', 'refreshToken']) if (value[key] !== undefined && typeof value[key] !== 'string') return false;
     return value.scopes === undefined || (Array.isArray(value.scopes) && value.scopes.every((scope) => typeof scope === 'string'));
   }
-  if (value.type === 'basic') return hasString(value, 'username') && hasString(value, 'password');
-  return value.type === 'apiKey'
-    && hasString(value, 'key')
-    && hasString(value, 'value')
-    && (value.in === 'header' || value.in === 'query');
+  if (value.type === 'basic' || value.type === 'digest') return hasString(value, 'username') && hasString(value, 'password');
+  if (value.type === 'apiKey') return hasString(value, 'key') && hasString(value, 'value') && (value.in === 'header' || value.in === 'query' || value.in === 'cookie');
+  if (value.type === 'hawk') return hasString(value, 'id') && hasString(value, 'key') && (value.algorithm === undefined || value.algorithm === 'sha1' || value.algorithm === 'sha256') && (value.ext === undefined || typeof value.ext === 'string');
+  if (value.type === 'ntlm') return hasString(value, 'username') && hasString(value, 'password') && (value.domain === undefined || typeof value.domain === 'string') && (value.workstation === undefined || typeof value.workstation === 'string');
+  if (value.type === 'oauth1') return hasString(value, 'consumerKey') && hasString(value, 'consumerSecret') && (value.token === undefined || typeof value.token === 'string') && (value.tokenSecret === undefined || typeof value.tokenSecret === 'string') && (value.realm === undefined || typeof value.realm === 'string') && (value.signatureMethod === undefined || ['HMAC-SHA1', 'HMAC-SHA256', 'PLAINTEXT'].includes(String(value.signatureMethod)));
+  if (value.type === 'awsv4') return hasString(value, 'accessKey') && hasString(value, 'secretKey') && hasString(value, 'region') && hasString(value, 'service') && (value.sessionToken === undefined || typeof value.sessionToken === 'string');
+  return false;
 }
 
 function isHttpRequestDraft(value: unknown): value is HttpRequestDraft {
@@ -167,6 +185,12 @@ function isHttpRequestDraft(value: unknown): value is HttpRequestDraft {
   if (value.headers !== undefined && (!Array.isArray(value.headers) || !value.headers.every(isHttpKeyValue))) return false;
   if (value.body !== undefined && typeof value.body !== 'string') return false;
   if (value.contentType !== undefined && typeof value.contentType !== 'string') return false;
+  if (value.bodyMode !== undefined && !['none', 'raw', 'json', 'urlencoded', 'formdata', 'binary', 'graphql'].includes(String(value.bodyMode))) return false;
+  if (value.urlencoded !== undefined && (!Array.isArray(value.urlencoded) || !value.urlencoded.every(isHttpKeyValue))) return false;
+  if (value.formData !== undefined && (!Array.isArray(value.formData) || !value.formData.every(isHttpFormDataEntry))) return false;
+  if (value.binary !== undefined && !isHttpBinaryBody(value.binary)) return false;
+  if (value.graphql !== undefined && (!isRecord(value.graphql) || !hasString(value.graphql, 'query') || !hasString(value.graphql, 'variables'))) return false;
+  if (value.hostExecution !== undefined && (!isRecord(value.hostExecution) || (value.hostExecution.certificateId !== undefined && typeof value.hostExecution.certificateId !== 'string') || (value.hostExecution.cookieJar !== undefined && value.hostExecution.cookieJar !== 'session'))) return false;
   return value.auth === undefined || isHttpAuth(value.auth);
 }
 
@@ -266,7 +290,7 @@ function normalizeSavedRequest(value: unknown): ApiClientSavedRequest | null {
     collectionId: value.collectionId as string,
     folderId: value.folderId as string | undefined,
     name: value.name as string,
-    request: value.request,
+    request: cloneRequestDraft(value.request),
     ...(scripts ? { scripts } : {}),
     createdAt: value.createdAt as string,
     updatedAt: value.updatedAt as string,
@@ -338,7 +362,7 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     id: value.id as string,
     collectionId: typeof value.collectionId === 'string' ? value.collectionId : undefined,
     folderId: typeof value.folderId === 'string' ? value.folderId : undefined,
-    request: value.request,
+    request: cloneRequestDraft(value.request),
     ...(scripts ? { scripts } : {}),
     executedMethod: value.executedMethod as string,
     resolvedUrl: value.resolvedUrl as string,
@@ -393,7 +417,12 @@ export function cloneRequestDraft(request: HttpRequestDraft): HttpRequestDraft {
     ...request,
     query: request.query?.map((entry) => ({ ...entry })),
     headers: request.headers?.map((entry) => ({ ...entry })),
+    urlencoded: request.urlencoded?.map((entry) => ({ ...entry })),
+    formData: request.formData?.map((entry) => ({ ...entry, file: undefined })),
+    binary: request.binary ? { ...request.binary, file: undefined } : undefined,
+    graphql: request.graphql ? { ...request.graphql } : undefined,
     auth,
+    hostExecution: request.hostExecution ? { ...request.hostExecution } : undefined,
   };
 }
 

@@ -29,6 +29,7 @@ defmodule PraugaFlexDoc.Plug do
       |> maybe_put(:defaultServer, config.try_it_default_server)
       |> maybe_put(:credentials, config.try_it_credentials)
       |> maybe_put(:apiClientPersistenceKey, config.try_it_api_client_persistence_key)
+      |> maybe_put_host_execution(config)
 
     options =
       %{
@@ -51,6 +52,11 @@ defmodule PraugaFlexDoc.Plug do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp maybe_put_host_execution(map, %{try_it_host_execution: true, path: path}) do
+    Map.put(map, :hostExecution, %{available: false, endpoint: path <> "/__flexdoc/execute", capabilities: []})
+  end
+  defp maybe_put_host_execution(map, _config), do: map
 
   defp asset(conn, body, content_type) do
     conn

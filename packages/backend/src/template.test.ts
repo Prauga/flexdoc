@@ -42,6 +42,33 @@ describe('generateFlexDocHTML', () => {
     expect(html).not.toContain('secretKey');
   });
 
+
+  it('never exposes host execution certificate material and only serializes explicit public capabilities', () => {
+    const html = generateFlexDocHTML(null, {
+      tryIt: {
+        hostExecution: {
+          clientCertificates: [{ id: 'private-cert', name: 'Private cert', cert: 'PEM-CERT-SECRET', key: 'PEM-KEY-SECRET', passphrase: 'pass-secret' }],
+          allowedOrigins: ['https://api.example.test'],
+        },
+      },
+      hostExecutionPublic: {
+        available: true,
+        endpoint: '/docs/__flexdoc/execute',
+        cookiesEndpoint: '/docs/__flexdoc/cookies',
+        capabilities: ['cookies', 'clientCertificates'],
+        clientCertificates: [{ id: 'private-cert', name: 'Private cert' }],
+      },
+    });
+    expect(html).not.toContain('PEM-CERT-SECRET');
+    expect(html).not.toContain('PEM-KEY-SECRET');
+    expect(html).not.toContain('pass-secret');
+    expect(html).not.toContain('allowedOrigins');
+    expect(html).toContain('"available":true');
+    expect(html).toContain('"endpoint":"/docs/__flexdoc/execute"');
+    expect(html).toContain('"id":"private-cert"');
+    expect(html).toContain('"name":"Private cert"');
+  });
+
   it('should handle null spec gracefully', () => {
     const html = generateFlexDocHTML(null);
     expect(html).toContain('<!DOCTYPE html>');

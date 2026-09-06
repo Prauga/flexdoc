@@ -12,6 +12,13 @@ spec.servers = [
 spec.paths['/pets/{id}'].get.summary = 'Get a pet';
 spec.paths['/payload'].post.summary = 'Create a payload';
 const query = new URLSearchParams(window.location.search);
+const hostExecution = query.get('hostExecution') === '1' ? {
+  available: true,
+  endpoint: '/e2e/__flexdoc/execute',
+  cookiesEndpoint: '/e2e/__flexdoc/cookies',
+  capabilities: ['cookies', 'clientCertificates', 'digest', 'hawk', 'oauth1', 'awsv4'] as const,
+  clientCertificates: [{ id: 'client-cert', name: 'Fixture client certificate' }],
+} : undefined;
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -21,7 +28,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         hideDownloadButton: true,
         hideTopbar: query.get('hideTopbar') === '1',
         expand: 'all',
-        tryIt: { enabled: true },
+        tryIt: { enabled: true, ...(hostExecution ? { hostExecution } : {}) },
         codeSamples: { enabled: true, languages: ['curl', 'javascript', 'python', 'go', 'java'] },
       }}
     />

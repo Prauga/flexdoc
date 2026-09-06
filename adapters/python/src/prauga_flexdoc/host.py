@@ -31,6 +31,7 @@ class FlexDocConfig:
     try_it_default_server: str | None = None
     try_it_credentials: Literal["omit", "same-origin", "include"] | None = None
     try_it_api_client_persistence_key: str | Literal[False] | None = None
+    try_it_host_execution: bool = False
 
 
 @dataclass(frozen=True)
@@ -86,6 +87,12 @@ class FlexDocHost:
             try_it["credentials"] = self.config.try_it_credentials
         if self.config.try_it_api_client_persistence_key is not None:
             try_it["apiClientPersistenceKey"] = self.config.try_it_api_client_persistence_key
+        if self.config.try_it_host_execution:
+            try_it["hostExecution"] = {
+                "available": False,
+                "endpoint": self.path + "/__flexdoc/execute",
+                "capabilities": [],
+            }
 
         options: dict[str, object] = {
             "contractVersion": "1",

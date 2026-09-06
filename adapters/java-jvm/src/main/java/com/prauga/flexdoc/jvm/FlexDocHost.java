@@ -51,6 +51,13 @@ public final class FlexDocHost {
     if (config.tryItApiClientPersistenceKey() != null) {
       tryIt.put("apiClientPersistenceKey", config.tryItApiClientPersistenceKey());
     }
+    if (config.tryItHostExecution()) {
+      Map<String, Object> hostExecution = new LinkedHashMap<>();
+      hostExecution.put("available", false);
+      hostExecution.put("endpoint", config.path() + "/__flexdoc/execute");
+      hostExecution.put("capabilities", java.util.List.of());
+      tryIt.put("hostExecution", hostExecution);
+    }
 
     Map<String, Object> rendererOptions = new LinkedHashMap<>();
     rendererOptions.put("contractVersion", "1");

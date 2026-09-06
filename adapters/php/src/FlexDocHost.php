@@ -36,6 +36,13 @@ final class FlexDocHost
         if ($this->config->tryItDefaultServer !== null) $tryIt['defaultServer'] = $this->config->tryItDefaultServer;
         if ($this->config->tryItCredentials !== null) $tryIt['credentials'] = $this->config->tryItCredentials;
         if ($this->config->tryItApiClientPersistenceKey !== null) $tryIt['apiClientPersistenceKey'] = $this->config->tryItApiClientPersistenceKey;
+        if ($this->config->tryItHostExecution) {
+            $tryIt['hostExecution'] = [
+                'available' => false,
+                'endpoint' => $this->config->path . '/__flexdoc/execute',
+                'capabilities' => [],
+            ];
+        }
 
         $options = [
             'contractVersion' => '1',

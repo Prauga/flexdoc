@@ -27,6 +27,7 @@ var configured = new FlexDocOptions
     TryItDefaultServer = "https://gateway.example.test",
     TryItCredentials = "include",
     TryItApiClientPersistenceKey = false,
+    TryItHostExecution = true,
 };
 var configuredHtml = FlexDocEndpointRouteBuilderExtensions.CreateHtml(configured, "/docs");
 var options = RendererOptions(configured);
@@ -35,6 +36,10 @@ var tryIt = options.GetProperty("tryIt");
 Check(tryIt.GetProperty("defaultServer").GetString() == "https://gateway.example.test", "defaultServer must be nested under tryIt");
 Check(tryIt.GetProperty("credentials").GetString() == "include", "credentials must be nested under tryIt");
 Check(tryIt.GetProperty("apiClientPersistenceKey").ValueKind == JsonValueKind.False, "persistence false must be JSON false");
+var hostExecution = tryIt.GetProperty("hostExecution");
+Check(!hostExecution.GetProperty("available").GetBoolean(), "native host execution must advertise unavailable");
+Check(hostExecution.GetProperty("endpoint").GetString() == "/docs/__flexdoc/execute", "native host execution endpoint shape");
+Check(hostExecution.GetProperty("capabilities").GetArrayLength() == 0, "native host execution capabilities must be empty");
 Check(!configuredHtml.Contains("</script><script>alert(1)</script>", StringComparison.Ordinal), "title must remain script-safe");
 Check(!configuredHtml.Contains("\"/openapi.json?x=</script>\"", StringComparison.Ordinal), "spec URL must remain script-safe");
 
