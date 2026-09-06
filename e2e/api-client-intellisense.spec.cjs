@@ -79,9 +79,10 @@ test('API Client scripting IntelliSense works through real browser keyboard inte
   expect(labels.some((label) => label.startsWith('json'))).toBe(true);
 
   await tests.fill('flex.expect(flex.response.code).to.');
-  await expect(apiClient.getByRole('listbox')).toBeVisible();
+  const completionList = apiClient.getByRole('listbox');
+  await expect(completionList).toBeVisible();
   labels = await optionTexts(apiClient);
   expect(labels.some((label) => label.startsWith('equal'))).toBe(true);
   expect(labels.some((label) => label.startsWith('have'))).toBe(true);
-  await expect(apiClient.getByRole('option', { selected: true })).toContainText('equal(expected: unknown): void');
+  await expect(completionList.getByRole('option', { selected: true })).toContainText('equal(expected: unknown): void');
 });
