@@ -61,6 +61,12 @@ export interface ApiClientHistoryEntry {
   responseHeaders?: Array<[string, string]>;
   responseBody?: string;
   responseBodyTruncated?: boolean;
+  runId?: string;
+  runName?: string;
+  runIndex?: number;
+  runTotal?: number;
+  runPassed?: boolean;
+  runCancelled?: boolean;
   error?: string;
   scriptTests?: ApiClientScriptTestResult[];
   scriptLogs?: string[];
@@ -81,6 +87,12 @@ export interface ApiClientHistoryInput {
   responseHeaders?: Array<[string, string]>;
   responseBody?: string;
   responseBodyTruncated?: boolean;
+  runId?: string;
+  runName?: string;
+  runIndex?: number;
+  runTotal?: number;
+  runPassed?: boolean;
+  runCancelled?: boolean;
   error?: string;
   scriptTests?: ApiClientScriptTestResult[];
   scriptLogs?: string[];
@@ -307,6 +319,12 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     || (value.responseHeaders !== undefined && (!Array.isArray(value.responseHeaders) || !value.responseHeaders.every(isResponseHeader)))
     || (value.responseBody !== undefined && typeof value.responseBody !== 'string')
     || (value.responseBodyTruncated !== undefined && typeof value.responseBodyTruncated !== 'boolean')
+    || (value.runId !== undefined && typeof value.runId !== 'string')
+    || (value.runName !== undefined && typeof value.runName !== 'string')
+    || !isOptionalFiniteNumber(value, 'runIndex')
+    || !isOptionalFiniteNumber(value, 'runTotal')
+    || (value.runPassed !== undefined && typeof value.runPassed !== 'boolean')
+    || (value.runCancelled !== undefined && typeof value.runCancelled !== 'boolean')
     || (value.error !== undefined && typeof value.error !== 'string')
     || (value.scriptError !== undefined && typeof value.scriptError !== 'string')
     || !hasString(value, 'createdAt')) return null;
@@ -330,6 +348,12 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     responseHeaders: Array.isArray(value.responseHeaders) ? value.responseHeaders.map(([key, headerValue]) => [key, headerValue] as [string, string]) : undefined,
     responseBody: typeof value.responseBody === 'string' ? value.responseBody : undefined,
     responseBodyTruncated: value.responseBodyTruncated === true ? true : undefined,
+    runId: typeof value.runId === 'string' ? value.runId : undefined,
+    runName: typeof value.runName === 'string' ? value.runName : undefined,
+    runIndex: typeof value.runIndex === 'number' ? value.runIndex : undefined,
+    runTotal: typeof value.runTotal === 'number' ? value.runTotal : undefined,
+    runPassed: typeof value.runPassed === 'boolean' ? value.runPassed : undefined,
+    runCancelled: value.runCancelled === true ? true : undefined,
     error: value.error as string | undefined,
     ...(scriptTests.length ? { scriptTests } : {}),
     ...(scriptLogs.length ? { scriptLogs } : {}),
@@ -459,6 +483,12 @@ export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, inp
     responseTime: input.responseTime,
     ...(input.responseHeaders?.length ? { responseHeaders: input.responseHeaders.map(([key, value]) => [key, value] as [string, string]) } : {}),
     ...(responseBody !== undefined ? { responseBody, ...(responseBodyTruncated ? { responseBodyTruncated: true } : {}) } : {}),
+    runId: input.runId,
+    runName: input.runName,
+    runIndex: input.runIndex,
+    runTotal: input.runTotal,
+    runPassed: input.runPassed,
+    ...(input.runCancelled ? { runCancelled: true } : {}),
     error: input.error,
     ...(input.scriptTests?.length ? { scriptTests: input.scriptTests.map((test) => ({ ...test })) } : {}),
     ...(input.scriptLogs?.length ? { scriptLogs: [...input.scriptLogs] } : {}),

@@ -1,4 +1,5 @@
-import { apiClientCollectionRunRequests, runApiClientCollection } from './api-client-runner';
+
+import { apiClientCollectionRunName, apiClientCollectionRunRequests, runApiClientCollection } from './api-client-runner';
 import type { ApiClientWorkspaceState } from './api-client-workspace';
 
 function response(body = '{}', status = 200): Response {
@@ -65,9 +66,10 @@ describe('api-client-runner', () => {
     expect(apiClientCollectionRunRequests(workspace(), 'collection', 'parent').map((request) => request.id)).toEqual(['first', 'second']);
     expect(apiClientCollectionRunRequests(workspace(), 'collection').map((request) => request.id)).toEqual(['first', 'second', 'third']);
     expect(apiClientCollectionRunRequests(workspace(), 'collection', 'missing')).toEqual([]);
+    expect(apiClientCollectionRunName(workspace(), 'collection', 'child')).toBe('Runner / Parent / Child');
   });
 
-  it('runs sequentially through the shared executor and carries script mutations into later requests', async () => {
+  it('runs sequentially through the shared executor, carries mutations, and tags grouped history', async () => {
     const urls: string[] = [];
     const folderHeaders: Array<string | null> = [];
     const fetcher: typeof fetch = async (input, init) => {
@@ -80,6 +82,7 @@ describe('api-client-runner', () => {
       workspace: workspace(),
       collectionId: 'collection',
       folderId: 'parent',
+      runId: 'run-test',
       fetcher,
     });
 
@@ -88,12 +91,13 @@ describe('api-client-runner', () => {
       'https://api.example.test/second/next/42',
     ]);
     expect(folderHeaders).toEqual(['folder-key', 'folder-key']);
-    expect(result).toMatchObject({ total: 2, completed: 2, passed: 2, failed: 0, stopped: false });
+    expect(result).toMatchObject({ runId: 'run-test', runName: 'Runner / Parent', total: 2, completed: 2, passed: 2, failed: 0, cancelled: 0, stopped: false });
     expect(result.items.map((item) => item.requestId)).toEqual(['first', 'second']);
+    expect(result.items.every((item) => !!item.historyEntryId)).toBe(true);
     expect(result.workspace.collections[0].variables.find((variable) => variable.key === 'seed')?.value).toBe('next');
     expect(result.workspace.environments[0].variables.find((variable) => variable.key === 'runId')?.value).toBe('42');
     expect(result.workspace.history).toHaveLength(2);
-    expect(result.workspace.history[0].resolvedUrl).toBe('https://api.example.test/second/next/42');
+    expect(result.workspace.history[0]).toMatchObject({ runId: 'run-test', runName: 'Runner / Parent', runIndex: 2, runTotal: 2, runPassed: true });
   });
 
   it('marks test failures without treating HTTP status alone as a failed run item', async () => {
@@ -111,6 +115,7 @@ describe('api-client-runner', () => {
     expect(result.items[0].passed).toBe(true);
     expect(result.passed).toBe(1);
     expect(result.failed).toBe(0);
+    expect(result.workspace.history[0]).toMatchObject({ status: 404, runPassed: true });
   });
 
   it('can stop after a transport failure and leaves later requests unexecuted', async () => {
@@ -125,8 +130,26 @@ describe('api-client-runner', () => {
       },
     });
     expect(calls).toBe(1);
-    expect(result).toMatchObject({ total: 3, completed: 1, passed: 0, failed: 1, stopped: true });
+    expect(result).toMatchObject({ total: 3, completed: 1, passed: 0, failed: 1, cancelled: 0, stopped: true });
     expect(result.items[0].outcome.error).toBe('offline');
     expect(result.workspace.history).toHaveLength(1);
+  });
+
+  it('aborts an in-flight request without storing a cancelled history entry', async () => {
+    const controller = new AbortController();
+    const fetcher: typeof fetch = async (_input, init) => {
+      if (init?.signal?.aborted) throw new Error('aborted by user');
+      throw new Error('fetcher should receive the aborted signal');
+    };
+    const result = await runApiClientCollection({
+      workspace: workspace(),
+      collectionId: 'collection',
+      signal: controller.signal,
+      fetcher,
+      onRequestStart: () => controller.abort(),
+    });
+    expect(result).toMatchObject({ total: 3, completed: 1, passed: 0, failed: 0, cancelled: 1, stopped: true });
+    expect(result.items[0].cancelled).toBe(true);
+    expect(result.workspace.history).toHaveLength(0);
   });
 });
