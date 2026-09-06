@@ -205,6 +205,22 @@ test('builds structured URL-encoded, multipart, and GraphQL body modes', async (
   assert.equal(multipart.headers['Content-Type'], undefined);
   assert.equal(multipart.init.body instanceof FormData, true);
 
+  const multipartWithExplicitHeader = buildHttpRequest({
+    method: 'POST', url: 'https://api.example.test/upload', bodyMode: 'formdata',
+    headers: [
+      { key: 'Content-Type', value: 'multipart/form-data' },
+      { key: 'content-type', value: 'multipart/form-data; boundary=stale-boundary' },
+      { key: 'X-Trace', value: 'keep-me' },
+    ],
+    contentType: 'multipart/form-data',
+    formData: [{ key: 'name', value: 'Mochi', type: 'text' }],
+  });
+  assert.equal(multipartWithExplicitHeader.headers['Content-Type'], undefined);
+  assert.equal(multipartWithExplicitHeader.headers['content-type'], undefined);
+  assert.equal(multipartWithExplicitHeader.headers['X-Trace'], 'keep-me');
+  assert.deepEqual(multipartWithExplicitHeader.headerEntries, [['X-Trace', 'keep-me']]);
+  assert.equal(multipartWithExplicitHeader.init.body instanceof FormData, true);
+
   const graphql = buildHttpRequest({
     method: 'POST', url: 'https://api.example.test/graphql', bodyMode: 'graphql',
     graphql: { query: 'query Pet($id: ID!) { pet(id: $id) { id } }', variables: '{"id":"42"}' },

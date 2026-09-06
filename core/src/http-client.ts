@@ -294,6 +294,11 @@ export function buildHttpRequest(draft: HttpRequestDraft, options: HttpRequestBu
   let requestBody: BodyInit | undefined;
   const bodyMode = inferHttpBodyMode(resolvedDraft);
   if (!['GET', 'HEAD'].includes(method) && bodyMode !== 'none') {
+    if (bodyMode === 'formdata') {
+      for (let index = headerEntries.length - 1; index >= 0; index -= 1) {
+        if (headerEntries[index][0].toLowerCase() === 'content-type') headerEntries.splice(index, 1);
+      }
+    }
     const explicitContentType = findHeader(headerEntries, 'Content-Type');
     const requestedContentType = resolvedDraft.contentType?.trim();
     if (bodyMode === 'urlencoded') {
