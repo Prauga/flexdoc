@@ -8,4 +8,4 @@ go run .
 
 Open `http://localhost:3000/docs`.
 
-The example is pinned to `github.com/prauga/flexdoc/adapters/go v0.4.0`. During this unreleased PR, repository CI substitutes the adapter from `../../adapters/go`; after the `adapters/go/v0.4.0` release tag is published, the manifest is directly runnable from a standalone checkout as written.
+The example is pinned to published `github.com/prauga/flexdoc/adapters/go v0.4.0` and resolves through the public Go module infrastructure. Repository CI may substitute the adapter from `../../adapters/go` when validating local source changes.

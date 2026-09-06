@@ -8,4 +8,4 @@ cargo run
 
 Open `http://localhost:3000/docs`.
 
-`prauga-flexdoc-axum` is pinned to `0.4.0`. During this release PR, CI patches crates.io resolution to `../../adapters/rust`; after `0.4.0` is published, the manifest is directly runnable as written.
+`prauga-flexdoc-axum` is pinned to `0.4.0` and resolves directly from the published crate on crates.io. Repository CI also patches crates.io resolution to `../../adapters/rust` when validating source changes against the local adapter.
