@@ -167,16 +167,16 @@ function isHttpAuth(value: unknown): value is HttpAuth {
     const grantTypes = new Set(['accessToken', 'authorizationCode', 'clientCredentials', 'password', 'implicit']);
     if (value.grantType !== undefined && (typeof value.grantType !== 'string' || !grantTypes.has(value.grantType))) return false;
     if (value.clientAuthentication !== undefined && value.clientAuthentication !== 'body' && value.clientAuthentication !== 'basic') return false;
-    for (const key of ['authorizationUrl', 'tokenUrl', 'clientId', 'clientSecret', 'redirectUri', 'username', 'password', 'refreshToken']) {
-      if (value[key] !== undefined && typeof value[key] !== 'string') return false;
-    }
+    for (const key of ['authorizationUrl', 'tokenUrl', 'clientId', 'clientSecret', 'redirectUri', 'username', 'password', 'refreshToken']) if (value[key] !== undefined && typeof value[key] !== 'string') return false;
     return value.scopes === undefined || (Array.isArray(value.scopes) && value.scopes.every((scope) => typeof scope === 'string'));
   }
-  if (value.type === 'basic') return hasString(value, 'username') && hasString(value, 'password');
-  return value.type === 'apiKey'
-    && hasString(value, 'key')
-    && hasString(value, 'value')
-    && (value.in === 'header' || value.in === 'query');
+  if (value.type === 'basic' || value.type === 'digest') return hasString(value, 'username') && hasString(value, 'password');
+  if (value.type === 'apiKey') return hasString(value, 'key') && hasString(value, 'value') && (value.in === 'header' || value.in === 'query' || value.in === 'cookie');
+  if (value.type === 'hawk') return hasString(value, 'id') && hasString(value, 'key') && (value.algorithm === undefined || value.algorithm === 'sha1' || value.algorithm === 'sha256') && (value.ext === undefined || typeof value.ext === 'string');
+  if (value.type === 'ntlm') return hasString(value, 'username') && hasString(value, 'password') && (value.domain === undefined || typeof value.domain === 'string') && (value.workstation === undefined || typeof value.workstation === 'string');
+  if (value.type === 'oauth1') return hasString(value, 'consumerKey') && hasString(value, 'consumerSecret') && (value.token === undefined || typeof value.token === 'string') && (value.tokenSecret === undefined || typeof value.tokenSecret === 'string') && (value.realm === undefined || typeof value.realm === 'string') && (value.signatureMethod === undefined || ['HMAC-SHA1', 'HMAC-SHA256', 'PLAINTEXT'].includes(String(value.signatureMethod)));
+  if (value.type === 'awsv4') return hasString(value, 'accessKey') && hasString(value, 'secretKey') && hasString(value, 'region') && hasString(value, 'service') && (value.sessionToken === undefined || typeof value.sessionToken === 'string');
+  return false;
 }
 
 function isHttpRequestDraft(value: unknown): value is HttpRequestDraft {
@@ -190,6 +190,7 @@ function isHttpRequestDraft(value: unknown): value is HttpRequestDraft {
   if (value.formData !== undefined && (!Array.isArray(value.formData) || !value.formData.every(isHttpFormDataEntry))) return false;
   if (value.binary !== undefined && !isHttpBinaryBody(value.binary)) return false;
   if (value.graphql !== undefined && (!isRecord(value.graphql) || !hasString(value.graphql, 'query') || !hasString(value.graphql, 'variables'))) return false;
+  if (value.hostExecution !== undefined && (!isRecord(value.hostExecution) || (value.hostExecution.certificateId !== undefined && typeof value.hostExecution.certificateId !== 'string') || (value.hostExecution.cookieJar !== undefined && value.hostExecution.cookieJar !== 'session'))) return false;
   return value.auth === undefined || isHttpAuth(value.auth);
 }
 
@@ -421,6 +422,7 @@ export function cloneRequestDraft(request: HttpRequestDraft): HttpRequestDraft {
     binary: request.binary ? { ...request.binary, file: undefined } : undefined,
     graphql: request.graphql ? { ...request.graphql } : undefined,
     auth,
+    hostExecution: request.hostExecution ? { ...request.hostExecution } : undefined,
   };
 }
 

@@ -4,6 +4,8 @@ import { getRendererAssets } from './renderer-assets';
 import { authorizeFlexDocRequest, FlexDocAuthOptions } from './auth';
 import * as http from 'http';
 import * as https from 'https';
+import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
+import { readNodeRequestBody, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 
 interface AppWithUse {
   use: (
@@ -90,6 +92,7 @@ export function setupFlexDoc(
   const { spec, specUrl, options: flexDocOptions } = options;
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const rendererBasePath = `${normalizedPath}/__flexdoc`;
+  const hostExecutionState = createHostExecutionState(flexDocOptions?.tryIt?.hostExecution);
 
   // Register auth at the documentation root first so it also protects the
   // renderer assets mounted beneath the same path.
@@ -136,6 +139,25 @@ export function setupFlexDoc(
     return remoteSpecPromise;
   };
 
+  const sendHostResult = (res: any, result: Awaited<ReturnType<typeof runHostExecutionRoute>> | ReturnType<typeof runHostCookiesRoute>) => {
+    res.statusCode = result.status;
+    for (const [name, value] of Object.entries(result.headers)) res.setHeader(name, value);
+    return typeof res.send === 'function' ? res.send(result.body) : res.end(result.body);
+  };
+
+  if (hostExecutionState.enabled) {
+    app.use(`${rendererBasePath}/execute`, async (req: any, res: any) => {
+      if (String(req.method || 'POST').toUpperCase() !== 'POST') return sendHostResult(res, { status: 405, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, body: JSON.stringify({ error: 'Method not allowed.' }) });
+      const body = req.body !== undefined ? req.body : await readNodeRequestBody(req);
+      return sendHostResult(res, await runHostExecutionRoute({ state: hostExecutionState, spec: await getSpec(), headers: req.headers || {}, body }));
+    });
+    app.use(`${rendererBasePath}/cookies`, async (req: any, res: any) => {
+      const method = String(req.method || 'GET').toUpperCase();
+      if (method !== 'GET' && method !== 'DELETE') return sendHostResult(res, { status: 405, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, body: JSON.stringify({ error: 'Method not allowed.' }) });
+      return sendHostResult(res, runHostCookiesRoute({ state: hostExecutionState, headers: req.headers || {}, clear: method === 'DELETE' }));
+    });
+  }
+
   app.use(normalizedPath, async (_req: any, res: any) => {
     try {
       const resolvedSpec = await getSpec();
@@ -144,6 +166,7 @@ export function setupFlexDoc(
         ...(flexDocOptions || {}),
         rendererBasePath,
         rendererVersion: rendererAssets.version,
+        hostExecutionPublic: publicHostExecutionOptions(hostExecutionState, rendererBasePath),
       });
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache');

@@ -13,6 +13,7 @@ const spec: OpenAPISpec = {
         parameters: [
           { name: 'limit', in: 'query', schema: { type: 'string' } },
           { name: 'X-Trace', in: 'header', schema: { type: 'string' } },
+          { name: 'session', in: 'cookie', schema: { type: 'string' } },
         ],
         responses: { '200': { description: 'ok' } },
       },
@@ -92,4 +93,17 @@ test('offers a custom server even when the OpenAPI document has no configured se
 
   expect(onOpenInApiClient.mock.calls[0][0].request.url).toBe('https://spot-canary.example.test/pets');
   expect(onOpenInApiClient.mock.calls[0][0].serverUrl).toBe('https://spot-canary.example.test');
+});
+
+
+test('blocks host-only Try It requests before Send when host execution is unavailable', () => {
+  const cookieSpec = JSON.parse(JSON.stringify(spec)) as OpenAPISpec;
+  const cookieParameter = (cookieSpec.paths['/pets'].get as any).parameters.find((parameter: any) => parameter.in === 'cookie' && parameter.name === 'session');
+  cookieParameter.schema.default = 'session-42';
+
+  render(<RequestPlayground spec={cookieSpec} path='/pets' method='get' theme='light' />);
+
+  expect(screen.getByLabelText('cookie session')).toHaveValue('session-42');
+  expect(screen.getByRole('alert')).toHaveTextContent('Host execution is disabled on this documentation server.');
+  expect(screen.getByRole('button', { name: 'Send request' })).toBeDisabled();
 });

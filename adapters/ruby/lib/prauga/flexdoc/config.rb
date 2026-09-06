@@ -11,7 +11,8 @@ module Prauga
       :expand,
       :try_it_default_server,
       :try_it_credentials,
-      :try_it_api_client_persistence_key
+      :try_it_api_client_persistence_key,
+      :try_it_host_execution
     ) do
       def initialize(
         path: "/docs",
@@ -22,7 +23,8 @@ module Prauga
         expand: nil,
         try_it_default_server: nil,
         try_it_credentials: nil,
-        try_it_api_client_persistence_key: nil
+        try_it_api_client_persistence_key: nil,
+        try_it_host_execution: false
       )
         normalized = "/#{path.to_s.gsub(%r{\A/+|/+$}, "")}"
         normalized = "/docs" if normalized == "/"
@@ -43,7 +45,8 @@ module Prauga
           expand: expand,
           try_it_default_server: try_it_default_server,
           try_it_credentials: try_it_credentials,
-          try_it_api_client_persistence_key: try_it_api_client_persistence_key
+          try_it_api_client_persistence_key: try_it_api_client_persistence_key,
+          try_it_host_execution: !!try_it_host_execution
         )
       end
     end

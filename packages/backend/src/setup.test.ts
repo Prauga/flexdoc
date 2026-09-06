@@ -46,9 +46,18 @@ describe('setupFlexDoc', () => {
     expect(handlers.has('/docs')).toBe(true);
     expect(handlers.has('/docs/__flexdoc/renderer.js')).toBe(true);
     expect(handlers.has('/docs/__flexdoc/renderer.css')).toBe(true);
+    expect(handlers.has('/docs/__flexdoc/execute')).toBe(false);
+    expect(handlers.has('/docs/__flexdoc/cookies')).toBe(false);
   });
 
-  it('normalizes path to include a leading slash', () => {
+  it('does not register or advertise host execution unless explicitly enabled', async () => {
+    setupFlexDoc(mockApp, '/docs', { spec: { openapi: '3.0.0' } });
+    expect(handlers.has('/docs/__flexdoc/execute')).toBe(false);
+    await handlers.get('/docs')!(mockReq, mockRes);
+    expect(generateFlexDocHTML).toHaveBeenCalledWith(expect.any(Object), expect.objectContaining({ hostExecutionPublic: undefined }));
+  });
+
+  it('normalizes path to include a leading slash' , () => {
     setupFlexDoc(mockApp, 'docs', { spec: { openapi: '3.0.0' } });
     expect(handlers.has('/docs')).toBe(true);
   });
@@ -71,7 +80,7 @@ describe('setupFlexDoc', () => {
       openapi: '3.0.0',
       info: { title: 'Test API', version: '1.0.0' },
     };
-    setupFlexDoc(mockApp, '/docs', { spec });
+    setupFlexDoc(mockApp, '/docs', { spec, options: { tryIt: { hostExecution: true } } });
 
     await handlers.get('/docs')!(mockReq, mockRes);
 
@@ -80,6 +89,7 @@ describe('setupFlexDoc', () => {
       expect.objectContaining({
         rendererBasePath: '/docs/__flexdoc',
         rendererVersion: 'test-renderer-version',
+        hostExecutionPublic: expect.objectContaining({ available: true, endpoint: '/docs/__flexdoc/execute' }),
       })
     );
     expect(mockRes.setHeader).toHaveBeenCalledWith(

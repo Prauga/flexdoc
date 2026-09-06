@@ -92,6 +92,13 @@ public static class FlexDocEndpointRouteBuilderExtensions
         if (options.TryItCredentials is not null) tryIt["credentials"] = options.TryItCredentials;
         if (options.TryItApiClientPersistenceKey is not null)
             tryIt["apiClientPersistenceKey"] = options.TryItApiClientPersistenceKey;
+        if (options.TryItHostExecution)
+            tryIt["hostExecution"] = new Dictionary<string, object?>
+            {
+                ["available"] = false,
+                ["endpoint"] = path + "/__flexdoc/execute",
+                ["capabilities"] = Array.Empty<string>(),
+            };
 
         var rendererOptions = new Dictionary<string, object?>
         {

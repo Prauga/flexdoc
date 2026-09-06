@@ -31,15 +31,15 @@ function createContext(authorization?: string): HonoLikeContext {
 
 describe('setupHonoFlexDoc', () => {
   let handlers: Map<string, (context: HonoLikeContext) => unknown | Promise<unknown>>;
-  let app: { get: jest.Mock };
+  let app: { get: jest.Mock; post: jest.Mock; delete: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
     handlers = new Map();
     app = {
-      get: jest.fn((path, handler) => {
-        handlers.set(path, handler);
-      }),
+      get: jest.fn((path, handler) => { handlers.set(path, handler); }),
+      post: jest.fn((path, handler) => { handlers.set(path, handler); }),
+      delete: jest.fn((path, handler) => { handlers.set(`DELETE ${path}`, handler); }),
     };
   });
 
@@ -50,12 +50,14 @@ describe('setupHonoFlexDoc', () => {
     expect(handlers.has('/docs/')).toBe(true);
     expect(handlers.has('/docs/__flexdoc/renderer.js')).toBe(true);
     expect(handlers.has('/docs/__flexdoc/renderer.css')).toBe(true);
+    expect(handlers.has('/docs/__flexdoc/execute')).toBe(false);
+    expect(handlers.has('/docs/__flexdoc/cookies')).toBe(false);
   });
 
   it('passes the shared renderer host options to the page', async () => {
     setupHonoFlexDoc(app, '/docs', {
       spec: { openapi: '3.0.0' },
-      options: { theme: 'dark' },
+      options: { theme: 'dark', tryIt: { hostExecution: true } },
     });
 
     const result = await handlers.get('/docs')!(createContext()) as HonoResult;
@@ -67,6 +69,7 @@ describe('setupHonoFlexDoc', () => {
         theme: 'dark',
         rendererBasePath: '/docs/__flexdoc',
         rendererVersion: 'hono-test-version',
+        hostExecutionPublic: expect.objectContaining({ available: true, endpoint: '/docs/__flexdoc/execute' }),
       }),
     );
   });

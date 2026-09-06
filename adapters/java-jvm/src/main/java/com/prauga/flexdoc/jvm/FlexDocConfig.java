@@ -12,10 +12,25 @@ public record FlexDocConfig(
     Object expand,
     String tryItDefaultServer,
     String tryItCredentials,
-    Object tryItApiClientPersistenceKey) {
+    Object tryItApiClientPersistenceKey,
+    boolean tryItHostExecution) {
   /** Preserves the original public constructor while leaving new renderer settings unset. */
   public FlexDocConfig(String path, String specUrl, String title, String theme, boolean tryItEnabled) {
-    this(path, specUrl, title, theme, tryItEnabled, null, null, null, null);
+    this(path, specUrl, title, theme, tryItEnabled, null, null, null, null, false);
+  }
+
+  /** Preserves the 2.9.0 constructor while adding the host-execution capability flag. */
+  public FlexDocConfig(
+      String path,
+      String specUrl,
+      String title,
+      String theme,
+      boolean tryItEnabled,
+      Object expand,
+      String tryItDefaultServer,
+      String tryItCredentials,
+      Object tryItApiClientPersistenceKey) {
+    this(path, specUrl, title, theme, tryItEnabled, expand, tryItDefaultServer, tryItCredentials, tryItApiClientPersistenceKey, false);
   }
 
   /** Creates validated configuration and normalizes the documentation path. */
@@ -79,6 +94,7 @@ public record FlexDocConfig(
     private String tryItDefaultServer;
     private String tryItCredentials;
     private Object tryItApiClientPersistenceKey;
+    private boolean tryItHostExecution;
 
     public Builder path(String value) { path = value; return this; }
     public Builder specUrl(String value) { specUrl = value; return this; }
@@ -91,6 +107,7 @@ public record FlexDocConfig(
     public Builder tryItCredentials(String value) { tryItCredentials = value; return this; }
     public Builder tryItApiClientPersistenceKey(String value) { tryItApiClientPersistenceKey = value; return this; }
     public Builder tryItApiClientPersistenceKey(boolean value) { tryItApiClientPersistenceKey = value; return this; }
+    public Builder tryItHostExecution(boolean value) { tryItHostExecution = value; return this; }
     public FlexDocConfig build() {
       return new FlexDocConfig(
           path,
@@ -101,7 +118,8 @@ public record FlexDocConfig(
           expand,
           tryItDefaultServer,
           tryItCredentials,
-          tryItApiClientPersistenceKey);
+          tryItApiClientPersistenceKey,
+          tryItHostExecution);
     }
   }
 }

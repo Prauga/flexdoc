@@ -9,6 +9,7 @@ interface RenderOptions extends FlexDocOptions {
   specUrl?: string;
   rendererBasePath?: string;
   rendererVersion?: string;
+  hostExecutionPublic?: import('./interfaces').FlexDocHostExecutionPublicOptions;
 }
 
 function escapeHtml(value: string): string {
@@ -32,14 +33,26 @@ export function generateFlexDocHTML(spec: OpenAPISpec | null, options: RenderOpt
     rendererBasePath = './__flexdoc',
     rendererVersion,
     auth: _serverOnlyAuth,
+    tryIt: serverTryIt,
+    hostExecutionPublic,
     ...rendererOptions
   } = options;
   const assetVersion = rendererVersion ? `?v=${encodeURIComponent(rendererVersion)}` : '';
 
   const documentTitle = title || spec?.info?.title || 'API Documentation';
+  const publicTryIt = serverTryIt || hostExecutionPublic ? {
+    ...(serverTryIt ? {
+      ...(serverTryIt.enabled !== undefined ? { enabled: serverTryIt.enabled } : {}),
+      ...(serverTryIt.defaultServer !== undefined ? { defaultServer: serverTryIt.defaultServer } : {}),
+      ...(serverTryIt.credentials !== undefined ? { credentials: serverTryIt.credentials } : {}),
+      ...(serverTryIt.apiClientPersistenceKey !== undefined ? { apiClientPersistenceKey: serverTryIt.apiClientPersistenceKey } : {}),
+    } : {}),
+    ...(hostExecutionPublic ? { hostExecution: hostExecutionPublic } : {}),
+  } : undefined;
   const publicOptions = {
     contractVersion: '1',
     ...rendererOptions,
+    ...(publicTryIt ? { tryIt: publicTryIt } : {}),
     ...(title ? { title } : {}),
     ...(description ? { description } : {}),
     ...(version ? { version } : {}),

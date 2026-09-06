@@ -95,6 +95,31 @@ describe('Postman import', () => {
     expect(imported.warnings).toEqual([]);
   });
 
+  it('maps Postman host-only auth schemes to canonical typed auth with explicit host warnings', () => {
+    const imported = importPostmanCollection({
+      info: { name: 'Advanced auth' },
+      item: [
+        { name: 'Digest', request: { method: 'GET', url: 'https://example.test/digest', auth: { type: 'digest', digest: [{ key: 'username', value: 'alice' }, { key: 'password', value: 'secret' }] } } },
+        { name: 'Hawk', request: { method: 'GET', url: 'https://example.test/hawk', auth: { type: 'hawk', hawk: [{ key: 'authId', value: 'id-1' }, { key: 'authKey', value: 'key-1' }, { key: 'algorithm', value: 'sha256' }, { key: 'extraData', value: 'ext-1' }] } } },
+        { name: 'NTLM', request: { method: 'GET', url: 'https://example.test/ntlm', auth: { type: 'ntlm', ntlm: [{ key: 'username', value: 'bob' }, { key: 'password', value: 'pw' }, { key: 'domain', value: 'ACME' }, { key: 'workstation', value: 'WS1' }] } } },
+        { name: 'OAuth1', request: { method: 'GET', url: 'https://example.test/oauth1', auth: { type: 'oauth1', oauth1: [{ key: 'consumerKey', value: 'ck' }, { key: 'consumerSecret', value: 'cs' }, { key: 'token', value: 'tk' }, { key: 'tokenSecret', value: 'ts' }, { key: 'signatureMethod', value: 'HMAC-SHA256' }] } } },
+        { name: 'AWS', request: { method: 'GET', url: 'https://example.test/aws', auth: { type: 'awsv4', awsv4: [{ key: 'accessKey', value: 'AKIA' }, { key: 'secretKey', value: 'secret' }, { key: 'sessionToken', value: 'session' }, { key: 'region', value: 'us-east-1' }, { key: 'service', value: 'execute-api' }] } } },
+        { name: 'Cookie key', request: { method: 'GET', url: 'https://example.test/cookie', auth: { type: 'apikey', apikey: [{ key: 'key', value: 'sid' }, { key: 'value', value: 'abc' }, { key: 'in', value: 'cookie' }] } } },
+      ],
+    });
+
+    expect(imported.requests.map((request) => request.request.auth)).toEqual([
+      { type: 'digest', username: 'alice', password: 'secret' },
+      { type: 'hawk', id: 'id-1', key: 'key-1', algorithm: 'sha256', ext: 'ext-1' },
+      { type: 'ntlm', username: 'bob', password: 'pw', domain: 'ACME', workstation: 'WS1' },
+      { type: 'oauth1', consumerKey: 'ck', consumerSecret: 'cs', token: 'tk', tokenSecret: 'ts', signatureMethod: 'HMAC-SHA256', realm: undefined },
+      { type: 'awsv4', accessKey: 'AKIA', secretKey: 'secret', sessionToken: 'session', region: 'us-east-1', service: 'execute-api' },
+      { type: 'apiKey', key: 'sid', value: 'abc', in: 'cookie' },
+    ]);
+    expect(imported.warnings.filter((item) => item.code === 'postman-auth-host-execution')).toHaveLength(6);
+    expect(imported.warnings.every((item) => item.code !== 'postman-auth-unsupported')).toBe(true);
+  });
+
   it('preserves raw, urlencoded, GraphQL, and multipart bodies as structured request modes', () => {
     const imported = importPostmanCollection({
       info: { name: 'Bodies' },

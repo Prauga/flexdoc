@@ -6,7 +6,7 @@ export { normalizeOperation, resolveObject, resolvePathItem, resolveServerVariab
 export type { NormalizedOperation } from './openapi-normalizer.js';
 export { buildRequest, initialRequestValues, operationFor, parametersFor } from './request-builder.js';
 export type { BuiltRequest, RequestValue, RequestValues } from './request-builder.js';
-export { buildHttpRequest, inferHttpBodyMode, requestDraftFromBuiltRequest, resolveHttpRequestDraftVariables } from './http-client.js';
-export type { HttpAuth, HttpBodyMode, HttpFormDataEntry, HttpGraphqlBody, HttpKeyValue, HttpRequestBuildOptions, HttpRequestDraft, HttpVariables } from './http-client.js';
+export { buildHttpRequest, httpHostExecutionRequirements, inferHttpBodyMode, requestDraftFromBuiltRequest, resolveHttpRequestDraftVariables } from './http-client.js';
+export type { HttpAuth, HttpAwsV4Auth, HttpBinaryBody, HttpBodyMode, HttpDigestAuth, HttpFormDataEntry, HttpGraphqlBody, HttpHawkAuth, HttpHostExecutionCapability, HttpHostExecutionSelection, HttpKeyValue, HttpNtlmAuth, HttpOAuth1Auth, HttpRequestBuildOptions, HttpRequestDraft, HttpVariables } from './http-client.js';
 export { generateCodeSample, languageLabel } from './code-samples.js';
 export type { CodeSampleLanguage } from './code-samples.js';

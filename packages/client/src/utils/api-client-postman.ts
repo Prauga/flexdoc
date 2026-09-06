@@ -95,14 +95,16 @@ function parsePostmanAuth(
   }
   if (type === 'apikey') {
     const location = authField(value, 'apikey', 'in').toLowerCase();
-    if (location && location !== 'header' && location !== 'query') {
+    if (location === 'cookie') {
+      warning(warnings, 'postman-auth-host-execution', path, 'Imported Postman cookie API key requires FlexDoc API host execution; the browser will not send this auth mode directly.');
+    } else if (location && location !== 'header' && location !== 'query') {
       warning(warnings, 'postman-auth-apikey-location', path, `Unsupported Postman API-key location "${location}"; imported as a header API key.`);
     }
     return {
       type: 'apiKey',
       key: authField(value, 'apikey', 'key'),
       value: authField(value, 'apikey', 'value'),
-      in: location === 'query' ? 'query' : 'header',
+      in: location === 'query' ? 'query' : location === 'cookie' ? 'cookie' : 'header',
     };
   }
   if (type === 'oauth2') {
@@ -123,6 +125,57 @@ function parsePostmanAuth(
       username: authField(value, 'oauth2', 'username') || undefined,
       password: authField(value, 'oauth2', 'password') || undefined,
       refreshToken: authField(value, 'oauth2', 'refreshToken') || undefined,
+    };
+  }
+
+  const hostWarning = (name: string) => warning(warnings, 'postman-auth-host-execution', path, `Imported Postman ${name} auth requires FlexDoc API host execution; the browser will not send this auth mode directly.`);
+  if (type === 'digest') {
+    hostWarning('Digest');
+    return { type: 'digest', username: authField(value, 'digest', 'username'), password: authField(value, 'digest', 'password') };
+  }
+  if (type === 'hawk') {
+    hostWarning('Hawk');
+    const algorithm = authField(value, 'hawk', 'algorithm').toLowerCase();
+    return {
+      type: 'hawk',
+      id: authField(value, 'hawk', 'authId') || authField(value, 'hawk', 'id'),
+      key: authField(value, 'hawk', 'authKey') || authField(value, 'hawk', 'key'),
+      algorithm: algorithm === 'sha1' ? 'sha1' : 'sha256',
+      ext: authField(value, 'hawk', 'extraData') || authField(value, 'hawk', 'ext') || undefined,
+    };
+  }
+  if (type === 'ntlm') {
+    hostWarning('NTLM/Negotiate');
+    return {
+      type: 'ntlm',
+      username: authField(value, 'ntlm', 'username'),
+      password: authField(value, 'ntlm', 'password'),
+      domain: authField(value, 'ntlm', 'domain') || undefined,
+      workstation: authField(value, 'ntlm', 'workstation') || undefined,
+    };
+  }
+  if (type === 'oauth1') {
+    hostWarning('OAuth 1.0');
+    const signatureMethod = authField(value, 'oauth1', 'signatureMethod').toUpperCase();
+    return {
+      type: 'oauth1',
+      consumerKey: authField(value, 'oauth1', 'consumerKey'),
+      consumerSecret: authField(value, 'oauth1', 'consumerSecret'),
+      token: authField(value, 'oauth1', 'token') || undefined,
+      tokenSecret: authField(value, 'oauth1', 'tokenSecret') || undefined,
+      signatureMethod: signatureMethod === 'HMAC-SHA256' || signatureMethod === 'PLAINTEXT' ? signatureMethod : 'HMAC-SHA1',
+      realm: authField(value, 'oauth1', 'realm') || undefined,
+    };
+  }
+  if (type === 'awsv4') {
+    hostWarning('AWS Signature V4');
+    return {
+      type: 'awsv4',
+      accessKey: authField(value, 'awsv4', 'accessKey'),
+      secretKey: authField(value, 'awsv4', 'secretKey'),
+      sessionToken: authField(value, 'awsv4', 'sessionToken') || undefined,
+      region: authField(value, 'awsv4', 'region'),
+      service: authField(value, 'awsv4', 'service'),
     };
   }
 

@@ -1,8 +1,10 @@
 export { FlexDocModule } from './flexdoc.module';
 export { FlexDocService } from './flexdoc.service';
-export { FlexDocOptions, FlexDocModuleOptions } from './interfaces';
+export { FlexDocOptions, FlexDocModuleOptions, FlexDocHostExecutionOptions, FlexDocHostExecutionPublicOptions, FlexDocHostExecutionCapability } from './interfaces';
 export { setupFlexDoc } from './setup';
 export { setupExpressFlexDoc, setupFastifyFlexDoc, setupFastifySwaggerFlexDoc, setupNestFlexDoc } from './framework-adapters';
 export type { ExpressLikeApplication, FastifyLikeApplication, FastifyLikeReply, FastifyLikeRequest, NestLikeApplication } from './framework-adapters';
 export { setupHonoFlexDoc } from './hono-adapter';
+export { createHostExecutionState, executeHostRequest, publicHostExecutionOptions } from './host-execution';
+export { parseHostExecutionRequestBody, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 export type { HonoLikeApplication, HonoLikeContext } from './hono-adapter';

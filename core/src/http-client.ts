@@ -26,6 +26,34 @@ export interface HttpBinaryBody {
   contentType?: string;
 }
 
+export type HttpHostExecutionCapability = 'cookies' | 'clientCertificates' | 'digest' | 'hawk' | 'ntlm' | 'oauth1' | 'awsv4';
+
+export interface HttpHostExecutionSelection {
+  certificateId?: string;
+  cookieJar?: 'session';
+}
+
+export interface HttpDigestAuth { type: 'digest'; username: string; password: string; }
+export interface HttpHawkAuth { type: 'hawk'; id: string; key: string; algorithm?: 'sha1' | 'sha256'; ext?: string; }
+export interface HttpNtlmAuth { type: 'ntlm'; username: string; password: string; domain?: string; workstation?: string; }
+export interface HttpOAuth1Auth {
+  type: 'oauth1';
+  consumerKey: string;
+  consumerSecret: string;
+  token?: string;
+  tokenSecret?: string;
+  signatureMethod?: 'HMAC-SHA1' | 'HMAC-SHA256' | 'PLAINTEXT';
+  realm?: string;
+}
+export interface HttpAwsV4Auth {
+  type: 'awsv4';
+  accessKey: string;
+  secretKey: string;
+  sessionToken?: string;
+  region: string;
+  service: string;
+}
+
 export type HttpOAuth2GrantType = 'accessToken' | 'authorizationCode' | 'clientCredentials' | 'password' | 'implicit';
 
 export interface HttpOAuth2Auth {
@@ -50,7 +78,12 @@ export type HttpAuth =
   | { type: 'bearer'; token: string }
   | HttpOAuth2Auth
   | { type: 'basic'; username: string; password: string }
-  | { type: 'apiKey'; key: string; value: string; in: 'header' | 'query' };
+  | { type: 'apiKey'; key: string; value: string; in: 'header' | 'query' | 'cookie' }
+  | HttpDigestAuth
+  | HttpHawkAuth
+  | HttpNtlmAuth
+  | HttpOAuth1Auth
+  | HttpAwsV4Auth;
 
 export interface HttpRequestDraft {
   method: string;
@@ -65,6 +98,7 @@ export interface HttpRequestDraft {
   binary?: HttpBinaryBody;
   graphql?: HttpGraphqlBody;
   auth?: HttpAuth;
+  hostExecution?: HttpHostExecutionSelection;
 }
 
 export type HttpVariables = Record<string, string>;
@@ -99,6 +133,21 @@ export function inferHttpBodyMode(draft: Partial<HttpRequestDraft>): HttpBodyMod
   if (contentType.includes('multipart/form-data')) return 'formdata';
   if (contentType.includes('json')) return 'json';
   return 'raw';
+}
+
+export function httpHostExecutionRequirements(draft: Partial<HttpRequestDraft>): HttpHostExecutionCapability[] {
+  const requirements = new Set<HttpHostExecutionCapability>();
+  const auth = draft.auth;
+  if (auth?.type === 'apiKey' && auth.in === 'cookie') requirements.add('cookies');
+  else if (auth?.type === 'digest') requirements.add('digest');
+  else if (auth?.type === 'hawk') requirements.add('hawk');
+  else if (auth?.type === 'ntlm') requirements.add('ntlm');
+  else if (auth?.type === 'oauth1') requirements.add('oauth1');
+  else if (auth?.type === 'awsv4') requirements.add('awsv4');
+  if (draft.headers?.some((entry) => entry.enabled !== false && entry.key.trim().toLowerCase() === 'cookie')) requirements.add('cookies');
+  if (draft.hostExecution?.cookieJar === 'session') requirements.add('cookies');
+  if (draft.hostExecution?.certificateId) requirements.add('clientCertificates');
+  return [...requirements];
 }
 
 function appendQuery(url: string, entries: HttpKeyValue[]): string {
@@ -209,11 +258,36 @@ function resolveAuthVariables(auth: HttpAuth | undefined, variables: HttpVariabl
       password: resolveTemplateValue(auth.password, variables) || '',
     };
   }
-  return {
+  if (auth.type === 'apiKey') return {
     type: 'apiKey',
     key: resolveTemplateValue(auth.key, variables) || '',
     value: resolveTemplateValue(auth.value, variables) || '',
     in: auth.in,
+  };
+  if (auth.type === 'digest') return { type: 'digest', username: resolveTemplateValue(auth.username, variables) || '', password: resolveTemplateValue(auth.password, variables) || '' };
+  if (auth.type === 'hawk') return { ...auth, id: resolveTemplateValue(auth.id, variables) || '', key: resolveTemplateValue(auth.key, variables) || '', ext: resolveTemplateValue(auth.ext, variables) };
+  if (auth.type === 'ntlm') return {
+    ...auth,
+    username: resolveTemplateValue(auth.username, variables) || '',
+    password: resolveTemplateValue(auth.password, variables) || '',
+    domain: resolveTemplateValue(auth.domain, variables),
+    workstation: resolveTemplateValue(auth.workstation, variables),
+  };
+  if (auth.type === 'oauth1') return {
+    ...auth,
+    consumerKey: resolveTemplateValue(auth.consumerKey, variables) || '',
+    consumerSecret: resolveTemplateValue(auth.consumerSecret, variables) || '',
+    token: resolveTemplateValue(auth.token, variables),
+    tokenSecret: resolveTemplateValue(auth.tokenSecret, variables),
+    realm: resolveTemplateValue(auth.realm, variables),
+  };
+  return {
+    ...auth,
+    accessKey: resolveTemplateValue(auth.accessKey, variables) || '',
+    secretKey: resolveTemplateValue(auth.secretKey, variables) || '',
+    sessionToken: resolveTemplateValue(auth.sessionToken, variables),
+    region: resolveTemplateValue(auth.region, variables) || '',
+    service: resolveTemplateValue(auth.service, variables) || '',
   };
 }
 
@@ -256,6 +330,7 @@ export function resolveHttpRequestDraftVariables(draft: HttpRequestDraft, variab
       variables: resolveTemplateValue(draft.graphql.variables, variables) || '',
     } : undefined,
     auth: resolveAuthVariables(draft.auth, variables),
+    hostExecution: draft.hostExecution ? { ...draft.hostExecution } : undefined,
   };
 }
 
@@ -274,9 +349,9 @@ function applyAuth(draft: HttpRequestDraft, headers: Array<[string, string]>, qu
     if (auth.username || auth.password) replaceHeader(headers, 'Authorization', `Basic ${encodeBasicCredential(`${auth.username}:${auth.password}`)}`);
     return;
   }
-  if (!auth.key) return;
+  if (auth.type !== 'apiKey' || !auth.key) return;
   if (auth.in === 'query') query.push({ key: auth.key, value: auth.value });
-  else replaceHeader(headers, auth.key, auth.value);
+  else if (auth.in === 'header') replaceHeader(headers, auth.key, auth.value);
 }
 
 export function buildHttpRequest(draft: HttpRequestDraft, options: HttpRequestBuildOptions = {}): HttpBuiltRequest {
@@ -285,6 +360,8 @@ export function buildHttpRequest(draft: HttpRequestDraft, options: HttpRequestBu
   const url = resolvedDraft.url.trim();
   if (!url) throw new Error('Request URL is required.');
 
+  const requirements = httpHostExecutionRequirements(resolvedDraft);
+  if (requirements.length > 0) throw new Error(`This request requires API host execution (${requirements.join(', ')}).`);
   const query = enabledPairs(resolvedDraft.query);
   const headerEntries: Array<[string, string]> = enabledPairs(resolvedDraft.headers).map(({ key, value }) => [key, value]);
   applyAuth(resolvedDraft, headerEntries, query);

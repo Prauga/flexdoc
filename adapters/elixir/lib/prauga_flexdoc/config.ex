@@ -8,7 +8,8 @@ defmodule PraugaFlexDoc.Config do
             expand: nil,
             try_it_default_server: nil,
             try_it_credentials: nil,
-            try_it_api_client_persistence_key: nil
+            try_it_api_client_persistence_key: nil,
+            try_it_host_execution: false
 
   def new(opts \\ []) do
     config = struct!(__MODULE__, Map.new(opts))

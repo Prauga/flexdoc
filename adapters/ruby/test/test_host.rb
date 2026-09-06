@@ -42,7 +42,8 @@ class FlexDocHostTest < Minitest::Test
         expand: "documentation",
         try_it_default_server: "https://api.example.test",
         try_it_credentials: "include",
-        try_it_api_client_persistence_key: false
+        try_it_api_client_persistence_key: false,
+        try_it_host_execution: true
       )
     )
     options = renderer_options(host)
@@ -52,6 +53,10 @@ class FlexDocHostTest < Minitest::Test
     assert_equal "https://api.example.test", options.dig("tryIt", "defaultServer")
     assert_equal "include", options.dig("tryIt", "credentials")
     assert_equal false, options.dig("tryIt", "apiClientPersistenceKey")
+    assert_equal false, options.dig("tryIt", "hostExecution", "available")
+    assert_equal "/docs/__flexdoc/execute", options.dig("tryIt", "hostExecution", "endpoint")
+    assert_equal [], options.dig("tryIt", "hostExecution", "capabilities")
+    assert_equal 404, host.response_for_path("/docs/__flexdoc/execute").status
 
     list_host = Prauga::FlexDoc::Host.new(
       Prauga::FlexDoc::Config.new(expand: ["parameters", "tryIt"])

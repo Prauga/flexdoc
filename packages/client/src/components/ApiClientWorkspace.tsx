@@ -42,6 +42,7 @@ function withWorkspaceDefaults(initialRequest?: Partial<HttpRequestDraft>): Http
     formData: initialRequest?.formData?.map((entry) => ({ ...entry })),
     binary: initialRequest?.binary ? { ...initialRequest.binary } : undefined,
     graphql: initialRequest?.graphql ? { ...initialRequest.graphql } : undefined,
+    hostExecution: initialRequest?.hostExecution ? { ...initialRequest.hostExecution } : undefined,
     auth: initialRequest?.auth
       ? initialRequest.auth.type === 'oauth2'
         ? { ...initialRequest.auth, scopes: initialRequest.auth.scopes ? [...initialRequest.auth.scopes] : undefined }
@@ -223,6 +224,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
           selectedFolderId={selectedFolderId}
           workspace={workspace}
           onWorkspaceChange={setWorkspace}
+          hostExecution={apiClientProps.hostExecution}
           theme={theme}
         />
       </div>
@@ -253,6 +255,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
       theme={theme}
       credentials={apiClientProps.credentials}
       requestInterceptor={apiClientProps.requestInterceptor}
+      hostExecution={apiClientProps.hostExecution}
       externalVariables={externalVariables}
       externalEnvironmentVariables={externalEnvironmentVariables}
       onCollectionChanges={onCollectionChanges}

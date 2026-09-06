@@ -22,6 +22,7 @@ final readonly class FlexDocConfig
         public ?string $tryItDefaultServer = null,
         public ?string $tryItCredentials = null,
         public string|false|null $tryItApiClientPersistenceKey = null,
+        public bool $tryItHostExecution = false,
     ) {
         $normalized = '/' . trim($path, '/');
         $this->path = $normalized === '/' ? '/docs' : $normalized;

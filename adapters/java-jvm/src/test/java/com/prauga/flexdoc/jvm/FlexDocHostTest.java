@@ -33,12 +33,14 @@ class FlexDocHostTest {
             .tryItDefaultServer("https://api.example.test")
             .tryItCredentials("include")
             .tryItApiClientPersistenceKey(false)
+            .tryItHostExecution(true)
             .build());
     String presetHtml = presetHost.documentation().bodyUtf8();
 
     assertTrue(presetHtml.contains("\"expand\":\"documentation\""));
     assertTrue(presetHtml.contains("\"tryIt\":{\"enabled\":true,\"defaultServer\":\"https://api.example.test\",\"credentials\":\"include\",\"apiClientPersistenceKey\":false}"));
     assertFalse(presetHtml.contains("\"apiClientPersistenceKey\":\"false\""));
+    assertTrue(presetHtml.contains("\"hostExecution\":{\"available\":false,\"endpoint\":\"/docs/__flexdoc/execute\",\"capabilities\":[]}"));
 
     FlexDocHost listHost = new FlexDocHost(
         FlexDocConfig.builder().expandSections(List.of("parameters", "tryIt")).build());

@@ -268,3 +268,11 @@ test('builds binary request bodies from browser File objects and preserves them 
     binary: { fileName: 'missing.bin' },
   }), /needs a file selection/);
 });
+
+test('marks cookie and advanced auth requests as host-execution requirements', async () => {
+  const { httpHostExecutionRequirements } = await import('../dist/index.js');
+  assert.deepEqual(httpHostExecutionRequirements({ method: 'GET', url: 'https://api.example.test', auth: { type: 'digest', username: 'u', password: 'p' } }), ['digest']);
+  assert.deepEqual(httpHostExecutionRequirements({ method: 'GET', url: 'https://api.example.test', auth: { type: 'apiKey', key: 'sid', value: 'x', in: 'cookie' } }), ['cookies']);
+  assert.deepEqual(httpHostExecutionRequirements({ method: 'GET', url: 'https://api.example.test', headers: [{ key: 'Cookie', value: 'sid=x' }], hostExecution: { certificateId: 'cert-1' } }).sort(), ['clientCertificates', 'cookies']);
+  assert.throws(() => buildHttpRequest({ method: 'GET', url: 'https://api.example.test', auth: { type: 'digest', username: 'u', password: 'p' } }), /requires API host execution/);
+});
