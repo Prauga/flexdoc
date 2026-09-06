@@ -3,6 +3,7 @@ import * as dns from 'dns';
 import * as http from 'http';
 import * as https from 'https';
 import * as net from 'net';
+import { getPublicSuffix } from 'tldts';
 import type {
   FlexDocHostExecutionCapability,
   FlexDocHostExecutionOptions,
@@ -188,6 +189,15 @@ function domainMatches(hostname: string, cookie: CookieRecord): boolean {
   return cookie.hostOnly ? host === domain : host === domain || host.endsWith(`.${domain}`);
 }
 
+export function isCookieDomainAllowed(responseHostname: string, candidateDomain: string): boolean {
+  const responseHost = responseHostname.toLowerCase().replace(/^\[|\]$/g, '');
+  const domain = candidateDomain.toLowerCase().replace(/^\./, '');
+  if (!domain || domain.endsWith('.') || net.isIP(responseHost) || net.isIP(domain)) return false;
+  if (responseHost !== domain && !responseHost.endsWith(`.${domain}`)) return false;
+  const publicSuffix = getPublicSuffix(domain, { allowPrivateDomains: true, extractHostname: false });
+  return !publicSuffix || publicSuffix.toLowerCase() !== domain;
+}
+
 function cookiesForUrl(state: HostExecutionState, sessionId: string, url: URL): CookieRecord[] {
   const existing = cleanExpired(state.jars.get(sessionId) || []);
   state.jars.set(sessionId, existing);
@@ -215,8 +225,7 @@ function parseSetCookie(value: string, url: URL): CookieRecord | undefined {
     const raw = index < 0 ? '' : attribute.slice(index + 1).trim();
     if (key === 'domain' && raw) {
       const domain = raw.replace(/^\./, '').toLowerCase();
-      const responseHost = url.hostname.toLowerCase();
-      if (responseHost !== domain && !responseHost.endsWith(`.${domain}`)) return undefined;
+      if (!isCookieDomainAllowed(url.hostname, domain)) return undefined;
       cookie.domain = domain;
       cookie.hostOnly = false;
     }

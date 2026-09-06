@@ -95,7 +95,7 @@ The Node executor applies these controls:
 - execution timeout is bounded to 120 seconds;
 - same-origin redirect following is bounded to five redirects;
 - signed cookie-jar sessions are bounded in memory;
-- response `Set-Cookie` values with a `Domain` unrelated to the response host are rejected.
+- response `Set-Cookie` values with a `Domain` unrelated to the response host, or scoped to an ICANN/private public suffix, are rejected using the Public Suffix List.
 
 `allowedOrigins` is a security boundary, not a convenience wildcard. Configure the smallest exact-origin set required by the documentation. Do not construct it from untrusted request input. Public documentation with host execution enabled should still be treated as a server-side proxy surface: protect the docs route with `auth` and prefer a tight explicit allowlist when the OpenAPI `servers` set is broader than the intended execution surface.
 

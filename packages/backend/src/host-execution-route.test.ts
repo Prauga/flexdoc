@@ -1,5 +1,5 @@
 import * as http from 'http';
-import { allowedHostExecutionOrigins, assertHostExecutionResolvedAddressAllowed, createHostExecutionState, ensureHostExecutionSession } from './host-execution';
+import { allowedHostExecutionOrigins, assertHostExecutionResolvedAddressAllowed, createHostExecutionState, ensureHostExecutionSession, isCookieDomainAllowed } from './host-execution';
 import { hostExecutionRequestOrigin, parseHostExecutionRequestBody, runHostExecutionRoute } from './host-execution-route';
 
 function headers(contentType = 'application/json'): Record<string, string> {
@@ -66,6 +66,15 @@ describe('host execution HTTP protocol', () => {
     expect(() => assertHostExecutionResolvedAddressAllowed('fe80::a9fe:a9fe')).toThrow('DNS resolutions');
     expect(() => assertHostExecutionResolvedAddressAllowed('::ffff:169.254.169.254')).toThrow('DNS resolutions');
     expect(() => assertHostExecutionResolvedAddressAllowed('10.0.0.10')).not.toThrow();
+  });
+
+  it('rejects public-suffix cookie domains while allowing registrable parent domains', () => {
+    expect(isCookieDomainAllowed('api.example.com', 'example.com')).toBe(true);
+    expect(isCookieDomainAllowed('foo.com', 'com')).toBe(false);
+    expect(isCookieDomainAllowed('foo.example.co.uk', 'co.uk')).toBe(false);
+    expect(isCookieDomainAllowed('bucket.s3.amazonaws.com', 's3.amazonaws.com')).toBe(false);
+    expect(isCookieDomainAllowed('api.example.com', 'other.com')).toBe(false);
+    expect(isCookieDomainAllowed('127.0.0.1', '127.0.0.1')).toBe(false);
   });
 
   it('rejects response cookies whose Domain does not match the response host', async () => {
