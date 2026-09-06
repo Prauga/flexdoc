@@ -16,7 +16,7 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - **Rust:** Axum, Actix Web
 - **Elixir:** Plug, Phoenix
 
-The backend-coverage program shipped in 2.3.0. API Client development then continued through internal 2.4–2.7 milestones without publishing artificial intermediate FlexDoc package releases. The coordinated product line is now **2.8.0**, which adds the standalone API Client milestone catch-up and Postman import; see [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the milestone mapping and definition of done.
+The backend-coverage program shipped in 2.3.0. API Client development then continued through internal 2.4–2.7 milestones without publishing artificial intermediate FlexDoc package releases. The current published coordinated product line is **2.8.0**, which adds the standalone API Client milestone catch-up and Postman import. Source development for **2.9 is in progress** with a shared request executor, exported collection-runner core API, scripting IntelliSense, and a full request-history inspector. The collection runner is not yet wired into `ApiClientWorkspace`, so 2.9 source does not yet provide Run collection/folder controls in the product UI. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the milestone mapping, current 2.9 boundaries, and behavior notes.
 
 ## Package family
 

@@ -1,6 +1,8 @@
-# API Client roadmap: FlexDoc 2.3.0 → 2.8.0
+# API Client roadmap: FlexDoc 2.3.0 → 2.9 (in progress)
 
 FlexDoc 2.3.0 was the last coordinated product release before the API Client workspace grew through several focused development milestones. Those milestone numbers described source-development slices; they were not separate published FlexDoc package releases. The coordinated product line moved directly from published **2.3.0** to published **2.8.0** after the 2.8 source definition of done was satisfied.
+
+The current published coordinated product line remains **2.8.0**. FlexDoc **2.9 is source work in progress**; the capabilities recorded below do not imply that 2.9 packages have been published or that every planned product control is available in `ApiClientWorkspace` yet.
 
 Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and `@prauga/flexdoc-backend` carry the coordinated FlexDoc product version because they own and distribute the canonical renderer. Native adapters receive their own semantic-version increment when they package a new renderer, rather than being renamed to the product version.
 
@@ -14,6 +16,7 @@ Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and 
 | **2.6** | persisted post-response tests and script output in request history | complete |
 | **2.7** | canonical Try It → API Client request sessions, inherit-first auth defaults, complete browser OAuth grant flows | complete |
 | **2.8** | Postman import into the canonical standalone workspace and coordinated product-version catch-up | shipped |
+| **2.9** | shared request executor, collection-runner core API, scripting IntelliSense, and full request-history inspector | in progress |
 
 Viewer expansion defaults/settings and renderer-option parity landed before the 2.8 release and are included in the 2.8 product surface.
 
@@ -22,6 +25,21 @@ Viewer expansion defaults/settings and renderer-option parity landed before the 
 The standalone `ApiClientWorkspace` is the API-development product surface. Importers are adapters into its canonical workspace model; they must not introduce a Postman-specific request engine, persistence model, auth resolver, script executor, or history store.
 
 Imported data should become ordinary FlexDoc collections, folders, requests, variables, environments, auth settings, and scripts immediately after conversion. Unsupported source behavior must produce an explicit warning instead of being silently reinterpreted.
+
+## 2.9 source work in progress
+
+The current 2.9 branch adds reusable execution primitives and richer API Client tooling, but it is not yet a completed product release.
+
+- `executeApiClientRequest` is the shared request executor used by normal sends and by the collection-runner core.
+- `runApiClientCollection` is exported from `@prauga/flexdoc-client` as an API/core capability. `ApiClientWorkspace` does not invoke it yet, and there is currently no **Run collection** or **Run folder** control in the product UI.
+- Collection runs include descendant folders when a folder scope is supplied. Execution order is the current `workspace.requests` array order, which in practice follows saved/imported/created request order; it is not derived from folder-tree or visual UI order.
+- Runner `passed`/`failed` counts describe execution health: transport errors, script errors, or failed tests make an item fail. An HTTP status by itself does not, so an expected `4xx` response can pass a collection run.
+- Request History uses inspector-oriented outcome semantics: transport/script/test failures **and HTTP 4xx/5xx statuses** appear under its failed outcome filter and red status treatment. Therefore an expected `4xx` can be a passing collection-runner item while still appearing as a failed/error response in History.
+- New history entries persist response headers and response bodies locally in IndexedDB. History is bounded to 100 entries, and each stored response body is capped at 256 KiB. Response payloads can contain tokens, PII, or other sensitive data; users can remove individual entries or clear History to remove that persisted request data.
+- A pre-request script error that occurs before a request result exists does not append a history row. This matches the current single-request Send path.
+- While scripting IntelliSense suggestions are open, `Tab` or `Enter` accepts the active suggestion. `Escape` closes the popup and restores normal indentation/newline behavior.
+
+These boundaries should remain explicit until the collection runner is surfaced as a user-facing workspace control and the final 2.9 release definition is complete.
 
 ## 2.8.0 definition of done
 
@@ -43,6 +61,6 @@ The 2.8 release is complete with all of the following satisfied:
 
 ## Release interpretation
 
-Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product release is **2.8.0**, published directly after 2.3.0.
+Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product release is **2.8.0**, published directly after 2.3.0; 2.9 remains an in-progress source milestone until its release definition is completed and versions are deliberately advanced.
 
-For native adapters, each package remains on its independently versioned semantic-release line while carrying the 2.8 renderer. `@prauga/flexdoc-core` remains independently versioned unless the framework-neutral engine itself changes. The CLI also remains independently versioned and consumes the coordinated 2.8 client line.
+For native adapters, each package remains on its independently versioned semantic-release line while carrying the current coordinated renderer. `@prauga/flexdoc-core` remains independently versioned unless the framework-neutral engine itself changes. The CLI also remains independently versioned and consumes the coordinated client line.

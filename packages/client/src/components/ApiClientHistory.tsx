@@ -10,6 +10,7 @@ interface Props {
   workspace: ApiClientWorkspaceState;
   onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
   onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts, collectionId?: string, folderId?: string) => void;
+  onViewAll?: () => void;
   theme: 'light' | 'dark';
 }
 
@@ -18,7 +19,7 @@ function displayTime(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
-export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange, onLoadRequest, theme }) => {
+export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange, onLoadRequest, onViewAll, theme }) => {
   const mutedClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
 
   const loadHistory = (id: string) => {
@@ -36,30 +37,23 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
     onWorkspaceChange((current) => ({ ...current, history: current.history.filter((entry) => entry.id !== id) }));
   };
 
-  const clearHistory = () => {
-    onWorkspaceChange((current) => ({ ...current, history: [] }));
-  };
-
   return <section className='space-y-3' aria-labelledby='api-client-history-heading'>
     <div className='flex items-center justify-between gap-2'>
       <div className='flex items-center gap-2'>
         <Clock3 className='h-4 w-4' />
-        <h3 id='api-client-history-heading' className='font-semibold'>History</h3>
+        <h3 id='api-client-history-heading' className='font-semibold'>Recent history</h3>
       </div>
-      {workspace.history.length > 0 && <button type='button' className={`text-xs underline underline-offset-2 ${mutedClass}`} onClick={clearHistory}>Clear history</button>}
+      {workspace.history.length > 0 && onViewAll && <button type='button' className={`text-xs underline underline-offset-2 ${mutedClass}`} onClick={onViewAll}>View all</button>}
     </div>
 
     <div className='space-y-1'>
-      {workspace.history.map((entry) => {
+      {workspace.history.slice(0, 5).map((entry) => {
         const result = entry.status !== undefined
           ? `${entry.status}${entry.statusText ? ` ${entry.statusText}` : ''}`
           : entry.error ? 'Error' : 'Sent';
         const timing = entry.responseTime !== undefined ? ` · ${entry.responseTime} ms` : '';
         const passedTests = entry.scriptTests?.filter((test) => test.passed).length || 0;
         const testSummary = entry.scriptTests?.length ? `${passedTests}/${entry.scriptTests.length} tests passed` : entry.scriptError ? 'Script error' : undefined;
-        const origin = entry.collectionId
-          ? workspace.collections.find((collection) => collection.id === entry.collectionId)?.name || 'Deleted collection'
-          : undefined;
         return <div key={entry.id} className='group flex items-start gap-1 rounded-md'>
           <button
             type='button'
@@ -73,7 +67,7 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
             </div>
             <div className='truncate font-mono text-xs' title={entry.resolvedUrl}>{entry.resolvedUrl}</div>
             {testSummary && <div className={`mt-1 text-[11px] ${entry.scriptError ? 'text-red-600' : mutedClass}`}>{testSummary}</div>}
-            <div className={`mt-1 text-[11px] ${mutedClass}`}>{displayTime(entry.createdAt)}{origin ? ` · ${origin}` : ''}</div>
+            <div className={`mt-1 text-[11px] ${mutedClass}`}>{displayTime(entry.createdAt)}</div>
           </button>
           <button type='button' className='rounded-md p-2 opacity-70 hover:opacity-100' aria-label={`Delete history request ${entry.executedMethod.toUpperCase()} ${entry.resolvedUrl}`} onClick={() => removeHistory(entry.id)}>
             <Trash2 className='h-4 w-4' />
@@ -82,5 +76,7 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
       })}
       {workspace.history.length === 0 && <p className={`px-2 text-xs ${mutedClass}`}>Sent requests appear here for quick replay.</p>}
     </div>
+
+    {workspace.history.length > 0 && onViewAll && <button type='button' className='w-full rounded-md border px-3 py-2 text-xs font-medium hover:bg-blue-500/10' onClick={onViewAll}>Open full history · {workspace.history.length}</button>}
   </section>;
 };

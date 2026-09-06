@@ -78,8 +78,13 @@ test('history replay restores its originating collection and falls back when tha
 
   await apiClient.getByRole('button', { name: 'Second', exact: true }).click();
   await apiClient.getByRole('button', { name: 'Delete collection My Collection', exact: true }).click();
-  await expect(apiClient.getByText(/Deleted collection/).first()).toBeVisible();
-  await apiClient.getByRole('button', { name: 'Load history request GET https://history-one.example.test/pets?locale=fr', exact: true }).first().click();
+  await apiClient.getByRole('button', { name: /Open full history ·/ }).click();
+  const history = page.locator('section[aria-labelledby="api-client-history-page-heading"]');
+  await expect(history).toBeVisible();
+  await history.getByLabel('Search history').fill('history-one.example.test');
+  await expect(history.getByText('Deleted collection').first()).toBeVisible();
+  await history.getByRole('button', { name: /Open in client/i }).click();
+  await expect(apiClient).toBeVisible();
   await expect(apiClient.getByLabel('Collection variable 1 value')).toHaveValue('https://history-two.example.test');
   await apiClient.getByRole('button', { name: 'Send request' }).click();
   expect(requests[3]).toBe('https://history-two.example.test/pets?locale=fr');
@@ -118,9 +123,8 @@ test('history captures the collection selected when send starts', async ({ page 
   releaseResponse();
 
   await expect(apiClient.getByText(/Response\s+200\s+OK/)).toBeVisible();
-  const historyEntry = apiClient.getByRole('button', {
-    name: 'Load history request GET https://history-start.example.test/pets?locale=fr',
-    exact: true,
-  });
-  await expect(historyEntry).toContainText('My Collection');
+  await apiClient.getByRole('button', { name: /Open full history ·/ }).click();
+  const history = page.locator('section[aria-labelledby="api-client-history-page-heading"]');
+  await expect(history).toBeVisible();
+  await expect(history.getByText('My Collection').first()).toBeVisible();
 });
