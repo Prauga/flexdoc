@@ -1,8 +1,8 @@
-# API Client roadmap: FlexDoc 2.3.0 → 2.9 (in progress)
+# FlexDoc product roadmap: 2.3.0 → 3.4
 
 FlexDoc 2.3.0 was the last coordinated product release before the API Client workspace grew through several focused development milestones. Those milestone numbers described source-development slices; they were not separate published FlexDoc package releases. The coordinated product line moved directly from published **2.3.0** to published **2.8.0** after the 2.8 source definition of done was satisfied.
 
-The current published coordinated product line remains **2.8.0**. FlexDoc **2.9 is source work in progress**; the capabilities recorded below do not imply that 2.9 packages have been published or that every planned product control is available in `ApiClientWorkspace` yet.
+The current published coordinated product line remains **2.8.0**. FlexDoc **2.9.0 is source-complete and prepared as a release candidate**; the versions recorded in source do not imply publication until the matching release workflows complete successfully.
 
 Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and `@prauga/flexdoc-backend` carry the coordinated FlexDoc product version because they own and distribute the canonical renderer. Native adapters receive their own semantic-version increment when they package a new renderer, rather than being renamed to the product version.
 
@@ -16,7 +16,7 @@ Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and 
 | **2.6** | persisted post-response tests and script output in request history | complete |
 | **2.7** | canonical Try It → API Client request sessions, inherit-first auth defaults, complete browser OAuth grant flows | complete |
 | **2.8** | Postman import into the canonical standalone workspace and coordinated product-version catch-up | shipped |
-| **2.9** | shared request executor, collection/folder runner product UI, scripting IntelliSense, grouped run history, and full request-history inspector | in progress |
+| **2.9** | shared request executor, collection/folder runner product UI, scripting IntelliSense, grouped run history, and full request-history inspector | source complete / release candidate |
 
 Viewer expansion defaults/settings and renderer-option parity landed before the 2.8 release and are included in the 2.8 product surface.
 
@@ -26,9 +26,9 @@ The standalone `ApiClientWorkspace` is the API-development product surface. Impo
 
 Imported data should become ordinary FlexDoc collections, folders, requests, variables, environments, auth settings, and scripts immediately after conversion. Unsupported source behavior must produce an explicit warning instead of being silently reinterpreted.
 
-## 2.9 source work in progress
+## 2.9 source complete
 
-The current 2.9 source now surfaces the collection runner in `ApiClientWorkspace`, while the milestone remains in progress until final release hardening and deliberate version advancement.
+The 2.9 source surfaces the collection runner in `ApiClientWorkspace` and has completed its feature and browser-hardening slices. This release-preparation tree deliberately advances package versions while publication remains a separate explicit step.
 
 - `executeApiClientRequest` remains the shared request executor used by normal sends and collection/folder runs.
 - `runApiClientCollection` remains a public API/core capability and now backs **Run collection** and **Run folder** controls in the workspace. The main runner view shows the exact queue, active environment, progress, HTTP status/timing, test outcomes, stop-on-failure, and an explicit Stop action.
@@ -41,6 +41,22 @@ The current 2.9 source now surfaces the collection runner in `ApiClientWorkspace
 - While scripting IntelliSense suggestions are open, `Tab` or `Enter` accepts the active suggestion. `Escape` closes the popup and restores normal indentation/newline behavior.
 
 Iteration-data files, CSV/JSON data-driven runs, concurrency controls, and drag-and-drop request ordering are intentionally outside this slice. The active workspace environment and saved-request order are used as-is.
+
+## 2.9.0 definition of done
+
+The 2.9 source release candidate is complete with the following satisfied:
+
+- [x] normal Send and collection/folder execution share the canonical `executeApiClientRequest` engine
+- [x] collection and folder runs are user-facing workspace controls with explicit saved-request execution order, progress/results, stop-on-failure, and Stop
+- [x] run history groups requests by stable run metadata while preserving per-request inspection and replay
+- [x] the full History inspector supports search/filtering, persisted response headers/bodies, tests/logs, replay, deletion, and bounded IndexedDB persistence
+- [x] scripting IntelliSense is phase-aware, exposes live variable keys and assertion-chain help, and is exercised through real Chromium keyboard interactions
+- [x] runner-vs-History failure semantics, fetch-only cancellation, pre-request-error history behavior, ordering, and local response-body persistence are documented explicitly
+- [x] coordinated client/backend source versions advance to `2.9.0`; renderer-consuming native packages advance on their independent semantic-version lines while core and CLI remain unchanged
+- [x] future-version example manifests and the deterministic future-tag Go checksum represent the release-candidate source tree without pretending registry artifacts already exist
+- [x] the canonical standalone renderer is rebuilt and synchronized across committed adapter assets, with parity checks passing before the release candidate is proposed
+
+Publication remains a deliberate follow-up action. The exact release-candidate PR must be green before tags or package publishing are started.
 
 ## 2.8.0 definition of done
 
@@ -60,8 +76,26 @@ The 2.8 release is complete with all of the following satisfied:
 - [x] canonical standalone renderer assets are rebuilt and synchronized into every adapter that embeds them
 - [x] unit, build, browser E2E, adapter parity, framework coverage, and package/version guards are green on the exact final source head
 
+## Backend-native roadmap after 2.9
+
+FlexDoc should differentiate through information and actions available because it is installed **inside the running backend**, not by indefinitely chasing generic hosted-docs or API-client parity. The prioritization question for major roadmap work is:
+
+> **Could Scalar implement this without being installed inside the backend?**
+
+If the answer is yes, the feature may still be useful, but it does not receive the same differentiation priority as backend-native capabilities. The next product sequence is:
+
+| Milestone | Direction | Core outcome |
+| --- | --- | --- |
+| **3.0 — Runtime Intelligence** | understand the running service | runtime route discovery, OpenAPI ↔ implementation drift detection, framework/runtime metadata, and runtime server/environment discovery |
+| **3.1 — Contract Validation** | turn runtime knowledge into enforcement | spec-vs-implementation validation, undocumented/missing routes, method/path/schema mismatches, breaking drift, and CI/development feedback |
+| **3.2 — FlexDoc Runner** | take the canonical API execution model headless | collection/folder execution outside the browser, CI execution, machine-readable reports, and the same request/script semantics as the embedded client |
+| **3.3 — Backend Execution** | execute from the service/network context | server-side requests to internal/VPC/private endpoints, removal of browser CORS constraints, and controlled reuse of backend-known environment/network context |
+| **3.4 — Service Workbench** | evolve from API docs into a service workbench | runtime diagnostics, request/tracing context, framework-aware introspection, and deeper service debugging surfaces |
+
+Cloud collaboration, teams, enterprise controls, CI workflow, and additional protocol/agent surfaces remain valid later directions, but they should build on this backend-native moat rather than displace it. The embedded product remains self-hostable with one canonical renderer and no required FlexDoc account, hosted service, telemetry dependency, or runtime CDN.
+
 ## Release interpretation
 
-Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product release is **2.8.0**, published directly after 2.3.0; 2.9 remains an in-progress source milestone until its release definition is completed and versions are deliberately advanced.
+Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product release is currently **2.8.0**, published directly after 2.3.0. The source tree is now prepared for **2.9.0**; 2.9 remains unpublished until its release workflows complete successfully.
 
 For native adapters, each package remains on its independently versioned semantic-release line while carrying the current coordinated renderer. `@prauga/flexdoc-core` remains independently versioned unless the framework-neutral engine itself changes. The CLI also remains independently versioned and consumes the coordinated client line.
