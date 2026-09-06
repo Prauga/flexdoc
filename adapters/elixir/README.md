@@ -1,6 +1,6 @@
 # Prauga FlexDoc for Plug and Phoenix
 
-`prauga_flexdoc` `0.4.0` is a self-contained Plug that packages the canonical FlexDoc renderer.
+`prauga_flexdoc` `0.4.1` is a self-contained Plug that packages the canonical FlexDoc renderer.
 
 ## Plug
 
