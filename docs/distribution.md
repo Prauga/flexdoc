@@ -2,7 +2,7 @@
 
 FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every adapter release packages or embeds the version-matched renderer rather than implementing its own OpenAPI renderer.
 
-## Published artifacts and release candidates
+## Published artifacts and source versions
 
 | Artifact | Version represented by source | Release tag | Compatibility |
 | --- | --- | --- | --- |
@@ -24,7 +24,7 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 
 The table describes the versions encoded by the current source tree. A new source version is not considered published merely because it appears here; publication still requires its matching release workflow to complete successfully.
 
-Versions are intentionally independent across ecosystems. The FlexDoc product release line now advances from shipped `2.3.0` to the `2.8.0` release candidate; the renderer contract, not matching package numbers, is the cross-ecosystem compatibility boundary.
+Versions are intentionally independent across ecosystems. The FlexDoc product release line advanced directly from shipped `2.3.0` to published `2.8.0`; the renderer contract, not matching package numbers, is the cross-ecosystem compatibility boundary.
 
 ## Self-contained adapter artifacts
 
@@ -63,7 +63,7 @@ Before the first publish, configure a NuGet.org Trusted Publishing policy for re
 
 ## Maven Central
 
-The FlexDoc Java family for the 2.8.0 release candidate is coordinated at `0.6.0`:
+The FlexDoc Java family carrying the published 2.8 renderer is coordinated at `0.6.0`:
 
 ```text
 com.prauga.flexdoc:flexdoc-jvm:0.6.0
