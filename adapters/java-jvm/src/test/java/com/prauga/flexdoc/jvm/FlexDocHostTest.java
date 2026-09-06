@@ -38,7 +38,7 @@ class FlexDocHostTest {
     String presetHtml = presetHost.documentation().bodyUtf8();
 
     assertTrue(presetHtml.contains("\"expand\":\"documentation\""));
-    assertTrue(presetHtml.contains("\"tryIt\":{\"enabled\":true,\"defaultServer\":\"https://api.example.test\",\"credentials\":\"include\",\"apiClientPersistenceKey\":false}"));
+    assertTrue(presetHtml.contains("\"tryIt\":{\"enabled\":true,\"defaultServer\":\"https://api.example.test\",\"credentials\":\"include\",\"apiClientPersistenceKey\":false,\"hostExecution\":{\"available\":false,\"endpoint\":\"/docs/__flexdoc/execute\",\"capabilities\":[]}}"));
     assertFalse(presetHtml.contains("\"apiClientPersistenceKey\":\"false\""));
     assertTrue(presetHtml.contains("\"hostExecution\":{\"available\":false,\"endpoint\":\"/docs/__flexdoc/execute\",\"capabilities\":[]}"));
 
