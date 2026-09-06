@@ -8,4 +8,4 @@ cargo run
 
 Open `http://localhost:3000/docs`.
 
-`prauga-flexdoc-axum` is pinned to `0.5.0` and resolves directly from the published crate on crates.io. Repository CI also patches crates.io resolution to `../../adapters/rust` when validating source changes against the local adapter.
+`prauga-flexdoc-axum` is pinned to `0.5.1` and resolves directly from the published crate on crates.io. Repository CI also patches crates.io resolution to `../../adapters/rust` when validating source changes against the local adapter.

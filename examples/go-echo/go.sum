@@ -1,5 +1,5 @@
-github.com/prauga/flexdoc/adapters/go v0.5.0 h1:psupXqAtW5b6b6uV1G4RmCqX6lwsEWWzNv4l3S8d8Og=
-github.com/prauga/flexdoc/adapters/go v0.5.0/go.mod h1:tMdyVXq3OY5uhengBClaE9XC0/fD/BuMIx2GUcDMi9k=
+github.com/prauga/flexdoc/adapters/go v0.5.1 h1:Bg8qqoJkp+DKnvC+8iG9E85VdhiWjrMT6cPHHT9ULCk=
+github.com/prauga/flexdoc/adapters/go v0.5.1/go.mod h1:tMdyVXq3OY5uhengBClaE9XC0/fD/BuMIx2GUcDMi9k=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/labstack/echo/v5 v5.3.1 h1:75maCxkQVGualckLc/5s/ihgpH1a1Dc6AuGWNVNs6bw=
