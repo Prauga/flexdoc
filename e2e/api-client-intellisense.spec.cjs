@@ -83,5 +83,5 @@ test('API Client scripting IntelliSense works through real browser keyboard inte
   labels = await optionTexts(apiClient);
   expect(labels.some((label) => label.startsWith('equal'))).toBe(true);
   expect(labels.some((label) => label.startsWith('have'))).toBe(true);
-  await expect(apiClient.getByText('equal(expected: unknown): void')).toBeVisible();
+  await expect(apiClient.getByRole('option', { selected: true })).toContainText('equal(expected: unknown): void');
 });
