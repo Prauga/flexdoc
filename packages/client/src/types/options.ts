@@ -50,6 +50,15 @@ export type ExpandSection = 'parameters' | 'requestBody' | 'responses' | 'tryIt'
 export type ExpandPreset = 'all' | 'none' | 'minimal' | 'documentation' | 'interactive';
 export type ExpandOption = ExpandPreset | Array<ExpandSection | Exclude<ExpandPreset, 'all' | 'none'>>;
 
+export type FlexDocHostExecutionCapability = 'cookies' | 'clientCertificates' | 'digest' | 'hawk' | 'ntlm' | 'oauth1' | 'awsv4';
+export interface FlexDocHostExecutionPublicOptions {
+  available: boolean;
+  endpoint: string;
+  capabilities: FlexDocHostExecutionCapability[];
+  clientCertificates?: Array<{ id: string; name: string }>;
+  cookiesEndpoint?: string;
+}
+
 export interface FlexDocRendererOptions {
   contractVersion?: '1';
   title?: string;
@@ -89,6 +98,7 @@ export interface FlexDocRendererOptions {
     credentials?: RequestCredentials;
     requestInterceptor?: (request: RequestInit & { url: string }) => Promise<RequestInit & { url: string }> | (RequestInit & { url: string });
     apiClientPersistenceKey?: string | false;
+    hostExecution?: FlexDocHostExecutionPublicOptions;
   };
   codeSamples?: {
     enabled?: boolean;

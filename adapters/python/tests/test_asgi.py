@@ -55,6 +55,7 @@ class FlexDocASGITest(unittest.TestCase):
                     try_it_default_server="https://gateway.example.test",
                     try_it_credentials="include",
                     try_it_api_client_persistence_key=False,
+                    try_it_host_execution=True,
                 ))
                 messages = asyncio.run(request(app, "/reference"))
                 options = options_from_html(messages[-1]["body"].decode())
@@ -64,7 +65,14 @@ class FlexDocASGITest(unittest.TestCase):
                     "defaultServer": "https://gateway.example.test",
                     "credentials": "include",
                     "apiClientPersistenceKey": False,
+                    "hostExecution": {
+                        "available": False,
+                        "endpoint": "/reference/__flexdoc/execute",
+                        "capabilities": [],
+                    },
                 })
+                execute = asyncio.run(request(app, "/reference/__flexdoc/execute"))
+                self.assertEqual(execute[0]["status"], 404)
 
 
 if __name__ == "__main__": unittest.main()

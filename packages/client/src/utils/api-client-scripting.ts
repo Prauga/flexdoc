@@ -58,6 +58,10 @@ function cloneDraft(draft: HttpRequestDraft): HttpRequestDraft {
     ...draft,
     query: draft.query?.map((entry) => ({ ...entry })),
     headers: draft.headers?.map((entry) => ({ ...entry })),
+    urlencoded: draft.urlencoded?.map((entry) => ({ ...entry })),
+    formData: draft.formData?.map((entry) => ({ ...entry })),
+    binary: draft.binary ? { ...draft.binary } : undefined,
+    graphql: draft.graphql ? { ...draft.graphql } : undefined,
     auth: draft.auth ? { ...draft.auth } : undefined,
   };
 }
@@ -275,7 +279,7 @@ export async function runApiClientScript(options: {
 
   const requestBody = {
     get raw(): string { return draft.body || ''; },
-    set raw(value: string) { draft.body = String(value); },
+    set raw(value: string) { draft.body = String(value); draft.bodyMode = 'raw'; },
   };
   const request = {
     get method(): string { return draft.method; },

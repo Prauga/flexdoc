@@ -60,6 +60,7 @@ export const TryItApiClientWorkspace: React.FC<Props> = ({ spec, path, method, t
         theme={theme}
         credentials={options?.tryIt?.credentials || 'same-origin'}
         requestInterceptor={options?.tryIt?.requestInterceptor}
+        hostExecution={options?.tryIt?.hostExecution}
         onRequestChange={onRequestChange}
         serverOptions={servers}
         initialServerUrl={session.serverUrl}

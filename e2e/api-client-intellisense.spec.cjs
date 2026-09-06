@@ -10,7 +10,7 @@ async function openApiClient(page) {
 }
 
 async function optionTexts(apiClient) {
-  return apiClient.getByRole('listbox').getByRole('option').allTextContents();
+  return apiClient.getByRole('listbox').getByRole('option').evaluateAll((options) => options.map((option) => option.getAttribute('aria-label') || option.textContent || ''));
 }
 
 test('API Client scripting IntelliSense works through real browser keyboard interactions', async ({ page }, testInfo) => {
@@ -26,7 +26,11 @@ test('API Client scripting IntelliSense works through real browser keyboard inte
 
   const preRequest = apiClient.getByLabel('Pre-request script');
   await preRequest.fill('flex.');
-  await expect(apiClient.getByRole('listbox')).toBeVisible();
+  const firstPopup = apiClient.getByTestId('Pre-request script-completion-popup');
+  await expect(firstPopup).toBeVisible();
+  const editorBox = await preRequest.boundingBox();
+  const popupBox = await firstPopup.boundingBox();
+  expect(editorBox && popupBox && popupBox.y < editorBox.y + editorBox.height).toBeTruthy();
 
   let labels = await optionTexts(apiClient);
   expect(labels.some((label) => label.startsWith('request'))).toBe(true);
@@ -34,7 +38,16 @@ test('API Client scripting IntelliSense works through real browser keyboard inte
   expect(labels.some((label) => label.startsWith('response'))).toBe(false);
   expect(labels.some((label) => label.startsWith('test'))).toBe(false);
 
+  await preRequest.press('Home');
+  await expect.poll(() => preRequest.evaluate((editor) => editor.selectionStart)).toBe(0);
+  await expect(apiClient.getByRole('listbox')).toBeVisible();
+  await preRequest.press('End');
+  await expect.poll(() => preRequest.evaluate((editor) => editor.selectionStart)).toBe(5);
+  await expect(apiClient.getByRole('listbox')).toBeVisible();
+
   await preRequest.press('ArrowDown');
+  await preRequest.press('ArrowDown');
+  await preRequest.press('ArrowUp');
   await preRequest.press('Enter');
   await expect(preRequest).toHaveValue('flex.environment');
 
@@ -61,6 +74,9 @@ test('API Client scripting IntelliSense works through real browser keyboard inte
   await expect(apiClient.getByRole('listbox')).toHaveCount(0);
   await preRequest.press('Enter');
   await expect(preRequest).toHaveValue('flex.\n');
+  await preRequest.press('Tab');
+  await expect(preRequest).toHaveValue('flex.\n  ');
+  await expect(apiClient.locator('.api-client-code-editor .token').first()).toBeVisible();
 
   const tests = apiClient.getByLabel('Tests script');
   await tests.fill('flex.');

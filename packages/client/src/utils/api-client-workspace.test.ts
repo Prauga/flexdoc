@@ -18,16 +18,30 @@ describe('api-client-workspace', () => {
       url: 'https://api.example.test/pets',
       query: [{ key: 'limit', value: '10' }],
       headers: [{ key: 'X-Trace', value: 'one' }],
+      urlencoded: [{ key: 'name', value: 'Mochi' }],
+      formData: [{ key: 'photo', value: '', type: 'file' as const, file: new File(['pet'], 'pet.txt', { type: 'text/plain' }), fileName: 'pet.txt' }],
+      binary: { file: new File(['binary'], 'payload.bin', { type: 'application/octet-stream' }), fileName: 'payload.bin', contentType: 'application/octet-stream' },
+      graphql: { query: 'query { pet { id } }', variables: '{}' },
       auth: { type: 'bearer' as const, token: 'secret' },
     };
 
     const clone = cloneRequestDraft(source);
     clone.query![0].value = '20';
     clone.headers![0].value = 'two';
+    clone.urlencoded![0].value = 'Changed';
+    clone.graphql!.query = 'query { changed }';
     if (clone.auth?.type === 'bearer') clone.auth.token = 'changed';
 
     expect(source.query[0].value).toBe('10');
     expect(source.headers[0].value).toBe('one');
+    expect(source.urlencoded[0].value).toBe('Mochi');
+    expect(source.graphql.query).toBe('query { pet { id } }');
+    expect(clone.formData?.[0].file).toBeUndefined();
+    expect(clone.formData?.[0].fileName).toBe('pet.txt');
+    expect(clone.binary?.file).toBeUndefined();
+    expect(clone.binary?.fileName).toBe('payload.bin');
+    expect(source.formData[0].file).toBeInstanceOf(File);
+    expect(source.binary.file).toBeInstanceOf(File);
     expect(source.auth.token).toBe('secret');
   });
 

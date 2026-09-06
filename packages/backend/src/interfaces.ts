@@ -39,6 +39,34 @@ export type ExpandSection = 'parameters' | 'requestBody' | 'responses' | 'tryIt'
 export type ExpandPreset = 'all' | 'none' | 'minimal' | 'documentation' | 'interactive';
 export type ExpandOption = ExpandPreset | Array<ExpandSection | Exclude<ExpandPreset, 'all' | 'none'>>;
 
+export type FlexDocHostExecutionCapability = 'cookies' | 'clientCertificates' | 'digest' | 'hawk' | 'ntlm' | 'oauth1' | 'awsv4';
+export interface FlexDocHostExecutionCertificate {
+  id: string;
+  name: string;
+  cert: string;
+  key: string;
+  passphrase?: string;
+}
+export interface FlexDocHostExecutionRequest {
+  method: string;
+  url: string;
+  headers: Array<[string, string]>;
+  body?: Buffer;
+}
+export interface FlexDocHostExecutionOptions {
+  enabled?: boolean;
+  allowedOrigins?: string[];
+  clientCertificates?: FlexDocHostExecutionCertificate[];
+  interceptor?: (request: FlexDocHostExecutionRequest) => FlexDocHostExecutionRequest | Promise<FlexDocHostExecutionRequest>;
+}
+export interface FlexDocHostExecutionPublicOptions {
+  available: boolean;
+  endpoint: string;
+  capabilities: FlexDocHostExecutionCapability[];
+  clientCertificates?: Array<{ id: string; name: string }>;
+  cookiesEndpoint?: string;
+}
+
 export interface FlexDocOptions {
   contractVersion?: '1';
   title?: string; description?: string; altDescription?: string; version?: string;
@@ -56,6 +84,8 @@ export interface FlexDocOptions {
     defaultServer?: string;
     credentials?: 'omit' | 'same-origin' | 'include';
     apiClientPersistenceKey?: string | false;
+    /** Explicit opt-in for API-host execution. Server-only; secrets are never serialized. */
+    hostExecution?: boolean | FlexDocHostExecutionOptions;
   };
   codeSamples?: { enabled?: boolean; languages?: Array<'curl' | 'javascript' | 'python' | 'go' | 'java'> };
   footer?: { copyright?: string; link?: Array<{ text: string; url: string; icon?: string }> };

@@ -3,6 +3,7 @@ import { executeApiClientRequest } from './api-client-execution';
 function mockResponse(body: string, init: { status?: number; statusText?: string; headers?: HeadersInit } = {}): Response {
   return {
     status: init.status ?? 200,
+    ok: (init.status ?? 200) >= 200 && (init.status ?? 200) < 300,
     statusText: init.statusText ?? 'OK',
     headers: new Headers(init.headers),
     text: async () => body,
@@ -85,6 +86,46 @@ console.log('checked');
 
     expect(outcome.result?.resolvedUrl).toBe('https://proxy.example.test/resource');
     expect(outcome.result?.status).toBe(200);
+  });
+
+  it('routes host-only auth through the API host and keeps response tests in the browser', async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetcher: typeof fetch = async (input, init) => {
+      calls.push({ url: String(input), init });
+      return mockResponse(JSON.stringify({
+        status: 201,
+        statusText: 'Created',
+        headers: [['content-type', 'application/json'], ['set-cookie', 'sid=abc']],
+        body: '{"ok":true}',
+        responseTime: 17,
+      }));
+    };
+    let interceptorCalls = 0;
+    const outcome = await executeApiClientRequest({
+      request: { method: 'POST', url: 'https://api.example.test/private', auth: { type: 'digest', username: 'u', password: 'p' } },
+      scripts: { tests: "flex.test('host response', () => flex.expect(flex.response.code).to.equal(201));" },
+      requestInterceptor: (request) => { interceptorCalls += 1; return request; },
+      hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: ['digest'] },
+      fetcher,
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('/docs/__flexdoc/execute');
+    expect(new Headers(calls[0].init?.headers).get('x-flexdoc-execute')).toBe('1');
+    expect(JSON.parse(String(calls[0].init?.body)).request.auth).toMatchObject({ type: 'digest', username: 'u', password: 'p' });
+    expect(interceptorCalls).toBe(0);
+    expect(outcome.response).toMatchObject({ status: 201, responseTime: 17, body: '{"ok":true}' });
+    expect(outcome.scriptTests).toEqual([{ name: 'host response', passed: true }]);
+  });
+
+  it('fails closed with the same explicit error when host execution is unavailable', async () => {
+    let fetchCalls = 0;
+    const outcome = await executeApiClientRequest({
+      request: { method: 'GET', url: 'https://api.example.test/private', auth: { type: 'digest', username: 'u', password: 'p' } },
+      fetcher: async () => { fetchCalls += 1; return mockResponse('unexpected'); },
+    });
+    expect(fetchCalls).toBe(0);
+    expect(outcome.error).toBe('Host execution is disabled on this documentation server.');
+    expect(outcome.result?.error).toBe(outcome.error);
   });
 
   it('aborts before fetch when the pre-request script fails', async () => {

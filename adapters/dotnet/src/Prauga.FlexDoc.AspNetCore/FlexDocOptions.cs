@@ -29,4 +29,7 @@ public sealed class FlexDocOptions
 
     /// <summary>API Client persistence key, or false to disable IndexedDB workspace persistence.</summary>
     public object? TryItApiClientPersistenceKey { get; set; }
+
+    /// <summary>Advertise the host-execution protocol shape. ASP.NET Core execution is not implemented in 2.9.5.</summary>
+    public bool TryItHostExecution { get; set; }
 }

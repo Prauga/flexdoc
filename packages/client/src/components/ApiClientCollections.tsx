@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FolderPlus, Library, Play, Plus, Save, Trash2 } from 'lucide-react';
 import type { HttpAuth, HttpRequestDraft } from '../utils/http-client';
+import type { FlexDocHostExecutionPublicOptions } from '../types/options';
 import { ApiClientAuthEditor } from './ApiClientAuthEditor';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import type { ApiClientRequestScripts } from '../utils/api-client-scripting';
@@ -25,6 +26,7 @@ interface Props {
   selectedFolderId?: string;
   workspace: ApiClientWorkspaceState;
   onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
+  hostExecution?: FlexDocHostExecutionPublicOptions;
   theme: 'light' | 'dark';
 }
 
@@ -44,6 +46,7 @@ export const ApiClientCollections: React.FC<Props> = ({
   selectedFolderId = '',
   workspace,
   onWorkspaceChange,
+  hostExecution,
   theme,
 }) => {
   const [collectionName, setCollectionName] = useState('');
@@ -366,7 +369,7 @@ export const ApiClientCollections: React.FC<Props> = ({
 
       <div className='space-y-2 border-t pt-3'>
         <div className='text-xs font-semibold uppercase tracking-wide'>Collection authorization</div>
-        <ApiClientAuthEditor auth={selectedCollection.auth} label='Collection' onChange={updateCollectionAuth} theme={theme} />
+        <ApiClientAuthEditor auth={selectedCollection.auth} label='Collection' hostExecution={hostExecution} onChange={updateCollectionAuth} theme={theme} />
         <p className={`text-xs ${mutedClass}`}>Requests set to inherit use the nearest folder override, then this collection authorization.</p>
       </div>
 
@@ -402,7 +405,7 @@ export const ApiClientCollections: React.FC<Props> = ({
 
       {selectedFolder && <div className='space-y-2 border-t pt-3'>
         <div className='text-xs font-semibold uppercase tracking-wide'>Folder authorization — {selectedFolderPath}</div>
-        <ApiClientAuthEditor auth={selectedFolder.auth} label='Folder' allowInherit onChange={updateFolderAuth} theme={theme} />
+        <ApiClientAuthEditor auth={selectedFolder.auth} label='Folder' allowInherit hostExecution={hostExecution} onChange={updateFolderAuth} theme={theme} />
       </div>}
 
       <div className='space-y-2 border-t pt-3'>

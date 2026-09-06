@@ -64,25 +64,64 @@ test('desktop search, Try It, response viewer, and code samples work together', 
   await page.getByLabel('query tags').fill('["one","two"]');
   await page.getByLabel('query filter').fill('{"role":"admin"}');
   await page.getByLabel('header X-Trace').fill('trace-42');
-  await page.getByLabel('cookie session').fill('session-42');
   await page.getByLabel('bearer credential').fill('token-42');
 
   await page.getByRole('button', { name: 'Send request' }).click();
-  await expect(page.getByText(/Response\s+200\s+OK/)).toBeVisible();
+  await expect(page.getByText('200 OK', { exact: true })).toBeVisible();
   await expect(page.locator('pre').filter({ hasText: 'Milo' })).toBeVisible();
 
   expect(requests).toHaveLength(1);
   expect(requests[0].url).toBe('https://api.example.test/pets/42?locale=de&tags=one&tags=two&filter%5Brole%5D=admin');
   expect(requests[0].headers.authorization).toBe('Bearer token-42');
   expect(requests[0].headers['x-trace']).toBe('trace-42');
-  // The canonical request model serializes OpenAPI cookie parameters, but browser fetch
-  // forbids application code from setting the Cookie header. Browser execution therefore
-  // relies on the cookie jar/credentials policy rather than a synthetic Cookie header.
-  expect(requests[0].headers.cookie).toBeUndefined();
 
   await page.getByRole('tab', { name: 'JavaScript' }).click();
   await expect(page.locator('pre').filter({ hasText: 'fetch(' })).toBeVisible();
   await expect(page.locator('pre').filter({ hasText: 'Bearer token-42' })).toBeVisible();
+});
+
+
+test('Try It routes cookie requests through the API host and reuses the shared response viewer', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop host Try It coverage');
+
+  let targetHits = 0;
+  let hostHits = 0;
+  let envelope;
+  await page.route('https://api.example.test/**', async (route) => {
+    targetHits += 1;
+    await route.fulfill({ status: 599, body: 'browser target request should not happen' });
+  });
+  await page.route('**/e2e/__flexdoc/execute', async (route) => {
+    hostHits += 1;
+    envelope = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 200,
+        statusText: 'OK',
+        headers: [['Content-Type', 'application/json'], ['Set-Cookie', 'session=hosted; Path=/']],
+        body: JSON.stringify({ id: '42', transport: 'api-host-try-it' }),
+        responseTime: 17,
+        cookies: [{ name: 'session', value: 'hosted', domain: 'api.example.test', path: '/' }],
+      }),
+    });
+  });
+
+  await page.goto('/e2e/index.html?hostExecution=1#get-pets-id');
+  await page.getByLabel('path id').fill('42');
+  await page.getByLabel('cookie session').fill('session-42');
+  await page.getByLabel('bearer credential').fill('token-42');
+
+  await expect(page.getByRole('status')).toContainText('The browser cannot send this request. FlexDoc will execute it from the API host.');
+  await page.getByRole('button', { name: 'Send via API host' }).click();
+
+  await expect.poll(() => hostHits).toBe(1);
+  expect(targetHits).toBe(0);
+  expect(envelope.request.url).toContain('/pets/42');
+  await expect(page.getByText('200 OK', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pretty' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('pre').filter({ hasText: 'api-host-try-it' })).toBeVisible();
 });
 
 test('Try It hands live values and custom servers to the API Client', async ({ page }, testInfo) => {
@@ -168,7 +207,7 @@ test('API Client environments resolve templates while saved requests keep raw dr
   await apiClient.getByLabel('Request URL').fill('{{baseUrl}}/pets/{{petId}}');
   await apiClient.getByLabel('Headers 1 value').fill('{{petId}}');
   await apiClient.getByRole('button', { name: 'Send request' }).click();
-  await expect(apiClient.getByText(/Response\s+200\s+OK/)).toBeVisible();
+  await expect(apiClient.getByText('200 OK', { exact: true })).toBeVisible();
 
   expect(requests).toHaveLength(1);
   expect(requests[0].url).toBe('https://env.example.test/pets/99?locale=fr');

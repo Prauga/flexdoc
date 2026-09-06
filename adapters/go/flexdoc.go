@@ -25,6 +25,7 @@ type Config struct {
     TryItDefaultServer            string
     TryItCredentials              string
     TryItAPIClientPersistenceKey  any
+    TryItHostExecution              bool
 }
 
 type handler struct { cfg Config; assets fs.FS; spec []byte; rendererVersion string }
@@ -106,6 +107,13 @@ func (h *handler) html() string {
     if h.cfg.TryItDefaultServer != "" { tryIt["defaultServer"] = h.cfg.TryItDefaultServer }
     if h.cfg.TryItCredentials != "" { tryIt["credentials"] = h.cfg.TryItCredentials }
     if h.cfg.TryItAPIClientPersistenceKey != nil { tryIt["apiClientPersistenceKey"] = h.cfg.TryItAPIClientPersistenceKey }
+    if h.cfg.TryItHostExecution {
+        tryIt["hostExecution"] = map[string]any{
+            "available": false,
+            "endpoint": h.cfg.Path + "/__flexdoc/execute",
+            "capabilities": []string{},
+        }
+    }
 
     options := map[string]any{"contractVersion":"1", "title":h.cfg.Title, "theme":h.cfg.Theme, "tryIt":tryIt}
     if h.cfg.Expand != nil { options["expand"] = h.cfg.Expand }

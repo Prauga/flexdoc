@@ -67,7 +67,7 @@ func TestRendererOptionsSerializeExpandAndTryItSettings(t *testing.T) {
         t.Run(tc.name, func(t *testing.T) {
             h := HandlerWithAssets(Config{
                 Path:"/reference", SpecURL:"/openapi.json", Title:"API", Theme:"dark", TryItEnabled:true,
-                Expand:tc.expand, TryItDefaultServer:"https://gateway.example.test", TryItCredentials:"include", TryItAPIClientPersistenceKey:false,
+                Expand:tc.expand, TryItDefaultServer:"https://gateway.example.test", TryItCredentials:"include", TryItAPIClientPersistenceKey:false, TryItHostExecution:true,
             }, testAssets())
             rec := httptest.NewRecorder()
             h.ServeHTTP(rec, httptest.NewRequest("GET", "/reference", nil))
@@ -78,6 +78,12 @@ func TestRendererOptionsSerializeExpandAndTryItSettings(t *testing.T) {
             tryIt := options["tryIt"].(map[string]any)
             if tryIt["enabled"] != true || tryIt["defaultServer"] != "https://gateway.example.test" || tryIt["credentials"] != "include" { t.Fatalf("Try It options = %#v", tryIt) }
             if value, ok := tryIt["apiClientPersistenceKey"].(bool); !ok || value { t.Fatalf("persistence key = %#v", tryIt["apiClientPersistenceKey"]) }
+            hostExecution := tryIt["hostExecution"].(map[string]any)
+            if hostExecution["available"] != false || hostExecution["endpoint"] != "/reference/__flexdoc/execute" { t.Fatalf("host execution = %#v", hostExecution) }
+            if capabilities, ok := hostExecution["capabilities"].([]any); !ok || len(capabilities) != 0 { t.Fatalf("host capabilities = %#v", hostExecution["capabilities"]) }
+            execute := httptest.NewRecorder()
+            h.ServeHTTP(execute, httptest.NewRequest("POST", "/reference/__flexdoc/execute", nil))
+            if execute.Code != 404 { t.Fatalf("unsupported execute route status = %d", execute.Code) }
         })
     }
 }

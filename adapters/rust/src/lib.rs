@@ -17,6 +17,7 @@ pub struct Config {
     pub try_it_default_server: Option<String>,
     pub try_it_credentials: Option<String>,
     pub try_it_api_client_persistence_key: Option<Value>,
+    pub try_it_host_execution: bool,
 }
 
 impl Default for Config {
@@ -31,6 +32,7 @@ impl Default for Config {
             try_it_default_server: None,
             try_it_credentials: None,
             try_it_api_client_persistence_key: None,
+            try_it_host_execution: false,
         }
     }
 }
@@ -124,6 +126,13 @@ fn renderer_options(cfg: &Config) -> Value {
     if let Some(persistence_key) = &cfg.try_it_api_client_persistence_key {
         try_it.insert("apiClientPersistenceKey".into(), persistence_key.clone());
     }
+    if cfg.try_it_host_execution {
+        try_it.insert("hostExecution".into(), json!({
+            "available": false,
+            "endpoint": format!("{}/__flexdoc/execute", cfg.path),
+            "capabilities": []
+        }));
+    }
 
     options
 }
@@ -165,6 +174,7 @@ mod tests {
             try_it_default_server: Some("https://api.example.test".into()),
             try_it_credentials: Some("include".into()),
             try_it_api_client_persistence_key: Some(json!(false)),
+            try_it_host_execution: true,
             ..Default::default()
         };
         let options = renderer_options(&configured);
@@ -173,6 +183,9 @@ mod tests {
         assert_eq!(options["tryIt"]["defaultServer"], "https://api.example.test");
         assert_eq!(options["tryIt"]["credentials"], "include");
         assert_eq!(options["tryIt"]["apiClientPersistenceKey"], false);
+        assert_eq!(options["tryIt"]["hostExecution"]["available"], false);
+        assert_eq!(options["tryIt"]["hostExecution"]["endpoint"], "/docs/__flexdoc/execute");
+        assert_eq!(options["tryIt"]["hostExecution"]["capabilities"], json!([]));
 
         let list_options = renderer_options(&Config { expand: Some(json!(["parameters", "tryIt"])), ..Default::default() });
         assert_eq!(list_options["expand"], json!(["parameters", "tryIt"]));

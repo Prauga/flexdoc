@@ -186,3 +186,93 @@ test('buildHttpRequest treats unresolved inherited auth as no auth', () => {
   assert.equal(request.headers.Authorization, undefined);
   assert.equal(request.url, 'https://api.example.test/pets');
 });
+
+
+test('builds structured URL-encoded, multipart, and GraphQL body modes', async () => {
+  const form = buildHttpRequest({
+    method: 'POST', url: 'https://api.example.test/form', bodyMode: 'urlencoded',
+    urlencoded: [{ key: 'name', value: 'red fox' }, { key: 'skip', value: 'x', enabled: false }],
+  });
+  assert.equal(form.body, 'name=red%20fox');
+  assert.equal(form.headers['Content-Type'], 'application/x-www-form-urlencoded');
+  assert.equal(form.bodyKind, 'form');
+
+  const multipart = buildHttpRequest({
+    method: 'POST', url: 'https://api.example.test/upload', bodyMode: 'formdata',
+    formData: [{ key: 'name', value: 'Mochi', type: 'text' }],
+  });
+  assert.equal(multipart.bodyKind, 'multipart');
+  assert.equal(multipart.headers['Content-Type'], undefined);
+  assert.equal(multipart.init.body instanceof FormData, true);
+
+  const multipartWithExplicitHeader = buildHttpRequest({
+    method: 'POST', url: 'https://api.example.test/upload', bodyMode: 'formdata',
+    headers: [
+      { key: 'Content-Type', value: 'multipart/form-data' },
+      { key: 'content-type', value: 'multipart/form-data; boundary=stale-boundary' },
+      { key: 'X-Trace', value: 'keep-me' },
+    ],
+    contentType: 'multipart/form-data',
+    formData: [{ key: 'name', value: 'Mochi', type: 'text' }],
+  });
+  assert.equal(multipartWithExplicitHeader.headers['Content-Type'], undefined);
+  assert.equal(multipartWithExplicitHeader.headers['content-type'], undefined);
+  assert.equal(multipartWithExplicitHeader.headers['X-Trace'], 'keep-me');
+  assert.deepEqual(multipartWithExplicitHeader.headerEntries, [['X-Trace', 'keep-me']]);
+  assert.equal(multipartWithExplicitHeader.init.body instanceof FormData, true);
+
+  const graphql = buildHttpRequest({
+    method: 'POST', url: 'https://api.example.test/graphql', bodyMode: 'graphql',
+    graphql: { query: 'query Pet($id: ID!) { pet(id: $id) { id } }', variables: '{"id":"42"}' },
+  });
+  assert.equal(graphql.bodyKind, 'json');
+  assert.deepEqual(JSON.parse(graphql.body), { query: 'query Pet($id: ID!) { pet(id: $id) { id } }', variables: { id: '42' } });
+});
+
+test('requires browser file selection for multipart file rows and resolves structured variables', () => {
+  assert.throws(() => buildHttpRequest({
+    method: 'POST', url: 'https://api.example.test/upload', bodyMode: 'formdata',
+    formData: [{ key: 'photo', value: '', type: 'file', fileName: '/tmp/cat.png' }],
+  }), /needs a file selection/);
+
+  const resolved = resolveHttpRequestDraftVariables({
+    method: 'POST', url: '{{baseUrl}}/form', bodyMode: 'urlencoded',
+    urlencoded: [{ key: '{{field}}', value: '{{value}}' }],
+  }, { baseUrl: 'https://api.example.test', field: 'name', value: 'Mochi' });
+  assert.deepEqual(resolved.urlencoded, [{ key: 'name', value: 'Mochi' }]);
+});
+
+
+test('builds binary request bodies from browser File objects and preserves them through a live round-trip', () => {
+  const file = new File([new Uint8Array([0, 1, 2, 255])], 'payload.bin', { type: 'application/octet-stream' });
+  const built = buildHttpRequest({
+    method: 'POST',
+    url: 'https://api.example.test/binary',
+    bodyMode: 'binary',
+    binary: { file, fileName: 'payload.bin', contentType: 'application/octet-stream' },
+  });
+  assert.equal(built.bodyKind, 'binary');
+  assert.equal(built.body, '[file: payload.bin]');
+  assert.equal(built.init.body, file);
+  assert.equal(built.headers['Content-Type'], 'application/octet-stream');
+
+  const roundTrip = requestDraftFromBuiltRequest(built);
+  assert.equal(roundTrip.bodyMode, 'binary');
+  assert.equal(roundTrip.binary.file, file);
+  assert.equal(roundTrip.binary.fileName, 'payload.bin');
+
+  assert.throws(() => buildHttpRequest({
+    method: 'POST',
+    url: 'https://api.example.test/binary',
+    bodyMode: 'binary',
+    binary: { fileName: 'missing.bin' },
+  }), /needs a file selection/);
+});
+
+test('marks cookie and advanced auth requests as host-execution requirements', async () => {
+  const { httpHostExecutionRequirements } = await import('../dist/index.js');
+  assert.deepEqual(httpHostExecutionRequirements({ method: 'GET', url: 'https://api.example.test', auth: { type: 'digest', username: 'u', password: 'p' } }), ['digest']);
+  assert.deepEqual(httpHostExecutionRequirements({ method: 'GET', url: 'https://api.example.test', auth: { type: 'apiKey', key: 'sid', value: 'x', in: 'cookie' } }), ['cookies']);
+  assert.deepEqual(httpHostExecutionRequirements({ method: 'GET', url: 'https://api.example.test', headers: [{ key: 'Cookie', value: 'sid=x' }], hostExecution: { certificateId: 'cert-1' } }).sort(), ['clientCertificates', 'cookies']);
+  assert.throws(() => buildHttpRequest({ method: 'GET', url: 'https://api.example.test', auth: { type: 'digest', username: 'u', password: 'p' } }), /requires API host execution/);
+});

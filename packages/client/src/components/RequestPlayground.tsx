@@ -3,11 +3,13 @@ import { ExternalLink, Play, Loader2, AlertCircle } from 'lucide-react';
 import { OpenAPISpec, Operation } from '../types/openapi';
 import { FlexDocRendererOptions } from '../types/options';
 import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
+import { executeApiClientRequest } from '../utils/api-client-execution';
+import { httpHostExecutionRequirements, requestDraftFromBuiltRequest } from '../utils/http-client';
 import type { RequestValues } from '../utils/request-builder';
 import { createOpenApiApiClientSession } from '../utils/openapi-api-client-session';
 import type { OpenApiApiClientSession } from '../utils/openapi-api-client-session';
 import { resolveServerUrl } from '../utils/server-url';
-import { CodeBlock } from './CodeBlock';
+import { ApiClientResponseViewer } from './ApiClientResponseViewer';
 
 interface Props {
   spec: OpenAPISpec;
@@ -64,11 +66,31 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
   const selectedServerRef = useRef(configuredDefault);
   const customServerInputRef = useRef<HTMLInputElement>(null);
   const onRequestChangeRef = useRef(onRequestChange);
-  const [response, setResponse] = useState<{ status: number; statusText: string; headers: string; body: string } | null>(null);
+  const [response, setResponse] = useState<{ status: number; statusText: string; headers: Array<[string, string]>; body: string; responseTime: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const parameters = useMemo(() => parametersFor(spec, path, method), [spec, path, method]);
   const securityNames = options?.noAutoAuth ? [] : Object.keys((operation?.security ?? spec.security ?? [])[0] || {});
+  const currentDraft = useMemo(() => {
+    try { return requestDraftFromBuiltRequest(buildRequest(spec, path, method, values)); }
+    catch { return null; }
+  }, [spec, path, method, values]);
+  const hostRequirements = (() => {
+    const required = new Set(currentDraft ? httpHostExecutionRequirements(currentDraft) : []);
+    if (Object.values(values.cookies || {}).some((value) => value !== undefined && value !== null && String(value) !== '')) required.add('cookies');
+    return [...required];
+  })();
+  const hostCapabilities = new Set(options?.tryIt?.hostExecution?.capabilities || []);
+  const missingHostCapabilities = hostRequirements.filter((capability) => !hostCapabilities.has(capability));
+  const hostRequired = hostRequirements.length > 0;
+  const hostAvailable = options?.tryIt?.hostExecution?.available === true && missingHostCapabilities.length === 0;
+  const hostNotice = hostRequired
+    ? hostAvailable
+      ? 'The browser cannot send this request. FlexDoc will execute it from the API host.'
+      : options?.tryIt?.hostExecution?.available
+        ? `The API host does not support the required capability${missingHostCapabilities.length === 1 ? '' : 'ies'}: ${missingHostCapabilities.join(', ')}.`
+        : 'Host execution is disabled on this documentation server.'
+    : null;
 
   const commitValues = (next: RequestValues) => {
     valuesRef.current = next;
@@ -92,12 +114,20 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
     setLoading(true); setError(null); setResponse(null);
     try {
       const request = buildRequest(spec, path, method, valuesRef.current);
-      let initWithUrl: RequestInit & { url: string } = { ...request.init, url: request.url, credentials: options?.tryIt?.credentials || 'same-origin' };
-      if (options?.tryIt?.requestInterceptor) initWithUrl = await options.tryIt.requestInterceptor(initWithUrl);
-      const { url, ...init } = initWithUrl;
-      const result = await fetch(url, init);
-      const body = await result.text();
-      setResponse({ status: result.status, statusText: result.statusText, headers: [...result.headers.entries()].map(([k, v]) => `${k}: ${v}`).join('\n'), body });
+      const outcome = await executeApiClientRequest({
+        request: requestDraftFromBuiltRequest(request),
+        credentials: options?.tryIt?.credentials || 'same-origin',
+        requestInterceptor: options?.tryIt?.requestInterceptor,
+        hostExecution: options?.tryIt?.hostExecution,
+      });
+      if (outcome.error) setError(outcome.error);
+      if (outcome.response) setResponse({
+        status: outcome.response.status,
+        statusText: outcome.response.statusText,
+        headers: outcome.response.headers.map(([key, value]) => [key, value]),
+        body: outcome.response.body,
+        responseTime: outcome.response.responseTime,
+      });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Request failed');
     } finally { setLoading(false); }
@@ -161,9 +191,11 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
         <label className={labelClass}>Request body<textarea aria-label='Request body' rows={8} className={`mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} value={values.body || ''} onChange={(e) => commitValues({ ...valuesRef.current, body: e.target.value })} /></label>
       </>}
 
+      {hostNotice && <div role={hostAvailable ? 'status' : 'alert'} className={`rounded-md border p-3 text-sm ${hostAvailable ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-amber-300 bg-amber-50 text-amber-800'}`}>{hostNotice}</div>}
+
       <div className='flex flex-wrap gap-2'>
-        <button onClick={execute} disabled={loading} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60'>
-          {loading ? <Loader2 className='h-4 w-4 animate-spin' /> : <Play className='h-4 w-4' />} {loading ? 'Sending…' : 'Send request'}
+        <button onClick={execute} disabled={loading || (hostRequired && !hostAvailable)} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60'>
+          {loading ? <Loader2 className='h-4 w-4 animate-spin' /> : <Play className='h-4 w-4' />} {loading ? 'Sending…' : hostRequired && hostAvailable ? 'Send via API host' : 'Send request'}
         </button>
         {onOpenInApiClient && <button type='button' onClick={openInApiClient} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md border px-4 py-2 font-medium'>
           <ExternalLink className='h-4 w-4' /> Open in API Client
@@ -171,10 +203,7 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
       </div>
 
       {error && <div role='alert' className='flex gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700'><AlertCircle className='mt-0.5 h-4 w-4 shrink-0' />{error}</div>}
-      {response && <div className='space-y-3'>
-        <div className='font-semibold'>Response <span className={response.status >= 400 ? 'text-red-600' : 'text-green-600'}>{response.status} {response.statusText}</span></div>
-        {response.headers && <CodeBlock code={response.headers} language='text' title='Headers' theme={theme} wrap />}
-        <CodeBlock code={response.body || '(empty response)'} language='json' title='Body' theme={theme} wrap /></div>}
+      {response && <ApiClientResponseViewer response={response} theme={theme} />}
     </div>
   </div>;
 };

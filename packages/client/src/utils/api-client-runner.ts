@@ -48,6 +48,7 @@ export interface RunApiClientCollectionOptions {
   runName?: string;
   credentials?: RequestCredentials;
   requestInterceptor?: ExecuteApiClientRequestOptions['requestInterceptor'];
+  hostExecution?: ExecuteApiClientRequestOptions['hostExecution'];
   externalVariables?: HttpVariables;
   externalEnvironmentVariables?: HttpVariables;
   stopOnFailure?: boolean;
@@ -154,6 +155,7 @@ export async function runApiClientCollection(options: RunApiClientCollectionOpti
       scripts: savedRequest.scripts,
       credentials: options.credentials,
       requestInterceptor: options.requestInterceptor,
+      hostExecution: options.hostExecution,
       resolveAuth: (auth) => resolveApiClientAuth(
         workspace,
         savedRequest.collectionId,

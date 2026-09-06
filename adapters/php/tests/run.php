@@ -53,6 +53,7 @@ foreach (['documentation', ['parameters', 'tryIt']] as $expand) {
         tryItDefaultServer: 'https://gateway.example.test',
         tryItCredentials: 'include',
         tryItApiClientPersistenceKey: false,
+        tryItHostExecution: true,
     ));
     $configuredOptions = rendererOptions($configured->documentation()->body);
     check($configuredOptions['expand'] === $expand, 'expand serialization');
@@ -60,6 +61,12 @@ foreach (['documentation', ['parameters', 'tryIt']] as $expand) {
     check($configuredOptions['tryIt']['defaultServer'] === 'https://gateway.example.test', 'default server');
     check($configuredOptions['tryIt']['credentials'] === 'include', 'credentials');
     check($configuredOptions['tryIt']['apiClientPersistenceKey'] === false, 'persistence false is boolean');
+    check($configuredOptions['tryIt']['hostExecution'] === [
+        'available' => false,
+        'endpoint' => '/configured/__flexdoc/execute',
+        'capabilities' => [],
+    ], 'native host execution capability is honestly unavailable');
+    check($configured->responseForPath('/configured/__flexdoc/execute')->status === 404, 'native execute route is not registered');
 }
 
 $providerHost = FlexDocServiceProvider::hostFromConfig([
@@ -72,10 +79,12 @@ $providerHost = FlexDocServiceProvider::hostFromConfig([
     'try_it_default_server' => 'https://gateway.example.test',
     'try_it_credentials' => 'same-origin',
     'try_it_api_client_persistence_key' => 'false',
+    'try_it_host_execution' => 'true',
 ]);
 check($providerHost->config()->tryItEnabled === false, 'Laravel service provider parses string false');
 check($providerHost->config()->expand === ['parameters', 'tryIt'], 'Laravel forwards expansion list');
 check($providerHost->config()->tryItApiClientPersistenceKey === false, 'Laravel forwards persistence false');
+check($providerHost->config()->tryItHostExecution === true, 'Laravel forwards host execution opt-in');
 
 $blankCredentialsHost = FlexDocServiceProvider::hostFromConfig([
     'try_it_credentials' => '   ',

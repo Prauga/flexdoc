@@ -32,6 +32,13 @@ module Prauga
         try_it[:defaultServer] = config.try_it_default_server unless config.try_it_default_server.nil?
         try_it[:credentials] = config.try_it_credentials unless config.try_it_credentials.nil?
         try_it[:apiClientPersistenceKey] = config.try_it_api_client_persistence_key unless config.try_it_api_client_persistence_key.nil?
+        if config.try_it_host_execution
+          try_it[:hostExecution] = {
+            available: false,
+            endpoint: "#{config.path}/__flexdoc/execute",
+            capabilities: []
+          }
+        end
 
         options = {
           contractVersion: "1",

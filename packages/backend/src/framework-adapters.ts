@@ -4,6 +4,8 @@ import { FlexDocModuleOptions } from './interfaces';
 import { getRendererAssets } from './renderer-assets';
 import { setupFlexDoc } from './setup';
 import { generateFlexDocHTML } from './template';
+import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
+import { hostExecutionRequestOrigin, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 
 export interface ExpressLikeApplication {
   use(path: string, handler: (req: any, res: any, next?: any) => void | Promise<void>): void;
@@ -18,10 +20,17 @@ export interface FastifyLikeReply {
 
 export interface FastifyLikeRequest {
   headers: Record<string, string | string[] | undefined>;
+  body?: unknown;
+  protocol?: string;
+  raw?: { socket?: { encrypted?: boolean } };
 }
 
 export interface FastifyLikeApplication {
   get(path: string, options: Record<string, unknown>, handler: (req: FastifyLikeRequest, reply: FastifyLikeReply) => any | Promise<any>): void;
+  post?: (path: string, options: Record<string, unknown>, handler: (req: FastifyLikeRequest, reply: FastifyLikeReply) => any | Promise<any>) => void;
+  delete?: (path: string, options: Record<string, unknown>, handler: (req: FastifyLikeRequest, reply: FastifyLikeReply) => any | Promise<any>) => void;
+  addContentTypeParser?: (contentType: string, options: { parseAs: 'buffer' }, parser: (request: unknown, body: Buffer, done: (error: Error | null, value?: unknown) => void) => void) => void;
+  hasContentTypeParser?: (contentType: string) => boolean;
   ready?: () => Promise<unknown>;
   swagger?: () => Record<string, unknown>;
 }
@@ -83,6 +92,8 @@ function setupFastifyFlexDocInternal(
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const rendererBasePath = `${normalizedPath}/__flexdoc`;
   const auth = options.options?.auth;
+  const hostExecutionState = createHostExecutionState(options.options?.tryIt?.hostExecution);
+  const hostRouteAvailable = hostExecutionState.enabled && typeof app.post === 'function';
   let remoteSpecPromise: Promise<any> | null = null;
   let generatedSpecPromise: Promise<any> | null = null;
 
@@ -112,6 +123,27 @@ function setupFastifyFlexDocInternal(
     return remoteSpecPromise;
   };
 
+  const sendHostResult = (reply: FastifyLikeReply, result: { status: number; headers: Record<string, string>; body: string }) => {
+    let target = reply.code(result.status);
+    for (const [name, value] of Object.entries(result.headers)) target = target.header(name, value);
+    return target.send(result.body);
+  };
+
+  if (hostRouteAvailable) {
+    if (app.addContentTypeParser && !app.hasContentTypeParser?.('multipart/form-data')) {
+      app.addContentTypeParser('multipart/form-data', { parseAs: 'buffer' }, (_request, body, done) => done(null, body));
+    }
+    app.post?.(`${rendererBasePath}/execute`, routeOptions, async (request, reply) => {
+      const docsOrigin = hostExecutionRequestOrigin({
+        headers: request.headers,
+        protocol: request.protocol || (request.raw?.socket?.encrypted ? 'https' : 'http'),
+      });
+      return sendHostResult(reply, await runHostExecutionRoute({ state: hostExecutionState, spec: await resolvedSpec(), headers: request.headers, body: request.body, docsOrigin }));
+    });
+    app.get(`${rendererBasePath}/cookies`, routeOptions, async (request, reply) => sendHostResult(reply, runHostCookiesRoute({ state: hostExecutionState, headers: request.headers })));
+    app.delete?.(`${rendererBasePath}/cookies`, routeOptions, async (request, reply) => sendHostResult(reply, runHostCookiesRoute({ state: hostExecutionState, headers: request.headers, clear: true })));
+  }
+
   app.get(`${rendererBasePath}/renderer.js`, routeOptions, async (_request, reply) => {
     const assets = getRendererAssets();
     return reply.type('application/javascript; charset=utf-8').header('Cache-Control', 'public, max-age=31536000, immutable').send(assets.javascript);
@@ -129,6 +161,7 @@ function setupFastifyFlexDocInternal(
         ...(options.options || {}),
         rendererBasePath,
         rendererVersion: assets.version,
+        hostExecutionPublic: hostRouteAvailable ? publicHostExecutionOptions(hostExecutionState, rendererBasePath) : undefined,
       });
       return reply
         .type('text/html; charset=utf-8')
