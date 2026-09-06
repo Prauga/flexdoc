@@ -103,3 +103,57 @@ test('collection runner can stop an in-flight request without persisting a parti
   await runner.getByRole('button', { name: 'Client' }).click();
   await expect(page.getByText('Sent requests appear here for quick replay.')).toBeVisible();
 });
+
+
+test('folder runner includes descendants, excludes collection-root requests, and preserves saved order', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop folder runner coverage');
+
+  const requestedPaths = [];
+  await page.route('https://folder-runner.example.test/**', async (route) => {
+    const url = new URL(route.request().url());
+    requestedPaths.push(url.pathname);
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ path: url.pathname }),
+    });
+  });
+
+  const apiClient = await openApiClient(page);
+  const collections = page.locator('section[aria-labelledby="api-client-collections-heading"]');
+
+  await collections.getByLabel('New folder name').fill('Parent');
+  await collections.getByRole('button', { name: 'Add folder' }).click();
+  await collections.getByLabel('New folder name').fill('Child');
+  await collections.getByRole('button', { name: 'Add folder' }).click();
+
+  await collections.getByRole('button', { name: 'My Collection', exact: true }).click();
+  await apiClient.getByLabel('Request URL').fill('https://folder-runner.example.test/root');
+  await collections.getByLabel('Saved request name').fill('Root request');
+  await collections.getByRole('button', { name: 'Save request' }).click();
+
+  await collections.getByRole('button', { name: 'My Collection', exact: true }).click();
+  await collections.getByRole('button', { name: 'Select folder Parent', exact: true }).click();
+  await apiClient.getByLabel('Request URL').fill('https://folder-runner.example.test/parent');
+  await collections.getByLabel('Saved request name').fill('Parent request');
+  await collections.getByRole('button', { name: 'Save request' }).click();
+
+  await collections.getByRole('button', { name: 'My Collection', exact: true }).click();
+  await collections.getByRole('button', { name: 'Select folder Parent / Child' }).click();
+  await apiClient.getByLabel('Request URL').fill('https://folder-runner.example.test/child');
+  await collections.getByLabel('Saved request name').fill('Child request');
+  await collections.getByRole('button', { name: 'Save request' }).click();
+
+  await collections.getByRole('button', { name: 'Run folder Parent', exact: true }).click();
+  const runner = page.locator('section[aria-labelledby="api-client-runner-heading"]');
+  await expect(runner).toBeVisible();
+  const queueRows = runner.locator('[data-runner-request-id]');
+  await expect(queueRows).toHaveCount(2);
+  await expect(queueRows.nth(0)).toContainText('Parent request');
+  await expect(queueRows.nth(1)).toContainText('Child request');
+  await expect(runner.getByText('Root request')).toHaveCount(0);
+
+  await runner.getByRole('button', { name: 'Start run' }).click();
+  await expect(runner.getByText('Complete', { exact: true })).toBeVisible();
+  expect(requestedPaths).toEqual(['/parent', '/child']);
+});
