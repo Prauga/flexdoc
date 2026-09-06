@@ -2,9 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Loader2, Play, Plus, Trash2 } from 'lucide-react';
 import { CodeBlock } from './CodeBlock';
 import { OAuthEditor } from './ApiClientAuthEditor';
+import { ApiClientBodyEditor } from './ApiClientBodyEditor';
+import { ApiClientResponseViewer } from './ApiClientResponseViewer';
 import { ApiClientScriptEditor } from './ApiClientScriptEditor';
 import { executeApiClientRequest } from '../utils/api-client-execution';
-import { buildHttpRequest } from '../utils/http-client';
+import { buildHttpRequest, inferHttpBodyMode } from '../utils/http-client';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import { replaceRequestServer, requestUsesServer, resolveServerUrl } from '../utils/server-url';
 import type { ApiClientExecutionResult } from '../utils/api-client-execution';
@@ -47,6 +49,10 @@ function withDefaults(initialRequest?: Partial<HttpRequestDraft>): HttpRequestDr
     headers: initialRequest?.headers?.length ? initialRequest.headers : [emptyPair()],
     body: initialRequest?.body || '',
     contentType: initialRequest?.contentType || 'application/json',
+    bodyMode: initialRequest?.bodyMode || inferHttpBodyMode(initialRequest || {}),
+    urlencoded: initialRequest?.urlencoded?.length ? initialRequest.urlencoded.map((entry) => ({ ...entry })) : undefined,
+    formData: initialRequest?.formData?.length ? initialRequest.formData.map((entry) => ({ ...entry })) : undefined,
+    graphql: initialRequest?.graphql ? { ...initialRequest.graphql } : undefined,
     auth: initialRequest?.auth || { type: 'none' },
   };
 }
@@ -61,6 +67,9 @@ function cloneDraft(draft: HttpRequestDraft): HttpRequestDraft {
     ...draft,
     query: draft.query?.map((entry) => ({ ...entry })),
     headers: draft.headers?.map((entry) => ({ ...entry })),
+    urlencoded: draft.urlencoded?.map((entry) => ({ ...entry })),
+    formData: draft.formData?.map((entry) => ({ ...entry })),
+    graphql: draft.graphql ? { ...draft.graphql } : undefined,
     auth,
   };
 }
@@ -120,7 +129,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   const [customServerUrl, setCustomServerUrl] = useState(initialCustomServer);
   const serverUrlRef = useRef(initialEffectiveServer);
   const originalServerUrlRef = useRef(initialEffectiveServer);
-  const [response, setResponse] = useState<{ status: number; statusText: string; headers: string; body: string } | null>(null);
+  const [response, setResponse] = useState<{ status: number; statusText: string; headers: Array<[string, string]>; body: string; responseTime: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scriptError, setScriptError] = useState<string | null>(null);
   const [scriptTests, setScriptTests] = useState<ApiClientScriptTestResult[]>([]);
@@ -201,8 +210,9 @@ export const ApiClient: React.FC<ApiClientProps> = ({
       setResponse({
         status: outcome.response.status,
         statusText: outcome.response.statusText,
-        headers: outcome.response.headers.map(([key, value]) => `${key}: ${value}`).join('\n'),
+        headers: outcome.response.headers.map(([key, value]) => [key, value]),
         body: outcome.response.body,
+        responseTime: outcome.response.responseTime,
       });
     }
     if (outcome.result) onExecutionComplete?.(outcome.result);
@@ -262,10 +272,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
         {draft.auth?.type === 'apiKey' && <div className='flex gap-2'><input aria-label='API key name' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Key name' value={draft.auth.key} onChange={(e) => { const key = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'apiKey' }>), type: 'apiKey', key } })); }} /><input aria-label='API key value' type='password' autoComplete='off' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} placeholder='Value' value={draft.auth.value} onChange={(e) => { const value = e.target.value; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'apiKey' }>), type: 'apiKey', value } })); }} /><select aria-label='API key location' className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} value={draft.auth.in} onChange={(e) => { const location = e.target.value as 'header' | 'query'; setDraft((current) => ({ ...current, auth: { ...(current.auth as Extract<HttpAuth, { type: 'apiKey' }>), type: 'apiKey', in: location } })); }}><option value='header'>Header</option><option value='query'>Query</option></select></div>}
       </div>
 
-      {!['GET', 'HEAD'].includes(method) && <div className='space-y-3'>
-        <label className='text-sm font-medium'>Content type<input aria-label='Content type' className={`w-full rounded-md border px-3 py-2 ${inputClass}`} value={draft.contentType || ''} onChange={(e) => { const contentType = e.target.value; setDraft((current) => ({ ...current, contentType })); }} /></label>
-        <label className='text-sm font-medium'>Request body<textarea aria-label='Request body' rows={8} className={`w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} value={draft.body || ''} onChange={(e) => { const body = e.target.value; setDraft((current) => ({ ...current, body })); }} /></label>
-      </div>}
+      {!['GET', 'HEAD'].includes(method) && <ApiClientBodyEditor draft={draft} onChange={setDraft} theme={theme} />}
 
       <section className='space-y-3 border-t pt-4' aria-labelledby='api-client-scripts-heading'>
         <div>
@@ -314,11 +321,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
 
       {error && <div role='alert' className='flex gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700'><AlertCircle className='mt-0.5 h-4 w-4 shrink-0' />{error}</div>}
       {scriptError && <div role='alert' className='flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800'><AlertCircle className='mt-0.5 h-4 w-4 shrink-0' />{scriptError}</div>}
-      {response && <div className='space-y-3'>
-        <div className='font-semibold'>Response <span className={response.status >= 400 ? 'text-red-600' : 'text-green-600'}>{response.status} {response.statusText}</span></div>
-        {response.headers && <CodeBlock code={response.headers} language='text' title='Headers' theme={theme} wrap />}
-        <CodeBlock code={response.body || '(empty response)'} language='json' title='Body' theme={theme} wrap />
-      </div>}
+      {response && <ApiClientResponseViewer response={response} theme={theme} />}
       {scriptTests.length > 0 && <section className='space-y-2' aria-labelledby='api-client-test-results-heading'>
         <div className='flex items-center justify-between'>
           <h3 id='api-client-test-results-heading' className='font-semibold'>Test results</h3>

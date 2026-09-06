@@ -95,7 +95,7 @@ describe('Postman import', () => {
     expect(imported.warnings).toEqual([]);
   });
 
-  it('imports raw, urlencoded, GraphQL, and explicitly warns on multipart/file limitations', () => {
+  it('preserves raw, urlencoded, GraphQL, and multipart bodies as structured request modes', () => {
     const imported = importPostmanCollection({
       info: { name: 'Bodies' },
       item: [
@@ -106,12 +106,58 @@ describe('Postman import', () => {
       ],
     });
 
-    expect(imported.requests[0].request.contentType).toBe('application/json');
-    expect(imported.requests[1].request.body).toBe('a={{value}}');
-    expect(imported.requests[1].request.contentType).toBe('application/x-www-form-urlencoded');
-    expect(JSON.parse(imported.requests[2].request.body || '')).toEqual({ query: 'query { ok }', variables: { id: 1 } });
-    expect(imported.requests[3].request.body).toBe('name=pet');
-    expect(imported.warnings.some((entry) => entry.code === 'postman-body-formdata')).toBe(true);
+    expect(imported.requests[0].request).toEqual(expect.objectContaining({
+      body: '{"ok":true}',
+      bodyMode: 'json',
+      contentType: 'application/json',
+    }));
+    expect(imported.requests[1].request).toEqual(expect.objectContaining({
+      body: '',
+      bodyMode: 'urlencoded',
+      contentType: 'application/x-www-form-urlencoded',
+      urlencoded: [{ key: 'a', value: '{{value}}', enabled: true }],
+    }));
+    expect(imported.requests[2].request).toEqual(expect.objectContaining({
+      body: '',
+      bodyMode: 'graphql',
+      contentType: 'application/json',
+      graphql: { query: 'query { ok }', variables: '{"id":1}' },
+    }));
+    expect(imported.requests[3].request).toEqual(expect.objectContaining({
+      body: '',
+      bodyMode: 'formdata',
+      formData: [
+        { key: 'name', value: 'pet', enabled: true, type: 'text' },
+        { key: 'photo', value: '', enabled: true, type: 'file', fileName: '/tmp/pet.png' },
+      ],
+    }));
+    expect(imported.warnings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'postman-body-formdata-files' }),
+    ]));
+  });
+
+  it('preserves Postman binary file bodies as re-selectable binary intent', () => {
+    const imported = importPostmanCollection({
+      info: { name: 'Binary' },
+      item: [{
+        name: 'Upload archive',
+        request: {
+          method: 'POST',
+          url: 'https://example.test/upload',
+          header: [{ key: 'Content-Type', value: 'application/zip' }],
+          body: { mode: 'file', file: { src: '/tmp/archive.zip' } },
+        },
+      }],
+    });
+
+    expect(imported.requests[0].request).toEqual(expect.objectContaining({
+      bodyMode: 'binary',
+      contentType: 'application/zip',
+      binary: { fileName: '/tmp/archive.zip', contentType: 'application/zip' },
+    }));
+    expect(imported.warnings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'postman-body-file' }),
+    ]));
   });
 
   it('keeps partially compatible Postman scripts but emits an explicit warning', () => {

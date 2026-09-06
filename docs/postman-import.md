@@ -40,7 +40,7 @@ As with native FlexDoc request scripts, imported scripts execute in the document
 
 ## Multipart and files
 
-The current canonical `HttpRequestDraft` stores a textual request body and does not model imported browser `File` objects. Postman multipart form-data is therefore imported as a readable text representation and produces a compatibility warning. File fields cannot be reconstructed from paths stored in a Postman export.
+FlexDoc 2.9.5 models request bodies as first-class `none`, `json`, `raw`, `urlencoded`, `formdata`, and `graphql` modes. Postman URL-encoded fields, GraphQL query/variables, and multipart text fields therefore remain structured after import. Multipart file fields are also preserved as file rows, but a Postman export contains local paths rather than browser `File` objects, so those files must be re-selected before sending.
 
 Review multipart requests and attach/rebuild file payloads outside the importer before sending them.
 

@@ -1,5 +1,6 @@
 import {
   buildHttpRequest as coreBuildHttpRequest,
+  inferHttpBodyMode as coreInferHttpBodyMode,
   requestDraftFromBuiltRequest as coreRequestDraftFromBuiltRequest,
   resolveHttpRequestDraftVariables as coreResolveHttpRequestDraftVariables,
 } from '../../../../core/dist/http-client.js';
@@ -10,6 +11,11 @@ export interface HttpKeyValue {
   value: string;
   enabled?: boolean;
 }
+
+export type HttpBodyMode = 'none' | 'raw' | 'json' | 'urlencoded' | 'formdata' | 'binary' | 'graphql';
+export interface HttpFormDataEntry extends HttpKeyValue { type?: 'text' | 'file'; file?: File; fileName?: string; contentType?: string; }
+export interface HttpGraphqlBody { query: string; variables: string; }
+export interface HttpBinaryBody { file?: File; fileName?: string; contentType?: string; }
 
 export type HttpOAuth2GrantType = 'accessToken' | 'authorizationCode' | 'clientCredentials' | 'password' | 'implicit';
 
@@ -44,6 +50,11 @@ export interface HttpRequestDraft {
   headers?: HttpKeyValue[];
   body?: string;
   contentType?: string;
+  bodyMode?: HttpBodyMode;
+  urlencoded?: HttpKeyValue[];
+  formData?: HttpFormDataEntry[];
+  binary?: HttpBinaryBody;
+  graphql?: HttpGraphqlBody;
   auth?: HttpAuth;
 }
 
@@ -59,6 +70,10 @@ export interface HttpBuiltRequest extends BuiltRequest {
 
 export function buildHttpRequest(draft: HttpRequestDraft, options: HttpRequestBuildOptions = {}): HttpBuiltRequest {
   return coreBuildHttpRequest(draft, options) as HttpBuiltRequest;
+}
+
+export function inferHttpBodyMode(draft: Partial<HttpRequestDraft>): HttpBodyMode {
+  return coreInferHttpBodyMode(draft) as HttpBodyMode;
 }
 
 export function resolveHttpRequestDraftVariables(draft: HttpRequestDraft, variables: HttpVariables): HttpRequestDraft {

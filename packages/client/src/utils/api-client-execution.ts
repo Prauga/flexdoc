@@ -70,6 +70,10 @@ function cloneDraft(draft: HttpRequestDraft): HttpRequestDraft {
     ...draft,
     query: draft.query?.map((entry) => ({ ...entry })),
     headers: draft.headers?.map((entry) => ({ ...entry })),
+    urlencoded: draft.urlencoded?.map((entry) => ({ ...entry })),
+    formData: draft.formData?.map((entry) => ({ ...entry })),
+    binary: draft.binary ? { ...draft.binary } : undefined,
+    graphql: draft.graphql ? { ...draft.graphql } : undefined,
     auth,
   };
 }

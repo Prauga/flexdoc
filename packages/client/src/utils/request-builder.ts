@@ -23,7 +23,7 @@ export interface BuiltRequest {
   method: string;
   headers: Record<string, string>;
   body?: string;
-  bodyKind?: 'json' | 'text' | 'form' | 'multipart';
+  bodyKind?: 'json' | 'text' | 'form' | 'multipart' | 'binary';
 }
 
 export function operationFor(spec: OpenAPISpec, path: string, method: string): Operation { return coreOperationFor(spec, path, method) as Operation; }

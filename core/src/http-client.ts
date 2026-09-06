@@ -6,6 +6,26 @@ export interface HttpKeyValue {
   enabled?: boolean;
 }
 
+export type HttpBodyMode = 'none' | 'raw' | 'json' | 'urlencoded' | 'formdata' | 'binary' | 'graphql';
+
+export interface HttpFormDataEntry extends HttpKeyValue {
+  type?: 'text' | 'file';
+  file?: File;
+  fileName?: string;
+  contentType?: string;
+}
+
+export interface HttpGraphqlBody {
+  query: string;
+  variables: string;
+}
+
+export interface HttpBinaryBody {
+  file?: File;
+  fileName?: string;
+  contentType?: string;
+}
+
 export type HttpOAuth2GrantType = 'accessToken' | 'authorizationCode' | 'clientCredentials' | 'password' | 'implicit';
 
 export interface HttpOAuth2Auth {
@@ -39,6 +59,11 @@ export interface HttpRequestDraft {
   headers?: HttpKeyValue[];
   body?: string;
   contentType?: string;
+  bodyMode?: HttpBodyMode;
+  urlencoded?: HttpKeyValue[];
+  formData?: HttpFormDataEntry[];
+  binary?: HttpBinaryBody;
+  graphql?: HttpGraphqlBody;
   auth?: HttpAuth;
 }
 
@@ -60,6 +85,20 @@ export interface HttpBuiltRequest extends BuiltRequest {
 
 function enabledPairs(entries: HttpKeyValue[] | undefined): HttpKeyValue[] {
   return (entries || []).filter((entry) => entry.enabled !== false && entry.key.trim() !== '');
+}
+
+export function inferHttpBodyMode(draft: Partial<HttpRequestDraft>): HttpBodyMode {
+  if (draft.bodyMode) return draft.bodyMode;
+  if (draft.binary?.file || draft.binary?.fileName) return 'binary';
+  if (draft.formData?.length) return 'formdata';
+  if (draft.urlencoded?.length) return 'urlencoded';
+  if (draft.graphql && (draft.graphql.query || draft.graphql.variables)) return 'graphql';
+  if (!draft.body) return 'none';
+  const contentType = (draft.contentType || '').toLowerCase();
+  if (contentType.includes('application/x-www-form-urlencoded')) return 'urlencoded';
+  if (contentType.includes('multipart/form-data')) return 'formdata';
+  if (contentType.includes('json')) return 'json';
+  return 'raw';
 }
 
 function appendQuery(url: string, entries: HttpKeyValue[]): string {
@@ -194,6 +233,28 @@ export function resolveHttpRequestDraftVariables(draft: HttpRequestDraft, variab
     })),
     body: resolveTemplateValue(draft.body, variables),
     contentType: resolveTemplateValue(draft.contentType, variables),
+    bodyMode: draft.bodyMode,
+    urlencoded: draft.urlencoded?.map((entry) => ({
+      ...entry,
+      key: resolveTemplateValue(entry.key, variables) || '',
+      value: resolveTemplateValue(entry.value, variables) || '',
+    })),
+    formData: draft.formData?.map((entry) => ({
+      ...entry,
+      key: resolveTemplateValue(entry.key, variables) || '',
+      value: resolveTemplateValue(entry.value, variables) || '',
+      fileName: resolveTemplateValue(entry.fileName, variables),
+      contentType: resolveTemplateValue(entry.contentType, variables),
+    })),
+    binary: draft.binary ? {
+      ...draft.binary,
+      fileName: resolveTemplateValue(draft.binary.fileName, variables),
+      contentType: resolveTemplateValue(draft.binary.contentType, variables),
+    } : undefined,
+    graphql: draft.graphql ? {
+      query: resolveTemplateValue(draft.graphql.query, variables) || '',
+      variables: resolveTemplateValue(draft.graphql.variables, variables) || '',
+    } : undefined,
     auth: resolveAuthVariables(draft.auth, variables),
   };
 }
@@ -231,14 +292,59 @@ export function buildHttpRequest(draft: HttpRequestDraft, options: HttpRequestBu
   let body: string | undefined;
   let bodyKind: BuiltRequest['bodyKind'];
   let requestBody: BodyInit | undefined;
-  if (resolvedDraft.body && !['GET', 'HEAD'].includes(method)) {
-    body = resolvedDraft.body;
-    requestBody = resolvedDraft.body;
+  const bodyMode = inferHttpBodyMode(resolvedDraft);
+  if (!['GET', 'HEAD'].includes(method) && bodyMode !== 'none') {
     const explicitContentType = findHeader(headerEntries, 'Content-Type');
     const requestedContentType = resolvedDraft.contentType?.trim();
-    if (!explicitContentType && requestedContentType) headerEntries.push(['Content-Type', requestedContentType]);
-    const contentType = explicitContentType || requestedContentType;
-    bodyKind = contentType?.includes('json') ? 'json' : contentType === 'application/x-www-form-urlencoded' ? 'form' : contentType?.startsWith('multipart/form-data') ? 'multipart' : 'text';
+    if (bodyMode === 'urlencoded') {
+      const fields = enabledPairs(resolvedDraft.urlencoded);
+      body = fields.map(({ key, value }) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('&');
+      requestBody = body;
+      if (!explicitContentType) headerEntries.push(['Content-Type', requestedContentType || 'application/x-www-form-urlencoded']);
+      bodyKind = 'form';
+    } else if (bodyMode === 'formdata') {
+      const form = new FormData();
+      const preview: string[] = [];
+      for (const entry of (resolvedDraft.formData || []).filter((item) => item.enabled !== false && item.key.trim() !== '')) {
+        if (entry.type === 'file') {
+          if (!entry.file) throw new Error(`File field "${entry.key}" needs a file selection.`);
+          form.append(entry.key, entry.file, entry.fileName || entry.file.name);
+          preview.push(`${entry.key}=[file: ${entry.fileName || entry.file.name}]`);
+        } else {
+          form.append(entry.key, entry.value);
+          preview.push(`${entry.key}=${entry.value}`);
+        }
+      }
+      body = preview.join('\n');
+      requestBody = form;
+      bodyKind = 'multipart';
+    } else if (bodyMode === 'binary') {
+      const binary = resolvedDraft.binary;
+      if (!binary?.file) throw new Error('Binary body needs a file selection.');
+      const fileName = binary.fileName || binary.file.name;
+      body = `[file: ${fileName}]`;
+      requestBody = binary.file;
+      if (!explicitContentType) headerEntries.push(['Content-Type', requestedContentType || binary.contentType || binary.file.type || 'application/octet-stream']);
+      bodyKind = 'binary';
+    } else if (bodyMode === 'graphql') {
+      const query = resolvedDraft.graphql?.query || '';
+      const rawVariables = resolvedDraft.graphql?.variables?.trim() || '';
+      let variables: unknown = {};
+      if (rawVariables) {
+        try { variables = JSON.parse(rawVariables); } catch { throw new Error('GraphQL variables must be valid JSON.'); }
+      }
+      body = JSON.stringify({ query, variables });
+      requestBody = body;
+      if (!explicitContentType) headerEntries.push(['Content-Type', requestedContentType || 'application/json']);
+      bodyKind = 'json';
+    } else {
+      body = resolvedDraft.body || '';
+      requestBody = body;
+      const fallback = bodyMode === 'json' ? 'application/json' : undefined;
+      if (!explicitContentType && (requestedContentType || fallback)) headerEntries.push(['Content-Type', requestedContentType || fallback!]);
+      const contentType = explicitContentType || requestedContentType || fallback;
+      bodyKind = bodyMode === 'json' || contentType?.includes('json') ? 'json' : 'text';
+    }
   }
 
   const headers = headerRecord(headerEntries);
@@ -257,6 +363,7 @@ export function buildHttpRequest(draft: HttpRequestDraft, options: HttpRequestBu
 export function requestDraftFromBuiltRequest(request: BuiltRequest & { headerEntries?: unknown }): HttpRequestDraft {
   const entries = normalizeHeaderEntries(request);
   const split = splitQuery(request.url);
+  const binaryFile = request.bodyKind === 'binary' && typeof File !== 'undefined' && request.init.body instanceof File ? request.init.body : undefined;
   return {
     method: request.method,
     url: split.url,
@@ -264,6 +371,9 @@ export function requestDraftFromBuiltRequest(request: BuiltRequest & { headerEnt
     headers: entries.map(([key, value]) => ({ key, value })),
     body: request.body,
     contentType: findHeader(entries, 'Content-Type'),
+    bodyMode: request.bodyKind === 'json' ? 'json' : request.bodyKind === 'form' ? 'urlencoded' : request.bodyKind === 'multipart' ? 'formdata' : request.bodyKind === 'binary' ? 'binary' : request.body ? 'raw' : 'none',
+    binary: request.bodyKind === 'binary' ? { file: binaryFile, fileName: binaryFile?.name, contentType: findHeader(entries, 'Content-Type') } : undefined,
+    urlencoded: request.bodyKind === 'form' && request.body ? [...new URLSearchParams(request.body).entries()].map(([key, value]) => ({ key, value, enabled: true })) : undefined,
     auth: { type: 'none' },
   };
 }

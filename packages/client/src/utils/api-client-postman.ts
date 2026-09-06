@@ -313,9 +313,9 @@ function parseBody(
   headers: HttpKeyValue[],
   path: string,
   warnings: ApiClientImportWarning[],
-): Pick<HttpRequestDraft, 'body' | 'contentType'> {
+): Pick<HttpRequestDraft, 'body' | 'contentType' | 'bodyMode' | 'urlencoded' | 'formData' | 'binary' | 'graphql'> {
   const headerContentType = contentTypeFromHeaders(headers);
-  if (!isRecord(value) || !value.mode) return { body: '', contentType: headerContentType || 'application/json' };
+  if (!isRecord(value) || !value.mode) return { body: '', contentType: headerContentType || 'application/json', bodyMode: 'none' };
   const mode = scalarString(value.mode);
 
   if (mode === 'raw') {
@@ -324,13 +324,16 @@ function parseBody(
     return {
       body: scalarString(value.raw),
       contentType: headerContentType || contentTypeForRawLanguage(language) || 'text/plain',
+      bodyMode: language.toLowerCase() === 'json' ? 'json' : 'raw',
     };
   }
 
   if (mode === 'urlencoded') {
-    const fields = postmanEntries(value.urlencoded).filter((field) => field.disabled !== true);
+    const fields = postmanEntries(value.urlencoded).map((field) => ({ key: scalarString(field.key), value: scalarString(field.value), enabled: field.disabled !== true }));
     return {
-      body: fields.map((field) => `${scalarString(field.key)}=${scalarString(field.value)}`).join('&'),
+      body: '',
+      bodyMode: 'urlencoded',
+      urlencoded: fields,
       contentType: headerContentType || 'application/x-www-form-urlencoded',
     };
   }
@@ -338,40 +341,57 @@ function parseBody(
   if (mode === 'graphql') {
     const graphql = isRecord(value.graphql) ? value.graphql : {};
     const rawVariables = scalarString(graphql.variables);
-    let variables: unknown = rawVariables;
-    if (rawVariables) {
-      try { variables = JSON.parse(rawVariables); } catch { variables = rawVariables; }
-    }
     return {
-      body: JSON.stringify({ query: scalarString(graphql.query), variables }),
+      body: '',
+      bodyMode: 'graphql',
+      graphql: { query: scalarString(graphql.query), variables: rawVariables },
       contentType: headerContentType || 'application/json',
     };
   }
 
   if (mode === 'formdata') {
-    const fields = postmanEntries(value.formdata).filter((field) => field.disabled !== true);
-    const fileFields = fields.filter((field) => scalarString(field.type) === 'file');
-    warning(
+    const fields = postmanEntries(value.formdata).map((field) => {
+      const type = scalarString(field.type) === 'file' ? 'file' as const : 'text' as const;
+      const rawSource = Array.isArray(field.src) ? field.src.map(scalarString).filter(Boolean).join(', ') : scalarString(field.src);
+      return {
+        key: scalarString(field.key),
+        value: type === 'text' ? scalarString(field.value) : '',
+        enabled: field.disabled !== true,
+        type,
+        ...(type === 'file' && rawSource ? { fileName: rawSource } : {}),
+        ...(typeof field.contentType === 'string' ? { contentType: field.contentType } : {}),
+      };
+    });
+    const fileFields = fields.filter((field) => field.type === 'file');
+    if (fileFields.length > 0) warning(
       warnings,
-      'postman-body-formdata',
+      'postman-body-formdata-files',
       path,
-      fileFields.length > 0
-        ? 'Multipart form-data was imported as a readable text body; file attachments cannot be imported into the current FlexDoc request model.'
-        : 'Multipart form-data was imported as a readable text body and should be reviewed before sending because browser multipart boundaries are not reconstructed.',
+      'Multipart file fields were preserved, but exported local file paths cannot be reopened by the browser. Re-select those files before sending.',
     );
     return {
-      body: fields.filter((field) => scalarString(field.type) !== 'file').map((field) => `${scalarString(field.key)}=${scalarString(field.value)}`).join('\n'),
-      contentType: headerContentType || 'multipart/form-data',
+      body: '',
+      bodyMode: 'formdata',
+      formData: fields,
+      contentType: headerContentType,
     };
   }
 
   if (mode === 'file') {
-    warning(warnings, 'postman-body-file', path, 'Postman file bodies cannot be imported into the current FlexDoc request model; the request body was left empty.');
-    return { body: '', contentType: headerContentType || 'application/octet-stream' };
+    const source = isRecord(value.file) ? scalarString(value.file.src) : scalarString(value.src);
+    warning(warnings, 'postman-body-file', path, source
+      ? `Postman binary file body "${source}" was preserved as intent, but browser security requires re-selecting the file before sending.`
+      : 'Postman binary file body requires selecting the file again in FlexDoc before sending.');
+    return {
+      body: '',
+      contentType: headerContentType || 'application/octet-stream',
+      bodyMode: 'binary',
+      binary: { fileName: source || undefined, contentType: headerContentType || 'application/octet-stream' },
+    };
   }
 
   warning(warnings, 'postman-body-unsupported', path, `Postman body mode "${mode}" is not supported; the request body was left empty.`);
-  return { body: '', contentType: headerContentType || 'application/octet-stream' };
+  return { body: '', contentType: headerContentType || 'application/octet-stream', bodyMode: 'none' };
 }
 
 function importRequest(
@@ -400,6 +420,11 @@ function importRequest(
     headers,
     body: body.body,
     contentType: body.contentType,
+    bodyMode: body.bodyMode,
+    urlencoded: body.urlencoded,
+    formData: body.formData,
+    binary: body.binary,
+    graphql: body.graphql,
     auth: parsePostmanAuth(request.auth, { type: 'inherit' }, `${path}.auth`, warnings),
   };
   const importedScripts = savedScripts(scripts);
