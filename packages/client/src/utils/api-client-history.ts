@@ -78,9 +78,10 @@ export function groupApiClientHistoryEntries(entries: ApiClientHistoryEntry[]): 
         entries: grouped,
         total,
         captured: grouped.length,
-        passed: grouped.filter((candidate) => candidate.runPassed === true && candidate.runCancelled !== true).length,
-        failed: grouped.filter((candidate) => candidate.runPassed === false && candidate.runCancelled !== true).length,
-        cancelled: grouped.filter((candidate) => candidate.runCancelled === true).length,
+        passed: grouped.filter((candidate) => candidate.runPassed === true).length,
+        failed: grouped.filter((candidate) => candidate.runPassed === false).length,
+        // Cancelled runner items intentionally do not persist history rows.
+        cancelled: 0,
       },
     });
   }

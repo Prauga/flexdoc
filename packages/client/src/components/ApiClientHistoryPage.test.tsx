@@ -36,7 +36,7 @@ function workspaceFixture(): ApiClientWorkspaceState {
         status: 500,
         statusText: 'Server Error',
         responseBody: 'boom',
-        runId: 'run-1', runName: 'My Collection', runIndex: 2, runTotal: 2, runPassed: true,
+        runId: 'run-1', runName: 'My Collection', runIndex: 2, runTotal: 2, runPassed: true, runCancelled: true,
         createdAt: '2026-09-05T09:00:00.000Z',
       },
     ],
@@ -71,7 +71,7 @@ describe('ApiClientHistoryPage', () => {
     const workspace = workspaceFixture();
     const blocks = groupApiClientHistoryEntries(workspace.history);
     expect(blocks).toHaveLength(1);
-    expect(blocks[0]).toMatchObject({ kind: 'run', group: { runId: 'run-1', total: 2, captured: 2, passed: 2, failed: 0 } });
+    expect(blocks[0]).toMatchObject({ kind: 'run', group: { runId: 'run-1', total: 2, captured: 2, passed: 2, failed: 0, cancelled: 0 } });
     render(<ApiClientHistoryPage workspace={workspace} onWorkspaceChange={jest.fn()} onLoadRequest={jest.fn()} onBack={jest.fn()} theme='light' initialRunId='run-1' />);
     expect(screen.getByText('2 / 2 history entries captured · 2 runner passed · 0 runner failed')).toBeInTheDocument();
     expect(screen.getByText(/Runner pass · HTTP 500/)).toBeInTheDocument();
