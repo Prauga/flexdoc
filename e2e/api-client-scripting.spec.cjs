@@ -20,6 +20,10 @@ async function readApiClientWorkspace(page) {
   }), API_CLIENT_SPEC_TITLE);
 }
 
+async function editorText(editor) {
+  return editor.evaluate((element) => element.innerText.replace(/\u200b/g, ''));
+}
+
 test('API Client runs scripts, persists history, and replays requests', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop scripting coverage');
 
@@ -34,10 +38,9 @@ test('API Client runs scripts, persists history, and replays requests', async ({
     });
   });
 
-  await page.goto('/e2e/index.html#get-pets-id');
-  await page.getByLabel('path id').fill('42');
+  await page.goto('/e2e/index.html#get-~2Fpets~2F~7Bid~7D');
   await page.getByRole('button', { name: 'Open in API Client' }).click();
-  const apiClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  const apiClient = page.locator('[data-api-client-page="api-client"]');
   await expect(apiClient).toBeVisible();
 
   await apiClient.getByLabel('New environment name').fill('Script env');
@@ -62,7 +65,9 @@ test('API Client runs scripts, persists history, and replays requests', async ({
     "console.log('tested', flex.response.code);",
   ].join('\n');
 
+  await apiClient.getByRole('tab', { name: 'Scripts' }).click();
   await apiClient.getByLabel('Pre-request script').fill(preRequestScript);
+  await apiClient.getByRole('tab', { name: 'Tests' }).click();
   await apiClient.getByLabel('Tests script').fill(testScript);
   await apiClient.getByRole('button', { name: 'Send request' }).click();
 
@@ -126,28 +131,37 @@ test('API Client runs scripts, persists history, and replays requests', async ({
   });
 
   await apiClient.getByLabel('Request URL').fill('https://changed.example.test/ignored');
+  await apiClient.getByRole('tab', { name: 'Scripts' }).click();
+  await apiClient.getByRole('tab', { name: 'Pre-request' }).click();
   await apiClient.getByLabel('Pre-request script').fill('');
+  await apiClient.getByRole('tab', { name: 'Tests' }).click();
   await apiClient.getByLabel('Tests script').fill('');
   await historyLoad.click();
   await expect(apiClient.getByLabel('Request URL')).toHaveValue('{{baseUrl}}/pets/{{petId}}');
-  await expect(apiClient.getByLabel('Pre-request script')).toHaveValue(preRequestScript);
-  await expect(apiClient.getByLabel('Tests script')).toHaveValue(testScript);
+  const preRequestEditor = apiClient.getByLabel('Pre-request script');
+  const testsEditor = apiClient.getByLabel('Tests script');
+  await expect.poll(() => editorText(preRequestEditor)).toBe(preRequestScript);
+  await apiClient.getByRole('tab', { name: 'Tests' }).click();
+  await expect.poll(() => editorText(testsEditor)).toBe(testScript);
 
-  await apiClient.getByLabel('Pre-request script').fill('');
-  await apiClient.getByLabel('Tests script').fill('');
+  await apiClient.getByRole('tab', { name: 'Pre-request' }).click();
+  await preRequestEditor.fill('');
+  await apiClient.getByRole('tab', { name: 'Tests' }).click();
+  await testsEditor.fill('');
   await apiClient.getByRole('button', { name: 'Load saved request Scripted pet' }).click();
-  await expect(apiClient.getByLabel('Pre-request script')).toHaveValue(preRequestScript);
-  await expect(apiClient.getByLabel('Tests script')).toHaveValue(testScript);
+  await expect.poll(() => editorText(preRequestEditor)).toBe(preRequestScript);
+  await apiClient.getByRole('tab', { name: 'Tests' }).click();
+  await expect.poll(() => editorText(testsEditor)).toBe(testScript);
 
   await page.reload();
-  await page.getByLabel('path id').fill('42');
-  await page.getByRole('button', { name: 'Open in API Client' }).click();
-  const reopenedClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  const reopenedClient = page.locator('[data-api-client-page="api-client"]');
+  await expect(reopenedClient).toBeVisible();
   await expect(reopenedClient.getByText('3/3 tests passed')).toBeVisible();
 
   await reopenedClient.getByRole('button', { name: /Open full history ·/ }).click();
   const history = page.locator('section[aria-labelledby="api-client-history-page-heading"]');
   await expect(history).toBeVisible();
+  page.once('dialog', (dialog) => dialog.accept());
   await history.getByRole('button', { name: 'Clear history' }).click();
   await expect(history.getByText('0 persisted requests')).toBeVisible();
   await expect.poll(async () => (await readApiClientWorkspace(page))?.history?.length).toBe(0);
