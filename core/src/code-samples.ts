@@ -1,9 +1,15 @@
 import type { BuiltRequest } from './request-builder.js';
 
+/** Languages supported by FlexDoc's built-in request code-sample generator. */
 export type CodeSampleLanguage = 'curl' | 'javascript' | 'python' | 'go' | 'java';
 const q = (value: string) => JSON.stringify(value);
 
-/** Generate a language-specific code sample from a built request. */
+/**
+ * Generate a language-specific code sample from a built request.
+ * @param request Canonical request containing URL, method, headers, and optional body.
+ * @param language Target language/template identifier.
+ * @returns Source text representing the request in the selected language.
+ */
 export function generateCodeSample(request: BuiltRequest, language: CodeSampleLanguage): string {
   const headers = Object.entries(request.headers);
   if (language === 'curl') {
@@ -41,7 +47,11 @@ export function generateCodeSample(request: BuiltRequest, language: CodeSampleLa
   return lines.join('\n');
 }
 
-/** Human-readable label for a code-sample language id. */
+/**
+ * Return the display label for a code-sample language id.
+ * @param language Code-sample language identifier.
+ * @returns Human-readable language label used by renderer tabs.
+ */
 export function languageLabel(language: CodeSampleLanguage): string {
   return ({ curl: 'cURL', javascript: 'JavaScript', python: 'Python', go: 'Go', java: 'Java' })[language];
 }
