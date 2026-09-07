@@ -32,4 +32,13 @@ public sealed class FlexDocOptions
 
     /// <summary>Advertise the host-execution protocol shape. ASP.NET Core execution is not implemented in 2.9.5.</summary>
     public bool TryItHostExecution { get; set; }
+
+    /// <summary>Explicit opt-in for live ASP.NET Core route discovery and OpenAPI presence drift.</summary>
+    public bool RuntimeIntelligence { get; set; }
+
+    /// <summary>
+    /// Server-only OpenAPI document used for Runtime Intelligence comparison. Required when RuntimeIntelligence is enabled.
+    /// Accepts a serializable OpenAPI object, JsonElement/JsonDocument, or JSON string and is never sent to the renderer.
+    /// </summary>
+    public object? RuntimeOpenApiDocument { get; set; }
 }
