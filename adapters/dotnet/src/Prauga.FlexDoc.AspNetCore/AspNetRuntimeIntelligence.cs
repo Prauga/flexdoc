@@ -71,6 +71,11 @@ internal static class AspNetRuntimeIntelligence
         if (!string.IsNullOrWhiteSpace(frameworkVersion)) snapshot["frameworkVersion"] = frameworkVersion;
         if (context.Request.Host.HasValue)
             snapshot["serverOrigin"] = $"{context.Request.Scheme}://{context.Request.Host.Value}";
+        if (context.Connection.LocalPort > 0)
+            snapshot["server"] = new Dictionary<string, object?> { ["localPort"] = context.Connection.LocalPort };
+        var environmentName = StandardEnvironmentName();
+        if (environmentName is not null)
+            snapshot["environment"] = new Dictionary<string, object?> { ["name"] = environmentName };
         return snapshot;
     }
 
@@ -212,6 +217,13 @@ internal static class AspNetRuntimeIntelligence
         while (path.Contains("//", StringComparison.Ordinal)) path = path.Replace("//", "/", StringComparison.Ordinal);
         if (path.Length > 1 && path.EndsWith('/')) path = path[..^1];
         return path.Length == 0 ? "/" : path;
+    }
+
+    private static string? StandardEnvironmentName()
+    {
+        var value = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+        if (string.IsNullOrWhiteSpace(value)) value = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
     private static string PlatformName()

@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.env.Environment;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -49,14 +50,15 @@ public class FlexDocAutoConfiguration {
       FlexDocProperties properties,
       ObjectProvider<FlexDocSpecProvider> specProvider,
       ObjectProvider<RequestMappingHandlerMapping> handlerMapping,
-      ObjectMapper objectMapper) {
+      ObjectMapper objectMapper,
+      Environment environment) {
     FlexDocSpecProvider provider = specProvider.getIfAvailable();
     if (provider == null) {
       throw new IllegalStateException(
           "FlexDoc Runtime Intelligence requires a FlexDocSpecProvider so live Spring routes can be compared with the exact OpenAPI document");
     }
     return new FlexDocRuntimeController(
-        new SpringRuntimeIntelligence(properties, provider, handlerMapping, objectMapper),
+        new SpringRuntimeIntelligence(properties, provider, handlerMapping, objectMapper, environment),
         objectMapper);
   }
 }

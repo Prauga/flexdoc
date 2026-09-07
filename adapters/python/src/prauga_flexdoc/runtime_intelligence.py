@@ -147,6 +147,14 @@ def server_origin_from_asgi_scope(scope) -> str | None:
     return f"{scheme}://{host}" if host else None
 
 
+def server_port_from_asgi_scope(scope) -> int | None:
+    server = scope.get("server")
+    if not isinstance(server, (tuple, list)) or len(server) < 2:
+        return None
+    port = server[1]
+    return port if isinstance(port, int) and 0 < port <= 65535 else None
+
+
 def build_fastapi_runtime_snapshot(app, scope, exclude_prefix: str | None = None) -> dict:
     spec = app.openapi()
     discovery = discover_fastapi_routes(app, exclude_prefix)
@@ -158,12 +166,14 @@ def build_fastapi_runtime_snapshot(app, scope, exclude_prefix: str | None = None
     documented_only = [route for route in documented if _route_key(route) not in runtime_keys]
     matched = sum(1 for route in runtime_routes if _route_key(route) in documented_keys)
     origin = server_origin_from_asgi_scope(scope)
+    local_port = server_port_from_asgi_scope(scope)
 
     return {
         "framework": discovery["framework"],
         **({"frameworkVersion": discovery["frameworkVersion"]} if discovery.get("frameworkVersion") else {}),
         "runtime": python_runtime_metadata(),
         **({"serverOrigin": origin} if origin else {}),
+        **({"server": {"localPort": local_port}} if local_port else {}),
         "discoveryComplete": discovery["complete"],
         "routes": runtime_routes,
         "runtimeOnly": runtime_only,

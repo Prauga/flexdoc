@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.SpringVersion;
+import org.springframework.core.env.Environment;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
@@ -28,16 +29,19 @@ final class SpringRuntimeIntelligence {
   private final FlexDocSpecProvider specProvider;
   private final ObjectProvider<RequestMappingHandlerMapping> handlerMappingProvider;
   private final ObjectMapper objectMapper;
+  private final Environment environment;
 
   SpringRuntimeIntelligence(
       FlexDocProperties properties,
       FlexDocSpecProvider specProvider,
       ObjectProvider<RequestMappingHandlerMapping> handlerMappingProvider,
-      ObjectMapper objectMapper) {
+      ObjectMapper objectMapper,
+      Environment environment) {
     this.properties = properties;
     this.specProvider = specProvider;
     this.handlerMappingProvider = handlerMappingProvider;
     this.objectMapper = objectMapper;
+    this.environment = environment;
   }
 
   Map<String, Object> snapshot(HttpServletRequest request) throws Exception {
@@ -46,7 +50,13 @@ final class SpringRuntimeIntelligence {
     Object document = specProvider.getOpenApiDocument();
     if (document == null) throw new IllegalStateException("FlexDocSpecProvider returned no OpenAPI document");
     JsonNode spec = objectMapper.valueToTree(document);
-    return buildSnapshot(handlerMapping.getHandlerMethods().keySet(), spec, request, properties.getPath(), properties.getSpecUrl());
+    return buildSnapshot(
+        handlerMapping.getHandlerMethods().keySet(),
+        spec,
+        request,
+        properties.getPath(),
+        properties.getSpecUrl(),
+        activeEnvironmentName(environment));
   }
 
   static Map<String, Object> buildSnapshot(
@@ -54,7 +64,8 @@ final class SpringRuntimeIntelligence {
       JsonNode spec,
       HttpServletRequest request,
       String docsPath,
-      String specUrl) {
+      String specUrl,
+      String environmentName) {
     Discovery discovery = discoverRoutes(mappings, docsPath, specUrl);
     List<RuntimeRoute> documented = documentedRoutes(spec);
     Set<String> documentedKeys = new LinkedHashSet<>();
@@ -77,6 +88,9 @@ final class SpringRuntimeIntelligence {
         "arch", System.getProperty("os.arch", "unknown")));
     String origin = serverOrigin(request);
     if (origin != null) snapshot.put("serverOrigin", origin);
+    int localPort = request == null ? 0 : request.getLocalPort();
+    if (localPort > 0) snapshot.put("server", Map.of("localPort", localPort));
+    if (environmentName != null && !environmentName.isBlank()) snapshot.put("environment", Map.of("name", environmentName));
     snapshot.put("discoveryComplete", discovery.complete());
     snapshot.put("routes", routeObjects(discovery.routes()));
     snapshot.put("runtimeOnly", routeObjects(runtimeOnly));
@@ -213,6 +227,12 @@ final class SpringRuntimeIntelligence {
     while (normalized.contains("//")) normalized = normalized.replace("//", "/");
     while (normalized.length() > 1 && normalized.endsWith("/")) normalized = normalized.substring(0, normalized.length() - 1);
     return normalized.isBlank() ? "/" : normalized;
+  }
+
+  private static String activeEnvironmentName(Environment environment) {
+    if (environment == null) return null;
+    String[] activeProfiles = environment.getActiveProfiles();
+    return activeProfiles.length == 0 ? null : String.join(", ", activeProfiles);
   }
 
   private static String serverOrigin(HttpServletRequest request) {
