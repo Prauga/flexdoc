@@ -6,7 +6,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "@prauga/flexdoc-backend": "2.9.5",
+    "@prauga/flexdoc-backend": "2.9.9",
     "express": "^5.1.0"
   }
 }
