@@ -1,20 +1,36 @@
+//! Actix Web scope integration for the Prauga FlexDoc OpenAPI renderer.
+//!
+//! The crate embeds the canonical browser renderer and exposes [`scope`] for
+//! mounting documentation alongside your Actix application.
+
 use actix_web::{http::header, web, HttpResponse, Scope};
 use serde_json::{json, Value};
 
 static RENDERER_JS: &[u8] = include_bytes!("../assets/flexdoc.standalone.js");
 static RENDERER_CSS: &[u8] = include_bytes!("../assets/flexdoc.standalone.css");
 
+/// FlexDoc renderer configuration for Actix Web.
 #[derive(Clone, Debug)]
 pub struct Config {
+    /// Docs mount path.
     pub path: String,
+    /// OpenAPI document URL resolved by the browser bootstrap page.
     pub spec_url: String,
+    /// Page and renderer title.
     pub title: String,
+    /// Renderer theme preset: `system`, `light`, or `dark`.
     pub theme: String,
+    /// Whether the Try It client is enabled.
     pub try_it_enabled: bool,
+    /// Optional expansion preset or section list forwarded to the renderer.
     pub expand: Option<Value>,
+    /// Optional default server URL for Try It requests.
     pub try_it_default_server: Option<String>,
+    /// Optional fetch credentials mode for Try It requests.
     pub try_it_credentials: Option<String>,
+    /// Optional persistence key, or JSON `false` to disable.
     pub try_it_api_client_persistence_key: Option<Value>,
+    /// Emits host-execution protocol metadata; execution is not implemented by this adapter.
     pub try_it_host_execution: bool,
 }
 

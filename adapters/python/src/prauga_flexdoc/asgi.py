@@ -18,6 +18,16 @@ class FlexDocASGI:
         runtime_provider: Callable[[dict], dict] | None = None,
         runtime_framework: str | None = None,
     ):
+        """Create an ASGI application that serves FlexDoc routes.
+
+        Args:
+            config: Renderer and route settings for the docs subtree.
+            assets_dir: Optional directory overriding the bundled renderer assets.
+            runtime_provider: Optional callable that returns a runtime intelligence
+                snapshot for ``GET {path}/__flexdoc/runtime``.
+            runtime_framework: Framework name included in renderer options when
+                ``runtime_provider`` is set.
+        """
         self.runtime_provider = runtime_provider
         self.host = FlexDocHost(
             config,

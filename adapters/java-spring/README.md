@@ -2,7 +2,7 @@
 
 Spring Boot transport for the canonical FlexDoc browser renderer. Starting with the Java `0.4.x` family, the starter delegates renderer hosting to the framework-neutral `com.prauga.flexdoc:flexdoc-jvm` package rather than maintaining a Spring-specific HTML/asset implementation.
 
-Current source version: `0.8.0`. It targets Java 17+, Spring Boot 3, renderer contract v1, and the FlexDoc renderer 2.x line.
+Current source version: `0.8.0`. It targets Java 17+, Spring Boot 3, renderer contract v1, and the FlexDoc renderer 3.x line.
 
 Coordinates:
 

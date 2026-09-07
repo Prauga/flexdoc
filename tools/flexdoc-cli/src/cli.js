@@ -1,3 +1,7 @@
+/**
+ * @packageDocumentation
+ * Build and serve static FlexDoc documentation sites from OpenAPI files.
+ */
 import { createServer } from 'node:http';
 import { createHash } from 'node:crypto';
 import { watch } from 'node:fs';
@@ -118,6 +122,7 @@ async function ensureEmptyOutput(outDir, force) {
   await mkdir(outDir, { recursive: true });
 }
 
+/** Write a static FlexDoc site to disk and return the output directory. */
 export async function buildSite(input, options = {}) {
   const outDir = resolve(options.out || 'flexdoc-dist');
   await ensureEmptyOutput(outDir, Boolean(options.force));
@@ -186,6 +191,7 @@ async function createStaticServer(root, { host, port, basePath }) {
   };
 }
 
+/** Build and serve a FlexDoc site locally, optionally rebuilding on file changes. */
 export async function serveSite(input, options = {}) {
   const host = options.host || '127.0.0.1';
   const requestedPort = options.port ?? 4174;
@@ -222,6 +228,7 @@ export async function serveSite(input, options = {}) {
   return { server: staticServer.server, close, url };
 }
 
+/** Parse CLI arguments and run `build` or `serve`. */
 export async function runCli(argv) {
   const options = parseArgs(argv);
   if (options.help) { console.log(HELP); return; }

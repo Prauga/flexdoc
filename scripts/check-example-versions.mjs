@@ -52,6 +52,19 @@ const published = {
   elixir: '0.4.1',
 };
 
+for (const path of [
+  'examples/javascript-express/package-lock.json',
+  'examples/javascript-fastify/package-lock.json',
+  'examples/javascript-hono/package-lock.json',
+]) {
+  const lock = json(path);
+  const declared = lock.packages?.['']?.dependencies?.['@prauga/flexdoc-backend'];
+  const resolved = lock.packages?.['node_modules/@prauga/flexdoc-backend']?.version;
+  if (declared !== published.backend || resolved !== published.backend) {
+    fail(`${path} is stale: expected @prauga/flexdoc-backend ${published.backend} in root dependency and resolved package`);
+  }
+}
+
 const checks = [
   ['examples/basic-usage/package.json', `"@prauga/flexdoc-client": "${published.client}"`],
   ['examples/interactive-demo/package.json', `"@prauga/flexdoc-client": "${published.client}"`],

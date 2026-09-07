@@ -3,6 +3,7 @@ import type { BuiltRequest } from './request-builder.js';
 export type CodeSampleLanguage = 'curl' | 'javascript' | 'python' | 'go' | 'java';
 const q = (value: string) => JSON.stringify(value);
 
+/** Generate a language-specific code sample from a built request. */
 export function generateCodeSample(request: BuiltRequest, language: CodeSampleLanguage): string {
   const headers = Object.entries(request.headers);
   if (language === 'curl') {
@@ -40,6 +41,7 @@ export function generateCodeSample(request: BuiltRequest, language: CodeSampleLa
   return lines.join('\n');
 }
 
+/** Human-readable label for a code-sample language id. */
 export function languageLabel(language: CodeSampleLanguage): string {
   return ({ curl: 'cURL', javascript: 'JavaScript', python: 'Python', go: 'Go', java: 'Java' })[language];
 }

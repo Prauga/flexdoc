@@ -9,6 +9,7 @@ import { filterApiClientHistoryEntries, groupApiClientHistoryEntries } from '../
 import type { ApiClientHistoryOutcomeFilter, ApiClientHistoryRunGroup } from '../utils/api-client-history';
 import type { HttpKeyValue, HttpRequestDraft } from '../utils/http-client';
 
+/** Props for the standalone workspace history page. */
 export interface ApiClientHistoryPageProps {
   workspace: ApiClientWorkspaceState;
   onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
@@ -61,6 +62,7 @@ function runnerSummary(group: ApiClientHistoryRunGroup): string {
   return pieces.join(' · ');
 }
 
+/** Full-page history browser for API Client workspace runs and replays. */
 export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ workspace, onWorkspaceChange, onLoadRequest, onBack, theme, initialEntryId, initialRunId }) => {
   const [query, setQuery] = useState('');
   const [method, setMethod] = useState('all');

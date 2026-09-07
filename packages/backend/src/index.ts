@@ -1,3 +1,10 @@
+/**
+ * @packageDocumentation
+ * Thin self-hosted FlexDoc integrations for Express, Fastify, NestJS, and Hono.
+ *
+ * Mount the renderer, optional API-host execution routes, and runtime intelligence
+ * endpoints with `setupFlexDoc` or a framework-specific `setup*FlexDoc` helper.
+ */
 export { FlexDocModule } from './flexdoc.module';
 export { FlexDocService } from './flexdoc.service';
 export { FlexDocOptions, FlexDocModuleOptions, FlexDocHostExecutionOptions, FlexDocHostExecutionPublicOptions, FlexDocHostExecutionCapability, FlexDocRuntimeIntelligenceOptions, FlexDocRuntimeIntelligencePublicOptions } from './interfaces';

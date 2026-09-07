@@ -56,6 +56,7 @@ export type HttpAuth =
   | HttpOAuth1Auth
   | HttpAwsV4Auth;
 
+/** Editable HTTP request draft used by the API Client and host execution. */
 export interface HttpRequestDraft {
   method: string;
   url: string;
@@ -82,22 +83,27 @@ export interface HttpBuiltRequest extends BuiltRequest {
   headerEntries: Array<[string, string]>;
 }
 
+/** Build a transport request from an arbitrary HTTP draft, resolving `{{variable}}` placeholders. */
 export function buildHttpRequest(draft: HttpRequestDraft, options: HttpRequestBuildOptions = {}): HttpBuiltRequest {
   return coreBuildHttpRequest(draft, options) as HttpBuiltRequest;
 }
 
+/** Infer the body editor mode from draft fields. */
 export function inferHttpBodyMode(draft: Partial<HttpRequestDraft>): HttpBodyMode {
   return coreInferHttpBodyMode(draft) as HttpBodyMode;
 }
 
+/** Return host-execution capabilities required by the draft. */
 export function httpHostExecutionRequirements(draft: Partial<HttpRequestDraft>): HttpHostExecutionCapability[] {
   return coreHttpHostExecutionRequirements(draft) as HttpHostExecutionCapability[];
 }
 
+/** Resolve variables in a draft without mutating the input. */
 export function resolveHttpRequestDraftVariables(draft: HttpRequestDraft, variables: HttpVariables): HttpRequestDraft {
   return coreResolveHttpRequestDraftVariables(draft, variables) as HttpRequestDraft;
 }
 
+/** Convert a built request into an editable API Client draft. */
 export function requestDraftFromBuiltRequest(request: BuiltRequest & { headerEntries?: Array<[string, string]> }): HttpRequestDraft {
   return coreRequestDraftFromBuiltRequest(request) as HttpRequestDraft;
 }

@@ -10,6 +10,12 @@ class FlexDocWSGI:
     """Self-contained WSGI transport for Flask, Django WSGI, and other WSGI hosts."""
 
     def __init__(self, config: FlexDocConfig = FlexDocConfig(), *, assets_dir: str | Path | None = None):
+        """Create a WSGI application that serves FlexDoc routes.
+
+        Args:
+            config: Renderer and route settings for the docs subtree.
+            assets_dir: Optional directory overriding the bundled renderer assets.
+        """
         self.host = FlexDocHost(config, assets_dir=assets_dir)
         self.config = self.host.config
         self.path = self.host.path

@@ -86,6 +86,7 @@ function partContentType(headers: string): string | undefined {
   return line ? line.slice(line.indexOf(':') + 1).trim() : undefined;
 }
 
+/** Parse a host-execution request body from JSON or multipart form data. */
 export function parseHostExecutionRequestBody(contentType: string | undefined, incoming: unknown): ParsedHostExecutionEnvelope {
   const mediaType = (contentType || '').split(';', 1)[0].trim().toLowerCase();
   if (mediaType === 'application/json') {
@@ -173,6 +174,7 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'API host execution failed.';
 }
 
+/** Handle one host-execution POST route and return an HTTP response envelope. */
 export async function runHostExecutionRoute(input: {
   state: HostExecutionState;
   spec: unknown;
@@ -196,6 +198,7 @@ export async function runHostExecutionRoute(input: {
   }
 }
 
+/** Handle host cookie-jar read and clear routes for API-host execution. */
 export function runHostCookiesRoute(input: {
   state: HostExecutionState;
   headers: HostExecutionHeaderSource;

@@ -1,27 +1,9 @@
 # FlexDoc Backend
 
 [![npm version](https://img.shields.io/npm/v/@prauga/flexdoc-backend.svg)](https://www.npmjs.com/package/@prauga/flexdoc-backend)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
-The backend package for FlexDoc, a modern, customizable OpenAPI documentation generator that creates beautiful API documentation.
-
-## Screenshots
-
-### Light Mode
-
-![FlexDoc Light Mode](./images/flexdoc-light.png)
-
-### Dark Mode
-
-![FlexDoc Dark Mode](./images/flexdoc-dark.png)
-
-## Features
-
-- **Modern UI**: Clean, responsive interface with dark mode support
-- **Customizable**: Easily customize colors, typography, and layout
-- **Interactive**: Test API endpoints directly from the documentation
-- **Framework Agnostic**: Works with any JavaScript framework
-- **OpenAPI Compatible**: Supports OpenAPI 3.0 specifications
+Thin self-hosted integrations that mount the FlexDoc renderer, optional API-host execution routes, and runtime intelligence endpoints on Express, Fastify, NestJS, or Hono.
 
 ## Installation
 
@@ -31,116 +13,49 @@ npm install @prauga/flexdoc-backend
 
 ## Usage
 
-### Basic Usage
+### Express
 
-```typescript
-import { FlexDoc } from '@prauga/flexdoc-backend';
-import { OpenAPIObject } from '@nestjs/swagger';
+```javascript
+const express = require('express');
+const { setupExpressFlexDoc } = require('@prauga/flexdoc-backend');
+const spec = require('./openapi.json');
 
-// Create a new FlexDoc instance with your OpenAPI spec
-const flexdoc = new FlexDoc({
-  spec: yourOpenAPISpec as OpenAPIObject,
-  title: 'My API Documentation',
-  description: 'Documentation for my awesome API',
+const app = express();
+
+setupExpressFlexDoc(app, '/docs', {
+  spec,
+  options: {
+    title: 'My API Documentation',
+    tryIt: { enabled: true },
+    runtimeIntelligence: true,
+  },
 });
 
-// Generate HTML documentation
-const html = flexdoc.generateHTML();
-
-// Serve the documentation
-app.get('/api/docs', (req, res) => {
-  res.send(html);
-});
+app.listen(3000);
 ```
 
-### Configuration Options
-
-FlexDoc is highly customizable through the `FlexDocOptions` interface:
-
-```typescript
-import { FlexDoc, FlexDocOptions } from '@prauga/flexdoc-backend';
-
-const options: FlexDocOptions = {
-  // Required
-  spec: yourOpenAPISpec,
-
-  // Basic metadata
-  title: 'My API Documentation',
-  description: 'Documentation for my awesome API',
-
-  // Theme configuration
-  themeConfig: {
-    colors: {
-      primary: {
-        main: '#3b82f6',
-        light: '#eff6ff',
-        dark: '#2563eb',
-      },
-      // Additional color options...
-    },
-    typography: {
-      fontFamily: 'Inter, system-ui, sans-serif',
-      fontSize: '16px',
-      // Additional typography options...
-    },
-  },
-
-  // Footer customization
-  footer: {
-    copyright: '© 2025 My Company',
-    links: [
-      {
-        text: 'Terms',
-        url: '/terms',
-        icon: 'file-text', // Optional Lucide icon name
-      },
-      {
-        text: 'Privacy',
-        url: '/privacy',
-      },
-    ],
-  },
-
-  // Additional options...
-};
-
-const flexdoc = new FlexDoc(options);
-```
-
-### Framework Integration Examples
-
-#### NestJS
+### NestJS
 
 ```typescript
 import { NestFactory } from '@nestjs/core';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { FlexDoc } from '@prauga/flexdoc-backend';
+import { DocumentBuilder } from '@nestjs/swagger';
+import { setupNestFlexDoc } from '@prauga/flexdoc-backend';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Create OpenAPI spec with Swagger
-  const config = new DocumentBuilder()
+  const openApiConfig = new DocumentBuilder()
     .setTitle('My API')
-    .setDescription('My API description')
-    .setVersion('1.0')
+    .setVersion('1.0.0')
     .build();
-  const document = SwaggerModule.createDocument(app, config);
 
-  // Create FlexDoc instance
-  const flexdoc = new FlexDoc({
-    spec: document,
-    title: 'My API Documentation',
-    description: 'Documentation for my awesome API',
-    footer: {
-      copyright: '© 2025 My Company',
+  setupNestFlexDoc(app, '/docs', openApiConfig, {
+    options: {
+      title: 'My API Documentation',
+      tryIt: { enabled: true, hostExecution: true },
+      runtimeIntelligence: true,
     },
-  });
-
-  // Serve FlexDoc at /api/docs
-  app.use('/api/docs', (req, res) => {
-    res.send(flexdoc.generateHTML());
   });
 
   await app.listen(3000);
@@ -148,80 +63,22 @@ async function bootstrap() {
 bootstrap();
 ```
 
-#### Express
+### Fastify and Hono
 
-```typescript
-import express from 'express';
-import { FlexDoc } from '@prauga/flexdoc-backend';
-import swaggerJsdoc from 'swagger-jsdoc';
+- `setupFastifyFlexDoc(app, path, options)` — static OpenAPI document
+- `setupFastifySwaggerFlexDoc(app, path, options)` — document from `@fastify/swagger`
+- `setupHonoFlexDoc(app, path, options)` — Hono without adding Hono as a dependency
 
-const app = express();
+Use `setupFlexDoc(app, path, options)` directly when you already have an Express-compatible `app.use` surface.
 
-// Generate OpenAPI spec
-const options = {
-  definition: {
-    openapi: '3.0.0',
-    info: {
-      title: 'My API',
-      version: '1.0.0',
-    },
-  },
-  apis: ['./src/routes/*.js'],
-};
-const openapiSpec = swaggerJsdoc(options);
+## Configuration
 
-// Create FlexDoc instance
-const flexdoc = new FlexDoc({
-  spec: openapiSpec,
-  title: 'My API Documentation',
-});
+`FlexDocModuleOptions` requires a mount `path` and either an inline `spec` or a remote `specUrl`. Renderer behavior is configured through `options`, which mirrors the client `FlexDocRendererOptions` contract (theme, Try It, code samples, footer, optional docs-route auth, host execution, and runtime intelligence).
 
-// Serve FlexDoc
-app.get('/api/docs', (req, res) => {
-  res.send(flexdoc.generateHTML());
-});
+## NestJS module
 
-app.listen(3000);
-```
-
-## API Reference
-
-### `FlexDoc` Class
-
-The main class for generating API documentation.
-
-#### Constructor
-
-```typescript
-constructor(options: FlexDocOptions)
-```
-
-#### Methods
-
-- `generateHTML()`: Generates the HTML documentation
-- `getOpenAPISpec()`: Returns the processed OpenAPI specification
-
-### `FlexDocOptions` Interface
-
-Configuration options for FlexDoc:
-
-| Property       | Type                            | Description                      |
-| -------------- | ------------------------------- | -------------------------------- |
-| `spec`         | `OpenAPIObject`                 | The OpenAPI specification object |
-| `title`        | `string`                        | Documentation title              |
-| `description`  | `string`                        | Documentation description        |
-| `themeConfig`  | `ThemeConfig`                   | Theme configuration              |
-| `footer`       | `FooterConfig`                  | Footer configuration             |
-| `favicon`      | `string`                        | URL to favicon                   |
-| `customCss`    | `string`                        | Custom CSS to inject             |
-| `customJs`     | `string`                        | Custom JavaScript to inject      |
-| `defaultTheme` | `'light' \| 'dark' \| 'system'` | Default theme mode               |
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+`FlexDocModule.forRoot` / `forRootAsync` registers the same routes through Nest's HTTP adapter. `FlexDocService.generateHTML` is available for programmatic HTML generation.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
+AGPL-3.0-or-later

@@ -27,6 +27,7 @@ export interface FlexDocRuntimeDiscovery {
   complete: boolean;
 }
 
+/** Snapshot comparing documented OpenAPI routes with routes discovered at runtime. */
 export interface FlexDocRuntimeIntelligenceSnapshot {
   framework: string;
   frameworkVersion?: string;
@@ -53,6 +54,7 @@ export function runtimeIntelligenceEnabled(value: boolean | FlexDocRuntimeIntell
   return value === true || (typeof value === 'object' && value?.enabled === true);
 }
 
+/** Normalize a route path for runtime-intelligence comparisons. */
 export function normalizeRuntimePath(value: string): string {
   let path = value.trim();
   if (!path.startsWith('/')) path = `/${path}`;
@@ -89,6 +91,7 @@ function withoutImplicitHeadRoutes(routes: FlexDocRuntimeRoute[]): FlexDocRuntim
   return routes.filter((route) => route.method !== 'HEAD' || !keys.has(`GET ${route.path}`));
 }
 
+/** Return Node.js runtime metadata for runtime-intelligence snapshots. */
 export function nodeRuntimeMetadata(): FlexDocRuntimeMetadata {
   return {
     name: 'node',
@@ -103,6 +106,7 @@ export function nodeEnvironmentMetadata(): FlexDocRuntimeEnvironmentMetadata | u
   return name ? { name } : undefined;
 }
 
+/** Discover routes from an Express application. */
 export function discoverExpressRoutes(app: any, excludePrefix?: string): FlexDocRuntimeDiscovery {
   const router = app?.router || app?._router;
   const stack = Array.isArray(router?.stack) ? router.stack : null;
@@ -140,6 +144,7 @@ export function discoverExpressRoutes(app: any, excludePrefix?: string): FlexDoc
   return { framework: 'express', routes: uniqueSorted(routes), complete };
 }
 
+/** Discover routes from a Fastify application. */
 export async function discoverFastifyRoutes(app: any, excludePrefix?: string): Promise<FlexDocRuntimeDiscovery> {
   const frameworkVersion = typeof app?.version === 'string' ? app.version : undefined;
   if (typeof app?.printRoutes !== 'function') {
@@ -189,6 +194,7 @@ export async function discoverFastifyRoutes(app: any, excludePrefix?: string): P
   }
 }
 
+/** Discover routes from a Hono application. */
 export function discoverHonoRoutes(app: any, excludePrefix?: string): FlexDocRuntimeDiscovery {
   const source = Array.isArray(app?.routes) ? app.routes : null;
   if (!source) return { framework: 'hono', routes: [], complete: false };
@@ -209,6 +215,7 @@ export function discoverHonoRoutes(app: any, excludePrefix?: string): FlexDocRun
   return { framework: 'hono', routes: uniqueSorted(routes), complete };
 }
 
+/** Extract documented HTTP routes from an OpenAPI document. */
 export function documentedOpenApiRoutes(spec: any): FlexDocRuntimeRoute[] {
   const routes: FlexDocRuntimeRoute[] = [];
   for (const [path, pathItem] of Object.entries(spec?.paths || {})) {
@@ -221,6 +228,7 @@ export function documentedOpenApiRoutes(spec: any): FlexDocRuntimeRoute[] {
   return uniqueSorted(routes);
 }
 
+/** Build a runtime-intelligence snapshot from discovery results and the OpenAPI spec. */
 export function buildRuntimeIntelligenceSnapshot(input: {
   spec: any;
   discovery: FlexDocRuntimeDiscovery;

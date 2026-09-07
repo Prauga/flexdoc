@@ -23,6 +23,7 @@ const variableStoreMembers: ApiClientScriptCompletionItem[] = [
   { label: 'replaceIn', kind: 'method', signature: 'replaceIn(value: string): string', documentation: 'Replace {{variable}} placeholders using this variable scope.' },
 ];
 
+/** Known `flex.*` completion paths for API Client script IntelliSense. */
 export const API_CLIENT_SCRIPT_COMPLETION_PATHS: Readonly<Record<string, readonly ApiClientScriptCompletionItem[]>> = {
   flex: [
     { label: 'request', kind: 'property', documentation: 'The mutable request draft available to pre-request and test scripts.' },
@@ -98,6 +99,7 @@ export const API_CLIENT_SCRIPT_COMPLETION_PATHS: Readonly<Record<string, readonl
   ],
 };
 
+/** Return member completions for a dotted `flex.*` path. */
 export function apiClientScriptMemberCompletions(path: string, phase: ApiClientScriptPhase): ApiClientScriptCompletionItem[] {
   return [...(API_CLIENT_SCRIPT_COMPLETION_PATHS[path] || [])]
     .filter((item) => phase === 'tests' || !item.testsOnly)
@@ -162,6 +164,7 @@ function memberCompletionContext(textBeforeCursor: string): { path: string; pref
   return { path: match[1], prefix: match[2] || '' };
 }
 
+/** Return script completions at a cursor position, or `null` when no completion applies. */
 export function apiClientScriptCompletionsAtPosition(
   source: string,
   position: number,

@@ -10,6 +10,7 @@ import type {
 } from './api-client-scripting';
 import type { BuiltRequest } from './request-builder';
 
+/** Result of one API Client execution, including scripts, tests, and transport details. */
 export interface ApiClientExecutionResult {
   request: HttpRequestDraft;
   scripts: ApiClientRequestScripts;
@@ -45,6 +46,7 @@ export interface ApiClientExecutionOutcome {
   curlCommand?: string;
 }
 
+/** Options for `executeApiClientRequest`. */
 export interface ExecuteApiClientRequestOptions {
   request: HttpRequestDraft;
   scripts?: Partial<ApiClientRequestScripts>;
@@ -159,6 +161,7 @@ async function hostExecutionBody(draft: HttpRequestDraft): Promise<{ body: BodyI
   };
 }
 
+/** Execute one API Client request, including pre-request scripts and post-response tests. */
 export async function executeApiClientRequest(options: ExecuteApiClientRequestOptions): Promise<ApiClientExecutionOutcome> {
   const historyRequest = cloneDraft(options.request);
   const scripts = cloneApiClientScripts(options.scripts);

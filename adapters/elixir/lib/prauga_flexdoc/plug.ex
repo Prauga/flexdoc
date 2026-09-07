@@ -1,5 +1,16 @@
 defmodule PraugaFlexDoc.Plug do
-  @moduledoc "A self-contained Plug serving FlexDoc and its version-matched renderer assets."
+  @moduledoc """
+  A self-contained Plug serving FlexDoc and its version-matched renderer assets.
+
+  ## Example
+
+      plug PraugaFlexDoc.Plug,
+        path: "/docs",
+        spec_url: "/openapi.json",
+        title: "My API"
+
+  See `PraugaFlexDoc.Config` for the full list of supported options.
+  """
   @behaviour Plug
   import Plug.Conn
 
@@ -11,6 +22,7 @@ defmodule PraugaFlexDoc.Plug do
   @fingerprint :crypto.hash(:sha256, @javascript <> <<0>> <> @css) |> binary_part(0, 8) |> Base.encode16(case: :lower)
 
   @impl Plug
+  @doc "Initialize the plug from FlexDoc keyword options."
   def init(opts), do: Config.new(opts)
 
   @impl Plug

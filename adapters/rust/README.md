@@ -1,6 +1,6 @@
 # Prauga FlexDoc Rust / Axum adapter
 
-`prauga-flexdoc-axum` provides self-contained Axum routes for FlexDoc. The crate embeds the canonical browser renderer instead of implementing OpenAPI UI behavior in Rust.
+`prauga-flexdoc-axum` `0.5.2` provides self-contained Axum routes for FlexDoc. The crate embeds the canonical browser renderer instead of implementing OpenAPI UI behavior in Rust.
 
 With an existing OpenAPI endpoint:
 

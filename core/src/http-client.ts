@@ -85,6 +85,7 @@ export type HttpAuth =
   | HttpOAuth1Auth
   | HttpAwsV4Auth;
 
+/** Editable HTTP request draft used by API Client and host execution. */
 export interface HttpRequestDraft {
   method: string;
   url: string;
@@ -121,6 +122,7 @@ function enabledPairs(entries: HttpKeyValue[] | undefined): HttpKeyValue[] {
   return (entries || []).filter((entry) => entry.enabled !== false && entry.key.trim() !== '');
 }
 
+/** Infer the body editor mode from draft fields. */
 export function inferHttpBodyMode(draft: Partial<HttpRequestDraft>): HttpBodyMode {
   if (draft.bodyMode) return draft.bodyMode;
   if (draft.binary?.file || draft.binary?.fileName) return 'binary';
@@ -135,6 +137,7 @@ export function inferHttpBodyMode(draft: Partial<HttpRequestDraft>): HttpBodyMod
   return 'raw';
 }
 
+/** Return host-execution capabilities required by the draft. */
 export function httpHostExecutionRequirements(draft: Partial<HttpRequestDraft>): HttpHostExecutionCapability[] {
   const requirements = new Set<HttpHostExecutionCapability>();
   const auth = draft.auth;
@@ -291,6 +294,7 @@ function resolveAuthVariables(auth: HttpAuth | undefined, variables: HttpVariabl
   };
 }
 
+/** Resolve variables in a draft without mutating the input. */
 export function resolveHttpRequestDraftVariables(draft: HttpRequestDraft, variables: HttpVariables): HttpRequestDraft {
   return {
     method: resolveTemplateValue(draft.method, variables) ?? draft.method,
@@ -354,6 +358,7 @@ function applyAuth(draft: HttpRequestDraft, headers: Array<[string, string]>, qu
   else if (auth.in === 'header') replaceHeader(headers, auth.key, auth.value);
 }
 
+/** Build a transport request from an arbitrary HTTP draft, resolving `{{variable}}` placeholders. */
 export function buildHttpRequest(draft: HttpRequestDraft, options: HttpRequestBuildOptions = {}): HttpBuiltRequest {
   const resolvedDraft = options.variables ? resolveHttpRequestDraftVariables(draft, options.variables) : draft;
   const method = (resolvedDraft.method || 'GET').trim().toUpperCase();
@@ -442,6 +447,7 @@ export function buildHttpRequest(draft: HttpRequestDraft, options: HttpRequestBu
   };
 }
 
+/** Convert a built request into an editable API Client draft. */
 export function requestDraftFromBuiltRequest(request: BuiltRequest & { headerEntries?: unknown }): HttpRequestDraft {
   const entries = normalizeHeaderEntries(request);
   const split = splitQuery(request.url);

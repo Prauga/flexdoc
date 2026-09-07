@@ -86,6 +86,7 @@ function fetchJson(urlString: string, redirectsRemaining = 3): Promise<any> {
   });
 }
 
+/** Register FlexDoc routes on an Express-compatible application. */
 export function setupFlexDoc(
   app: AppWithUse,
   path: string,

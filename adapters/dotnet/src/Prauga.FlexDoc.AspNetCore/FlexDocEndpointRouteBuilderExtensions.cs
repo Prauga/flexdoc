@@ -10,10 +10,15 @@ namespace Prauga.FlexDoc.AspNetCore;
 public static class FlexDocEndpointRouteBuilderExtensions
 {
     /// <summary>Mounts FlexDoc using default options.</summary>
+    /// <param name="endpoints">Endpoint route builder to extend.</param>
+    /// <returns>A route group for the FlexDoc docs subtree.</returns>
     public static RouteGroupBuilder MapFlexDoc(this IEndpointRouteBuilder endpoints)
         => endpoints.MapFlexDoc(static _ => { });
 
     /// <summary>Mounts FlexDoc and configures its docs route and OpenAPI source.</summary>
+    /// <param name="endpoints">Endpoint route builder to extend.</param>
+    /// <param name="configure">Callback that configures FlexDoc options.</param>
+    /// <returns>A route group for the FlexDoc docs subtree.</returns>
     public static RouteGroupBuilder MapFlexDoc(
         this IEndpointRouteBuilder endpoints,
         Action<FlexDocOptions> configure)

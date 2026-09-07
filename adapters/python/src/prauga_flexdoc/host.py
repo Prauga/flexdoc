@@ -22,6 +22,21 @@ def _safe_json(value: object) -> str:
 
 @dataclass(frozen=True)
 class FlexDocConfig:
+    """FlexDoc renderer configuration passed to hosts and framework helpers.
+
+    Attributes:
+        path: URL prefix where the docs shell and renderer assets are served.
+        spec_url: OpenAPI document URL resolved by the browser bootstrap page.
+        title: Page and renderer title shown in the docs shell.
+        theme: Renderer theme preset: ``"system"``, ``"light"``, or ``"dark"``.
+        try_it_enabled: Whether the Try It client is enabled in the renderer.
+        expand: Optional expansion preset or section list forwarded to the renderer.
+        try_it_default_server: Optional default server URL for Try It requests.
+        try_it_credentials: Optional fetch credentials mode for Try It requests.
+        try_it_api_client_persistence_key: Optional persistence key, or ``False`` to disable.
+        try_it_host_execution: Emits host-execution protocol metadata; execution is not implemented by this adapter.
+    """
+
     path: str = "/docs"
     spec_url: str = "/openapi.json"
     title: str = "API Reference"
@@ -36,6 +51,8 @@ class FlexDocConfig:
 
 @dataclass(frozen=True)
 class FlexDocResponse:
+    """HTTP response produced by :class:`FlexDocHost` route matching."""
+
     status: int
     content_type: str
     body: bytes
@@ -52,6 +69,14 @@ class FlexDocHost:
         assets_dir: str | Path | None = None,
         runtime_intelligence_framework: str | None = None,
     ):
+        """Create a host that serves the docs shell and packaged renderer assets.
+
+        Args:
+            config: Renderer and route settings for the docs subtree.
+            assets_dir: Optional directory overriding the bundled renderer assets.
+            runtime_intelligence_framework: Framework name advertised when runtime
+                intelligence is enabled by an ASGI transport.
+        """
         self.config = config
         self.path = "/" + config.path.strip("/")
         self.assets_dir = Path(assets_dir) if assets_dir is not None else None
@@ -63,6 +88,7 @@ class FlexDocHost:
         self.renderer_version = digest.hexdigest()[:16]
 
     def route(self, request_path: str) -> FlexDocResponse:
+        """Match a request path and return the docs shell, renderer asset, or 404."""
         if request_path in (self.path, self.path + "/"):
             return FlexDocResponse(200, "text/html; charset=utf-8", self.html().encode(), "no-cache")
         if request_path == self.path + "/__flexdoc/renderer.js":

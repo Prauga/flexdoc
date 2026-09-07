@@ -1,3 +1,8 @@
+//! Self-contained Axum routes for the Prauga FlexDoc OpenAPI renderer.
+//!
+//! The crate embeds the canonical browser renderer and exposes [`router`] or
+//! [`router_with_openapi`] for mounting documentation alongside your API.
+
 use axum::{extract::State, http::{header, HeaderValue, StatusCode}, response::{Html, IntoResponse, Response}, routing::get, Json, Router};
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -6,17 +11,28 @@ use std::sync::Arc;
 static RENDERER_JS: &[u8] = include_bytes!("../assets/flexdoc.standalone.js");
 static RENDERER_CSS: &[u8] = include_bytes!("../assets/flexdoc.standalone.css");
 
+/// FlexDoc renderer configuration for Axum.
 #[derive(Clone, Debug)]
 pub struct Config {
+    /// Docs mount path.
     pub path: String,
+    /// OpenAPI document URL resolved by the browser bootstrap page.
     pub spec_url: String,
+    /// Page and renderer title.
     pub title: String,
+    /// Renderer theme preset: `system`, `light`, or `dark`.
     pub theme: String,
+    /// Whether the Try It client is enabled.
     pub try_it_enabled: bool,
+    /// Optional expansion preset or section list forwarded to the renderer.
     pub expand: Option<Value>,
+    /// Optional default server URL for Try It requests.
     pub try_it_default_server: Option<String>,
+    /// Optional fetch credentials mode for Try It requests.
     pub try_it_credentials: Option<String>,
+    /// Optional persistence key, or JSON `false` to disable.
     pub try_it_api_client_persistence_key: Option<Value>,
+    /// Emits host-execution protocol metadata; execution is not implemented by this adapter.
     pub try_it_host_execution: bool,
 }
 
@@ -40,6 +56,7 @@ impl Default for Config {
 #[derive(Clone)]
 struct AppState { cfg: Arc<Config>, spec: Option<Arc<Value>> }
 
+/// Mount FlexDoc routes that load an existing OpenAPI endpoint.
 pub fn router(cfg: Config) -> Router { build_router(cfg, None) }
 
 /// Build FlexDoc routes from a generated OpenAPI value, including `utoipa::OpenApi` values.
