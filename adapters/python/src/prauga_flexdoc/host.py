@@ -45,10 +45,17 @@ class FlexDocResponse:
 class FlexDocHost:
     """Framework-neutral synchronous host shared by ASGI, WSGI, Flask, and Django."""
 
-    def __init__(self, config: FlexDocConfig = FlexDocConfig(), *, assets_dir: str | Path | None = None):
+    def __init__(
+        self,
+        config: FlexDocConfig = FlexDocConfig(),
+        *,
+        assets_dir: str | Path | None = None,
+        runtime_intelligence_framework: str | None = None,
+    ):
         self.config = config
         self.path = "/" + config.path.strip("/")
         self.assets_dir = Path(assets_dir) if assets_dir is not None else None
+        self.runtime_intelligence_framework = runtime_intelligence_framework
         digest = hashlib.sha256()
         for name in ("flexdoc.standalone.js", "flexdoc.standalone.css"):
             digest.update(self._read_asset(name))
@@ -102,5 +109,11 @@ class FlexDocHost:
         }
         if self.config.expand is not None:
             options["expand"] = self.config.expand
+        if self.runtime_intelligence_framework:
+            options["runtimeIntelligence"] = {
+                "available": True,
+                "endpoint": self.path + "/__flexdoc/runtime",
+                "framework": self.runtime_intelligence_framework,
+            }
 
         return f'''<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>{escape(self.config.title)}</title><link rel="stylesheet" href="{self.path}/__flexdoc/renderer.css?v={self.renderer_version}"></head><body><div id="flexdoc-root"></div><script>window.__FLEXDOC_SPEC_URL__={_safe_json(self.config.spec_url)};window.__FLEXDOC_OPTIONS__={_safe_json(options)};</script><script src="{self.path}/__flexdoc/renderer.js?v={self.renderer_version}"></script><script>(async function(){{const root=document.getElementById('flexdoc-root');try{{const baseUri=new URL(window.__FLEXDOC_SPEC_URL__,window.location.href).toString();const response=await fetch(baseUri);if(!response.ok)throw new Error('Unable to load OpenAPI specification: HTTP '+response.status);const spec=await response.json();const config={{spec:spec,options:window.__FLEXDOC_OPTIONS__||{{}},baseUri:baseUri}};if(window.FlexDocStandalone.mountAsync)await window.FlexDocStandalone.mountAsync(root,config);else window.FlexDocStandalone.mount(root,config);}}catch(error){{root.textContent=error instanceof Error?error.message:String(error);}}}})();</script></body></html>'''
