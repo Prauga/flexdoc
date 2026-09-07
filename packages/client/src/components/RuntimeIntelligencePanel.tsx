@@ -26,8 +26,9 @@ export const RuntimeIntelligencePanel: React.FC<Props> = ({ open, theme, loading
       {error && <div className='rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800'>{error}</div>}
       {snapshot && <div className='space-y-5'>
         <div className='grid grid-cols-2 gap-3 text-sm'>
-          <div className='rounded-lg border p-3'><div className={muted}>Framework</div><div className='font-semibold'>{snapshot.framework}</div></div>
+          <div className='rounded-lg border p-3'><div className={muted}>Framework</div><div className='font-semibold'>{snapshot.framework}{snapshot.frameworkVersion ? ` ${snapshot.frameworkVersion}` : ''}</div></div>
           <div className='rounded-lg border p-3'><div className={muted}>Matched</div><div className='font-semibold'>{snapshot.summary.matched} / {snapshot.summary.documented}</div></div>
+          <div className='col-span-2 rounded-lg border p-3'><div className={muted}>Runtime</div><div className='font-semibold'>{snapshot.runtime.name} {snapshot.runtime.version}</div><div className={`mt-1 text-xs ${muted}`}>{snapshot.runtime.platform} · {snapshot.runtime.arch}</div></div>
           {snapshot.serverOrigin && <div className='col-span-2 rounded-lg border p-3'><div className={muted}>Runtime server</div><code className='break-all text-xs'>{snapshot.serverOrigin}</code></div>}
         </div>
         {!snapshot.discoveryComplete && <div className='flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900'><AlertTriangle className='mt-0.5 h-4 w-4 shrink-0' />Route discovery is partial; documented routes not observed at runtime may be false positives.</div>}

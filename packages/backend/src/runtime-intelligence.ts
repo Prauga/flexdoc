@@ -5,14 +5,24 @@ export interface FlexDocRuntimeRoute {
   path: string;
 }
 
+export interface FlexDocRuntimeMetadata {
+  name: 'node';
+  version: string;
+  platform: string;
+  arch: string;
+}
+
 export interface FlexDocRuntimeDiscovery {
   framework: string;
+  frameworkVersion?: string;
   routes: FlexDocRuntimeRoute[];
   complete: boolean;
 }
 
 export interface FlexDocRuntimeIntelligenceSnapshot {
   framework: string;
+  frameworkVersion?: string;
+  runtime: FlexDocRuntimeMetadata;
   serverOrigin?: string;
   discoveryComplete: boolean;
   routes: FlexDocRuntimeRoute[];
@@ -60,6 +70,26 @@ function uniqueSorted(routes: FlexDocRuntimeRoute[]): FlexDocRuntimeRoute[] {
   return [...byKey.values()].sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
 }
 
+function isExcludedRoute(path: string, excludePrefix?: string): boolean {
+  if (!excludePrefix) return false;
+  const excluded = normalizeRuntimePath(excludePrefix);
+  return path === excluded || path.startsWith(`${excluded}/`);
+}
+
+function withoutImplicitHeadRoutes(routes: FlexDocRuntimeRoute[]): FlexDocRuntimeRoute[] {
+  const keys = new Set(routes.map(routeKey));
+  return routes.filter((route) => route.method !== 'HEAD' || !keys.has(`GET ${route.path}`));
+}
+
+export function nodeRuntimeMetadata(): FlexDocRuntimeMetadata {
+  return {
+    name: 'node',
+    version: process.version,
+    platform: process.platform,
+    arch: process.arch,
+  };
+}
+
 export function discoverExpressRoutes(app: any, excludePrefix?: string): FlexDocRuntimeDiscovery {
   const router = app?.router || app?._router;
   const stack = Array.isArray(router?.stack) ? router.stack : null;
@@ -67,7 +97,6 @@ export function discoverExpressRoutes(app: any, excludePrefix?: string): FlexDoc
 
   const routes: FlexDocRuntimeRoute[] = [];
   let complete = true;
-  const excluded = excludePrefix ? normalizeRuntimePath(excludePrefix) : undefined;
 
   const visit = (layers: any[], prefix = '') => {
     for (const layer of layers) {
@@ -77,7 +106,7 @@ export function discoverExpressRoutes(app: any, excludePrefix?: string): FlexDoc
         for (const rawPath of rawPaths) {
           if (typeof rawPath !== 'string') { complete = false; continue; }
           const fullPath = normalizeRuntimePath(`${prefix}${rawPath}`);
-          if (excluded && (fullPath === excluded || fullPath.startsWith(`${excluded}/`))) continue;
+          if (isExcludedRoute(fullPath, excludePrefix)) continue;
           for (const [method, enabled] of Object.entries(route.methods || {})) {
             if (!enabled) continue;
             const candidate = normalizedRoute(method, fullPath);
@@ -98,6 +127,75 @@ export function discoverExpressRoutes(app: any, excludePrefix?: string): FlexDoc
   return { framework: 'express', routes: uniqueSorted(routes), complete };
 }
 
+export async function discoverFastifyRoutes(app: any, excludePrefix?: string): Promise<FlexDocRuntimeDiscovery> {
+  const frameworkVersion = typeof app?.version === 'string' ? app.version : undefined;
+  if (typeof app?.printRoutes !== 'function') {
+    return { framework: 'fastify', ...(frameworkVersion ? { frameworkVersion } : {}), routes: [], complete: false };
+  }
+
+  try {
+    if (typeof app.ready === 'function') await app.ready();
+    const printed = app.printRoutes({ commonPrefix: false });
+    if (typeof printed !== 'string') {
+      return { framework: 'fastify', ...(frameworkVersion ? { frameworkVersion } : {}), routes: [], complete: false };
+    }
+
+    const fragments: string[] = [];
+    const routes: FlexDocRuntimeRoute[] = [];
+    let complete = true;
+
+    for (const line of printed.split(/\r?\n/)) {
+      if (!line.trim() || line.includes('•')) continue;
+      const branch = Math.max(line.lastIndexOf('├── '), line.lastIndexOf('└── '));
+      if (branch < 0 || branch % 4 !== 0) { complete = false; continue; }
+      const depth = branch / 4;
+      const label = line.slice(branch + 4).trim();
+      const match = label.match(/^(.*?)\s+\(([^)]+)\)(?:\s+.*)?$/);
+      const fragment = (match?.[1] || label).trim();
+      fragments[depth] = fragment;
+      fragments.length = depth + 1;
+      if (!match) continue;
+
+      const fullPath = normalizeRuntimePath(fragments.join(''));
+      if (isExcludedRoute(fullPath, excludePrefix)) continue;
+      for (const method of match[2].split(',').map((value) => value.trim()).filter(Boolean)) {
+        const candidate = normalizedRoute(method, fullPath);
+        if (candidate) routes.push(candidate);
+        else complete = false;
+      }
+    }
+
+    return {
+      framework: 'fastify',
+      ...(frameworkVersion ? { frameworkVersion } : {}),
+      routes: uniqueSorted(withoutImplicitHeadRoutes(routes)),
+      complete,
+    };
+  } catch {
+    return { framework: 'fastify', ...(frameworkVersion ? { frameworkVersion } : {}), routes: [], complete: false };
+  }
+}
+
+export function discoverHonoRoutes(app: any, excludePrefix?: string): FlexDocRuntimeDiscovery {
+  const source = Array.isArray(app?.routes) ? app.routes : null;
+  if (!source) return { framework: 'hono', routes: [], complete: false };
+
+  const routes: FlexDocRuntimeRoute[] = [];
+  let complete = true;
+  for (const route of source) {
+    if (!route || typeof route.path !== 'string' || typeof route.method !== 'string') { complete = false; continue; }
+    const method = route.method.toUpperCase();
+    if (method === 'ALL' || method === '*') { complete = false; continue; }
+    const fullPath = normalizeRuntimePath(route.path);
+    if (isExcludedRoute(fullPath, excludePrefix)) continue;
+    const candidate = normalizedRoute(method, fullPath);
+    if (candidate) routes.push(candidate);
+    else complete = false;
+  }
+
+  return { framework: 'hono', routes: uniqueSorted(routes), complete };
+}
+
 export function documentedOpenApiRoutes(spec: any): FlexDocRuntimeRoute[] {
   const routes: FlexDocRuntimeRoute[] = [];
   for (const [path, pathItem] of Object.entries(spec?.paths || {})) {
@@ -114,25 +212,28 @@ export function buildRuntimeIntelligenceSnapshot(input: {
   spec: any;
   discovery: FlexDocRuntimeDiscovery;
   serverOrigin?: string;
+  runtime?: FlexDocRuntimeMetadata;
 }): FlexDocRuntimeIntelligenceSnapshot {
   const documented = documentedOpenApiRoutes(input.spec);
-  const runtime = uniqueSorted(input.discovery.routes);
+  const runtimeRoutes = uniqueSorted(input.discovery.routes);
   const documentedKeys = new Set(documented.map(routeKey));
-  const runtimeKeys = new Set(runtime.map(routeKey));
-  const matched = runtime.filter((route) => documentedKeys.has(routeKey(route))).length;
-  const runtimeOnly = runtime.filter((route) => !documentedKeys.has(routeKey(route)));
+  const runtimeKeys = new Set(runtimeRoutes.map(routeKey));
+  const matched = runtimeRoutes.filter((route) => documentedKeys.has(routeKey(route))).length;
+  const runtimeOnly = runtimeRoutes.filter((route) => !documentedKeys.has(routeKey(route)));
   const documentedOnly = documented.filter((route) => !runtimeKeys.has(routeKey(route)));
 
   return {
     framework: input.discovery.framework,
+    ...(input.discovery.frameworkVersion ? { frameworkVersion: input.discovery.frameworkVersion } : {}),
+    runtime: input.runtime || nodeRuntimeMetadata(),
     ...(input.serverOrigin ? { serverOrigin: input.serverOrigin } : {}),
     discoveryComplete: input.discovery.complete,
-    routes: runtime,
+    routes: runtimeRoutes,
     runtimeOnly,
     documentedOnly,
     summary: {
       documented: documented.length,
-      runtime: runtime.length,
+      runtime: runtimeRoutes.length,
       matched,
       runtimeOnly: runtimeOnly.length,
       documentedOnly: documentedOnly.length,

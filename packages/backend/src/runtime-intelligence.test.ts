@@ -1,7 +1,13 @@
-import { buildRuntimeIntelligenceSnapshot, discoverExpressRoutes, normalizeRuntimePath } from './runtime-intelligence';
+import {
+  buildRuntimeIntelligenceSnapshot,
+  discoverExpressRoutes,
+  discoverFastifyRoutes,
+  discoverHonoRoutes,
+  normalizeRuntimePath,
+} from './runtime-intelligence';
 
 describe('runtime intelligence', () => {
-  it('normalizes Express parameter paths to OpenAPI form', () => {
+  it('normalizes framework parameter paths to OpenAPI form', () => {
     expect(normalizeRuntimePath('/pets/:petId')).toBe('/pets/{petId}');
     expect(normalizeRuntimePath('/orgs/:orgId(\\d+)/users/:userId?')).toBe('/orgs/{orgId}/users/{userId}');
   });
@@ -27,7 +33,54 @@ describe('runtime intelligence', () => {
     });
   });
 
-  it('reports presence drift without turning it into enforcement', () => {
+  it('discovers Fastify route trees after ready and suppresses implicit HEAD siblings', async () => {
+    const app = {
+      version: '5.12.1',
+      ready: jest.fn(async () => undefined),
+      printRoutes: jest.fn(() => [
+        '└── /',
+        '    ├── pets (GET, HEAD)',
+        '    │   └── /:petId (GET, HEAD)',
+        '    ├── internal/reindex (POST)',
+        '    └── docs (GET, HEAD)',
+      ].join('\n')),
+    };
+
+    expect(await discoverFastifyRoutes(app, '/docs')).toEqual({
+      framework: 'fastify',
+      frameworkVersion: '5.12.1',
+      complete: true,
+      routes: [
+        { method: 'POST', path: '/internal/reindex' },
+        { method: 'GET', path: '/pets' },
+        { method: 'GET', path: '/pets/{petId}' },
+      ],
+    });
+    expect(app.ready).toHaveBeenCalledTimes(1);
+    expect(app.printRoutes).toHaveBeenCalledWith({ commonPrefix: false });
+  });
+
+  it('discovers Hono registered routes and excludes FlexDoc topology', () => {
+    const app = {
+      routes: [
+        { method: 'GET', path: '/pets' },
+        { method: 'POST', path: '/pets/:petId/actions' },
+        { method: 'GET', path: '/docs' },
+        { method: 'ALL', path: '/middleware/*' },
+      ],
+    };
+
+    expect(discoverHonoRoutes(app, '/docs')).toEqual({
+      framework: 'hono',
+      complete: false,
+      routes: [
+        { method: 'GET', path: '/pets' },
+        { method: 'POST', path: '/pets/{petId}/actions' },
+      ],
+    });
+  });
+
+  it('reports presence drift and runtime metadata without turning it into enforcement', () => {
     const snapshot = buildRuntimeIntelligenceSnapshot({
       spec: {
         openapi: '3.1.0',
@@ -37,7 +90,8 @@ describe('runtime intelligence', () => {
         },
       },
       discovery: {
-        framework: 'express',
+        framework: 'fastify',
+        frameworkVersion: '5.12.1',
         complete: true,
         routes: [
           { method: 'GET', path: '/pets' },
@@ -45,14 +99,17 @@ describe('runtime intelligence', () => {
         ],
       },
       serverOrigin: 'https://api.example.com',
+      runtime: { name: 'node', version: 'v22.22.3', platform: 'linux', arch: 'x64' },
     });
     expect(snapshot.summary).toEqual({ documented: 2, runtime: 2, matched: 1, runtimeOnly: 1, documentedOnly: 1 });
     expect(snapshot.runtimeOnly).toEqual([{ method: 'POST', path: '/internal/reindex' }]);
     expect(snapshot.documentedOnly).toEqual([{ method: 'GET', path: '/pets/{petId}' }]);
     expect(snapshot.serverOrigin).toBe('https://api.example.com');
+    expect(snapshot.frameworkVersion).toBe('5.12.1');
+    expect(snapshot.runtime).toEqual({ name: 'node', version: 'v22.22.3', platform: 'linux', arch: 'x64' });
   });
 
-  it('marks discovery partial when a mounted router prefix cannot be recovered safely', () => {
+  it('marks discovery partial when a mounted Express router prefix cannot be recovered safely', () => {
     const app = { router: { stack: [{ handle: { stack: [{ route: { path: '/child', methods: { get: true } } }] } }] } };
     expect(discoverExpressRoutes(app).complete).toBe(false);
   });

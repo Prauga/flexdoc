@@ -20,7 +20,7 @@ type HonoResult = {
   headers: Record<string, string>;
 };
 
-function createContext(authorization?: string, extraHeaders: Record<string, string> = {}): HonoLikeContext {
+function createContext(authorization?: string, extraHeaders: Record<string, string> = {}, rawUrl?: string): HonoLikeContext {
   return {
     req: {
       header: (name: string) => {
@@ -28,6 +28,7 @@ function createContext(authorization?: string, extraHeaders: Record<string, stri
         if (normalized === 'authorization') return authorization;
         return extraHeaders[normalized];
       },
+      ...(rawUrl ? { raw: new Request(rawUrl) } : {}),
     },
     body: (body, status = 200, headers = {}) => ({ body, status, headers }),
   };
@@ -35,15 +36,16 @@ function createContext(authorization?: string, extraHeaders: Record<string, stri
 
 describe('setupHonoFlexDoc', () => {
   let handlers: Map<string, (context: HonoLikeContext) => unknown | Promise<unknown>>;
-  let app: { get: jest.Mock; post: jest.Mock; delete: jest.Mock };
+  let app: { get: jest.Mock; post: jest.Mock; delete: jest.Mock; routes: Array<{ method: string; path: string }> };
 
   beforeEach(() => {
     jest.clearAllMocks();
     handlers = new Map();
     app = {
-      get: jest.fn((path, handler) => { handlers.set(path, handler); }),
-      post: jest.fn((path, handler) => { handlers.set(path, handler); }),
-      delete: jest.fn((path, handler) => { handlers.set(`DELETE ${path}`, handler); }),
+      routes: [],
+      get: jest.fn((path, handler) => { app.routes.push({ method: 'GET', path }); handlers.set(path, handler); }),
+      post: jest.fn((path, handler) => { app.routes.push({ method: 'POST', path }); handlers.set(path, handler); }),
+      delete: jest.fn((path, handler) => { app.routes.push({ method: 'DELETE', path }); handlers.set(`DELETE ${path}`, handler); }),
     };
   });
 
@@ -56,6 +58,7 @@ describe('setupHonoFlexDoc', () => {
     expect(handlers.has('/docs/__flexdoc/renderer.css')).toBe(true);
     expect(handlers.has('/docs/__flexdoc/execute')).toBe(false);
     expect(handlers.has('/docs/__flexdoc/cookies')).toBe(false);
+    expect(handlers.has('/docs/__flexdoc/runtime')).toBe(false);
   });
 
   it('passes the shared renderer host options to the page', async () => {
@@ -86,18 +89,48 @@ describe('setupHonoFlexDoc', () => {
     expect(generateFlexDocHTML).toHaveBeenCalledTimes(1);
   });
 
-  it('protects docs and assets with the same basic auth contract as setupFlexDoc', async () => {
+  it('exposes live Hono route presence and runtime metadata when opted in', async () => {
+    app.routes.push(
+      { method: 'GET', path: '/pets' },
+      { method: 'POST', path: '/internal/reindex' },
+    );
+    setupHonoFlexDoc(app, '/docs', {
+      spec: { openapi: '3.1.0', paths: { '/pets': { get: {} } } },
+      options: { runtimeIntelligence: true },
+    });
+
+    expect(handlers.has('/docs/__flexdoc/runtime')).toBe(true);
+    const result = await handlers.get('/docs/__flexdoc/runtime')!(createContext(undefined, {}, 'https://api.example.test/docs/__flexdoc/runtime')) as HonoResult;
+    const snapshot = JSON.parse(String(result.body));
+    expect(result.status).toBe(200);
+    expect(result.headers['Cache-Control']).toBe('no-store');
+    expect(snapshot.framework).toBe('hono');
+    expect(snapshot.runtime.name).toBe('node');
+    expect(snapshot.serverOrigin).toBe('https://api.example.test');
+    expect(snapshot.summary).toEqual({ documented: 1, runtime: 2, matched: 1, runtimeOnly: 1, documentedOnly: 0 });
+    expect(snapshot.runtimeOnly).toEqual([{ method: 'POST', path: '/internal/reindex' }]);
+
+    await handlers.get('/docs')!(createContext());
+    expect(generateFlexDocHTML).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ runtimeIntelligencePublic: { available: true, endpoint: '/docs/__flexdoc/runtime', framework: 'hono' } }),
+    );
+  });
+
+  it('protects docs, assets, and runtime intelligence with the same basic auth contract', async () => {
     const secretKey = 'hono-secret';
     setupHonoFlexDoc(app, '/docs', {
       spec: { openapi: '3.0.0' },
-      options: { auth: { type: 'basic', secretKey } },
+      options: { auth: { type: 'basic', secretKey }, runtimeIntelligence: true },
     });
 
     const deniedDocs = await handlers.get('/docs')!(createContext()) as HonoResult;
     const deniedAsset = await handlers.get('/docs/__flexdoc/renderer.js')!(createContext()) as HonoResult;
+    const deniedRuntime = await handlers.get('/docs/__flexdoc/runtime')!(createContext()) as HonoResult;
     expect(deniedDocs.status).toBe(401);
     expect(deniedDocs.headers['WWW-Authenticate']).toBe('Basic');
     expect(deniedAsset.status).toBe(401);
+    expect(deniedRuntime.status).toBe(401);
 
     const username = 'alice';
     const password = generateFlexDocPassword(username, secretKey);
