@@ -1,4 +1,4 @@
-github.com/prauga/flexdoc/adapters/go v0.5.1 h1:Bg8qqoJkp+DKnvC+8iG9E85VdhiWjrMT6cPHHT9ULCk=
+github.com/prauga/flexdoc/adapters/go v0.5.1 h1:cJDgPWz7fMQ3BYaAbxNJcF928yRf3cG0kYpFQ9oy2HY=
 github.com/prauga/flexdoc/adapters/go v0.5.1/go.mod h1:tMdyVXq3OY5uhengBClaE9XC0/fD/BuMIx2GUcDMi9k=
 github.com/andybalholm/brotli v1.2.2 h1:HzTuoo2ErYQqf5qvcJInB8uvqSVxRttzkFexPWtnceM=
 github.com/andybalholm/brotli v1.2.2/go.mod h1:rzTDkvFWvIrjDXZHkuS16NPggd91W3kUSvPlQ1pLaKY=

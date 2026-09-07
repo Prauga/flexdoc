@@ -50,6 +50,13 @@ describe('setupFlexDoc', () => {
     expect(handlers.has('/docs/__flexdoc/cookies')).toBe(false);
   });
 
+  it('only registers path-scoped handlers and leaves unrelated application routes untouched', () => {
+    setupFlexDoc(mockApp, '/docs', { spec: { openapi: '3.0.0' } });
+
+    expect([...handlers.keys()].every((path) => path.startsWith('/docs'))).toBe(true);
+    expect(mockApp.use).not.toHaveBeenCalledWith(expect.any(Function));
+  });
+
   it('does not register or advertise host execution unless explicitly enabled', async () => {
     setupFlexDoc(mockApp, '/docs', { spec: { openapi: '3.0.0' } });
     expect(handlers.has('/docs/__flexdoc/execute')).toBe(false);
@@ -97,6 +104,25 @@ describe('setupFlexDoc', () => {
       'text/html; charset=utf-8'
     );
     expect(mockRes.send).toHaveBeenCalledWith('<html>Mocked HTML</html>');
+  });
+
+  it('serializes the docs page once and revalidates it with an ETag', async () => {
+    setupFlexDoc(mockApp, '/docs', { spec: { openapi: '3.0.0' } });
+    const page = handlers.get('/docs')!;
+
+    await page(mockReq, mockRes);
+    const etagCall = mockRes.setHeader.mock.calls.find(([name]: [string]) => name === 'ETag');
+    expect(etagCall?.[1]).toMatch(/^"/);
+
+    mockReq.headers = { 'if-none-match': etagCall?.[1] };
+    mockRes.send.mockClear();
+    mockRes.end.mockClear();
+    await page(mockReq, mockRes);
+
+    expect(generateFlexDocHTML).toHaveBeenCalledTimes(1);
+    expect(mockRes.statusCode).toBe(304);
+    expect(mockRes.send).not.toHaveBeenCalled();
+    expect(mockRes.end).toHaveBeenCalled();
   });
 
   it('returns a gateway error when specUrl cannot be loaded', async () => {

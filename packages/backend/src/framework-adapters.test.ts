@@ -37,6 +37,16 @@ describe('setupFastifyFlexDoc', () => {
       expect.any(Object),
       expect.objectContaining({ rendererVersion: 'test-renderer-version' })
     );
+    expect(state.headers.ETag).toMatch(/^"/);
+
+    const second = replyState();
+    await routes.get('/docs').handler({ headers: {} }, second.reply);
+    expect(generateFlexDocHTML).toHaveBeenCalledTimes(1);
+
+    const revalidated = replyState();
+    await routes.get('/docs').handler({ headers: { 'if-none-match': state.headers.ETag } }, revalidated.reply);
+    expect(revalidated.state.code).toBe(304);
+    expect(generateFlexDocHTML).toHaveBeenCalledTimes(1);
   });
 
   it('protects Fastify routes when docs auth is configured', async () => {
