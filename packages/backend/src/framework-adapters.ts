@@ -6,6 +6,7 @@ import { setupFlexDoc } from './setup';
 import { generateFlexDocHTML } from './template';
 import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
 import { hostExecutionRequestOrigin, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
+import { createCachedFlexDocPage, matchesFlexDocEtag } from './page-cache';
 
 export interface ExpressLikeApplication {
   use(path: string, handler: (req: any, res: any, next?: any) => void | Promise<void>): void;
@@ -123,6 +124,16 @@ function setupFastifyFlexDocInternal(
     return remoteSpecPromise;
   };
 
+  const getPage = createCachedFlexDocPage(async () => {
+    const assets = getRendererAssets();
+    return generateFlexDocHTML(await resolvedSpec(), {
+      ...(options.options || {}),
+      rendererBasePath,
+      rendererVersion: assets.version,
+      hostExecutionPublic: hostRouteAvailable ? publicHostExecutionOptions(hostExecutionState, rendererBasePath) : undefined,
+    });
+  });
+
   const sendHostResult = (reply: FastifyLikeReply, result: { status: number; headers: Record<string, string>; body: string }) => {
     let target = reply.code(result.status);
     for (const [name, value] of Object.entries(result.headers)) target = target.header(name, value);
@@ -154,19 +165,17 @@ function setupFastifyFlexDocInternal(
     return reply.type('text/css; charset=utf-8').header('Cache-Control', 'public, max-age=31536000, immutable').send(assets.css);
   });
 
-  app.get(normalizedPath, routeOptions, async (_request, reply) => {
+  app.get(normalizedPath, routeOptions, async (request, reply) => {
     try {
-      const assets = getRendererAssets();
-      const html = generateFlexDocHTML(await resolvedSpec(), {
-        ...(options.options || {}),
-        rendererBasePath,
-        rendererVersion: assets.version,
-        hostExecutionPublic: hostRouteAvailable ? publicHostExecutionOptions(hostExecutionState, rendererBasePath) : undefined,
-      });
-      return reply
+      const page = await getPage();
+      let target = reply
         .type('text/html; charset=utf-8')
         .header('Cache-Control', 'no-cache')
-        .send(html);
+        .header('ETag', page.etag);
+      if (matchesFlexDocEtag(request.headers['if-none-match'], page.etag)) {
+        return target.code(304).send('');
+      }
+      return target.send(page.body);
     } catch (error) {
       return reply.code(502).type('text/plain; charset=utf-8').send(`Unable to load OpenAPI specification: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
