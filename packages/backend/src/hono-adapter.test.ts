@@ -20,10 +20,14 @@ type HonoResult = {
   headers: Record<string, string>;
 };
 
-function createContext(authorization?: string): HonoLikeContext {
+function createContext(authorization?: string, extraHeaders: Record<string, string> = {}): HonoLikeContext {
   return {
     req: {
-      header: (name: string) => name.toLowerCase() === 'authorization' ? authorization : undefined,
+      header: (name: string) => {
+        const normalized = name.toLowerCase();
+        if (normalized === 'authorization') return authorization;
+        return extraHeaders[normalized];
+      },
     },
     body: (body, status = 200, headers = {}) => ({ body, status, headers }),
   };
@@ -72,6 +76,14 @@ describe('setupHonoFlexDoc', () => {
         hostExecutionPublic: expect.objectContaining({ available: true, endpoint: '/docs/__flexdoc/execute' }),
       }),
     );
+    expect(result.headers.ETag).toMatch(/^"/);
+
+    await handlers.get('/docs/')!(createContext());
+    expect(generateFlexDocHTML).toHaveBeenCalledTimes(1);
+
+    const revalidated = await handlers.get('/docs')!(createContext(undefined, { 'if-none-match': result.headers.ETag })) as HonoResult;
+    expect(revalidated.status).toBe(304);
+    expect(generateFlexDocHTML).toHaveBeenCalledTimes(1);
   });
 
   it('protects docs and assets with the same basic auth contract as setupFlexDoc', async () => {

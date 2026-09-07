@@ -1,0 +1,30 @@
+name: Performance Baseline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - run: npm ci
+      - name: Run repeatable FlexDoc performance baseline
+        run: npm run benchmark:performance -- --json performance-results.json
+      - name: Enforce deterministic bundle-size budgets
+        run: npm run check:performance-budgets -- performance-results.json
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: flexdoc-performance-results
+          path: performance-results.json
+          if-no-files-found: error
