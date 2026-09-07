@@ -23,11 +23,11 @@ test('API Client acquires and refreshes OAuth client-credentials tokens', async 
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
   });
 
-  await page.goto('/e2e/index.html#get-pets-id');
-  await page.getByLabel('path id').fill('42');
+  await page.goto('/e2e/index.html#get-~2Fpets~2F~7Bid~7D');
   await page.getByRole('button', { name: 'Open in API Client' }).click();
-  const apiClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  const apiClient = page.locator('[data-api-client-page="api-client"]');
   await apiClient.getByLabel('Request URL').fill('https://oauth-api.example.test/pets');
+  await apiClient.getByRole('tab', { name: 'Authorization' }).click();
   await apiClient.getByLabel('Authorization type', { exact: true }).selectOption('oauth2');
   await apiClient.getByLabel('OAuth grant type').selectOption('clientCredentials');
   await apiClient.getByLabel('OAuth token URL').fill('https://identity.example.test/token');

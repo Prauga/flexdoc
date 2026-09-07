@@ -622,7 +622,7 @@ function requestOnce(url: URL, method: string, headers: HeaderEntry[], body: Buf
     });
     request.on('error', reject);
     request.setTimeout(timeoutMs, () => request.destroy(new Error(`Host request timed out after ${timeoutMs} ms.`)));
-    if (body && !['GET', 'HEAD'].includes(method)) request.write(body);
+    if (body) request.write(body);
     request.end();
     void started;
   });

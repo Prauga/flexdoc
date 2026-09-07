@@ -3,12 +3,12 @@ from typing import Annotated
 from fastapi import FastAPI, File, Form, Header, Query, Security, UploadFile
 from fastapi.security import APIKeyHeader, HTTPBasic, HTTPBasicCredentials, HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
-from prauga_flexdoc import FlexDocASGI, FlexDocConfig
+from prauga_flexdoc import setup_fastapi_flexdoc
 
 app = FastAPI(
-    title="FlexDoc FastAPI Showcase API",
-    description="Code-first OpenAPI 3.1 example covering servers, auth, parameters, JSON and multipart bodies with the FlexDoc 0.4 ASGI adapter.",
-    version="2.8.0",
+    title="FlexDoc FastAPI 3.0 Showcase API",
+    description="Code-first OpenAPI 3.1 plus live FastAPI/Starlette Runtime Intelligence and the complete FlexDoc 3.0 client surface.",
+    version="3.0.0",
     docs_url=None,
     redoc_url=None,
     servers=[
@@ -84,15 +84,20 @@ async def upload_photo(
     return {"id": "upload-local", "filename": file.filename or "upload.bin", "caption": caption}
 
 
-app.mount(
+# Deliberately hidden from OpenAPI so the Runtime panel has a real runtime-only route to surface.
+@app.get("/internal/health", include_in_schema=False)
+async def internal_health() -> dict[str, str]:
+    return {"status": "internal-ok"}
+
+
+setup_fastapi_flexdoc(
+    app,
     "/docs",
-    FlexDocASGI(
-        FlexDocConfig(
-            path="/docs",
-            spec_url="/openapi.json",
-            title="FlexDoc FastAPI showcase",
-            theme="system",
-            try_it_enabled=True,
-        )
-    ),
+    title="FlexDoc FastAPI 3.0 showcase",
+    theme="system",
+    try_it_enabled=True,
+    try_it_default_server="http://localhost:8000",
+    try_it_credentials="same-origin",
+    try_it_api_client_persistence_key="flexdoc-fastapi-3-showcase",
+    runtime_intelligence=True,
 )

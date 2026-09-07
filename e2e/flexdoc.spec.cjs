@@ -2,8 +2,8 @@ const { createHash } = require('node:crypto');
 const { test, expect } = require('@playwright/test');
 
 const overviewDigests = {
-  'chromium-desktop': 'e5a005c79be6a8bffb5846ae5decf8300d230b8ea487009d47b276e2575a91aa',
-  'chromium-mobile': '17b9b02d35c147b3252e3bf386a2994f09a2559ddb28d07c51309e4bdc27ebd7',
+  'chromium-desktop': '6b2fe53997d03d94fb707a3256b433135b4fa730b2ff7a0abc76cfcaf2ac1c42',
+  'chromium-mobile': 'bfe7d59ef6debe2fe2812d325421f120bdd29bf22e0ee867cfaf08c2cfa91bbd',
 };
 
 const API_CLIENT_SPEC_TITLE = 'FlexDoc Browser Fixture';
@@ -27,10 +27,10 @@ async function readApiClientWorkspace(page, key) {
 }
 
 test('deep links directly to an operation', async ({ page }) => {
-  await page.goto('/e2e/index.html#get-pets-id');
+  await page.goto('/e2e/index.html#get-~2Fpets~2F~7Bid~7D');
   await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
   await expect(page.getByText('/pets/{id}', { exact: true }).last()).toBeVisible();
-  await expect(page).toHaveURL(/#get-pets-id$/);
+  await expect(page).toHaveURL(/#get-~2Fpets~2F~7Bid~7D$/);
 });
 
 test('desktop search, Try It, response viewer, and code samples work together', async ({ page }, testInfo) => {
@@ -56,17 +56,28 @@ test('desktop search, Try It, response viewer, and code samples work together', 
   await search.clear();
 
   await sidebar.locator('button').filter({ hasText: '/pets/{id}' }).click();
-  await expect(page).toHaveURL(/#get-pets-id$/);
+  await expect(page).toHaveURL(/#get-~2Fpets~2F~7Bid~7D$/);
   await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
 
-  await page.getByLabel('path id').fill('42');
-  await page.getByLabel('query locale').fill('de');
-  await page.getByLabel('query tags').fill('["one","two"]');
-  await page.getByLabel('query filter').fill('{"role":"admin"}');
-  await page.getByLabel('header X-Trace').fill('trace-42');
-  await page.getByLabel('bearer credential').fill('token-42');
+  const tryIt = page.locator('[data-try-it-session]');
+  await tryIt.getByLabel('Request URL').fill('https://api.example.test/pets/42');
+  await tryIt.getByLabel('Query parameters 1 value').fill('de');
+  await tryIt.getByRole('button', { name: 'Add' }).click();
+  await tryIt.getByLabel('Query parameters 2 key').fill('tags');
+  await tryIt.getByLabel('Query parameters 2 value').fill('one');
+  await tryIt.getByRole('button', { name: 'Add' }).click();
+  await tryIt.getByLabel('Query parameters 3 key').fill('tags');
+  await tryIt.getByLabel('Query parameters 3 value').fill('two');
+  await tryIt.getByRole('button', { name: 'Add' }).click();
+  await tryIt.getByLabel('Query parameters 4 key').fill('filter[role]');
+  await tryIt.getByLabel('Query parameters 4 value').fill('admin');
+  await tryIt.getByRole('tab', { name: 'Headers' }).click();
+  await tryIt.getByLabel('Headers 1 value').fill('trace-42');
+  await tryIt.getByRole('tab', { name: 'Authorization' }).click();
+  await tryIt.getByLabel('Authorization type', { exact: true }).selectOption('bearer');
+  await tryIt.getByLabel('Bearer token').fill('token-42');
 
-  await page.getByRole('button', { name: 'Send request' }).click();
+  await tryIt.getByRole('button', { name: 'Send request' }).click();
   await expect(page.getByText('200 OK', { exact: true })).toBeVisible();
   await expect(page.locator('pre').filter({ hasText: 'Milo' })).toBeVisible();
 
@@ -108,63 +119,79 @@ test('Try It routes cookie requests through the API host and reuses the shared r
     });
   });
 
-  await page.goto('/e2e/index.html?hostExecution=1#get-pets-id');
-  await page.getByLabel('path id').fill('42');
-  await page.getByLabel('cookie session').fill('session-42');
-  await page.getByLabel('bearer credential').fill('token-42');
+  await page.goto('/e2e/index.html?hostExecution=1#get-~2Fpets~2F~7Bid~7D');
+  const tryIt = page.locator('[data-try-it-session]');
+  await tryIt.getByLabel('Request URL').fill('https://api.example.test/pets/42');
+  await tryIt.getByRole('tab', { name: 'Headers' }).click();
+  await tryIt.getByRole('button', { name: 'Add' }).click();
+  await tryIt.getByLabel('Headers 2 key').fill('Cookie');
+  await tryIt.getByLabel('Headers 2 value').fill('session=session-42');
+  await tryIt.getByRole('tab', { name: 'Authorization' }).click();
+  await tryIt.getByLabel('Authorization type', { exact: true }).selectOption('bearer');
+  await tryIt.getByLabel('Bearer token').fill('token-42');
 
-  await expect(page.getByRole('status')).toContainText('The browser cannot send this request. FlexDoc will execute it from the API host.');
-  await page.getByRole('button', { name: 'Send via API host' }).click();
+  await expect(tryIt.getByRole('status')).toContainText('The browser cannot send this request. FlexDoc will execute it from the API host.');
+  await tryIt.getByRole('button', { name: 'Send request' }).click();
 
   await expect.poll(() => hostHits).toBe(1);
   expect(targetHits).toBe(0);
   expect(envelope.request.url).toContain('/pets/42');
   await expect(page.getByText('200 OK', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Pretty' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('pre').filter({ hasText: 'api-host-try-it' })).toBeVisible();
+  const responseViewer = tryIt.locator('section[aria-labelledby="api-client-response-heading"]');
+  await expect(responseViewer).toBeVisible();
+  await expect(responseViewer.locator('pre').filter({ hasText: 'api-host-try-it' })).toBeVisible();
 });
 
 test('Try It hands live values and custom servers to the API Client', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop API Client coverage');
 
-  await page.goto('/e2e/index.html#get-pets-id');
+  await page.goto('/e2e/index.html#get-~2Fpets~2F~7Bid~7D');
   await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
 
-  await page.getByLabel('path id').fill('42');
-  await page.getByLabel('query locale').fill('de');
-  await page.getByLabel('header X-Trace').fill('trace-42');
-  await page.getByLabel('bearer credential').fill('handoff-token');
-  await page.getByLabel('Custom server URL').fill('http://localhost:8080');
-  await page.getByRole('button', { name: 'Open in API Client' }).click();
+  const tryIt = page.locator('[data-try-it-session]');
+  await tryIt.getByLabel('Request URL').fill('https://api.example.test/pets/42');
+  await tryIt.getByLabel('Query parameters 1 value').fill('de');
+  await tryIt.getByRole('tab', { name: 'Headers' }).click();
+  await tryIt.getByLabel('Headers 1 value').fill('trace-42');
+  await tryIt.getByRole('tab', { name: 'Authorization' }).click();
+  await tryIt.getByLabel('Authorization type', { exact: true }).selectOption('bearer');
+  await tryIt.getByLabel('Bearer token').fill('handoff-token');
+  await tryIt.getByLabel('API Client custom server URL').fill('http://localhost:8080');
+  await tryIt.getByRole('button', { name: 'Open in API Client' }).click();
 
-  await expect(page.getByRole('heading', { name: 'API Client' })).toBeVisible();
-  await expect(page.getByLabel('Request URL')).toHaveValue('http://localhost:8080/pets/42');
-  await expect(page.getByLabel('API Client custom server URL')).toHaveValue('http://localhost:8080');
-  await expect(page.getByLabel('Query parameters 1 key')).toHaveValue('locale');
-  await expect(page.getByLabel('Query parameters 1 value')).toHaveValue('de');
-  await expect(page.getByLabel('Headers 1 key')).toHaveValue('X-Trace');
-  await expect(page.getByLabel('Headers 1 value')).toHaveValue('trace-42');
-  await expect(page.getByLabel(/^Headers \d+ key$/)).toHaveCount(1);
-  await expect(page.getByLabel('Authorization type', { exact: true })).toHaveValue('bearer');
-  await expect(page.getByLabel('Bearer token')).toHaveValue('handoff-token');
+  const apiClientPage = page.locator('[data-api-client-page="api-client"]');
+  await expect(apiClientPage).toBeVisible();
+  await expect(apiClientPage.getByLabel('Request URL')).toHaveValue('http://localhost:8080/pets/42');
+  await expect(apiClientPage.getByLabel('API Client custom server URL')).toHaveValue('http://localhost:8080');
+  await apiClientPage.getByRole('tab', { name: 'Params' }).click();
+  await expect(apiClientPage.getByLabel('Query parameters 1 key')).toHaveValue('locale');
+  await expect(apiClientPage.getByLabel('Query parameters 1 value')).toHaveValue('de');
+  await apiClientPage.getByRole('tab', { name: 'Headers' }).click();
+  await expect(apiClientPage.getByLabel('Headers 1 key')).toHaveValue('X-Trace');
+  await expect(apiClientPage.getByLabel('Headers 1 value')).toHaveValue('trace-42');
+  await expect(apiClientPage.getByLabel(/^Headers \d+ key$/)).toHaveCount(1);
+  await apiClientPage.getByRole('tab', { name: 'Authorization' }).click();
+  await expect(apiClientPage.getByLabel('Authorization type', { exact: true })).toHaveValue('bearer');
+  await expect(apiClientPage.getByLabel('Bearer token')).toHaveValue('handoff-token');
 
-  await page.getByLabel('API Client server').selectOption('https://backup.example.test');
-  await expect(page.getByLabel('Request URL')).toHaveValue('https://backup.example.test/pets/42');
-  await expect(page.getByLabel('Query parameters 1 value')).toHaveValue('de');
+  await apiClientPage.getByLabel('API Client server').selectOption('https://backup.example.test');
+  await expect(apiClientPage.getByLabel('Request URL')).toHaveValue('https://backup.example.test/pets/42');
+  await apiClientPage.getByRole('tab', { name: 'Params' }).click();
+  await expect(apiClientPage.getByLabel('Query parameters 1 value')).toHaveValue('de');
 
-  await page.getByLabel('New folder name').fill('Pets');
-  await page.getByRole('button', { name: 'Add folder' }).click();
-  await expect(page.getByRole('button', { name: 'Delete folder Pets' })).toBeVisible();
-  await expect(page.getByLabel('Saved request folder')).toHaveValue(/folder-/);
+  await apiClientPage.getByLabel('New folder name').fill('Pets');
+  await apiClientPage.getByRole('button', { name: 'Add folder' }).click();
+  await expect(apiClientPage.getByRole('button', { name: 'Delete folder Pets' })).toBeVisible();
+  await expect(apiClientPage.getByLabel('Saved request folder')).toHaveValue(/folder-/);
 
-  await page.getByLabel('Saved request name').fill('Get pet 42');
-  await page.getByRole('button', { name: 'Save request' }).click();
-  await expect(page.getByRole('button', { name: 'Load saved request Get pet 42' })).toBeVisible();
+  await apiClientPage.getByLabel('Saved request name').fill('Get pet 42');
+  await apiClientPage.getByRole('button', { name: 'Save request' }).click();
+  await expect(apiClientPage.getByRole('button', { name: 'Load saved request Get pet 42' })).toBeVisible();
 
-  await page.getByLabel('Request URL').fill('https://backup.example.test/owners');
-  await expect(page.getByLabel('Request URL')).toHaveValue('https://backup.example.test/owners');
-  await page.getByRole('button', { name: 'Load saved request Get pet 42' }).click();
-  await expect(page.getByLabel('Request URL')).toHaveValue('https://backup.example.test/pets/42');
+  await apiClientPage.getByLabel('Request URL').fill('https://backup.example.test/owners');
+  await expect(apiClientPage.getByLabel('Request URL')).toHaveValue('https://backup.example.test/owners');
+  await apiClientPage.getByRole('button', { name: 'Load saved request Get pet 42' }).click();
+  await expect(apiClientPage.getByLabel('Request URL')).toHaveValue('https://backup.example.test/pets/42');
 
   await expect.poll(async () => {
     const workspace = await readApiClientWorkspace(page);
@@ -172,10 +199,9 @@ test('Try It hands live values and custom servers to the API Client', async ({ p
   }).toBe(true);
 
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
-  await page.getByLabel('path id').fill('42');
-  await page.getByRole('button', { name: 'Open in API Client' }).click();
-  await expect(page.getByRole('button', { name: 'Load saved request Get pet 42' })).toBeVisible();
+  const reopenedPage = page.locator('[data-api-client-page="api-client"]');
+  await expect(reopenedPage).toBeVisible();
+  await expect(reopenedPage.getByRole('button', { name: 'Load saved request Get pet 42' })).toBeVisible();
 });
 
 test('API Client environments resolve templates while saved requests keep raw drafts', async ({ page }, testInfo) => {
@@ -187,10 +213,9 @@ test('API Client environments resolve templates while saved requests keep raw dr
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
   });
 
-  await page.goto('/e2e/index.html#get-pets-id');
-  await page.getByLabel('path id').fill('42');
+  await page.goto('/e2e/index.html#get-~2Fpets~2F~7Bid~7D');
   await page.getByRole('button', { name: 'Open in API Client' }).click();
-  const apiClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  const apiClient = page.locator('[data-api-client-page="api-client"]');
   await expect(apiClient).toBeVisible();
 
   await apiClient.getByLabel('New environment name').fill('Local');
@@ -205,6 +230,7 @@ test('API Client environments resolve templates while saved requests keep raw dr
   await apiClient.getByLabel('Environment variable 2 value').fill('99');
 
   await apiClient.getByLabel('Request URL').fill('{{baseUrl}}/pets/{{petId}}');
+  await apiClient.getByRole('tab', { name: 'Headers' }).click();
   await apiClient.getByLabel('Headers 1 value').fill('{{petId}}');
   await apiClient.getByRole('button', { name: 'Send request' }).click();
   await expect(apiClient.getByText('200 OK', { exact: true })).toBeVisible();
@@ -229,9 +255,8 @@ test('API Client environments resolve templates while saved requests keep raw dr
   }).toEqual({ version: 6, activeEnvironment: 'Local', url: '{{baseUrl}}/pets/{{petId}}', header: '{{petId}}' });
 
   await page.reload();
-  await page.getByLabel('path id').fill('42');
-  await page.getByRole('button', { name: 'Open in API Client' }).click();
-  const reopenedClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  const reopenedClient = page.locator('[data-api-client-page="api-client"]');
+  await expect(reopenedClient).toBeVisible();
   await expect(reopenedClient.getByLabel('Active environment')).toHaveText(/Local/);
   await reopenedClient.getByRole('button', { name: 'Load saved request Templated pet' }).click();
   await expect(reopenedClient.getByLabel('Request URL')).toHaveValue('{{baseUrl}}/pets/{{petId}}');
@@ -248,7 +273,7 @@ test('mobile navigation is accessible and closes after endpoint selection', asyn
   await dialog.locator('button').filter({ hasText: '/pets/{id}' }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
-  await expect(page).toHaveURL(/#get-pets-id$/);
+  await expect(page).toHaveURL(/#get-~2Fpets~2F~7Bid~7D$/);
 });
 
 test('canonical overview visual remains stable', async ({ page }, testInfo) => {

@@ -1,11 +1,9 @@
-
 const { test, expect } = require('@playwright/test');
 
 async function openApiClient(page) {
-  await page.goto('/e2e/index.html#get-pets-id');
-  await page.getByLabel('path id').fill('42');
+  await page.goto('/e2e/index.html#get-~2Fpets~2F~7Bid~7D');
   await page.getByRole('button', { name: 'Open in API Client' }).click();
-  const apiClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  const apiClient = page.locator('[data-api-client-page="api-client"]');
   await expect(apiClient).toBeVisible();
   return apiClient;
 }

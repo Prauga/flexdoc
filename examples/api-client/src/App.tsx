@@ -5,22 +5,28 @@ export function App() {
     <main className="shell">
       <header className="hero">
         <div>
-          <p className="eyebrow">FlexDoc</p>
-          <h1>API Client</h1>
+          <p className="eyebrow">FlexDoc 3.0</p>
+          <h1>API Client workspace</h1>
           <p>
-            A standalone API development workspace powered by the same canonical request engine as FlexDoc Try It.
-            Collections, folders, saved requests, named environments and request scripts persist locally in this browser.
+            This standalone example exercises the canonical API-development surface without an OpenAPI document: arbitrary requests,
+            collections and folders, runner/history workflows, named environments, variable resolution, auth, structured bodies,
+            response search and headers, copy-as-cURL, persisted UI state, and keyboard-first request editing.
           </p>
           <p>
-            Create an environment with <code>baseUrl</code> set to <code>https://jsonplaceholder.typicode.com</code>,
-            then send the templated request below. The pre-request script supplies <code>postId</code> and the test script
-            validates the response.
+            Scripts use the CodeMirror-backed editor with FlexDoc diagnostics, formatting and <code>flex.*</code> IntelliSense. Create an
+            environment with <code>baseUrl</code> set to <code>https://jsonplaceholder.typicode.com</code>, then send the templated request
+            below. The variable preview resolves <code>baseUrl</code> and the pre-request script supplies <code>postId</code> before the tests
+            validate the response.
+          </p>
+          <p>
+            Use <kbd>Ctrl/Cmd+Enter</kbd> to send and <kbd>Shift+Alt+F</kbd> to format a script. Collapse state, the active request/script tabs,
+            environment choice and workspace history survive reloads in this browser.
           </p>
         </div>
       </header>
 
       <ApiClientWorkspace
-        persistenceKey="flexdoc-api-client-example"
+        persistenceKey="flexdoc-api-client-3-example"
         initialRequest={{
           method: 'GET',
           url: '{{baseUrl}}/posts/{{postId}}',

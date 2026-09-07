@@ -19,12 +19,15 @@ function buildApp() {
   app.post('/sessions', (req, res) => res.json({ token: `local-${req.body.scope || 'session'}` }));
   app.post('/uploads', (_req, res) => res.status(201).json({ id: 'upload-local', url: 'http://localhost:3000/uploads/upload-local' }));
 
+  // Intentionally omitted from the OpenAPI document so Runtime Intelligence has real drift to report.
+  app.get('/internal/health', (_req, res) => res.json({ status: 'internal-ok' }));
+
   setupExpressFlexDoc(app, '/docs', {
     spec,
     options: {
-      title: 'FlexDoc Express showcase',
-      description: 'Full OpenAPI 3.1 feature showcase served through Express.',
-      version: '2.8.0',
+      title: 'FlexDoc Express 3.0 showcase',
+      description: 'OpenAPI 3.1 documentation, API Client workflows, and live Express Runtime Intelligence in one backend-native example.',
+      version: '3.0.0',
       favicon: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"%3E%3Crect width="32" height="32" rx="8" fill="%237c3aed"/%3E%3Ctext x="8" y="22" fill="white" font-size="18"%3EF%3C/text%3E%3C/svg%3E',
       customCss: '.flexdoc-root { --express-showcase: 1; }',
       customJs: 'document.documentElement.dataset.flexdocExample="express";',
@@ -34,10 +37,10 @@ function buildApp() {
       sortPropsAlphabetically: true,
       showRequestHeaders: true,
       runtimeIntelligence: true,
-      expandResponses: '200,201',
-      tryIt: { enabled: true, defaultServer: 'http://localhost:3000', credentials: 'same-origin' },
+      expand: 'interactive',
+      tryIt: { enabled: true, defaultServer: 'http://localhost:3000', credentials: 'same-origin', apiClientPersistenceKey: 'flexdoc-express-3-showcase' },
       codeSamples: { enabled: true, languages: ['curl', 'javascript', 'python', 'go', 'java'] },
-      footer: { copyright: 'Prauga FlexDoc 2.2', link: [{ text: 'Repository', url: 'https://github.com/prauga/flexdoc' }] },
+      footer: { copyright: 'Prauga FlexDoc 3.0 showcase', link: [{ text: 'Repository', url: 'https://github.com/prauga/flexdoc' }] },
     },
   });
 
@@ -45,7 +48,7 @@ function buildApp() {
 }
 
 if (require.main === module) {
-  buildApp().listen(3000, () => console.log('API:  http://localhost:3000/pets\nDocs: http://localhost:3000/docs'));
+  buildApp().listen(3000, () => console.log('API:  http://localhost:3000/pets\nDocs: http://localhost:3000/docs\nRuntime drift: GET /internal/health is intentionally undocumented'));
 }
 
 module.exports = { buildApp };

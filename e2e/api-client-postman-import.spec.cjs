@@ -1,12 +1,15 @@
 const { test, expect } = require('@playwright/test');
 
 async function openApiClient(page) {
-  await page.goto('/e2e/index.html#get-pets-id');
-  await page.getByLabel('path id').fill('42');
+  await page.goto('/e2e/index.html#get-~2Fpets~2F~7Bid~7D');
   await page.getByRole('button', { name: 'Open in API Client' }).click();
-  const apiClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  const apiClient = page.locator('[data-api-client-page="api-client"]');
   await expect(apiClient).toBeVisible();
   return apiClient;
+}
+
+async function editorText(editor) {
+  return editor.evaluate((element) => element.innerText.replace(/\u200b/g, ''));
 }
 
 test('API Client imports Postman collections and environments into persisted workspace state', async ({ page }, testInfo) => {
@@ -60,7 +63,8 @@ test('API Client imports Postman collections and environments into persisted wor
 
   await apiClient.getByRole('button', { name: 'Load saved request Get pet' }).click();
   await expect(apiClient.getByLabel('Request URL')).toHaveValue('{{baseUrl}}/pets/{{petId}}');
-  await expect(apiClient.getByLabel('Tests script')).toHaveValue(/flex\.test\('status'/);
+  await apiClient.getByRole('tab', { name: 'Tests' }).click();
+  await expect.poll(() => editorText(apiClient.getByLabel('Tests script'))).toMatch(/flex\.test\('status'/);
 
   await page.reload();
   apiClient = await openApiClient(page);

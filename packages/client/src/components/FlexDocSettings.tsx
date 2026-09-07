@@ -1,13 +1,17 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
-import type { ExpandOption, ExpandSection } from '../types/options';
+import type { ExpandOption, ExpandSection, FlexDocMessages, FlexDocViewerTheme } from '../types/options';
 import { EXPAND_SECTIONS } from '../utils/renderer-preferences';
 
 interface FlexDocSettingsProps {
   open: boolean;
   theme: 'light' | 'dark';
+  hostTheme: 'light' | 'dark';
+  viewerTheme?: FlexDocViewerTheme;
   viewerExpand?: ExpandOption;
   effectiveExpandedSections: ExpandSection[];
+  messages?: FlexDocMessages;
+  onThemeChange: (theme?: FlexDocViewerTheme) => void;
   onExpandChange: (expand?: ExpandOption) => void;
   onClose: () => void;
 }
@@ -35,8 +39,12 @@ function focusableElements(root: HTMLElement): HTMLElement[] {
 export const FlexDocSettings: React.FC<FlexDocSettingsProps> = ({
   open,
   theme,
+  hostTheme,
+  viewerTheme,
   viewerExpand,
   effectiveExpandedSections,
+  messages,
+  onThemeChange,
   onExpandChange,
   onClose,
 }) => {
@@ -89,7 +97,7 @@ export const FlexDocSettings: React.FC<FlexDocSettingsProps> = ({
   const customSections = Array.isArray(viewerExpand) ? viewerExpand.filter((entry): entry is ExpandSection => EXPAND_SECTIONS.includes(entry as ExpandSection)) : [];
 
   return <div className='fixed inset-0 z-[70]'>
-    <button aria-label='Close settings backdrop' className='absolute inset-0 bg-black/40' onClick={onClose} />
+    <button type='button' aria-label='Close settings backdrop' className='absolute inset-0 bg-black/40' onClick={onClose} />
     <aside
       ref={dialogRef}
       role='dialog'
@@ -105,7 +113,23 @@ export const FlexDocSettings: React.FC<FlexDocSettingsProps> = ({
         </div>
         <button type='button' aria-label='Close settings' className='inline-flex h-11 w-11 items-center justify-center rounded-md' onClick={onClose}><X className='h-5 w-5' /></button>
       </div>
-      <div className='flex-1 overflow-y-auto p-4'>
+      <div className='flex-1 space-y-6 overflow-y-auto p-4'>
+        <section aria-labelledby='appearance-settings-heading'>
+          <h2 id='appearance-settings-heading' className='mb-1 text-sm font-semibold'>{messages?.viewerTheme || 'Appearance'}</h2>
+          <p className='mb-3 text-xs opacity-65'>Override the documentation host theme on this device.</p>
+          <select
+            aria-label={messages?.viewerTheme || 'Viewer theme'}
+            className={`w-full rounded-md border px-3 py-2 text-sm ${field}`}
+            value={viewerTheme || 'host'}
+            onChange={(event) => onThemeChange(event.target.value === 'host' ? undefined : event.target.value as FlexDocViewerTheme)}
+          >
+            <option value='host'>Use documentation default ({hostTheme})</option>
+            <option value='light'>{messages?.lightTheme || 'Light'}</option>
+            <option value='dark'>{messages?.darkTheme || 'Dark'}</option>
+            <option value='high-contrast'>{messages?.highContrast || 'High contrast'}</option>
+          </select>
+        </section>
+
         <section aria-labelledby='expansion-settings-heading'>
           <h2 id='expansion-settings-heading' className='mb-1 text-sm font-semibold'>Default expanded sections</h2>
           <p className='mb-3 text-xs opacity-65'>This preference overrides the documentation author's default. Opening or closing a section manually remains temporary.</p>

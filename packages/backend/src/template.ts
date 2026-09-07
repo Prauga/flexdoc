@@ -72,6 +72,7 @@ export function generateFlexDocHTML(spec: OpenAPISpec | null, options: RenderOpt
   ${favicon ? `<link rel="icon" href="${escapeHtml(favicon)}" />` : ''}
   <link rel="stylesheet" href="${escapeHtml(rendererBasePath)}/renderer.css${assetVersion}" />
   ${customCss ? `<style>${customCss}</style>` : ''}
+  <style>html,body,#flexdoc-root{height:100%;margin:0}body{overflow:hidden}</style>
 </head>
 <body>
   <div id="flexdoc-root"></div>

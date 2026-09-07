@@ -1,10 +1,9 @@
 const { test, expect } = require('@playwright/test');
 
 async function openApiClient(page) {
-  await page.goto('/e2e/index.html#get-pets-id');
-  await page.getByLabel('path id').fill('42');
+  await page.goto('/e2e/index.html#get-~2Fpets~2F~7Bid~7D');
   await page.getByRole('button', { name: 'Open in API Client' }).click();
-  const apiClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  const apiClient = page.locator('[data-api-client-page="api-client"]');
   await expect(apiClient).toBeVisible();
   return apiClient;
 }
@@ -62,7 +61,7 @@ test('API Client full history filters, inspects responses, and reopens requests'
   await method.selectOption('all');
   await search.fill('bad');
   await history.getByRole('button', { name: /Open in client/i }).click();
-  apiClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  apiClient = page.locator('[data-api-client-page="api-client"]');
   await expect(apiClient).toBeVisible();
   await expect(apiClient.getByLabel('HTTP method')).toHaveValue('POST');
   await expect(apiClient.getByLabel('Request URL')).toHaveValue('https://history.example.test/bad');

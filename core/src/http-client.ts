@@ -370,7 +370,7 @@ export function buildHttpRequest(draft: HttpRequestDraft, options: HttpRequestBu
   let bodyKind: BuiltRequest['bodyKind'];
   let requestBody: BodyInit | undefined;
   const bodyMode = inferHttpBodyMode(resolvedDraft);
-  if (!['GET', 'HEAD'].includes(method) && bodyMode !== 'none') {
+  if (bodyMode !== 'none') {
     if (bodyMode === 'formdata') {
       for (let index = headerEntries.length - 1; index >= 0; index -= 1) {
         if (headerEntries[index][0].toLowerCase() === 'content-type') headerEntries.splice(index, 1);

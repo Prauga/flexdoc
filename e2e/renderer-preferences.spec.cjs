@@ -70,3 +70,17 @@ test('viewer settings remain reachable when the host hides the top bar', async (
   await expect(settings).toBeVisible();
   await expect(settings.getByRole('combobox', { name: 'Default expanded sections' })).toBeFocused();
 });
+
+test('hidden topbar keeps mobile navigation reachable', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-mobile', 'mobile hidden-topbar navigation coverage');
+  await page.goto('/e2e/index.html?hideTopbar=1');
+  await expect(page.locator('.flexdoc-root > header')).toHaveCount(0);
+  const openNavigation = page.getByRole('button', { name: 'Open API navigation' });
+  await expect(openNavigation).toBeVisible();
+  await openNavigation.click();
+  const navigation = page.getByRole('dialog', { name: 'API navigation' });
+  await expect(navigation).toBeVisible();
+  await navigation.locator('button').filter({ hasText: '/pets/{id}' }).click();
+  await expect(navigation).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
+});

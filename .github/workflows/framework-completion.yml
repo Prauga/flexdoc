@@ -74,7 +74,7 @@ jobs:
             const docs = await app.request('/docs');
             if (docs.status !== 200) throw new Error(`Hono docs returned ${docs.status}`);
             const html = await docs.text();
-            if (!html.includes('Hono FlexDoc Example')) throw new Error('Hono docs title missing');
+            if (!html.includes('FlexDoc Hono 3.0 showcase')) throw new Error('Hono docs title missing');
             const js = await app.request('/docs/__flexdoc/renderer.js');
             if (js.status !== 200 || !String(js.headers.get('cache-control')).includes('immutable')) throw new Error('Hono renderer route failed');
           }).catch((error) => { console.error(error); process.exit(1); });

@@ -1,4 +1,4 @@
-import { buildHttpRequest, httpHostExecutionRequirements, resolveHttpRequestDraftVariables } from './http-client';
+import { buildHttpRequest, httpHostExecutionRequirements, inferHttpBodyMode, resolveHttpRequestDraftVariables } from './http-client';
 import { cloneApiClientScripts, runApiClientScript } from './api-client-scripting';
 import type { FlexDocHostExecutionPublicOptions } from '../types/options';
 import type { HttpAuth, HttpRequestDraft, HttpVariables } from './http-client';
@@ -42,6 +42,7 @@ export interface ApiClientExecutionOutcome {
   scriptError?: string;
   scriptTests: ApiClientScriptTestResult[];
   scriptLogs: string[];
+  curlCommand?: string;
 }
 
 export interface ExecuteApiClientRequestOptions {
@@ -95,6 +96,21 @@ function safeVariables(values: HttpVariables | undefined): HttpVariables {
 
 function messageFor(cause: unknown): string {
   return cause instanceof Error ? cause.message : 'Request failed';
+}
+
+function curlHeaderEntries(headers: HeadersInit | undefined): Array<[string, string]> {
+  if (!headers) return [];
+  if (Array.isArray(headers)) return headers.map(([name, value]) => [String(name), String(value)]);
+  return [...new Headers(headers).entries()];
+}
+
+function curlCommandForTransport(url: string, init: RequestInit): string | undefined {
+  if (init.body != null && typeof init.body !== 'string') return undefined;
+  const method = String(init.method || 'GET').toUpperCase();
+  const parts = [`curl -X ${method} ${JSON.stringify(url)}`];
+  for (const [name, value] of curlHeaderEntries(init.headers)) parts.push(`  -H ${JSON.stringify(`${name}: ${value}`)}`);
+  if (typeof init.body === 'string' && init.body.length > 0) parts.push(`  --data-raw ${JSON.stringify(init.body)}`);
+  return parts.join(' \\n');
 }
 
 function hostUnavailableMessage(missing: string[], hostExecution: FlexDocHostExecutionPublicOptions | undefined): string {
@@ -160,6 +176,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
   let resolvedUrl = '';
   let startedAt = 0;
   let requestAttempted = false;
+  let curlCommand: string | undefined;
 
   try {
     if (scripts.preRequest.trim()) {
@@ -192,11 +209,12 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
     executionDraft = resolveHttpRequestDraftVariables(executionDraft, executionVariables);
     executedMethod = (executionDraft.method || 'GET').toUpperCase();
     resolvedUrl = executionDraft.url;
-
     const requirements = httpHostExecutionRequirements(executionDraft);
+    const bodyNeedsHostTransport = ['GET', 'HEAD'].includes(executedMethod) && inferHttpBodyMode(executionDraft) !== 'none';
+    const shouldUseHost = requirements.length > 0 || (bodyNeedsHostTransport && options.hostExecution?.available === true);
     let apiResponse: ApiClientExecutionResponse;
 
-    if (requirements.length > 0) {
+    if (shouldUseHost) {
       const capabilities = new Set(options.hostExecution?.capabilities || []);
       const missing = requirements.filter((requirement) => !capabilities.has(requirement));
       if (!options.hostExecution?.available || missing.length > 0) {
@@ -262,6 +280,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
       if (options.signal) initWithUrl.signal = options.signal;
       const { url, ...init } = initWithUrl;
       resolvedUrl = url;
+      curlCommand = curlCommandForTransport(url, init);
       startedAt = now();
       requestAttempted = true;
       if (!fetcher) throw new Error('Fetch API is not available');
@@ -313,6 +332,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
       response: apiResponse,
       scriptTests,
       scriptLogs: logs,
+      ...(curlCommand ? { curlCommand } : {}),
       ...(scriptError ? { scriptError } : {}),
     };
   } catch (cause) {

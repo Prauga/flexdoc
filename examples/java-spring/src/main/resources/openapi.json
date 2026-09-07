@@ -1,0 +1,105 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "FlexDoc Spring 3.0 Showcase API",
+    "version": "3.0.0",
+    "description": "Exact contract used by FlexDoc Runtime Intelligence to compare Spring MVC mappings without coupling the adapter to springdoc internals."
+  },
+  "servers": [
+    { "url": "http://localhost:8080", "description": "Local development" }
+  ],
+  "paths": {
+    "/pets": {
+      "get": {
+        "summary": "List pets",
+        "tags": ["Pets"],
+        "parameters": [
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 20 } },
+          { "name": "X-Trace-ID", "in": "header", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pets returned",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Pet" } } } }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a pet",
+        "tags": ["Pets"],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PetInput" } } }
+        },
+        "responses": {
+          "201": {
+            "description": "Pet created",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Pet" } } }
+          }
+        }
+      }
+    },
+    "/pets/{petId}": {
+      "get": {
+        "summary": "Get a pet",
+        "tags": ["Pets"],
+        "parameters": [
+          { "name": "petId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pet returned",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Pet" } } }
+          }
+        }
+      }
+    },
+    "/uploads": {
+      "post": {
+        "summary": "Upload a pet photo",
+        "tags": ["Forms"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary" },
+                  "caption": { "type": "string", "default": "Miso at the park" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "Upload metadata returned" } }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PetInput": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "example": "Miso" },
+          "age": { "type": "integer", "minimum": 0, "example": 3 },
+          "tags": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "Pet": {
+        "allOf": [
+          { "$ref": "#/components/schemas/PetInput" },
+          {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "example": "pet-1" },
+              "status": { "type": "string", "enum": ["available", "pending", "adopted"] }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

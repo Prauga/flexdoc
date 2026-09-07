@@ -1,7 +1,5 @@
 import React, { useEffect } from 'react';
 import Prism from 'prismjs';
-import 'prismjs/themes/prism-tomorrow.css';
-import 'prismjs/themes/prism.css';
 import 'prismjs/components/prism-json';
 import 'prismjs/components/prism-yaml';
 import 'prismjs/components/prism-javascript';
@@ -58,9 +56,16 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
     theme === 'dark'
       ? 'text-gray-400 hover:text-gray-200'
       : 'text-gray-500 hover:text-gray-900';
+  const tokenStyle = {
+    '--fd-code-muted': theme === 'dark' ? '#9ca3af' : '#64748b',
+    '--fd-code-string': theme === 'dark' ? '#86efac' : '#15803d',
+    '--fd-code-keyword': theme === 'dark' ? '#c4b5fd' : '#6d28d9',
+    '--fd-code-number': theme === 'dark' ? '#fb923c' : '#c2410c',
+    '--fd-code-accent': theme === 'dark' ? '#93c5fd' : '#1d4ed8',
+  } as React.CSSProperties;
 
   return (
-    <div className={`min-w-0 rounded-lg overflow-hidden border ${containerClasses}`}>
+    <div className={`flexdoc-code min-w-0 rounded-lg overflow-hidden border ${containerClasses}`} data-code-theme={theme} style={tokenStyle}>
       {(title || showCopy) && (
         <div className={`flex items-center justify-between gap-3 px-3 sm:px-4 py-2 border-b ${headerClasses}`}>
           {title && <span className='min-w-0 truncate text-sm font-medium'>{title}</span>}

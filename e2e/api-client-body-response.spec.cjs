@@ -1,24 +1,29 @@
 const { test, expect } = require('@playwright/test');
 
 async function openApiClient(page) {
-  await page.goto('/e2e/index.html#get-pets-id');
-  await page.getByLabel('path id').fill('42');
+  await page.goto('/e2e/index.html#get-~2Fpets~2F~7Bid~7D');
   await page.getByRole('button', { name: 'Open in API Client' }).click();
-  const apiClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  const apiClient = page.locator('[data-api-client-page="api-client"]');
   await expect(apiClient).toBeVisible();
   return apiClient;
+}
+
+async function editorText(editor) {
+  return editor.evaluate((element) => element.innerText.replace(/\u200b/g, ''));
 }
 
 test('API Client provides structured request body modes and pretty/raw response views', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop API Client parity coverage');
   const apiClient = await openApiClient(page);
   await apiClient.getByLabel('HTTP method').selectOption('POST');
+  await apiClient.getByRole('tab', { name: 'Body' }).click();
 
   await apiClient.getByLabel('Request body type').selectOption('json');
-  await apiClient.getByRole('textbox', { name: 'Request body', exact: true }).fill('{"name":"Mochi","age":4}');
+  const requestBody = apiClient.getByRole('textbox', { name: 'Request body', exact: true });
+  await requestBody.fill('{"name":"Mochi","age":4}');
   await expect(apiClient.getByText('Valid JSON')).toBeVisible();
   await apiClient.getByRole('button', { name: 'Beautify JSON' }).click();
-  await expect(apiClient.getByRole('textbox', { name: 'Request body', exact: true })).toHaveValue('{\n  "name": "Mochi",\n  "age": 4\n}');
+  await expect.poll(() => editorText(requestBody)).toBe('{\n  "name": "Mochi",\n  "age": 4\n}');
   await expect(apiClient.getByLabel('Content type')).toHaveValue('application/json');
 
   await apiClient.getByLabel('Request body type').selectOption('urlencoded');
@@ -52,6 +57,7 @@ test('response body can switch between pretty JSON and exact raw payload', async
   await apiClient.getByLabel('Request URL').fill('https://response.example.test/pets/42');
   await apiClient.getByRole('button', { name: 'Send request' }).click();
   await expect(apiClient.getByText('Body — Pretty')).toBeVisible();
+  await expect(apiClient.getByRole('button', { name: 'Copy request as cURL' })).toBeVisible();
   await expect(apiClient.locator('code.language-json')).toContainText('"pet"');
   await apiClient.getByRole('button', { name: 'Raw', exact: true }).click();
   await expect(apiClient.getByText('Body — Raw')).toBeVisible();
@@ -71,6 +77,7 @@ test('binary body sends the selected file bytes without text conversion', async 
     await route.fulfill({ status: 204, body: '' });
   });
   await apiClient.getByLabel('HTTP method').selectOption('POST');
+  await apiClient.getByRole('tab', { name: 'Body' }).click();
   await apiClient.getByLabel('Request URL').fill('https://binary.example.test/upload');
   await apiClient.getByLabel('Request body type').selectOption('binary');
   await apiClient.getByLabel('Binary file').setInputFiles({ name: 'payload.bin', mimeType: 'application/octet-stream', buffer: Buffer.from([0, 1, 2, 255]) });
@@ -85,6 +92,7 @@ test('saved structured bodies reopen with their mode and file metadata intact', 
   test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop structured-body persistence coverage');
   const apiClient = await openApiClient(page);
   await apiClient.getByLabel('HTTP method').selectOption('POST');
+  await apiClient.getByRole('tab', { name: 'Body' }).click();
   await apiClient.getByLabel('Request body type').selectOption('binary');
   await apiClient.getByLabel('Binary file').setInputFiles({ name: 'saved-payload.bin', mimeType: 'application/octet-stream', buffer: Buffer.from([10, 20, 30]) });
   await apiClient.getByLabel('Saved request name').fill('Saved binary upload');
