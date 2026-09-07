@@ -120,13 +120,19 @@ If the answer is yes, the feature may still be useful, but it does not receive t
 
 | Milestone | Direction | Core outcome |
 | --- | --- | --- |
-| **3.0 — Runtime Intelligence** | understand the running service | runtime route discovery, OpenAPI ↔ implementation drift detection, framework/runtime metadata, and runtime server/environment discovery |
+| **3.0 — Runtime Intelligence** | understand the running service | runtime route discovery, OpenAPI ↔ implementation drift detection, framework/runtime metadata, and runtime server/environment discovery; first Express/Nest-Express live route slice in progress |
 | **3.1 — Contract Validation** | turn runtime knowledge into enforcement | spec-vs-implementation validation, undocumented/missing routes, method/path/schema mismatches, breaking drift, and CI/development feedback |
 | **3.2 — FlexDoc Runner** | take the canonical API execution model headless | collection/folder execution outside the browser, CI execution, machine-readable reports, and the same request/script semantics as the embedded client |
 | **3.3 — Backend Execution Expansion** | expand execution from the service/network context | carry the 2.9.5 controlled Node executor across relevant adapters, deepen internal/VPC/private-endpoint workflows, remove remaining browser-only constraints, and reuse backend-known runtime/environment context safely |
 | **3.4 — Service Workbench** | evolve from API docs into a service workbench | runtime diagnostics, request/tracing context, framework-aware introspection, and deeper service debugging surfaces |
 
 Cloud collaboration, teams, enterprise controls, CI workflow, and additional protocol/agent surfaces remain valid later directions, but they should build on this backend-native moat rather than displace it. The embedded product remains self-hostable with one canonical renderer and no required FlexDoc account, hosted service, telemetry dependency, or runtime CDN.
+
+## 3.0 Runtime Intelligence
+
+The first vertical slice is intentionally backend-native: explicit opt-in Express/Nest-Express route discovery, a docs-auth-scoped live runtime snapshot, request-derived server origin, and renderer-side presence drift. It establishes one additive renderer-contract-v1 protocol that later Fastify, Hono, JVM, Go, .NET, Python, and other adapters can implement without creating framework-specific UI models. See [`runtime-intelligence.md`](./runtime-intelligence.md).
+
+3.0 discovery is observational. It surfaces what the backend reports and basic route presence drift; CI enforcement and deeper schema/response contract validation remain 3.1.
 
 ## Release interpretation
 
