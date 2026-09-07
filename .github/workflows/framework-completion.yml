@@ -57,6 +57,15 @@ jobs:
       - name: Verify every committed adapter renderer is canonical
         run: npm run check:adapter-assets
 
+      - name: Preserve canonical renderer when parity fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-renderer-${{ github.sha }}
+          path: packages/client/dist/standalone/
+          if-no-files-found: error
+          retention-days: 3
+
       - name: Smoke test Hono helper
         run: |
           npm install --prefix examples/javascript-hono --no-save --package-lock=false --ignore-scripts --no-audit --no-fund "${{ github.workspace }}/packages/backend" hono@4.13.5
