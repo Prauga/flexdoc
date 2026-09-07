@@ -70,7 +70,9 @@ When enabled, FlexDoc registers `GET <docsPath>/__flexdoc/runtime` under the doc
 
 - the detected framework and framework version when available;
 - runtime language version, platform, and architecture;
-- the request-derived runtime server origin;
+- the request-derived runtime server origin when available;
+- the actual local backend listener port when the framework exposes it safely;
+- the standard framework/runtime environment identity when one exists;
 - routes observed in the running application;
 - OpenAPI operations that have a matching runtime route;
 - implemented routes missing from OpenAPI;
@@ -90,6 +92,12 @@ A snapshot has one framework-neutral shape. The runtime `name` identifies the ho
     "arch": "x64"
   },
   "serverOrigin": "https://api.example.com",
+  "server": {
+    "localPort": 3000
+  },
+  "environment": {
+    "name": "production"
+  },
   "discoveryComplete": true,
   "routes": [],
   "runtimeOnly": [],
@@ -103,6 +111,21 @@ A snapshot has one framework-neutral shape. The runtime `name` identifies the ho
   }
 }
 ```
+
+`serverOrigin`, `server`, and `environment` are optional. Missing values are omitted rather than guessed.
+
+### Safe server and environment context
+
+Runtime Intelligence intentionally exposes a narrow environment surface instead of serializing arbitrary process or framework state.
+
+- `serverOrigin` remains request-derived and describes the origin through which the Runtime Intelligence request reached the application.
+- `server.localPort` is the actual backend listener port exposed by the framework/request context. FlexDoc does **not** expose the local IP address or hostname alongside it.
+- Node exposes `environment.name` only from `NODE_ENV`.
+- ASP.NET Core uses `ASPNETCORE_ENVIRONMENT`, then `DOTNET_ENVIRONMENT` when the first is absent.
+- Spring MVC uses the framework's active profile list.
+- FastAPI intentionally omits `environment.name`: Python/ASGI does not define a trustworthy standard environment identity equivalent to the conventions above.
+
+FlexDoc does not copy arbitrary environment variables, request headers, filesystem paths, container metadata, cloud metadata, or secret-bearing process state into the snapshot.
 
 ### Framework discovery semantics
 
@@ -119,6 +142,12 @@ A snapshot has one framework-neutral shape. The runtime `name` identifies the ho
 **Spring MVC** — FlexDoc reads `RequestMappingHandlerMapping` at request time and compares it with the exact document returned by `FlexDocSpecProvider`. Spring path-variable constraints and capture-all parameters are normalized to OpenAPI parameter syntax. Mappings without a concrete HTTP method and raw wildcard mappings are not expanded speculatively; they mark discovery partial. The configured OpenAPI route and FlexDoc docs subtree are excluded.
 
 FlexDoc's own documentation, renderer, runtime-intelligence, and host-execution routes under the docs prefix are excluded from the runtime inventory.
+
+### Go framework packaging follow-on
+
+The existing Go adapter remains intentionally neutral around `net/http`. Gin, Chi, Echo, and Fiber each expose framework-specific router state through different APIs; the neutral adapter cannot recover those live inventories without importing the frameworks it is supposed to remain independent from.
+
+Runtime Intelligence therefore does not advertise Go framework route discovery in this 3.0 slice. Adding framework-specific Go integrations requires an explicit package/release boundary so importing the neutral adapter does not silently broaden its dependency graph or minimum toolchain. FlexDoc will not use reflection or inferred paths to pretend that coverage exists.
 
 ### Security
 
