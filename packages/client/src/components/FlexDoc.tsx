@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, Menu, Settings as SettingsIcon, X } from 'lucide-react';
 import { OpenAPISpec } from '../types/openapi';
 import { Sidebar } from './Sidebar';
@@ -10,6 +10,7 @@ import { themeVariant } from '../utils/theme';
 import { OpenAPIParser } from '../utils/openapi-parser';
 import { ExpandOption, FlexDocRendererOptions, FlexDocRuntimeIntelligenceSnapshot, LogoOptions, ThemeConfig } from '../types/options';
 import { createFlexDocViewerPreferencesKey, readFlexDocViewerPreferences, resolveExpandSections, writeFlexDocViewerExpandPreference } from '../utils/renderer-preferences';
+import { parseRuntimeIntelligenceSnapshot } from '../utils/runtime-intelligence';
 import { FlexDocSettings } from './FlexDocSettings';
 import { RuntimeIntelligencePanel } from './RuntimeIntelligencePanel';
 
@@ -98,6 +99,7 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
   const runtimeSnapshot = activeRuntimeResult?.snapshot;
   const runtimeError = activeRuntimeResult?.error;
   const runtimeLoading = Boolean(runtimeAvailable && runtimeEndpoint && !activeRuntimeResult);
+  const closeRuntime = useCallback(() => setRuntimeOpen(false), []);
   const preferenceKey = createFlexDocViewerPreferencesKey(spec.info.title, typeof window === 'undefined' ? undefined : window.location.host);
   const [viewerPreferenceState, setViewerPreferenceState] = useState<{ key: string; expand?: ExpandOption }>(() => ({
     key: preferenceKey,
@@ -115,7 +117,7 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
     fetch(runtimeEndpoint, { credentials: 'same-origin', signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) throw new Error(`Runtime intelligence unavailable: HTTP ${response.status}`);
-        return response.json() as Promise<FlexDocRuntimeIntelligenceSnapshot>;
+        return parseRuntimeIntelligenceSnapshot(await response.json());
       })
       .then((snapshot) => setRuntimeResult({ endpoint: runtimeEndpoint, snapshot }))
       .catch((error) => {
@@ -169,16 +171,27 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
 
   const footerClasses = themeVariant(theme, 'border-gray-200 bg-white text-gray-600', 'border-gray-700 bg-gray-800 text-gray-300');
   const rootClasses = theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900';
+  const floatingButtonTheme = theme === 'dark' ? 'border-gray-700 bg-gray-900 text-gray-100' : 'border-gray-200 bg-white text-gray-900';
 
   const settingsButton = (floating = false) => <button
     type='button'
     className={floating
-      ? `fixed bottom-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg ${theme === 'dark' ? 'border-gray-700 bg-gray-900 text-gray-100' : 'border-gray-200 bg-white text-gray-900'}`
+      ? `fixed bottom-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg ${floatingButtonTheme}`
       : 'inline-flex h-11 w-11 items-center justify-center rounded-md border'}
     aria-label='Open settings'
     aria-expanded={settingsOpen}
     onClick={() => setSettingsOpen(true)}
   ><SettingsIcon className='h-5 w-5' /></button>;
+
+  const runtimeButton = (floating = false) => runtimeAvailable ? <button
+    type='button'
+    className={floating
+      ? `fixed bottom-4 right-[4.25rem] z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg ${floatingButtonTheme}`
+      : 'inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-md border px-2 text-sm sm:px-3'}
+    onClick={() => setRuntimeOpen(true)}
+    aria-label='Open runtime intelligence'
+    aria-expanded={runtimeOpen}
+  ><Activity className='h-4 w-4' />{!floating && <span className='hidden sm:inline'>{runtimeSnapshot ? `Runtime ${runtimeSnapshot.summary.matched}/${runtimeSnapshot.summary.documented}` : runtimeLoading ? 'Runtime…' : 'Runtime'}</span>}</button> : null;
 
   return (
     <div className={`flexdoc-root flex min-h-screen flex-col ${rootClasses}`} style={mergedStyles}>
@@ -190,12 +203,12 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
             <div className='truncate font-semibold'>{spec.info.title}</div>
             {!options.hideHostname && spec.servers?.[0]?.url && <div className='truncate text-xs opacity-60'>{spec.servers[0].url}</div>}
           </div>
-          {runtimeAvailable && <button type='button' className='inline-flex items-center gap-2 rounded-md border px-2 py-2 text-sm sm:px-3' onClick={() => setRuntimeOpen(true)} aria-label='Open runtime intelligence'><Activity className='h-4 w-4' /><span className='hidden sm:inline'>{runtimeSnapshot ? `Runtime ${runtimeSnapshot.summary.matched}/${runtimeSnapshot.summary.documented}` : runtimeLoading ? 'Runtime…' : 'Runtime'}</span></button>}
+          {runtimeButton()}
           {!options.hideDownloadButton && <a className='hidden rounded-md border px-3 py-2 text-sm sm:inline-flex' href={`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(spec, null, 2))}`} download='openapi.json'>Download spec</a>}
           {settingsButton()}
         </header>
       )}
-      {options.hideTopbar && settingsButton(true)}
+      {options.hideTopbar && <>{runtimeButton(true)}{settingsButton(true)}</>}
 
       <div className='relative flex min-h-0 flex-1 overflow-hidden'>
         <aside className='hidden w-80 shrink-0 lg:block' style={{ background: 'var(--flexdoc-sidebar-bg)', color: 'var(--flexdoc-sidebar-text)' }}>
@@ -222,7 +235,7 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
         </main>
       </div>
       <Footer footerClasses={footerClasses} footer={options.footer} />
-      <RuntimeIntelligencePanel open={runtimeOpen && runtimeAvailable} theme={theme} loading={runtimeLoading} error={runtimeError} snapshot={runtimeSnapshot} onClose={() => setRuntimeOpen(false)} />
+      <RuntimeIntelligencePanel open={runtimeOpen && runtimeAvailable} theme={theme} loading={runtimeLoading} error={runtimeError} snapshot={runtimeSnapshot} onClose={closeRuntime} />
       <FlexDocSettings
         open={settingsOpen}
         theme={theme}

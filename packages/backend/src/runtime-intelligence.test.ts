@@ -4,9 +4,19 @@ import {
   discoverFastifyRoutes,
   discoverHonoRoutes,
   normalizeRuntimePath,
+  runtimeIntelligenceEnabled,
 } from './runtime-intelligence';
 
 describe('runtime intelligence', () => {
+  it('requires an explicit true opt-in', () => {
+    expect(runtimeIntelligenceEnabled(true)).toBe(true);
+    expect(runtimeIntelligenceEnabled({ enabled: true })).toBe(true);
+    expect(runtimeIntelligenceEnabled(false)).toBe(false);
+    expect(runtimeIntelligenceEnabled(undefined)).toBe(false);
+    expect(runtimeIntelligenceEnabled({} as any)).toBe(false);
+    expect(runtimeIntelligenceEnabled({ enabled: false } as any)).toBe(false);
+  });
+
   it('normalizes framework parameter paths to OpenAPI form', () => {
     expect(normalizeRuntimePath('/pets/:petId')).toBe('/pets/{petId}');
     expect(normalizeRuntimePath('/orgs/:orgId(\\d+)/users/:userId?')).toBe('/orgs/{orgId}/users/{userId}');

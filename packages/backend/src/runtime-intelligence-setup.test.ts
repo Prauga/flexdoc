@@ -39,4 +39,14 @@ describe('setupFlexDoc runtime intelligence', () => {
     setupFlexDoc(app, '/docs', { spec: { openapi: '3.1.0', paths: {} } });
     expect(paths).not.toContain('/docs/__flexdoc/runtime');
   });
+
+  it('does not treat an empty runtime options object as opt-in', () => {
+    const paths: string[] = [];
+    const app: any = { router: { stack: [] }, use(path: string) { paths.push(path); } };
+    setupFlexDoc(app, '/docs', {
+      spec: { openapi: '3.1.0', paths: {} },
+      options: { runtimeIntelligence: {} as any },
+    });
+    expect(paths).not.toContain('/docs/__flexdoc/runtime');
+  });
 });

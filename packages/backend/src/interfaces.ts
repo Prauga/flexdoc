@@ -67,7 +67,7 @@ export interface FlexDocHostExecutionPublicOptions {
   cookiesEndpoint?: string;
 }
 
-export interface FlexDocRuntimeIntelligenceOptions { enabled?: boolean; }
+export interface FlexDocRuntimeIntelligenceOptions { enabled: true; }
 export interface FlexDocRuntimeIntelligencePublicOptions {
   available: boolean;
   endpoint: string;

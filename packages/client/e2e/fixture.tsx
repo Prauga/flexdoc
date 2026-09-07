@@ -19,15 +19,23 @@ const hostExecution = query.get('hostExecution') === '1' ? {
   capabilities: ['cookies', 'clientCertificates', 'digest', 'hawk', 'oauth1', 'awsv4'] as const,
   clientCertificates: [{ id: 'client-cert', name: 'Fixture client certificate' }],
 } : undefined;
+const runtimeIntelligence = query.get('runtime') === '1' ? {
+  available: true,
+  endpoint: '/e2e/__flexdoc/runtime',
+  framework: 'express',
+} : undefined;
+const theme = query.get('theme') === 'dark' ? 'dark' : 'light';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <FlexDoc
       spec={spec}
+      theme={theme}
       options={{
         hideDownloadButton: true,
         hideTopbar: query.get('hideTopbar') === '1',
         expand: 'all',
+        runtimeIntelligence,
         tryIt: { enabled: true, ...(hostExecution ? { hostExecution } : {}) },
         codeSamples: { enabled: true, languages: ['curl', 'javascript', 'python', 'go', 'java'] },
       }}
