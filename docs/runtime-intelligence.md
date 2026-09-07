@@ -23,7 +23,7 @@ The same `runtimeIntelligence: true` option is supported by the Node Express, Ne
 
 ### Python / FastAPI
 
-The Python adapter exposes the first native runtime integration through the FastAPI helper:
+The Python adapter exposes native runtime integration through the FastAPI helper:
 
 ```python
 from fastapi import FastAPI
@@ -34,6 +34,24 @@ setup_fastapi_flexdoc(app, '/docs', runtime_intelligence=True)
 ```
 
 This support is intentionally FastAPI-specific. Flask, Django, and generic ASGI/WSGI hosting do not advertise Runtime Intelligence yet because FlexDoc does not have a reliable framework-native route inventory for those integrations in this slice.
+
+### ASP.NET Core
+
+The .NET 8 adapter can inspect live endpoint routing without depending on a particular OpenAPI generator. Runtime Intelligence requires the exact server-side OpenAPI document object in addition to the browser-facing `SpecUrl`:
+
+```csharp
+var openApiDocument = BuildMyOpenApiDocument();
+
+app.MapFlexDoc(options =>
+{
+    options.Path = "/docs";
+    options.SpecUrl = "/openapi/v1.json";
+    options.RuntimeIntelligence = true;
+    options.RuntimeOpenApiDocument = openApiDocument;
+});
+```
+
+`RuntimeOpenApiDocument` is server-only. Requiring it lets FlexDoc compare live `EndpointDataSource` routes against the exact OpenAPI document without making an HTTP request back into the application or coupling the adapter to Swashbuckle, NSwag, or a version-specific OpenAPI provider.
 
 When enabled, FlexDoc registers `GET <docsPath>/__flexdoc/runtime` under the documentation route. The renderer requests that endpoint and shows:
 
@@ -46,7 +64,7 @@ When enabled, FlexDoc registers `GET <docsPath>/__flexdoc/runtime` under the doc
 - documented routes not observed in the runtime router;
 - whether discovery is complete or partial.
 
-A snapshot has one framework-neutral shape. The runtime `name` identifies the host runtime, for example `node` or `python`:
+A snapshot has one framework-neutral shape. The runtime `name` identifies the host runtime, for example `node`, `python`, or `dotnet`:
 
 ```json
 {
@@ -83,13 +101,15 @@ A snapshot has one framework-neutral shape. The runtime `name` identifies the ho
 
 **FastAPI** — FlexDoc reads the live FastAPI/Starlette route tree and compares it with `app.openapi()` at request time. Starlette path converters such as `{file_path:path}` are normalized to OpenAPI `{file_path}` form, implicit `HEAD` siblings of `GET` routes are collapsed, and inspectable mounted route trees retain their mount prefixes. Opaque ASGI mounts mark discovery partial instead of being guessed. FastAPI's own OpenAPI/Swagger/ReDoc infrastructure and the FlexDoc docs subtree are excluded from drift.
 
+**ASP.NET Core** — FlexDoc reads the live `EndpointDataSource` at request time. Structured route patterns normalize constraints, defaults, optional parameters, and catch-all parameters to OpenAPI `{parameter}` form. Endpoints with no concrete HTTP-method metadata or unsupported methods make discovery partial rather than being expanded speculatively. The FlexDoc docs subtree and configured OpenAPI route are excluded from drift.
+
 FlexDoc's own documentation, renderer, runtime-intelligence, and host-execution routes under the docs prefix are excluded from the runtime inventory.
 
 ### Security
 
 Runtime discovery can reveal endpoints that were intentionally omitted from the public OpenAPI document. Enabling it is therefore an operator security decision.
 
-On Node integrations, the runtime endpoint is registered under the same FlexDoc documentation-auth boundary as the docs page. On FastAPI, the Python adapter currently relies on application middleware or upstream access control rather than a FlexDoc-native documentation-auth option; protect the `/docs` subtree at the ASGI application or proxy layer before enabling Runtime Intelligence on non-private documentation.
+On Node integrations, the runtime endpoint is registered under the same FlexDoc documentation-auth boundary as the docs page. FastAPI and ASP.NET Core currently rely on application middleware or upstream access control rather than a FlexDoc-native documentation-auth option; protect the docs subtree at the application or proxy layer before enabling Runtime Intelligence on non-private documentation.
 
 ### Discovery completeness
 

@@ -51,7 +51,7 @@ jobs:
       - name: Build ASP.NET Core adapter
         run: dotnet build adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNetCore.csproj --configuration Release
 
-      - name: Test ASP.NET Core renderer options
+      - name: Test ASP.NET Core renderer options and runtime discovery
         run: dotnet run --project adapters/dotnet/tests/Prauga.FlexDoc.AspNetCore.Tests/Prauga.FlexDoc.AspNetCore.Tests.csproj --configuration Release
 
       - name: Pack NuGet release candidate
@@ -92,9 +92,23 @@ jobs:
           curl --fail --show-error --silent -D /tmp/flexdoc-dotnet-docs-slash.headers --output /tmp/flexdoc-dotnet-docs-slash.html http://127.0.0.1:5087/docs/
           grep 'FlexDoc ASP.NET Core Example' /tmp/flexdoc-dotnet-docs.html
           grep 'window.__FLEXDOC_SPEC_URL__="/openapi.json"' /tmp/flexdoc-dotnet-docs.html
+          grep '"runtimeIntelligence":{"available":true,"endpoint":"/docs/__flexdoc/runtime","framework":"aspnetcore"}' /tmp/flexdoc-dotnet-docs.html
           grep 'FlexDoc ASP.NET Core Example' /tmp/flexdoc-dotnet-docs-slash.html
           grep -Fi 'cache-control: no-cache' /tmp/flexdoc-dotnet-docs.headers
           grep -Fi 'cache-control: no-cache' /tmp/flexdoc-dotnet-docs-slash.headers
+
+          curl --fail --show-error --silent -D /tmp/flexdoc-dotnet-runtime.headers --output /tmp/flexdoc-dotnet-runtime.json http://127.0.0.1:5087/docs/__flexdoc/runtime
+          grep -Fi 'cache-control: no-store' /tmp/flexdoc-dotnet-runtime.headers
+          python3 - <<'PY'
+          import json
+          with open('/tmp/flexdoc-dotnet-runtime.json', encoding='utf-8') as handle:
+              snapshot = json.load(handle)
+          assert snapshot['framework'] == 'aspnetcore'
+          assert snapshot['runtime']['name'] == 'dotnet'
+          assert snapshot['summary'] == {'documented': 1, 'runtime': 2, 'matched': 1, 'runtimeOnly': 1, 'documentedOnly': 0}
+          assert snapshot['runtimeOnly'] == [{'method': 'POST', 'path': '/internal'}]
+          PY
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST http://127.0.0.1:5087/docs/__flexdoc/runtime)" = "405"
 
           curl --fail --show-error --silent -D /tmp/flexdoc-dotnet-renderer-js.headers --output /tmp/flexdoc-dotnet-renderer.js http://127.0.0.1:5087/docs/__flexdoc/renderer.js
           curl --fail --show-error --silent -D /tmp/flexdoc-dotnet-renderer-css.headers --output /tmp/flexdoc-dotnet-renderer.css http://127.0.0.1:5087/docs/__flexdoc/renderer.css
