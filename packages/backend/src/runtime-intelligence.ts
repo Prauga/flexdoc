@@ -12,6 +12,14 @@ export interface FlexDocRuntimeMetadata {
   arch: string;
 }
 
+export interface FlexDocRuntimeServerMetadata {
+  localPort?: number;
+}
+
+export interface FlexDocRuntimeEnvironmentMetadata {
+  name: string;
+}
+
 export interface FlexDocRuntimeDiscovery {
   framework: string;
   frameworkVersion?: string;
@@ -24,6 +32,8 @@ export interface FlexDocRuntimeIntelligenceSnapshot {
   frameworkVersion?: string;
   runtime: FlexDocRuntimeMetadata;
   serverOrigin?: string;
+  server?: FlexDocRuntimeServerMetadata;
+  environment?: FlexDocRuntimeEnvironmentMetadata;
   discoveryComplete: boolean;
   routes: FlexDocRuntimeRoute[];
   runtimeOnly: FlexDocRuntimeRoute[];
@@ -88,6 +98,11 @@ export function nodeRuntimeMetadata(): FlexDocRuntimeMetadata {
     platform: process.platform,
     arch: process.arch,
   };
+}
+
+export function nodeEnvironmentMetadata(): FlexDocRuntimeEnvironmentMetadata | undefined {
+  const name = process.env.NODE_ENV?.trim();
+  return name ? { name } : undefined;
 }
 
 export function discoverExpressRoutes(app: any, excludePrefix?: string): FlexDocRuntimeDiscovery {
@@ -212,6 +227,8 @@ export function buildRuntimeIntelligenceSnapshot(input: {
   spec: any;
   discovery: FlexDocRuntimeDiscovery;
   serverOrigin?: string;
+  server?: FlexDocRuntimeServerMetadata;
+  environment?: FlexDocRuntimeEnvironmentMetadata;
   runtime?: FlexDocRuntimeMetadata;
 }): FlexDocRuntimeIntelligenceSnapshot {
   const documented = documentedOpenApiRoutes(input.spec);
@@ -221,12 +238,15 @@ export function buildRuntimeIntelligenceSnapshot(input: {
   const matched = runtimeRoutes.filter((route) => documentedKeys.has(routeKey(route))).length;
   const runtimeOnly = runtimeRoutes.filter((route) => !documentedKeys.has(routeKey(route)));
   const documentedOnly = documented.filter((route) => !runtimeKeys.has(routeKey(route)));
+  const environment = input.environment || nodeEnvironmentMetadata();
 
   return {
     framework: input.discovery.framework,
     ...(input.discovery.frameworkVersion ? { frameworkVersion: input.discovery.frameworkVersion } : {}),
     runtime: input.runtime || nodeRuntimeMetadata(),
     ...(input.serverOrigin ? { serverOrigin: input.serverOrigin } : {}),
+    ...(input.server ? { server: input.server } : {}),
+    ...(environment ? { environment } : {}),
     discoveryComplete: input.discovery.complete,
     routes: runtimeRoutes,
     runtimeOnly,

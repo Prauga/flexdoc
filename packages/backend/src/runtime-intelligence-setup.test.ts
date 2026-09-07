@@ -24,11 +24,12 @@ describe('setupFlexDoc runtime intelligence', () => {
       send(value: string) { body = value; },
       end(value = '') { body = value; },
     };
-    await runtime!.handler({ method: 'GET', headers: { host: 'api.example.com' }, protocol: 'https' }, response);
+    await runtime!.handler({ method: 'GET', headers: { host: 'api.example.com' }, protocol: 'https', socket: { localPort: 8443 } }, response);
     expect(headers['Cache-Control']).toBe('no-store');
     const snapshot = JSON.parse(body);
     expect(snapshot.framework).toBe('express');
     expect(snapshot.serverOrigin).toBe('https://api.example.com');
+    expect(snapshot.server).toEqual({ localPort: 8443 });
     expect(snapshot.summary.matched).toBe(1);
   });
 

@@ -61,11 +61,15 @@ export interface FlexDocHostExecutionPublicOptions {
 
 export interface FlexDocRuntimeRoute { method: string; path: string; }
 export interface FlexDocRuntimeMetadata { name: string; version: string; platform: string; arch: string; }
+export interface FlexDocRuntimeServerMetadata { localPort?: number; }
+export interface FlexDocRuntimeEnvironmentMetadata { name: string; }
 export interface FlexDocRuntimeIntelligenceSnapshot {
   framework: string;
   frameworkVersion?: string;
   runtime: FlexDocRuntimeMetadata;
   serverOrigin?: string;
+  server?: FlexDocRuntimeServerMetadata;
+  environment?: FlexDocRuntimeEnvironmentMetadata;
   discoveryComplete: boolean;
   routes: FlexDocRuntimeRoute[];
   runtimeOnly: FlexDocRuntimeRoute[];

@@ -80,7 +80,7 @@ describe('runtime intelligence', () => {
     });
   });
 
-  it('reports presence drift and runtime metadata without turning it into enforcement', () => {
+  it('reports presence drift plus safe runtime server and environment metadata without enforcement', () => {
     const snapshot = buildRuntimeIntelligenceSnapshot({
       spec: {
         openapi: '3.1.0',
@@ -99,12 +99,16 @@ describe('runtime intelligence', () => {
         ],
       },
       serverOrigin: 'https://api.example.com',
+      server: { localPort: 8443 },
+      environment: { name: 'production' },
       runtime: { name: 'node', version: 'v22.22.3', platform: 'linux', arch: 'x64' },
     });
     expect(snapshot.summary).toEqual({ documented: 2, runtime: 2, matched: 1, runtimeOnly: 1, documentedOnly: 1 });
     expect(snapshot.runtimeOnly).toEqual([{ method: 'POST', path: '/internal/reindex' }]);
     expect(snapshot.documentedOnly).toEqual([{ method: 'GET', path: '/pets/{petId}' }]);
     expect(snapshot.serverOrigin).toBe('https://api.example.com');
+    expect(snapshot.server).toEqual({ localPort: 8443 });
+    expect(snapshot.environment).toEqual({ name: 'production' });
     expect(snapshot.frameworkVersion).toBe('5.12.1');
     expect(snapshot.runtime).toEqual({ name: 'node', version: 'v22.22.3', platform: 'linux', arch: 'x64' });
   });
