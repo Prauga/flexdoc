@@ -120,7 +120,7 @@ If the answer is yes, the feature may still be useful, but it does not receive t
 
 | Milestone | Direction | Core outcome |
 | --- | --- | --- |
-| **3.0 — Runtime Intelligence** | understand the running service | runtime route discovery, OpenAPI ↔ implementation drift detection, framework/runtime metadata, and runtime server/environment discovery; first Express/Nest-Express live route slice in progress |
+| **3.0 — Runtime Intelligence** | understand the running service | live route discovery and OpenAPI ↔ implementation drift across Node (Express/Fastify/NestJS/Hono), FastAPI, ASP.NET Core, and Spring MVC; safe runtime/server/environment context; Go framework packaging remains an explicit follow-on |
 | **3.1 — Contract Validation** | turn runtime knowledge into enforcement | spec-vs-implementation validation, undocumented/missing routes, method/path/schema mismatches, breaking drift, and CI/development feedback |
 | **3.2 — FlexDoc Runner** | take the canonical API execution model headless | collection/folder execution outside the browser, CI execution, machine-readable reports, and the same request/script semantics as the embedded client |
 | **3.3 — Backend Execution Expansion** | expand execution from the service/network context | carry the 2.9.5 controlled Node executor across relevant adapters, deepen internal/VPC/private-endpoint workflows, remove remaining browser-only constraints, and reuse backend-known runtime/environment context safely |
@@ -130,9 +130,26 @@ Cloud collaboration, teams, enterprise controls, CI workflow, and additional pro
 
 ## 3.0 Runtime Intelligence
 
-The first vertical slice is intentionally backend-native: explicit opt-in Express/Nest-Express route discovery, a docs-auth-scoped live runtime snapshot, request-derived server origin, and renderer-side presence drift. It establishes one additive renderer-contract-v1 protocol that later Fastify, Hono, JVM, Go, .NET, Python, and other adapters can implement without creating framework-specific UI models. See [`runtime-intelligence.md`](./runtime-intelligence.md).
+The 3.0 implementation candidate is intentionally backend-native and observational. It establishes one additive renderer-contract-v1 protocol shared by all participating adapters instead of creating framework-specific UI models.
 
-3.0 discovery is observational. It surfaces what the backend reports and basic route presence drift; CI enforcement and deeper schema/response contract validation remain 3.1.
+Implemented in this slice:
+
+- explicit opt-in Runtime Intelligence with `GET <docsPath>/__flexdoc/runtime` and renderer-side route-presence drift;
+- live Express, Fastify, NestJS-on-Express, NestJS-on-Fastify, and Hono route discovery on Node;
+- live FastAPI/Starlette route discovery from the running Python application;
+- live ASP.NET Core `EndpointDataSource` discovery against an exact server-side OpenAPI document;
+- live Spring MVC `RequestMappingHandlerMapping` discovery against an exact `FlexDocSpecProvider` document;
+- shared framework/runtime metadata plus request-derived `serverOrigin`;
+- safe backend listener context through optional `server.localPort` without exposing local IP/hostname data;
+- optional standard environment identity from `NODE_ENV`, ASP.NET Core/DOTNET environment, or Spring active profiles; FastAPI omits it because ASGI/Python has no trustworthy standard equivalent;
+- explicit partial-discovery semantics rather than inventing mounted-router prefixes, wildcard expansions, methods, or paths that the framework cannot report reliably;
+- one canonical Runtime Intelligence renderer panel and byte-identical native-adapter renderer assets.
+
+Go framework discovery remains a deliberate follow-on. The existing Go adapter is neutral around `net/http`, while Gin, Chi, Echo, and Fiber expose different router-introspection APIs. Importing all four into the neutral module would change its dependency/toolchain contract; independently versioned nested modules create their own release/tag boundary. FlexDoc will define that package boundary explicitly instead of using reflection or advertising route inventory it cannot guarantee.
+
+3.0 discovery reports what the backend knows and basic route-presence drift. It does not reject requests or fail CI. Schema/response contract mismatches, breaking-drift policy, and enforcement remain 3.1 Contract Validation.
+
+See [`runtime-intelligence.md`](./runtime-intelligence.md) for framework-specific discovery, security, safe-context, and completeness semantics.
 
 ## Release interpretation
 
