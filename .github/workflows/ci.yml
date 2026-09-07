@@ -158,7 +158,9 @@ jobs:
         run: npm run build:backend
 
       - name: Build NestJS example against local release candidate
-        run: npm run build -w examples/nestjs
+        run: |
+          npm install --prefix examples/nestjs --no-save --package-lock=false --ignore-scripts --no-audit --no-fund "${{ github.workspace }}/packages/backend"
+          npm run build -w examples/nestjs
 
       - name: Verify backend renderer artifacts
         run: |
@@ -206,6 +208,9 @@ jobs:
       - name: Test and install Java adapter family release candidate
         run: mvn -f adapters/java/pom.xml --batch-mode install
 
+      - name: Resolve local Java release candidate version
+        run: echo "FLEXDOC_JAVA_VERSION=$(mvn -q -f adapters/java-jvm/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)" >> "$GITHUB_ENV"
+
       - name: Verify JVM host packages renderer assets
         run: |
           JAVA_VERSION=$(mvn -q -f adapters/java-jvm/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)
@@ -224,7 +229,7 @@ jobs:
           test -s "adapters/java-spring/target/flexdoc-spring-boot-starter-${JAVA_VERSION}-javadoc.jar"
 
       - name: Build Spring example against local release candidate
-        run: mvn -f examples/java-spring/pom.xml --batch-mode -DskipTests package
+        run: mvn -f examples/java-spring/pom.xml --batch-mode -Dflexdoc.version="$FLEXDOC_JAVA_VERSION" -DskipTests package
 
       - name: Verify canonical and adapter renderer assets
         run: |
