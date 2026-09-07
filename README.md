@@ -16,14 +16,14 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - **Rust:** Axum, Actix Web
 - **Elixir:** Plug, Phoenix
 
-The backend-coverage program shipped in 2.3.0, and the API Client workspace reached its first coordinated release in **2.9.0**. The source tree is now prepared as the **2.9.5 release candidate**, closing the remaining REST workspace parity gaps and adding the first capability-gated Node API-host execution path for browser-impossible cookies, certificates, and advanced auth. After this parity-hardening release, roadmap priority moves to backend-native **3.0 Runtime Intelligence**. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the release definition and backend-native roadmap.
+The backend-coverage program shipped in 2.3.0, and the coordinated product line has now reached published **2.9.5**. The source tree is prepared as the **2.9.9 release candidate**, focused on measured production readiness: repeatable performance baselines, Node docs-page caching/revalidation, normal-route isolation, and deterministic bundle-size budgets. After 2.9.9, roadmap priority moves to backend-native **3.0 Runtime Intelligence**. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the release definition and backend-native roadmap.
 
 ## Package family
 
 | Ecosystem | Package | Source version |
 | --- | --- | ---: |
-| npm | `@prauga/flexdoc-client` | `2.9.5` |
-| npm | `@prauga/flexdoc-backend` | `2.9.5` |
+| npm | `@prauga/flexdoc-client` | `2.9.9` |
+| npm | `@prauga/flexdoc-backend` | `2.9.9` |
 | npm | `@prauga/flexdoc-core` | `0.4.0` |
 | npm | `@prauga/flexdoc-cli` | `0.4.0` |
 | NuGet | `Prauga.FlexDoc.AspNetCore` | `0.4.1` |
