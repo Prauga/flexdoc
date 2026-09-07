@@ -31,9 +31,9 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @OpenAPIDefinition(
         info = @Info(
-                title = "FlexDoc Spring Showcase API",
-                version = "2.2.0",
-                description = "Code-first OpenAPI example for the FlexDoc 0.3 Spring Boot starter"),
+                title = "FlexDoc Spring 3.0 Showcase API",
+                version = "3.0.0",
+                description = "Code-first Spring MVC API paired with the complete FlexDoc 3.0 renderer and live Runtime Intelligence."),
         servers = {
                 @Server(url = "http://localhost:8080", description = "Local development"),
                 @Server(url = "https://canary.api.example.test", description = "Spot canary example")
@@ -107,6 +107,12 @@ public class FlexDocExampleApplication {
                 "id", "upload-local",
                 "filename", file.getOriginalFilename() == null ? "upload.bin" : file.getOriginalFilename(),
                 "caption", caption);
+    }
+
+    // Intentionally absent from the checked-in OpenAPI contract used by FlexDoc Runtime Intelligence.
+    @GetMapping("/internal/health")
+    public Map<String, String> internalHealth() {
+        return Map.of("status", "internal-ok");
     }
 
     public record PetInput(
