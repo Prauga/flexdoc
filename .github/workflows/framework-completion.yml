@@ -99,12 +99,15 @@ jobs:
       - name: Install JVM family release candidate
         run: mvn -f adapters/java/pom.xml --batch-mode -DskipTests install
 
+      - name: Resolve local Java release candidate version
+        run: echo "FLEXDOC_JAVA_VERSION=$(mvn -q -f adapters/java-jvm/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)" >> "$GITHUB_ENV"
+
       - name: Build Ktor example against neutral JVM host
-        run: mvn -f examples/kotlin-ktor/pom.xml --batch-mode -DskipTests package
+        run: mvn -f examples/kotlin-ktor/pom.xml --batch-mode -Dflexdoc.version="$FLEXDOC_JAVA_VERSION" -DskipTests package
 
       - name: Smoke test Ktor docs host
         run: |
-          mvn -f examples/kotlin-ktor/pom.xml --batch-mode exec:java >/tmp/flexdoc-ktor.log 2>&1 &
+          mvn -f examples/kotlin-ktor/pom.xml --batch-mode -Dflexdoc.version="$FLEXDOC_JAVA_VERSION" exec:java >/tmp/flexdoc-ktor.log 2>&1 &
           APP_PID=$!
           trap 'kill $APP_PID 2>/dev/null || true' EXIT
           READY=0
