@@ -60,8 +60,11 @@ export interface FlexDocHostExecutionPublicOptions {
 }
 
 export interface FlexDocRuntimeRoute { method: string; path: string; }
+export interface FlexDocRuntimeMetadata { name: 'node'; version: string; platform: string; arch: string; }
 export interface FlexDocRuntimeIntelligenceSnapshot {
   framework: string;
+  frameworkVersion?: string;
+  runtime: FlexDocRuntimeMetadata;
   serverOrigin?: string;
   discoveryComplete: boolean;
   routes: FlexDocRuntimeRoute[];
