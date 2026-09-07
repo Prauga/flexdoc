@@ -10,6 +10,7 @@ interface RenderOptions extends FlexDocOptions {
   rendererBasePath?: string;
   rendererVersion?: string;
   hostExecutionPublic?: import('./interfaces').FlexDocHostExecutionPublicOptions;
+  runtimeIntelligencePublic?: import('./interfaces').FlexDocRuntimeIntelligencePublicOptions;
 }
 
 function escapeHtml(value: string): string {
@@ -33,8 +34,10 @@ export function generateFlexDocHTML(spec: OpenAPISpec | null, options: RenderOpt
     rendererBasePath = './__flexdoc',
     rendererVersion,
     auth: _serverOnlyAuth,
+    runtimeIntelligence: _serverRuntimeIntelligence,
     tryIt: serverTryIt,
     hostExecutionPublic,
+    runtimeIntelligencePublic,
     ...rendererOptions
   } = options;
   const assetVersion = rendererVersion ? `?v=${encodeURIComponent(rendererVersion)}` : '';
@@ -53,6 +56,7 @@ export function generateFlexDocHTML(spec: OpenAPISpec | null, options: RenderOpt
     contractVersion: '1',
     ...rendererOptions,
     ...(publicTryIt ? { tryIt: publicTryIt } : {}),
+    ...(runtimeIntelligencePublic ? { runtimeIntelligence: runtimeIntelligencePublic } : {}),
     ...(title ? { title } : {}),
     ...(description ? { description } : {}),
     ...(version ? { version } : {}),

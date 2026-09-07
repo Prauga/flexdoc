@@ -72,11 +72,38 @@ jobs:
       - name: Smoke test FastAPI integration
         run: |
           PYTHONPATH=examples/python-fastapi python - <<'PY'
+          from fastapi import FastAPI
           from fastapi.testclient import TestClient
           from app import app
+          from prauga_flexdoc import setup_fastapi_flexdoc
+
           client = TestClient(app)
           assert client.get('/docs').status_code == 200
           assert client.get('/docs/__flexdoc/renderer.js').content == open('packages/client/dist/standalone/flexdoc.standalone.js','rb').read()
+
+          runtime_app = FastAPI(docs_url=None, redoc_url=None)
+
+          @runtime_app.get('/orders/{order_id}')
+          async def order(order_id: str):
+              return {'id': order_id}
+
+          @runtime_app.post('/internal', include_in_schema=False)
+          async def internal():
+              return {'ok': True}
+
+          setup_fastapi_flexdoc(runtime_app, '/docs', runtime_intelligence=True)
+          runtime_client = TestClient(runtime_app)
+          page = runtime_client.get('/docs')
+          assert page.status_code == 200
+          assert '"framework":"fastapi"' in page.text
+          response = runtime_client.get('/docs/__flexdoc/runtime')
+          assert response.status_code == 200
+          assert response.headers['cache-control'] == 'no-store'
+          snapshot = response.json()
+          assert snapshot['framework'] == 'fastapi'
+          assert snapshot['runtime']['name'] == 'python'
+          assert snapshot['summary'] == {'documented': 1, 'runtime': 2, 'matched': 1, 'runtimeOnly': 1, 'documentedOnly': 0}
+          assert snapshot['runtimeOnly'] == [{'method': 'POST', 'path': '/internal'}]
           PY
 
       - name: Smoke test Flask integration

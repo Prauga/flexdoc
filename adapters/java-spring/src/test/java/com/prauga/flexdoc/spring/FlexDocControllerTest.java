@@ -22,6 +22,7 @@ class FlexDocControllerTest {
     assertThat(html).contains("window.__FLEXDOC_SPEC_URL__=\"/v3/api-docs\"");
     assertThat(html).contains("\"tryIt\":{\"enabled\":true}");
     assertThat(html).doesNotContain("\"expand\":");
+    assertThat(html).doesNotContain("\"runtimeIntelligence\":");
     assertThat(html).contains("FlexDocStandalone.mountAsync");
   }
 
@@ -44,6 +45,19 @@ class FlexDocControllerTest {
     assertThat(html).contains("\"credentials\":\"include\"");
     assertThat(html).contains("\"apiClientPersistenceKey\":false");
     assertThat(html).doesNotContain("\"apiClientPersistenceKey\":\"false\"");
+  }
+
+  @Test
+  void advertisesRuntimeIntelligenceWithoutSerializingServerOnlySpecProvider() throws Exception {
+    FlexDocProperties properties = new FlexDocProperties();
+    properties.setRuntimeIntelligence(true);
+    FlexDocSpecProvider provider = () -> Map.of("openapi", "3.1.0", "paths", Map.of("/private", Map.of("get", Map.of())));
+    ObjectMapper mapper = new ObjectMapper();
+    FlexDocHost host = new FlexDocHost(properties.toConfig(), () -> mapper.writeValueAsString(provider.getOpenApiDocument()));
+    FlexDocController controller = new FlexDocController(properties, host);
+
+    String html = new String(controller.documentation().getBody(), StandardCharsets.UTF_8);
+    assertThat(html).contains("\"runtimeIntelligence\":{\"available\":true,\"endpoint\":\"/docs/__flexdoc/runtime\",\"framework\":\"spring\"}");
   }
 
   @Test

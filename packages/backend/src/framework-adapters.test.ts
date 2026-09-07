@@ -49,6 +49,45 @@ describe('setupFastifyFlexDoc', () => {
     expect(generateFlexDocHTML).toHaveBeenCalledTimes(1);
   });
 
+  it('exposes an authenticated Fastify runtime snapshot when opted in', async () => {
+    const routes = new Map<string, any>();
+    const app = {
+      version: '5.12.1',
+      get: (path: string, options: any, handler: any) => routes.set(path, { options, handler }),
+      ready: jest.fn(async () => undefined),
+      printRoutes: jest.fn(() => [
+        '└── /',
+        '    ├── pets (GET, HEAD)',
+        '    ├── internal/reindex (POST)',
+        '    └── docs (GET, HEAD)',
+      ].join('\n')),
+    };
+
+    setupFastifyFlexDoc(app, '/docs', {
+      spec: { openapi: '3.1.0', paths: { '/pets': { get: {} } } },
+      options: { runtimeIntelligence: true },
+    });
+
+    expect(routes.has('/docs/__flexdoc/runtime')).toBe(true);
+    const { state, reply } = replyState();
+    await routes.get('/docs/__flexdoc/runtime').handler({ headers: { host: 'api.example.test' }, protocol: 'https' }, reply);
+    const snapshot = JSON.parse(state.body);
+    expect(snapshot.framework).toBe('fastify');
+    expect(snapshot.frameworkVersion).toBe('5.12.1');
+    expect(snapshot.runtime.name).toBe('node');
+    expect(snapshot.serverOrigin).toBe('https://api.example.test');
+    expect(snapshot.summary).toEqual({ documented: 1, runtime: 2, matched: 1, runtimeOnly: 1, documentedOnly: 0 });
+    expect(snapshot.runtimeOnly).toEqual([{ method: 'POST', path: '/internal/reindex' }]);
+    expect(state.headers['Cache-Control']).toBe('no-store');
+
+    const docs = replyState();
+    await routes.get('/docs').handler({ headers: {} }, docs.reply);
+    expect(generateFlexDocHTML).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ runtimeIntelligencePublic: { available: true, endpoint: '/docs/__flexdoc/runtime', framework: 'fastify' } }),
+    );
+  });
+
   it('protects Fastify routes when docs auth is configured', async () => {
     const routes = new Map<string, any>();
     const app = { get: (path: string, options: any, handler: any) => routes.set(path, { options, handler }) };

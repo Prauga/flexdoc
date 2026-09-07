@@ -7,6 +7,7 @@ import * as https from 'https';
 import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
 import { hostExecutionRequestOrigin, readNodeRequestBody, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 import { createCachedFlexDocPage, matchesFlexDocEtag } from './page-cache';
+import { buildRuntimeIntelligenceSnapshot, discoverExpressRoutes, runtimeIntelligenceEnabled } from './runtime-intelligence';
 
 interface AppWithUse {
   use: (
@@ -94,6 +95,8 @@ export function setupFlexDoc(
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const rendererBasePath = `${normalizedPath}/__flexdoc`;
   const hostExecutionState = createHostExecutionState(flexDocOptions?.tryIt?.hostExecution);
+  const runtimeEnabled = runtimeIntelligenceEnabled(flexDocOptions?.runtimeIntelligence);
+  const runtimeEndpoint = `${rendererBasePath}/runtime`;
 
   // Register auth at the documentation root first so it also protects the
   // renderer assets mounted beneath the same path.
@@ -148,8 +151,32 @@ export function setupFlexDoc(
       rendererBasePath,
       rendererVersion: rendererAssets.version,
       hostExecutionPublic: publicHostExecutionOptions(hostExecutionState, rendererBasePath),
+      runtimeIntelligencePublic: runtimeEnabled ? { available: true, endpoint: runtimeEndpoint, framework: 'express' } : undefined,
     });
   });
+
+  if (runtimeEnabled) {
+    app.use(runtimeEndpoint, async (req: any, res: any) => {
+      if (String(req.method || 'GET').toUpperCase() !== 'GET') {
+        res.statusCode = 405;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-store');
+        return typeof res.send === 'function' ? res.send(JSON.stringify({ error: 'Method not allowed.' })) : res.end(JSON.stringify({ error: 'Method not allowed.' }));
+      }
+      const serverOrigin = hostExecutionRequestOrigin({ headers: req.headers || {}, protocol: req.protocol || (req.socket?.encrypted ? 'https' : 'http') });
+      const localPort = Number.isInteger(req.socket?.localPort) && req.socket.localPort > 0 ? req.socket.localPort : undefined;
+      const snapshot = buildRuntimeIntelligenceSnapshot({
+        spec: await getSpec(),
+        discovery: discoverExpressRoutes(app, normalizedPath),
+        serverOrigin,
+        ...(localPort ? { server: { localPort } } : {}),
+      });
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      const body = JSON.stringify(snapshot);
+      return typeof res.send === 'function' ? res.send(body) : res.end(body);
+    });
+  }
 
   const sendHostResult = (res: any, result: Awaited<ReturnType<typeof runHostExecutionRoute>> | ReturnType<typeof runHostCookiesRoute>) => {
     res.statusCode = result.status;

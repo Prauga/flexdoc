@@ -12,6 +12,21 @@ app = FastAPI(docs_url=None, redoc_url=None)
 setup_fastapi_flexdoc(app, '/docs', title='My API')
 ```
 
+FastAPI can opt into FlexDoc 3.0 Runtime Intelligence:
+
+```python
+setup_fastapi_flexdoc(
+    app,
+    '/docs',
+    title='My API',
+    runtime_intelligence=True,
+)
+```
+
+When enabled, the helper inspects the live FastAPI/Starlette route tree and serves a no-store snapshot from `/docs/__flexdoc/runtime`. It compares runtime route presence with `app.openapi()`, reports Python/FastAPI runtime metadata and request-derived server origin, normalizes Starlette path converters, and marks opaque mounts partial rather than inventing routes. Runtime Intelligence is FastAPI-only in this adapter release; generic ASGI, Flask, Django, and WSGI hosts do not advertise it yet.
+
+Runtime snapshots may reveal endpoints intentionally omitted from OpenAPI. The Python adapter currently relies on application middleware or upstream access control rather than a FlexDoc-native docs-auth option, so protect the FlexDoc docs subtree before enabling Runtime Intelligence on non-private documentation.
+
 For a generic ASGI host:
 
 ```python
@@ -52,6 +67,6 @@ Django ASGI applications can also mount/use `FlexDocASGI`; Django WSGI applicati
 
 ## Architecture
 
-`FlexDocHost` synchronously owns route matching, the HTML bootstrap, renderer fingerprinting, cache policy, and packaged JS/CSS. `FlexDocASGI` and `FlexDocWSGI` only translate that neutral response to their protocol. Framework helpers do not fork renderer behavior.
+`FlexDocHost` synchronously owns route matching, the HTML bootstrap, renderer fingerprinting, cache policy, and packaged JS/CSS. `FlexDocASGI` translates that neutral response to ASGI and can expose a framework-supplied live runtime snapshot. `FlexDocWSGI` only translates the neutral host response. Framework helpers do not fork renderer behavior.
 
 Pass `assets_dir=` to `FlexDocHost`, `FlexDocASGI`, or `FlexDocWSGI` only when intentionally overriding the bundled renderer assets during development.

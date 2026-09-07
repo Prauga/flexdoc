@@ -18,6 +18,7 @@ class FlexDocHostTest {
     assertTrue(html.contains("window.__FLEXDOC_SPEC_URL__=\"/openapi.json\""));
     assertTrue(html.contains("\"tryIt\":{\"enabled\":true}"));
     assertFalse(html.contains("\"expand\":"));
+    assertFalse(html.contains("\"runtimeIntelligence\":"));
     assertTrue(host.rendererJavaScript().cacheControl().contains("immutable"));
     assertTrue(host.rendererCss().cacheControl().contains("immutable"));
     assertTrue(host.rendererJavaScript().body().length > 1000);
@@ -34,6 +35,7 @@ class FlexDocHostTest {
             .tryItCredentials("include")
             .tryItApiClientPersistenceKey(false)
             .tryItHostExecution(true)
+            .runtimeIntelligenceFramework("spring")
             .build());
     String presetHtml = presetHost.documentation().bodyUtf8();
 
@@ -41,6 +43,7 @@ class FlexDocHostTest {
     assertTrue(presetHtml.contains("\"tryIt\":{\"enabled\":true,\"defaultServer\":\"https://api.example.test\",\"credentials\":\"include\",\"apiClientPersistenceKey\":false,\"hostExecution\":{\"available\":false,\"endpoint\":\"/docs/__flexdoc/execute\",\"capabilities\":[]}}"));
     assertFalse(presetHtml.contains("\"apiClientPersistenceKey\":\"false\""));
     assertTrue(presetHtml.contains("\"hostExecution\":{\"available\":false,\"endpoint\":\"/docs/__flexdoc/execute\",\"capabilities\":[]}"));
+    assertTrue(presetHtml.contains("\"runtimeIntelligence\":{\"available\":true,\"endpoint\":\"/docs/__flexdoc/runtime\",\"framework\":\"spring\"}"));
 
     FlexDocHost listHost = new FlexDocHost(
         FlexDocConfig.builder().expandSections(List.of("parameters", "tryIt")).build());

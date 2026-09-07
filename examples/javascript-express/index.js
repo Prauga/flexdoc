@@ -33,6 +33,7 @@ function buildApp() {
       requiredPropsFirst: true,
       sortPropsAlphabetically: true,
       showRequestHeaders: true,
+      runtimeIntelligence: true,
       expandResponses: '200,201',
       tryIt: { enabled: true, defaultServer: 'http://localhost:3000', credentials: 'same-origin' },
       codeSamples: { enabled: true, languages: ['curl', 'javascript', 'python', 'go', 'java'] },

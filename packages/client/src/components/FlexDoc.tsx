@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Menu, Settings as SettingsIcon, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Activity, Menu, Settings as SettingsIcon, X } from 'lucide-react';
 import { OpenAPISpec } from '../types/openapi';
 import { Sidebar } from './Sidebar';
 import { EndpointDetail } from './EndpointDetail';
@@ -8,9 +8,11 @@ import '../index.css';
 import { Footer } from './Footer';
 import { themeVariant } from '../utils/theme';
 import { OpenAPIParser } from '../utils/openapi-parser';
-import { ExpandOption, FlexDocRendererOptions, LogoOptions, ThemeConfig } from '../types/options';
+import { ExpandOption, FlexDocRendererOptions, FlexDocRuntimeIntelligenceSnapshot, LogoOptions, ThemeConfig } from '../types/options';
 import { createFlexDocViewerPreferencesKey, readFlexDocViewerPreferences, resolveExpandSections, writeFlexDocViewerExpandPreference } from '../utils/renderer-preferences';
+import { parseRuntimeIntelligenceSnapshot } from '../utils/runtime-intelligence';
 import { FlexDocSettings } from './FlexDocSettings';
+import { RuntimeIntelligencePanel } from './RuntimeIntelligencePanel';
 
 export interface FlexDocProps {
   spec: OpenAPISpec;
@@ -87,6 +89,17 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
   );
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [runtimeOpen, setRuntimeOpen] = useState(false);
+  const [runtimeResult, setRuntimeResult] = useState<{ endpoint: string; snapshot?: FlexDocRuntimeIntelligenceSnapshot; error?: string }>();
+  const runtimeAvailable = options.runtimeIntelligence?.available === true;
+  const runtimeEndpoint = options.runtimeIntelligence?.endpoint;
+  const activeRuntimeResult = runtimeAvailable && runtimeEndpoint && runtimeResult?.endpoint === runtimeEndpoint
+    ? runtimeResult
+    : undefined;
+  const runtimeSnapshot = activeRuntimeResult?.snapshot;
+  const runtimeError = activeRuntimeResult?.error;
+  const runtimeLoading = Boolean(runtimeAvailable && runtimeEndpoint && !activeRuntimeResult);
+  const closeRuntime = useCallback(() => setRuntimeOpen(false), []);
   const preferenceKey = createFlexDocViewerPreferencesKey(spec.info.title, typeof window === 'undefined' ? undefined : window.location.host);
   const [viewerPreferenceState, setViewerPreferenceState] = useState<{ key: string; expand?: ExpandOption }>(() => ({
     key: preferenceKey,
@@ -97,6 +110,22 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
     : readFlexDocViewerPreferences(preferenceKey).expand;
   const themeConfig = typeof options.theme === 'object' ? options.theme : undefined;
   const mergedStyles = useMemo(() => ({ ...themeStyles(theme, themeConfig), ...customStyles }), [theme, themeConfig, customStyles]);
+
+  useEffect(() => {
+    if (!runtimeAvailable || !runtimeEndpoint) return;
+    const controller = new AbortController();
+    fetch(runtimeEndpoint, { credentials: 'same-origin', signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Runtime intelligence unavailable: HTTP ${response.status}`);
+        return parseRuntimeIntelligenceSnapshot(await response.json());
+      })
+      .then((snapshot) => setRuntimeResult({ endpoint: runtimeEndpoint, snapshot }))
+      .catch((error) => {
+        if (controller.signal.aborted) return;
+        setRuntimeResult({ endpoint: runtimeEndpoint, error: error instanceof Error ? error.message : String(error) });
+      });
+    return () => controller.abort();
+  }, [runtimeAvailable, runtimeEndpoint]);
 
   useEffect(() => {
     if (!options.customCss) return;
@@ -142,16 +171,27 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
 
   const footerClasses = themeVariant(theme, 'border-gray-200 bg-white text-gray-600', 'border-gray-700 bg-gray-800 text-gray-300');
   const rootClasses = theme === 'dark' ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900';
+  const floatingButtonTheme = theme === 'dark' ? 'border-gray-700 bg-gray-900 text-gray-100' : 'border-gray-200 bg-white text-gray-900';
 
   const settingsButton = (floating = false) => <button
     type='button'
     className={floating
-      ? `fixed bottom-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg ${theme === 'dark' ? 'border-gray-700 bg-gray-900 text-gray-100' : 'border-gray-200 bg-white text-gray-900'}`
+      ? `fixed bottom-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg ${floatingButtonTheme}`
       : 'inline-flex h-11 w-11 items-center justify-center rounded-md border'}
     aria-label='Open settings'
     aria-expanded={settingsOpen}
     onClick={() => setSettingsOpen(true)}
   ><SettingsIcon className='h-5 w-5' /></button>;
+
+  const runtimeButton = (floating = false) => runtimeAvailable ? <button
+    type='button'
+    className={floating
+      ? `fixed bottom-4 right-[4.25rem] z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg ${floatingButtonTheme}`
+      : 'inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-md border px-2 text-sm sm:px-3'}
+    onClick={() => setRuntimeOpen(true)}
+    aria-label='Open runtime intelligence'
+    aria-expanded={runtimeOpen}
+  ><Activity className='h-4 w-4' />{!floating && <span className='hidden sm:inline'>{runtimeSnapshot ? `Runtime ${runtimeSnapshot.summary.matched}/${runtimeSnapshot.summary.documented}` : runtimeLoading ? 'Runtime…' : 'Runtime'}</span>}</button> : null;
 
   return (
     <div className={`flexdoc-root flex min-h-screen flex-col ${rootClasses}`} style={mergedStyles}>
@@ -163,11 +203,12 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
             <div className='truncate font-semibold'>{spec.info.title}</div>
             {!options.hideHostname && spec.servers?.[0]?.url && <div className='truncate text-xs opacity-60'>{spec.servers[0].url}</div>}
           </div>
+          {runtimeButton()}
           {!options.hideDownloadButton && <a className='hidden rounded-md border px-3 py-2 text-sm sm:inline-flex' href={`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(spec, null, 2))}`} download='openapi.json'>Download spec</a>}
           {settingsButton()}
         </header>
       )}
-      {options.hideTopbar && settingsButton(true)}
+      {options.hideTopbar && <>{runtimeButton(true)}{settingsButton(true)}</>}
 
       <div className='relative flex min-h-0 flex-1 overflow-hidden'>
         <aside className='hidden w-80 shrink-0 lg:block' style={{ background: 'var(--flexdoc-sidebar-bg)', color: 'var(--flexdoc-sidebar-text)' }}>
@@ -187,13 +228,14 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
 
         <main className='min-w-0 flex-1 overflow-hidden'>
           {selectedEndpoint ? (
-            <EndpointDetail spec={spec} path={selectedEndpoint.path} method={selectedEndpoint.method} theme={theme} options={options} defaultExpandedSections={defaultExpandedSections} />
+            <EndpointDetail spec={spec} path={selectedEndpoint.path} method={selectedEndpoint.method} theme={theme} options={options} defaultExpandedSections={defaultExpandedSections} runtimeSnapshot={runtimeSnapshot} />
           ) : (
             <Overview spec={spec} onEndpointSelect={handleEndpointSelect} theme={theme} />
           )}
         </main>
       </div>
       <Footer footerClasses={footerClasses} footer={options.footer} />
+      <RuntimeIntelligencePanel open={runtimeOpen && runtimeAvailable} theme={theme} loading={runtimeLoading} error={runtimeError} snapshot={runtimeSnapshot} onClose={closeRuntime} />
       <FlexDocSettings
         open={settingsOpen}
         theme={theme}

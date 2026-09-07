@@ -25,6 +25,16 @@ public static class FlexDocEndpointRouteBuilderExtensions
         configure(options);
         Validate(options);
 
+        JsonElement? runtimeDocument = null;
+        if (options.RuntimeIntelligence)
+        {
+            runtimeDocument = AspNetRuntimeIntelligence.OpenApiDocumentElement(options.RuntimeOpenApiDocument!);
+            if (runtimeDocument.Value.ValueKind != JsonValueKind.Object
+                || !runtimeDocument.Value.TryGetProperty("paths", out var paths)
+                || paths.ValueKind != JsonValueKind.Object)
+                throw new ArgumentException("FlexDoc RuntimeOpenApiDocument must contain an OpenAPI paths object.", nameof(options));
+        }
+
         var path = NormalizePath(options.Path);
         endpoints.MapGet(path, context => WriteHtml(context, options, path));
 
@@ -37,6 +47,13 @@ public static class FlexDocEndpointRouteBuilderExtensions
             context,
             static () => RendererAssets.CssText,
             "text/css; charset=utf-8"));
+        if (runtimeDocument is JsonElement document)
+            group.MapGet("/__flexdoc/runtime", context => WriteRuntime(
+                context,
+                endpoints,
+                document,
+                path,
+                options.SpecUrl));
         return group;
     }
 
@@ -56,6 +73,37 @@ public static class FlexDocEndpointRouteBuilderExtensions
             context.Response.ContentType = "text/plain; charset=utf-8";
             context.Response.Headers.CacheControl = "no-cache";
             await context.Response.WriteAsync("FlexDoc renderer asset unavailable", context.RequestAborted);
+        }
+    }
+
+    private static async Task WriteRuntime(
+        HttpContext context,
+        IEndpointRouteBuilder endpoints,
+        JsonElement openApiDocument,
+        string path,
+        string specUrl)
+    {
+        try
+        {
+            var snapshot = AspNetRuntimeIntelligence.BuildSnapshot(
+                endpoints.DataSources.SelectMany(static source => source.Endpoints),
+                openApiDocument,
+                context,
+                path,
+                specUrl);
+            var body = JsonSerializer.SerializeToUtf8Bytes(snapshot);
+            context.Response.StatusCode = StatusCodes.Status200OK;
+            context.Response.ContentType = "application/json; charset=utf-8";
+            context.Response.Headers.CacheControl = "no-store";
+            context.Response.ContentLength = body.Length;
+            await context.Response.Body.WriteAsync(body, context.RequestAborted);
+        }
+        catch (Exception)
+        {
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Response.ContentType = "application/json; charset=utf-8";
+            context.Response.Headers.CacheControl = "no-store";
+            await context.Response.WriteAsync("{\"error\":\"Runtime intelligence unavailable.\"}", context.RequestAborted);
         }
     }
 
@@ -108,6 +156,13 @@ public static class FlexDocEndpointRouteBuilderExtensions
             ["tryIt"] = tryIt,
         };
         if (options.Expand is not null) rendererOptions["expand"] = options.Expand;
+        if (options.RuntimeIntelligence)
+            rendererOptions["runtimeIntelligence"] = new Dictionary<string, object?>
+            {
+                ["available"] = true,
+                ["endpoint"] = path + "/__flexdoc/runtime",
+                ["framework"] = "aspnetcore",
+            };
 
         var specUrl = SafeJson(options.SpecUrl);
         var serializedOptions = SafeJson(rendererOptions);
@@ -167,5 +222,7 @@ public static class FlexDocEndpointRouteBuilderExtensions
             && options.Expand is not IEnumerable<string>
             && options.Expand is not JsonElement)
             throw new ArgumentException("FlexDoc Expand supports a preset string or a string list.", nameof(options));
+        if (options.RuntimeIntelligence && options.RuntimeOpenApiDocument is null)
+            throw new ArgumentException("FlexDoc RuntimeOpenApiDocument is required when RuntimeIntelligence is enabled.", nameof(options));
     }
 }

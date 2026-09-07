@@ -7,6 +7,7 @@ import { generateFlexDocHTML } from './template';
 import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
 import { hostExecutionRequestOrigin, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 import { createCachedFlexDocPage, matchesFlexDocEtag } from './page-cache';
+import { buildRuntimeIntelligenceSnapshot, discoverFastifyRoutes, runtimeIntelligenceEnabled } from './runtime-intelligence';
 
 export interface ExpressLikeApplication {
   use(path: string, handler: (req: any, res: any, next?: any) => void | Promise<void>): void;
@@ -34,6 +35,8 @@ export interface FastifyLikeApplication {
   hasContentTypeParser?: (contentType: string) => boolean;
   ready?: () => Promise<unknown>;
   swagger?: () => Record<string, unknown>;
+  printRoutes?: (options?: Record<string, unknown>) => string;
+  version?: string;
 }
 
 export interface NestLikeApplication {
@@ -95,6 +98,8 @@ function setupFastifyFlexDocInternal(
   const auth = options.options?.auth;
   const hostExecutionState = createHostExecutionState(options.options?.tryIt?.hostExecution);
   const hostRouteAvailable = hostExecutionState.enabled && typeof app.post === 'function';
+  const runtimeEnabled = runtimeIntelligenceEnabled(options.options?.runtimeIntelligence);
+  const runtimeEndpoint = `${rendererBasePath}/runtime`;
   let remoteSpecPromise: Promise<any> | null = null;
   let generatedSpecPromise: Promise<any> | null = null;
 
@@ -131,6 +136,7 @@ function setupFastifyFlexDocInternal(
       rendererBasePath,
       rendererVersion: assets.version,
       hostExecutionPublic: hostRouteAvailable ? publicHostExecutionOptions(hostExecutionState, rendererBasePath) : undefined,
+      runtimeIntelligencePublic: runtimeEnabled ? { available: true, endpoint: runtimeEndpoint, framework: 'fastify' } : undefined,
     });
   });
 
@@ -139,6 +145,24 @@ function setupFastifyFlexDocInternal(
     for (const [name, value] of Object.entries(result.headers)) target = target.header(name, value);
     return target.send(result.body);
   };
+
+  if (runtimeEnabled) {
+    app.get(runtimeEndpoint, routeOptions, async (request, reply) => {
+      const serverOrigin = hostExecutionRequestOrigin({
+        headers: request.headers,
+        protocol: request.protocol || (request.raw?.socket?.encrypted ? 'https' : 'http'),
+      });
+      const snapshot = buildRuntimeIntelligenceSnapshot({
+        spec: await resolvedSpec(),
+        discovery: await discoverFastifyRoutes(app, normalizedPath),
+        serverOrigin,
+      });
+      return reply
+        .type('application/json; charset=utf-8')
+        .header('Cache-Control', 'no-store')
+        .send(JSON.stringify(snapshot));
+    });
+  }
 
   if (hostRouteAvailable) {
     if (app.addContentTypeParser && !app.hasContentTypeParser?.('multipart/form-data')) {

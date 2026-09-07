@@ -5,6 +5,7 @@ import { generateFlexDocHTML } from './template';
 import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
 import { hostExecutionRequestOrigin, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 import { createCachedFlexDocPage, matchesFlexDocEtag } from './page-cache';
+import { buildRuntimeIntelligenceSnapshot, discoverHonoRoutes, runtimeIntelligenceEnabled } from './runtime-intelligence';
 
 export interface HonoLikeRequest {
   header(name: string): string | undefined;
@@ -20,6 +21,7 @@ export interface HonoLikeApplication {
   get(path: string, handler: (context: HonoLikeContext) => unknown | Promise<unknown>): unknown;
   post?: (path: string, handler: (context: HonoLikeContext) => unknown | Promise<unknown>) => unknown;
   delete?: (path: string, handler: (context: HonoLikeContext) => unknown | Promise<unknown>) => unknown;
+  routes?: Array<{ method: string; path: string }>;
 }
 
 /** Register FlexDoc on Hono without adding Hono as a backend package dependency. */
@@ -34,6 +36,8 @@ export function setupHonoFlexDoc(
   const auth = options.options?.auth;
   const hostExecutionState = createHostExecutionState(options.options?.tryIt?.hostExecution);
   const hostRouteAvailable = hostExecutionState.enabled && typeof app.post === 'function';
+  const runtimeEnabled = runtimeIntelligenceEnabled(options.options?.runtimeIntelligence);
+  const runtimeEndpoint = `${rendererBasePath}/runtime`;
   let remoteSpecPromise: Promise<unknown> | undefined;
   const resolvedSpec = async () => {
     if (options.spec) return options.spec;
@@ -62,6 +66,7 @@ export function setupHonoFlexDoc(
       rendererBasePath,
       rendererVersion: assets.version,
       hostExecutionPublic: hostRouteAvailable ? publicHostExecutionOptions(hostExecutionState, rendererBasePath) : undefined,
+      runtimeIntelligencePublic: runtimeEnabled ? { available: true, endpoint: runtimeEndpoint, framework: 'hono' } : undefined,
     });
   });
 
@@ -89,6 +94,25 @@ export function setupHonoFlexDoc(
     'x-flexdoc-execute': context.req.header('X-FlexDoc-Execute'),
   });
   const sendHostResult = (context: HonoLikeContext, result: { status: number; headers: Record<string, string>; body: string }) => context.body(result.body, result.status, result.headers);
+
+  if (runtimeEnabled) {
+    app.get(runtimeEndpoint, async (context) => {
+      const denied = denyUnauthorized(context);
+      if (denied !== undefined) return denied;
+      const headers = honoHeaders(context);
+      const serverOrigin = hostExecutionRequestOrigin({ headers, url: context.req.raw?.url });
+      const snapshot = buildRuntimeIntelligenceSnapshot({
+        spec: await resolvedSpec(),
+        discovery: discoverHonoRoutes(app, base),
+        serverOrigin,
+      });
+      return context.body(JSON.stringify(snapshot), 200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+      });
+    });
+  }
+
   if (hostRouteAvailable) {
     app.post?.(`${rendererBasePath}/execute`, async (context) => {
       const denied = denyUnauthorized(context);
