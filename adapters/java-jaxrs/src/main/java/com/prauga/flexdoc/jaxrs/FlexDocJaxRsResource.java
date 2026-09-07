@@ -13,7 +13,11 @@ import jakarta.ws.rs.core.Response;
 public class FlexDocJaxRsResource {
   private final FlexDocHost host;
 
-  /** Creates a resource from a DI-provided framework-neutral host. */
+  /**
+   * Creates a resource from a DI-provided framework-neutral host.
+   *
+   * @param host configured FlexDoc host
+   */
   @Inject
   public FlexDocJaxRsResource(FlexDocHost host) { this.host = host; }
 
@@ -34,7 +38,12 @@ public class FlexDocJaxRsResource {
   @Produces("text/css; charset=utf-8")
   public Response rendererCss() { return toResponse(host.rendererCss()); }
 
-  /** Converts the neutral response to Jakarta REST. */
+  /**
+   * Converts the neutral response to Jakarta REST.
+   *
+   * @param response the framework-neutral FlexDoc response
+   * @return a Jakarta REST response with status, type, cache policy, and body
+   */
   protected Response toResponse(FlexDocHttpResponse response) {
     return Response.status(response.status())
         .type(response.contentType())

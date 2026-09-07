@@ -1,6 +1,7 @@
 import type { OpenAPISpec, PathItem, Reference } from '../types/openapi';
 import { OpenAPIParser as CoreOpenAPIParser } from '../../../../core/dist/openapi-parser.js';
 
+/** OpenAPI parsing and local reference resolution helpers. */
 export class OpenAPIParser {
   static async parseSpec(input: string | object): Promise<OpenAPISpec> {
     return CoreOpenAPIParser.parseSpec(input) as Promise<OpenAPISpec>;

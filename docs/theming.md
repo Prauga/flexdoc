@@ -1,232 +1,118 @@
-# FlexDoc Theming Guide
+# FlexDoc theming
 
-FlexDoc provides extensive theming capabilities to match your brand identity. This guide explains how to customize the look and feel of your API documentation.
+FlexDoc has a light/dark renderer and a persisted viewer appearance setting. Hosts can provide an initial mode and brand tokens; readers can select light, dark, or high contrast in Viewer Settings.
 
-## Basic Theming
+## Initial appearance
 
-You can customize the basic colors of your documentation by providing a `theme` object in your FlexDoc configuration:
+The React component accepts a light or dark host default:
 
-```typescript
-const options = {
-  // Other options...
-  theme: {
-    primaryColor: '#1976d2',
-    secondaryColor: '#9c27b0',
-    backgroundColor: '#ffffff',
-    textColor: '#333333',
-  },
-};
+```tsx
+<FlexDoc spec={spec} theme="dark" />
 ```
 
-## Theme Properties
+Backend and native adapters expose the equivalent `theme` setting. Their default is adapter-specific, commonly `system` or `light`; the renderer receives a concrete light/dark mode from the host page.
 
-| Property              | Type     | Default        | Description                                            |
-| --------------------- | -------- | -------------- | ------------------------------------------------------ |
-| `primaryColor`        | `string` | `'#1976d2'`    | The primary color used for buttons, links, and headers |
-| `secondaryColor`      | `string` | `'#9c27b0'`    | The secondary color used for accents and highlights    |
-| `backgroundColor`     | `string` | `'#ffffff'`    | The background color of the documentation              |
-| `textColor`           | `string` | `'#333333'`    | The main text color                                    |
-| `headingColor`        | `string` | `'#212121'`    | The color for headings                                 |
-| `linkColor`           | `string` | `primaryColor` | The color for links                                    |
-| `navbarColor`         | `string` | `primaryColor` | The color for the navigation bar                       |
-| `navbarTextColor`     | `string` | `'#ffffff'`    | The text color for the navigation bar                  |
-| `codeBackgroundColor` | `string` | `'#f5f5f5'`    | The background color for code blocks                   |
-| `codeTextColor`       | `string` | `'#333333'`    | The text color for code blocks                         |
-| `borderColor`         | `string` | `'#e0e0e0'`    | The color for borders                                  |
-| `errorColor`          | `string` | `'#f44336'`    | The color for error messages                           |
-| `successColor`        | `string` | `'#4caf50'`    | The color for success messages                         |
-| `warningColor`        | `string` | `'#ff9800'`    | The color for warning messages                         |
-| `infoColor`           | `string` | `'#2196f3'`    | The color for info messages                            |
+The viewer preference is stored per documentation origin and API title. It overrides the host default until the reader resets it. High contrast uses system color keywords and is available from Viewer Settings.
 
-## Advanced Theming
+## Brand configuration
 
-For more advanced customization, you can override specific components:
+Use `options.theme` with the exported `ThemeConfig` shape:
 
-```typescript
-const options = {
-  // Other options...
-  theme: {
-    // Basic colors
-    primaryColor: '#1976d2',
-
-    // Component-specific overrides
-    components: {
-      header: {
-        backgroundColor: '#000000',
-        textColor: '#ffffff',
+```tsx
+<FlexDoc
+  spec={spec}
+  options={{
+    theme: {
+      colors: {
+        primary: {
+          main: '#0f766e',
+          light: '#ccfbf1',
+          dark: '#115e59',
+        },
+        text: {
+          primary: '#172554',
+          secondary: '#475569',
+        },
+        border: {
+          light: '#cbd5e1',
+          dark: '#334155',
+        },
+      },
+      typography: {
+        fontFamily: 'Inter, system-ui, sans-serif',
+        fontSize: '16px',
+        lineHeight: '1.5',
+        headings: {
+          fontFamily: 'Inter, system-ui, sans-serif',
+          fontWeight: '650',
+        },
+        code: {
+          fontFamily: 'JetBrains Mono, monospace',
+          fontSize: '0.875rem',
+          lineHeight: '1.5',
+          wrap: true,
+        },
       },
       sidebar: {
-        backgroundColor: '#f5f5f5',
-        textColor: '#333333',
-        width: '300px',
+        backgroundColor: '#f8fafc',
+        backgroundColorDark: '#0f172a',
+        textColor: '#334155',
+        textColorDark: '#cbd5e1',
+        activeTextColor: '#0f766e',
+        activeTextColorDark: '#5eead4',
       },
-      // ... other components
-    },
-  },
-};
-```
-
-## Component Theming
-
-### Header
-
-```typescript
-header: {
-  backgroundColor: string,
-  textColor: string,
-  height: string,
-  padding: string,
-  borderBottom: string,
-}
-```
-
-### Sidebar
-
-```typescript
-sidebar: {
-  backgroundColor: string,
-  textColor: string,
-  width: string,
-  activeItemBackgroundColor: string,
-  activeItemTextColor: string,
-  hoverBackgroundColor: string,
-  groupHeadingColor: string,
-}
-```
-
-### Content
-
-```typescript
-content: {
-  backgroundColor: string,
-  padding: string,
-}
-```
-
-### Code Blocks
-
-```typescript
-codeBlock: {
-  backgroundColor: string,
-  textColor: string,
-  fontSize: string,
-  borderRadius: string,
-  border: string,
-}
-```
-
-### Buttons
-
-```typescript
-button: {
-  primaryBackgroundColor: string,
-  primaryTextColor: string,
-  secondaryBackgroundColor: string,
-  secondaryTextColor: string,
-  borderRadius: string,
-  hoverOpacity: number,
-}
-```
-
-## Dark Mode
-
-FlexDoc supports dark mode out of the box. You can provide a separate theme for dark mode:
-
-```typescript
-const options = {
-  // Other options...
-  theme: {
-    // Light mode theme
-    primaryColor: '#1976d2',
-    // ...
-
-    // Dark mode theme
-    dark: {
-      primaryColor: '#90caf9',
-      backgroundColor: '#121212',
-      textColor: '#ffffff',
-      // ... other dark mode properties
-    },
-  },
-};
-```
-
-## Theme Presets
-
-FlexDoc comes with several built-in theme presets that you can use as a starting point:
-
-```typescript
-import { themes } from '@bluejeans/flexdoc';
-
-const options = {
-  // Other options...
-  theme: themes.material, // or themes.github, themes.monokai, etc.
-};
-```
-
-Available presets:
-
-- `themes.default` - The default FlexDoc theme
-- `themes.material` - Material Design inspired theme
-- `themes.github` - GitHub inspired theme
-- `themes.monokai` - Dark theme inspired by Monokai
-- `themes.nord` - Cool blue theme inspired by Nord
-
-## Custom CSS
-
-For the most advanced customization, you can provide custom CSS:
-
-```typescript
-const options = {
-  // Other options...
-  customCss: `
-    .flexdoc-header {
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
-    
-    .flexdoc-sidebar {
-      border-right: 1px solid #e0e0e0;
-    }
-    
-    /* ... other custom CSS */
-  `,
-};
-```
-
-## Example: Corporate Branding
-
-Here's an example of how to theme FlexDoc to match your corporate branding:
-
-```typescript
-const options = {
-  // Other options...
-  theme: {
-    primaryColor: '#00695c', // Company primary color
-    secondaryColor: '#ffab00', // Company secondary color
-    backgroundColor: '#ffffff',
-    textColor: '#333333',
-    components: {
-      header: {
-        backgroundColor: '#00695c',
-        textColor: '#ffffff',
-      },
-      sidebar: {
-        activeItemBackgroundColor: '#e0f2f1',
-        activeItemTextColor: '#00695c',
-      },
-      button: {
-        primaryBackgroundColor: '#00695c',
-        secondaryBackgroundColor: '#ffab00',
+      methodColors: {
+        get: { bg: '#dcfce7', border: '#16a34a' },
+        post: { bg: '#dbeafe', border: '#2563eb' },
       },
     },
-    // Add company logo
-    logo: {
-      url: 'https://example.com/logo.png',
-      altText: 'Company Logo',
-      height: '40px',
-    },
-  },
-};
+  }}
+/>;
 ```
 
-For more examples, see the [Examples](../examples) directory.
+`ThemeConfig` supports:
+
+- `colors.primary`, `colors.success`, and `colors.error`, each with `main`, `light`, and `dark`;
+- `colors.text.primary` and `colors.text.secondary`;
+- `colors.gray[50]` and `colors.gray[100]`;
+- `colors.border.light` and `colors.border.dark`;
+- `typography` root, heading, and code settings;
+- light/dark sidebar colors and group-item text transform;
+- per-method `bg` and `border` colors.
+
+Unknown legacy theme keys and theme preset objects are not part of the 3.0 public contract. Importing `themes.material` or `themes.github` is not supported.
+
+## Logo
+
+`options.logo` accepts a URL string or `LogoOptions`:
+
+```ts
+logo: {
+  url: '/brand/prauga.svg',
+  alt: 'Prauga',
+  maxHeight: 32,
+  maxWidth: 180,
+  padding: { vertical: 4, horizontal: 8 },
+  backgroundColor: '#ffffff',
+  clickable: true,
+}
+```
+
+## Custom CSS and JavaScript
+
+JavaScript hosts can provide `customCss` and `customJs`. Treat both as trusted application code. Prefer `ThemeConfig` for stable brand customization because renderer-internal class names are not a compatibility contract.
+
+```ts
+options: {
+  customCss: '.flexdoc-root { --my-brand-token: #0f766e; }',
+}
+```
+
+## Accessibility and print
+
+- `prefers-reduced-motion` disables renderer animation and smooth scrolling.
+- `prefers-contrast: more` and forced-colors environments receive stronger control outlines.
+- Viewer Settings exposes a persistent high-contrast appearance.
+- **Print operation** produces the operation reader layout while hiding interactive application chrome.
+
+Brand overrides should preserve readable contrast in both light and dark modes and should not remove focus indicators.

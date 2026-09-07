@@ -11,6 +11,7 @@ import type {
   ApiClientScriptVariableKeys,
 } from '../utils/api-client-script-intellisense';
 
+/** Props for the pre-request and test script editor with IntelliSense and formatting. */
 export interface ApiClientScriptEditorProps {
   ariaLabel: string;
   value: string;
@@ -20,6 +21,7 @@ export interface ApiClientScriptEditorProps {
   variableKeys?: ApiClientScriptVariableKeys;
 }
 
+/** Script editor for API Client pre-request and test phases. */
 export const ApiClientScriptEditor: React.FC<ApiClientScriptEditorProps> = ({
   ariaLabel,
   value,

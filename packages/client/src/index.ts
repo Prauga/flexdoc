@@ -1,3 +1,10 @@
+/**
+ * @packageDocumentation
+ * Canonical React renderer, API Client components, and OpenAPI utilities for FlexDoc.
+ *
+ * Import from `@prauga/flexdoc-client` for documentation UI (`FlexDoc`), request
+ * editing (`ApiClient`, `ApiClientWorkspace`), and programmatic OpenAPI/request helpers.
+ */
 import './styles.css';
 
 export { FlexDoc } from './components/FlexDoc';

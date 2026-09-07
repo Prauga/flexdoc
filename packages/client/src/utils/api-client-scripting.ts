@@ -44,6 +44,7 @@ export interface ApiClientScriptRunResult {
   error?: string;
 }
 
+/** Empty pre-request and test scripts. */
 export const EMPTY_API_CLIENT_SCRIPTS: ApiClientRequestScripts = { preRequest: '', tests: '' };
 
 export function cloneApiClientScripts(scripts?: Partial<ApiClientRequestScripts>): ApiClientRequestScripts {
@@ -192,6 +193,7 @@ function createResponseHeadersApi(headers: Array<[string, string]>) {
   };
 }
 
+/** Run a pre-request or test script against the current draft and variable scopes. */
 export async function runApiClientScript(options: {
   script: string;
   phase: 'pre-request' | 'tests';

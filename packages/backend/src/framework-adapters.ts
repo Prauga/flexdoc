@@ -9,6 +9,7 @@ import { hostExecutionRequestOrigin, runHostCookiesRoute, runHostExecutionRoute 
 import { createCachedFlexDocPage, matchesFlexDocEtag } from './page-cache';
 import { buildRuntimeIntelligenceSnapshot, discoverFastifyRoutes, runtimeIntelligenceEnabled } from './runtime-intelligence';
 
+/** Minimal Express application surface required by `setupExpressFlexDoc`. */
 export interface ExpressLikeApplication {
   use(path: string, handler: (req: any, res: any, next?: any) => void | Promise<void>): void;
 }
@@ -43,6 +44,7 @@ export interface NestLikeApplication {
   getHttpAdapter(): { getType?: () => string; getInstance: () => any };
 }
 
+/** Register FlexDoc on an Express application. */
 export function setupExpressFlexDoc(app: ExpressLikeApplication, path: string, options: Omit<FlexDocModuleOptions, 'path'>): void {
   setupFlexDoc(app, path, options);
 }
@@ -206,6 +208,7 @@ function setupFastifyFlexDocInternal(
   });
 }
 
+/** Register FlexDoc on a Fastify application with an inline or remote spec. */
 export function setupFastifyFlexDoc(app: FastifyLikeApplication, path: string, options: Omit<FlexDocModuleOptions, 'path'>): void {
   setupFastifyFlexDocInternal(app, path, options);
 }

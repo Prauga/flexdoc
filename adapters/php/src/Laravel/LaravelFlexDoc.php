@@ -8,8 +8,10 @@ use Illuminate\Http\Response as IlluminateResponse;
 use Prauga\FlexDoc\FlexDocHost;
 use Prauga\FlexDoc\FlexDocResponse;
 
+/** Registers FlexDoc routes on a Laravel router. */
 final class LaravelFlexDoc
 {
+    /** Register the docs shell and renderer asset routes for the given host. */
     public static function register(object $router, FlexDocHost $host): void
     {
         $base = ltrim($host->config()->path, '/');

@@ -1,3 +1,4 @@
+/** Logo shown in the documentation top bar. */
 export interface LogoOptions {
   url: string;
   backgroundColor?: string;
@@ -9,6 +10,7 @@ export interface LogoOptions {
   clickable?: boolean;
 }
 
+/** Theme tokens applied to renderer chrome and code blocks. */
 export interface ThemeConfig {
   colors?: {
     primary?: { main?: string; light?: string; dark?: string };
@@ -46,8 +48,11 @@ export interface ThemeConfig {
   methodColors?: Record<string, { bg?: string; border?: string }>;
 }
 
+/** Section identifiers used by expand presets and custom expand arrays. */
 export type ExpandSection = 'parameters' | 'requestBody' | 'responses' | 'tryIt' | 'codeSamples';
+/** Built-in expand presets for operation detail panels. */
 export type ExpandPreset = 'all' | 'none' | 'minimal' | 'documentation' | 'interactive';
+/** Expand preset or explicit list of sections/presets to open by default. */
 export type ExpandOption = ExpandPreset | Array<ExpandSection | Exclude<ExpandPreset, 'all' | 'none'>>;
 export type FlexDocViewerTheme = 'light' | 'dark' | 'high-contrast';
 
@@ -123,7 +128,9 @@ export interface FlexDocMessages {
   downloadFailed?: string;
 }
 
+/** Capability flags advertised when API-host execution is enabled on the docs server. */
 export type FlexDocHostExecutionCapability = 'cookies' | 'clientCertificates' | 'digest' | 'hawk' | 'ntlm' | 'oauth1' | 'awsv4';
+/** Public host-execution metadata serialized to the browser renderer. */
 export interface FlexDocHostExecutionPublicOptions {
   available: boolean;
   endpoint: string;
@@ -136,6 +143,7 @@ export interface FlexDocRuntimeRoute { method: string; path: string; }
 export interface FlexDocRuntimeMetadata { name: string; version: string; platform: string; arch: string; }
 export interface FlexDocRuntimeServerMetadata { localPort?: number; }
 export interface FlexDocRuntimeEnvironmentMetadata { name: string; }
+/** Snapshot comparing documented OpenAPI routes with routes discovered at runtime. */
 export interface FlexDocRuntimeIntelligenceSnapshot {
   framework: string;
   frameworkVersion?: string;
@@ -149,8 +157,10 @@ export interface FlexDocRuntimeIntelligenceSnapshot {
   documentedOnly: FlexDocRuntimeRoute[];
   summary: { documented: number; runtime: number; matched: number; runtimeOnly: number; documentedOnly: number };
 }
+/** Public runtime-intelligence endpoint metadata exposed to the renderer. */
 export interface FlexDocRuntimeIntelligencePublicOptions { available: boolean; endpoint: string; framework: string; }
 
+/** Renderer options passed to `FlexDoc` through the `options` prop. */
 export interface FlexDocRendererOptions {
   contractVersion?: '1';
   title?: string;

@@ -1,185 +1,161 @@
-# FlexDoc Configuration Options
+# FlexDoc configuration
 
-This document outlines all available configuration options for FlexDoc. These options can be used to customize the appearance and behavior of your API documentation.
+The canonical renderer consumes `FlexDocRendererOptions`. The Node backend exposes the closely related `FlexDocOptions`, adding server-only documentation authentication and host capabilities. Native adapters map their typed configuration fields into the same renderer contract.
 
-## Basic Configuration
+## Mounting the renderer
 
-When setting up FlexDoc, you can provide configuration options as follows:
-
-### For NestJS:
-
-```typescript
-FlexDocModule.forRoot({
-  path: 'api-docs',
-  options: {
-    // Your configuration options here
-  },
-});
-```
-
-### For Express:
-
-```typescript
-setupFlexDoc(app, {
-  path: 'api-docs',
-  options: {
-    // Your configuration options here
-  },
-});
-```
-
-### For React Component:
+React:
 
 ```tsx
 <FlexDoc
-  spec={openApiSpec}
-  options={
-    {
-      // Your configuration options here
-    }
-  }
-/>
+  spec={openApiDocument}
+  theme="light"
+  options={{ title: 'Pets API' }}
+/>;
 ```
 
-## Available Options
+Express:
 
-| Option                     | Type                         | Default                           | Description                                                              |
-| -------------------------- | ---------------------------- | --------------------------------- | ------------------------------------------------------------------------ |
-| `title`                    | `string`                     | `"API Documentation"`             | The title displayed in the documentation header                          |
-| `description`              | `string`                     | `""`                              | A description of your API that appears below the title                   |
-| `version`                  | `string`                     | `"1.0.0"`                         | The version of your API                                                  |
-| `theme`                    | `object`                     | See [Theming Guide](./theming.md) | Custom theme options                                                     |
-| `hideHostname`             | `boolean`                    | `false`                           | Whether to hide the hostname in the API endpoints                        |
-| `expand`                   | `string | string[]`          | omitted (compact)                 | Default expanded endpoint sections; accepts presets or explicit sections |
-| `pathInMiddlePanel`        | `boolean`                    | `false`                           | Whether to show the path in the middle panel instead of the left sidebar |
-| `defaultModelsExpandDepth` | `number`                     | `1`                               | The default expand depth for models                                      |
-| `defaultModelExpandDepth`  | `number`                     | `1`                               | The default expand depth for model properties                            |
-| `defaultModelRendering`    | `"model" \| "example"`       | `"model"`                         | The default rendering for models                                         |
-| `displayOperationId`       | `boolean`                    | `false`                           | Whether to display the operation ID                                      |
-| `displayRequestDuration`   | `boolean`                    | `false`                           | Whether to display the request duration                                  |
-| `docExpansion`             | `"list" \| "full" \| "none"` | `"list"`                          | The default expansion setting for the operations                         |
-| `filter`                   | `boolean \| string`          | `false`                           | Whether to show the filter box                                           |
-| `maxDisplayedTags`         | `number`                     | `null`                            | The maximum number of tags to display                                    |
-| `showExtensions`           | `boolean`                    | `false`                           | Whether to display vendor extensions                                     |
-| `showCommonExtensions`     | `boolean`                    | `false`                           | Whether to display common extensions                                     |
-| `tagSorter`                | `(a, b) => number`           | `null`                            | A function to sort the tags                                              |
-| `operationSorter`          | `(a, b) => number`           | `null`                            | A function to sort operations                                            |
-| `favicon`                  | `string`                     | `null`                            | The URL to a custom favicon                                              |
-| `auth`                     | `object`                     | `null`                            | Authentication configuration (see below)                                 |
+```ts
+setupExpressFlexDoc(app, '/docs', {
+  spec: openApiDocument,
+  options: { title: 'Pets API' },
+});
+```
 
-## Expansion Defaults and Viewer Preferences
+`FlexDocModuleOptions` accepts `path`, either `spec` or `specUrl`, and `options`.
 
-FlexDoc keeps endpoint pages compact by default. Hosts can set the initial expansion baseline with `expand`:
+## Metadata and chrome
 
-```typescript
+Renderer options include:
+
+- `title`, `description`, `altDescription`, and `version`;
+- `tagGroups` for grouping OpenAPI tags;
+- `logo`, `favicon`, and `footer`;
+- `hideTopbar`, `hideDownloadButton`, and `hideHostname`;
+- `locale` and partial `messages` overrides for renderer-owned chrome.
+
+OpenAPI-authored operation summaries, descriptions, and schema content remain sourced from the document; `messages` translates renderer controls and status copy.
+
+## Expansion and navigation
+
+`expand` controls the initial operation-section baseline:
+
+```ts
 options: {
-  expand: 'all'
-  // or: expand: 'documentation'
-  // or: expand: ['documentation', 'tryIt']
-  // or explicit sections: ['parameters', 'responses', 'codeSamples']
+  expand: 'documentation',
+  // or: ['parameters', 'responses', 'tryIt']
 }
 ```
 
-Supported presets are `minimal`, `documentation`, `interactive`, `all`, and `none`. Explicit section names are `parameters`, `requestBody`, `responses`, `tryIt`, and `codeSamples`. `expandResponses` remains accepted for backwards compatibility when `expand` is not supplied, but new integrations should use `expand`.
+Presets are `minimal`, `documentation`, `interactive`, `all`, and `none`. Explicit sections are `parameters`, `requestBody`, `responses`, `tryIt`, and `codeSamples`.
 
-The host value is a default rather than a policy. Readers can open **Settings** and choose their own expansion baseline. When the top bar is hidden in an embed, FlexDoc provides a floating Settings entry point. The preference is stored locally per documentation origin and API title and takes precedence over the host default. **Reset to documentation defaults** removes the viewer override. Individual section clicks are transient and are not persisted.
+Viewer Settings can override the host baseline. Preferences are stored per documentation origin and API title. `expandResponses` remains accepted for backward compatibility when `expand` is omitted.
 
-## Language Adapter Renderer Options
+Additional presentation controls include:
 
-The self-hosted Go, Python, PHP, Ruby, Elixir, Rust (Axum and Actix), .NET, and Java adapters expose the same renderer settings as the JavaScript host. Existing first-class adapter fields such as `path`, `specUrl`, `title`, `theme`, and `tryIt.enabled` remain authoritative. The following additional values are injected into `window.__FLEXDOC_OPTIONS__` only when the host supplies them:
+- `defaultModelsExpandDepth`;
+- `requiredPropsFirst` and `sortPropsAlphabetically`;
+- `showExtensions` and `showCommonExtensions`;
+- `showRequestHeaders`, `payloadSampleIdx`, and `noAutoAuth`;
+- `lazyRendering`, `scrollYOffset`, `nativeScrollbars`, and `suppressWarnings`.
 
-| Renderer field | Type | Omitted behavior |
-| --- | --- | --- |
-| `expand` | preset string or section list | compact renderer default |
-| `tryIt.defaultServer` | string | renderer chooses the operation/spec server |
-| `tryIt.credentials` | `omit`, `same-origin`, or `include` | renderer fetch default |
-| `tryIt.apiClientPersistenceKey` | string or `false` | renderer derives its normal workspace key; `false` disables IndexedDB workspace persistence |
+Some historical compatibility flags describe behavior now inherent in the canonical renderer and may not create a separate UI path.
 
-For typed languages, adapter APIs use the closest native representation. Java Spring additionally exposes `expand-sections`; when both `expand` and `expand-sections` are configured, the section list wins. All language hosts preserve JSON types, so `apiClientPersistenceKey: false` is emitted as JSON `false`, never the string `"false"`.
+## Try It and API Client
 
-The JavaScript backend integrations (Express, Fastify, NestJS, and Hono) already pass the complete `options` object through and therefore do not need a separate adapter mapping for these fields.
-
-## Authentication Options
-
-FlexDoc supports authentication to protect your API documentation. See the [Authentication Guide](../packages/backend/docs/authentication.md) for detailed information.
-
-```typescript
+```ts
 options: {
-  auth: {
-    type: 'basic', // or 'bearer'
-    secretKey: 'your-strong-secret-key'
+  tryIt: {
+    enabled: true,
+    defaultServer: 'https://api.example.com',
+    credentials: 'same-origin',
+    apiClientPersistenceKey: 'pets-api',
   }
 }
 ```
 
-## Custom Styling
+Try It provides Basic and Advanced density over one request state. **Open in API Client** navigates to a sibling workspace view; it does not embed a second workspace inside operation details.
 
-You can customize the appearance of your documentation using the `theme` option. See the [Theming Guide](./theming.md) for detailed information.
+`tryIt` accepts:
 
-```typescript
+- `enabled`;
+- `defaultServer`;
+- browser `credentials`: `omit`, `same-origin`, or `include`;
+- `apiClientPersistenceKey`: a string, or `false` to disable workspace persistence;
+- `requestInterceptor` in the React API only;
+- adapter-provided `hostExecution` capability metadata.
+
+GET and HEAD bodies are retained. Browsers may reject them; when available, API-host execution sends them from the host.
+
+## Code samples
+
+```ts
 options: {
-  theme: {
-    primaryColor: '#1976d2',
-    secondaryColor: '#9c27b0',
-    backgroundColor: '#ffffff',
-    textColor: '#333333',
-    // ... other theme options
+  codeSamples: {
+    enabled: true,
+    languages: ['curl', 'javascript', 'python', 'go', 'java'],
   }
 }
 ```
 
-## Advanced Configuration
+Samples reflect the request currently configured in Try It.
 
-### Custom Request Interceptor
+## Documentation authentication
 
-```typescript
+The Node backend can protect the documentation subtree:
+
+```ts
 options: {
-  requestInterceptor: (req) => {
-    req.headers['X-Custom-Header'] = 'value';
-    return req;
-  },
-}
-```
-
-### Custom Response Interceptor
-
-```typescript
-options: {
-  responseInterceptor: (res) => {
-    console.log(res);
-    return res;
-  },
-}
-```
-
-### Custom Layout
-
-```typescript
-options: {
-  layout: 'BaseLayout', // or 'StandaloneLayout'
-}
-```
-
-## Example Configuration
-
-```typescript
-const options = {
-  title: 'My Amazing API',
-  description: 'This API provides access to amazing features',
-  version: '2.0.0',
-  hideHostname: true,
-  pathInMiddlePanel: true,
-  docExpansion: 'list',
-  filter: true,
-  theme: {
-    primaryColor: '#1976d2',
-    secondaryColor: '#9c27b0',
-  },
   auth: {
     type: 'basic',
-    secretKey: process.env.FLEXDOC_SECRET_KEY,
-  },
-};
+    secretKey: process.env.FLEXDOC_SECRET,
+  }
+}
 ```
 
-For more examples, see the [Examples](../examples) directory.
+`basic` and `bearer` are supported. `secretKey` is server-only and is removed before renderer options are serialized. This protects the documentation route; it is separate from credentials used by Try It requests.
+
+## API-host execution
+
+Node host execution is explicit opt-in:
+
+```ts
+options: {
+  tryIt: {
+    hostExecution: {
+      enabled: true,
+      allowedOrigins: ['https://api.example.com'],
+    },
+  },
+}
+```
+
+It supports requests requiring the host cookie jar, configured client certificates, Digest, Hawk, OAuth 1.0, or AWS Signature V4. The renderer receives only public capability metadata, certificate IDs/names, and endpoint paths. See [API-host execution](./host-execution.md).
+
+## Runtime Intelligence
+
+Runtime Intelligence is also explicit opt-in:
+
+```ts
+options: {
+  runtimeIntelligence: true,
+}
+```
+
+Supported hosts expose `GET <docsPath>/__flexdoc/runtime` beneath the same documentation authentication boundary. The renderer compares observed routes with the OpenAPI document and reports whether discovery is complete or partial. See [Runtime Intelligence](./runtime-intelligence.md).
+
+## Native adapter mappings
+
+Go, Python, PHP, Ruby, Elixir, Rust, ASP.NET Core, and Java adapters expose native equivalents for their supported renderer settings. Common fields are:
+
+- docs `path`, `specUrl`, and `title`;
+- initial `theme`;
+- Try It enablement, server, credentials, and persistence key;
+- section expansion.
+
+Runtime Intelligence and host execution availability are adapter-specific. Do not infer support from the renderer UI alone; adapters advertise capabilities explicitly. Consult the package README and native API comments for exact field names.
+
+## Theming
+
+`ThemeConfig` supports nested color, typography, sidebar, and HTTP-method tokens. See [Theming](./theming.md) for the current shape; legacy flat color keys and built-in theme-preset exports are not part of the 3.0 API.

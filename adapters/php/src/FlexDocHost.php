@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Prauga\FlexDoc;
 
+/**
+ * Framework-neutral FlexDoc host serving the HTML shell and packaged renderer assets.
+ */
 final class FlexDocHost
 {
     private string $javascript;
@@ -20,8 +23,10 @@ final class FlexDocHost
         $this->fingerprint = substr(hash('sha256', $this->javascript . "\0" . $this->css), 0, 16);
     }
 
+    /** Return the configured {@see FlexDocConfig}. */
     public function config(): FlexDocConfig { return $this->config; }
 
+    /** Match a request path and return the docs shell, renderer asset, or 404 response. */
     public function responseForPath(string $path): FlexDocResponse
     {
         if ($path === $this->config->path || $path === $this->config->path . '/') return $this->documentation();
@@ -30,6 +35,7 @@ final class FlexDocHost
         return new FlexDocResponse(404, 'text/plain; charset=utf-8', 'Not Found');
     }
 
+    /** Build the HTML docs shell response. */
     public function documentation(): FlexDocResponse
     {
         $tryIt = ['enabled' => $this->config->tryItEnabled];
@@ -61,11 +67,13 @@ final class FlexDocHost
         return new FlexDocResponse(200, 'text/html; charset=utf-8', $html, 'no-cache');
     }
 
+    /** Return the packaged renderer JavaScript asset. */
     public function rendererJavaScript(): FlexDocResponse
     {
         return new FlexDocResponse(200, 'application/javascript; charset=utf-8', $this->javascript, 'public, max-age=31536000, immutable');
     }
 
+    /** Return the packaged renderer CSS asset. */
     public function rendererCss(): FlexDocResponse
     {
         return new FlexDocResponse(200, 'text/css; charset=utf-8', $this->css, 'public, max-age=31536000, immutable');

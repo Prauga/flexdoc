@@ -1,3 +1,4 @@
+/** OpenAPI 3.x document shape used by the FlexDoc core engine. */
 export interface OpenAPISpec {
   openapi: string;
   jsonSchemaDialect?: string;

@@ -2,7 +2,9 @@ import type { OpenAPISpec } from './types/openapi.js';
 import { OpenAPIParser } from './openapi-parser.js';
 
 export type DocumentLoader = (uri: string) => Promise<unknown>;
+/** Options for bundling external `$ref` documents into a single spec. */
 export interface BundleOptions { baseUri: string; load?: DocumentLoader; }
+/** Extension key used when external documents are inlined during bundling. */
 export const EXTERNAL_DOCUMENTS_KEY = 'x-flexdoc-external-documents';
 
 function defaultLoader(uri: string): Promise<unknown> {
@@ -33,6 +35,7 @@ function externalPointer(documentUri: string, pointer: string): string {
 
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)); }
 
+/** Bundle external OpenAPI references into one self-contained document. */
 export async function bundleExternalReferences(spec: OpenAPISpec, options: BundleOptions): Promise<OpenAPISpec> {
   const load = options.load || defaultLoader;
   const rootUri = new URL(options.baseUri).toString().replace(/#.*$/, '');

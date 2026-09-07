@@ -1,6 +1,6 @@
 # FlexDoc examples
 
-These examples are the executable capability map for FlexDoc 3.0. CI keeps package versions aligned with their source manifests and validates the examples against packages built from the same commit.
+These examples are the executable capability map for FlexDoc 3.0. During release preparation their manifests remain pinned to the last published registry artifacts so clean installs keep working. CI explicitly substitutes locally built release candidates where source-version validation is required. A post-publish lock-refresh change advances the registry pins.
 
 The examples deliberately separate two kinds of capability:
 
@@ -48,4 +48,4 @@ Runtime-capable examples intentionally include either a runtime-only route or a 
 
 One canonical renderer remains the source of truth. Where a runtime has a useful neutral host boundary (JVM, Python, PHP, Ruby, Go/`net/http`, Plug), framework integrations compose that host rather than creating new renderer implementations. Dedicated packages exist only where transport/runtime boundaries require them, such as ASP.NET Core, Axum, Actix Web, and Plug packaging.
 
-The package numbers above are the repository's current coordinated source/release-candidate versions. They will move as part of the actual 3.0 release versioning pass; examples should not invent future package versions ahead of that pass.
+The package numbers above are the last published registry versions used by standalone examples during release preparation. The source release-candidate versions are listed in the root README and `docs/distribution.md`; examples move to them only after the matching packages and tags are public.
