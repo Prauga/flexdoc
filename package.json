@@ -28,6 +28,8 @@
     "sync:adapter-assets": "node scripts/sync-adapter-assets.mjs",
     "check:adapter-assets": "node scripts/sync-adapter-assets.mjs --check",
     "check:example-versions": "node scripts/check-example-versions.mjs",
+    "benchmark:performance": "npm run build:client && npm run build:backend && node scripts/performance/benchmark.mjs",
+    "check:performance-budgets": "node scripts/performance/check-budgets.mjs",
     "lint": "npm run lint -w packages/client && npm run lint -w examples/nestjs",
     "audit": "npm audit --audit-level=low",
     "example:nestjs": "npm run start:dev -w examples/nestjs",

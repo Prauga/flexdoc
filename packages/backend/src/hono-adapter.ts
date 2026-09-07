@@ -4,6 +4,7 @@ import { getRendererAssets } from './renderer-assets';
 import { generateFlexDocHTML } from './template';
 import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
 import { hostExecutionRequestOrigin, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
+import { createCachedFlexDocPage, matchesFlexDocEtag } from './page-cache';
 
 export interface HonoLikeRequest {
   header(name: string): string | undefined;
@@ -52,23 +53,32 @@ export function setupHonoFlexDoc(
     });
   };
 
-  const page = (context: HonoLikeContext) => {
-    const denied = denyUnauthorized(context);
-    if (denied !== undefined) return denied;
-
+  const getPage = createCachedFlexDocPage(() => {
     const assets = getRendererAssets();
     const spec = (options.spec || null) as Parameters<typeof generateFlexDocHTML>[0];
-    const html = generateFlexDocHTML(spec, {
+    return generateFlexDocHTML(spec, {
       ...(options.options || {}),
       specUrl: options.specUrl,
       rendererBasePath,
       rendererVersion: assets.version,
       hostExecutionPublic: hostRouteAvailable ? publicHostExecutionOptions(hostExecutionState, rendererBasePath) : undefined,
     });
-    return context.body(html, 200, {
+  });
+
+  const page = async (context: HonoLikeContext) => {
+    const denied = denyUnauthorized(context);
+    if (denied !== undefined) return denied;
+
+    const cachedPage = await getPage();
+    const headers = {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-cache',
-    });
+      'ETag': cachedPage.etag,
+    };
+    if (matchesFlexDocEtag(context.req.header('If-None-Match'), cachedPage.etag)) {
+      return context.body('', 304, headers);
+    }
+    return context.body(cachedPage.body, 200, headers);
   };
 
   const honoHeaders = (context: HonoLikeContext) => ({

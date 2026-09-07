@@ -6,6 +6,7 @@ import * as http from 'http';
 import * as https from 'https';
 import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
 import { hostExecutionRequestOrigin, readNodeRequestBody, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
+import { createCachedFlexDocPage, matchesFlexDocEtag } from './page-cache';
 
 interface AppWithUse {
   use: (
@@ -139,6 +140,17 @@ export function setupFlexDoc(
     return remoteSpecPromise;
   };
 
+  const getPage = createCachedFlexDocPage(async () => {
+    const resolvedSpec = await getSpec();
+    const rendererAssets = getRendererAssets();
+    return generateFlexDocHTML(resolvedSpec, {
+      ...(flexDocOptions || {}),
+      rendererBasePath,
+      rendererVersion: rendererAssets.version,
+      hostExecutionPublic: publicHostExecutionOptions(hostExecutionState, rendererBasePath),
+    });
+  });
+
   const sendHostResult = (res: any, result: Awaited<ReturnType<typeof runHostExecutionRoute>> | ReturnType<typeof runHostCookiesRoute>) => {
     res.statusCode = result.status;
     for (const [name, value] of Object.entries(result.headers)) res.setHeader(name, value);
@@ -162,19 +174,17 @@ export function setupFlexDoc(
     });
   }
 
-  app.use(normalizedPath, async (_req: any, res: any) => {
+  app.use(normalizedPath, async (req: any, res: any) => {
     try {
-      const resolvedSpec = await getSpec();
-      const rendererAssets = getRendererAssets();
-      const html = generateFlexDocHTML(resolvedSpec, {
-        ...(flexDocOptions || {}),
-        rendererBasePath,
-        rendererVersion: rendererAssets.version,
-        hostExecutionPublic: publicHostExecutionOptions(hostExecutionState, rendererBasePath),
-      });
+      const page = await getPage();
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-cache');
-      res.send(html);
+      res.setHeader('ETag', page.etag);
+      if (matchesFlexDocEtag(req.headers?.['if-none-match'], page.etag)) {
+        res.statusCode = 304;
+        return res.end();
+      }
+      res.send(page.body);
     } catch (error) {
       res.statusCode = 502;
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
