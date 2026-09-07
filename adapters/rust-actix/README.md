@@ -1,6 +1,6 @@
 # Prauga FlexDoc for Actix Web
 
-`prauga-flexdoc-actix` `0.4.1` exposes an Actix `Scope` backed by the same canonical FlexDoc renderer shipped by the Axum adapter.
+`prauga-flexdoc-actix` `0.4.2` exposes an Actix `Scope` backed by the same canonical FlexDoc renderer shipped by the Axum adapter.
 
 ```rust
 use actix_web::{App, HttpServer};
