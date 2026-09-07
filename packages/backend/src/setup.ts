@@ -164,7 +164,13 @@ export function setupFlexDoc(
         return typeof res.send === 'function' ? res.send(JSON.stringify({ error: 'Method not allowed.' })) : res.end(JSON.stringify({ error: 'Method not allowed.' }));
       }
       const serverOrigin = hostExecutionRequestOrigin({ headers: req.headers || {}, protocol: req.protocol || (req.socket?.encrypted ? 'https' : 'http') });
-      const snapshot = buildRuntimeIntelligenceSnapshot({ spec: await getSpec(), discovery: discoverExpressRoutes(app, normalizedPath), serverOrigin });
+      const localPort = Number.isInteger(req.socket?.localPort) && req.socket.localPort > 0 ? req.socket.localPort : undefined;
+      const snapshot = buildRuntimeIntelligenceSnapshot({
+        spec: await getSpec(),
+        discovery: discoverExpressRoutes(app, normalizedPath),
+        serverOrigin,
+        ...(localPort ? { server: { localPort } } : {}),
+      });
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
       const body = JSON.stringify(snapshot);
