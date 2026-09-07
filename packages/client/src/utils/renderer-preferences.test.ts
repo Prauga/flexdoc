@@ -3,6 +3,9 @@ import {
   readFlexDocViewerPreferences,
   resolveExpandSections,
   writeFlexDocViewerExpandPreference,
+  writeFlexDocViewerExpandedTagsPreference,
+  writeFlexDocViewerSidebarPreference,
+  writeFlexDocViewerThemePreference,
 } from './renderer-preferences';
 
 function memoryStorage(): Storage {
@@ -47,9 +50,35 @@ describe('renderer expansion preferences', () => {
     expect(readFlexDocViewerPreferences(key, storage).expand).toBeUndefined();
   });
 
+  test('persists viewer controls independently without clobbering fields', () => {
+    const storage = memoryStorage();
+    const key = createFlexDocViewerPreferencesKey('Pets API', 'docs.example.test');
+    writeFlexDocViewerExpandPreference(key, ['responses'], storage);
+    writeFlexDocViewerSidebarPreference(key, true, storage);
+    writeFlexDocViewerThemePreference(key, 'dark', storage);
+    writeFlexDocViewerExpandedTagsPreference(key, ['pets', 'admin', 'pets'], storage);
+    expect(readFlexDocViewerPreferences(key, storage)).toEqual({
+      version: 1,
+      expand: ['responses'],
+      sidebarCollapsed: true,
+      theme: 'dark',
+      expandedTags: ['pets', 'admin'],
+    });
+    writeFlexDocViewerExpandPreference(key, undefined, storage);
+    expect(readFlexDocViewerPreferences(key, storage)).toMatchObject({ version: 1, sidebarCollapsed: true, theme: 'dark', expandedTags: ['pets', 'admin'] });
+    writeFlexDocViewerThemePreference(key, undefined, storage);
+    expect(readFlexDocViewerPreferences(key, storage).theme).toBeUndefined();
+  });
+
   test('ignores malformed or unsupported stored preferences', () => {
     const storage = memoryStorage();
     storage.setItem('prefs', JSON.stringify({ version: 1, expand: ['madeUpSection'] }));
+    expect(readFlexDocViewerPreferences('prefs', storage)).toEqual({ version: 1 });
+    storage.setItem('prefs', JSON.stringify({ version: 1, sidebarCollapsed: 'yes' }));
+    expect(readFlexDocViewerPreferences('prefs', storage)).toEqual({ version: 1 });
+    storage.setItem('prefs', JSON.stringify({ version: 1, theme: 'system' }));
+    expect(readFlexDocViewerPreferences('prefs', storage)).toEqual({ version: 1 });
+    storage.setItem('prefs', JSON.stringify({ version: 1, expandedTags: ['pets', 2] }));
     expect(readFlexDocViewerPreferences('prefs', storage)).toEqual({ version: 1 });
     storage.setItem('prefs', '{broken');
     expect(readFlexDocViewerPreferences('prefs', storage)).toEqual({ version: 1 });

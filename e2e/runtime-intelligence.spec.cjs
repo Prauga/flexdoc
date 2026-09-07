@@ -57,3 +57,26 @@ test('malformed runtime snapshots become a contained dark-mode panel error', asy
   await expect(alert).toHaveClass(/bg-red-950\/50/);
   await expect(page.getByText('FlexDoc Browser Fixture', { exact: true }).first()).toBeVisible();
 });
+
+test('runtime drift rows navigate to documented operations', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop runtime navigation coverage');
+  const driftSnapshot = {
+    ...runtimeSnapshot,
+    discoveryComplete: true,
+    routes: [{ method: 'POST', path: '/internal/reindex' }],
+    runtimeOnly: [{ method: 'POST', path: '/internal/reindex' }],
+    documentedOnly: [{ method: 'GET', path: '/pets/{id}' }],
+    summary: { documented: 1, runtime: 1, matched: 0, runtimeOnly: 1, documentedOnly: 1 },
+  };
+  await page.route('**/e2e/__flexdoc/runtime', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(driftSnapshot) });
+  });
+  await page.goto('/e2e/index.html?runtime=1');
+  await page.getByRole('button', { name: 'Open runtime intelligence' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Runtime intelligence' });
+  await expect(dialog.getByRole('button', { name: 'Open runtime route GET /pets/{id}' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Open runtime route GET /pets/{id}' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
+  await expect(page).toHaveURL(/#get-~2Fpets~2F~7Bid~7D$/);
+});

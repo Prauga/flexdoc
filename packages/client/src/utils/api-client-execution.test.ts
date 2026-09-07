@@ -86,6 +86,9 @@ console.log('checked');
 
     expect(outcome.result?.resolvedUrl).toBe('https://proxy.example.test/resource');
     expect(outcome.result?.status).toBe(200);
+    expect(outcome.curlCommand).toContain('https://proxy.example.test/resource');
+    expect(outcome.curlCommand?.toLowerCase()).toContain('x-proxy: yes');
+    expect(outcome.curlCommand?.toLowerCase()).toContain('authorization: bearer inherited-token');
   });
 
   it('routes host-only auth through the API host and keeps response tests in the browser', async () => {
@@ -115,6 +118,27 @@ console.log('checked');
     expect(interceptorCalls).toBe(0);
     expect(outcome.response).toMatchObject({ status: 201, responseTime: 17, body: '{"ok":true}' });
     expect(outcome.scriptTests).toEqual([{ name: 'host response', passed: true }]);
+  });
+
+  it('forwards an intentional GET body through API-host execution', async () => {
+    let descriptor: any;
+    const fetcher: typeof fetch = async (_input, init) => {
+      descriptor = JSON.parse(String(init?.body));
+      return mockResponse(JSON.stringify({ status: 200, statusText: 'OK', headers: [], body: '', responseTime: 4 }));
+    };
+    await executeApiClientRequest({
+      request: {
+        method: 'GET',
+        url: 'https://api.example.test/private',
+        body: '{"stale":true}',
+        bodyMode: 'json',
+        contentType: 'application/json',
+        auth: { type: 'digest', username: 'u', password: 'p' },
+      },
+      hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: ['digest'] },
+      fetcher,
+    });
+    expect(descriptor.request).toMatchObject({ method: 'GET', bodyMode: 'json', body: '{"stale":true}', contentType: 'application/json' });
   });
 
   it('fails closed with the same explicit error when host execution is unavailable', async () => {

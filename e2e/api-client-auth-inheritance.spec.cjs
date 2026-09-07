@@ -9,12 +9,12 @@ test('API Client resolves collection and nested-folder auth inheritance', async 
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
   });
 
-  await page.goto('/e2e/index.html#get-pets-id');
-  await page.getByLabel('path id').fill('42');
+  await page.goto('/e2e/index.html#get-~2Fpets~2F~7Bid~7D');
   await page.getByRole('button', { name: 'Open in API Client' }).click();
-  const apiClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  const apiClient = page.locator('[data-api-client-page="api-client"]');
   await expect(apiClient).toBeVisible();
   await apiClient.getByLabel('Request URL').fill('https://auth.example.test/pets');
+  await apiClient.getByRole('tab', { name: 'Authorization' }).click();
 
   await apiClient.getByLabel('Collection authorization type').selectOption('bearer');
   await apiClient.getByLabel('Collection bearer token').fill('collection-token');

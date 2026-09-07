@@ -4,6 +4,9 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    dedupe: ['js-yaml'],
+  },
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
   },

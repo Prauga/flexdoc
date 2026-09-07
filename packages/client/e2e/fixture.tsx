@@ -12,6 +12,7 @@ spec.servers = [
 spec.paths['/pets/{id}'].get.summary = 'Get a pet';
 spec.paths['/payload'].post.summary = 'Create a payload';
 const query = new URLSearchParams(window.location.search);
+const fixtureTheme = query.get('theme') === 'dark' ? 'dark' : 'light';
 const hostExecution = query.get('hostExecution') === '1' ? {
   available: true,
   endpoint: '/e2e/__flexdoc/execute',
@@ -24,13 +25,12 @@ const runtimeIntelligence = query.get('runtime') === '1' ? {
   endpoint: '/e2e/__flexdoc/runtime',
   framework: 'express',
 } : undefined;
-const theme = query.get('theme') === 'dark' ? 'dark' : 'light';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <FlexDoc
       spec={spec}
-      theme={theme}
+      theme={fixtureTheme}
       options={{
         hideDownloadButton: true,
         hideTopbar: query.get('hideTopbar') === '1',

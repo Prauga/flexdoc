@@ -1,3 +1,77 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html,body,#root,#flexdoc-root{height:100%}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .flexdoc-root * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+@media (prefers-contrast: more), (forced-colors: active) {
+  .flexdoc-root :is(button, input, select, textarea, [contenteditable="true"], a[href]) { outline: 2px solid currentColor; outline-offset: 2px; }
+}
+
+.flexdoc-root[data-theme="high-contrast"] {
+  --flexdoc-text: CanvasText;
+  --flexdoc-text-muted: CanvasText;
+  --flexdoc-border: CanvasText;
+  --flexdoc-sidebar-bg: Canvas;
+  --flexdoc-sidebar-text: CanvasText;
+  --flexdoc-sidebar-active-text: HighlightText;
+  background: Canvas !important;
+  color: CanvasText !important;
+}
+
+.flexdoc-root[data-theme="high-contrast"] :is(button, input, select, textarea, [contenteditable="true"], a[href]) {
+  border-color: CanvasText !important;
+  outline-color: CanvasText;
+}
+
+.flexdoc-root[data-theme="high-contrast"] [aria-selected="true"],
+.flexdoc-root[data-theme="high-contrast"] [aria-pressed="true"],
+.flexdoc-root[data-theme="high-contrast"] [data-selected-endpoint="true"] {
+  background: Highlight !important;
+  color: HighlightText !important;
+}
+
+@media print {
+  .flexdoc-root {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
+  .flexdoc-root > header,
+  .flexdoc-root > footer,
+  .flexdoc-root [data-docs-sidebar],
+  .flexdoc-root [data-api-client-page],
+  .flexdoc-root [data-flexdoc-floating-control],
+  .flexdoc-root [role="dialog"] { display: none !important; }
+  .flexdoc-root [data-flexdoc-docs-view],
+  .flexdoc-root [data-flexdoc-main-scroll],
+  .flexdoc-root main,
+  .flexdoc-root article {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  .flexdoc-root article {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  .flexdoc-root a { color: #000 !important; text-decoration: underline; }
+  .flexdoc-root pre,
+  .flexdoc-root code { white-space: pre-wrap !important; overflow-wrap: anywhere; }
+}
+
+.flexdoc-code :is(.token.comment,.token.prolog,.token.doctype,.token.cdata){color:var(--fd-code-muted)}
+.flexdoc-code :is(.token.selector,.token.attr-name,.token.string,.token.char,.token.builtin,.token.inserted){color:var(--fd-code-string)}
+.flexdoc-code :is(.token.atrule,.token.attr-value,.token.keyword){color:var(--fd-code-keyword)}
+.flexdoc-code :is(.token.boolean,.token.number){color:var(--fd-code-number)}
+.flexdoc-code :is(.token.function,.token.class-name,.token.property,.token.tag,.token.constant,.token.symbol,.token.variable){color:var(--fd-code-accent)}
+.flexdoc-root[data-theme="high-contrast"] .flexdoc-code .token{color:CanvasText!important}

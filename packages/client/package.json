@@ -6,14 +6,28 @@
   "main": "./dist/flexdoc.umd.cjs",
   "module": "./dist/flexdoc.es.js",
   "types": "./dist/types/esm/index.d.ts",
-  "files": ["dist", "README.md"],
-  "publishConfig": { "access": "public" },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
-      "import": { "types": "./dist/types/esm/index.d.ts", "default": "./dist/flexdoc.es.js" },
-      "require": { "types": "./dist/types/cjs/index.d.cts", "default": "./dist/flexdoc.umd.cjs" }
+      "import": {
+        "types": "./dist/types/esm/index.d.ts",
+        "default": "./dist/flexdoc.es.js"
+      },
+      "require": {
+        "types": "./dist/types/cjs/index.d.cts",
+        "default": "./dist/flexdoc.umd.cjs"
+      }
     },
-    "./styles.css": { "import": "./dist/assets/index.css", "require": "./dist/assets/index.css" },
+    "./styles.css": {
+      "import": "./dist/assets/index.css",
+      "require": "./dist/assets/index.css"
+    },
     "./standalone.js": "./dist/standalone/flexdoc.standalone.js",
     "./standalone.css": "./dist/standalone/flexdoc.standalone.css"
   },
@@ -27,21 +41,64 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
   },
-  "keywords": ["flexdoc", "openapi", "api-documentation", "api-docs", "api-explorer", "api-client", "swagger", "swagger-ui", "react", "self-hosted", "developer-tools"],
+  "keywords": [
+    "flexdoc",
+    "openapi",
+    "api-documentation",
+    "api-docs",
+    "api-explorer",
+    "api-client",
+    "swagger",
+    "swagger-ui",
+    "react",
+    "self-hosted",
+    "developer-tools"
+  ],
   "author": "Prauga",
   "license": "AGPL-3.0-or-later",
-  "repository": { "type": "git", "url": "https://github.com/Prauga/flexdoc", "directory": "packages/client" },
-  "bugs": { "url": "https://github.com/prauga/flexdoc/issues" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Prauga/flexdoc",
+    "directory": "packages/client"
+  },
+  "bugs": {
+    "url": "https://github.com/prauga/flexdoc/issues"
+  },
   "homepage": "https://github.com/prauga/flexdoc#readme",
-  "peerDependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" },
-  "dependencies": { "js-yaml": "^4.1.0", "lucide-react": "^0.525.0", "prismjs": "^1.29.0" },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.11.0",
+    "@codemirror/state": "^6.7.4",
+    "@codemirror/view": "^6.43.11",
+    "js-yaml": "^4.1.0",
+    "lucide-react": "^0.525.0",
+    "prismjs": "^1.29.0"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@happy-dom/jest-environment": "^20.12.0",
-    "@testing-library/jest-dom": "^6.6.3", "@testing-library/react": "^16.3.2", "@testing-library/user-event": "^14.6.6",
-    "@types/jest": "^30.0.0", "@types/node": "^22.0.0", "@types/prismjs": "^1.26.0", "@types/react": "^19.0.0", "@types/react-dom": "^19.0.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.6",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.0.0",
+    "@types/prismjs": "^1.26.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.6.0",
-    "eslint": "^10.9.1", "eslint-plugin-react-hooks": "^7.1.1", "eslint-plugin-react-refresh": "^0.5.5", "globals": "^16.4.0",
-    "jest": "^30.5.0", "postcss": "^8.5.26", "tailwindcss": "^3.4.19", "ts-jest": "^29.4.12", "typescript": "^5.9.2", "typescript-eslint": "^8.68.0", "vite": "^7.3.6"
+    "eslint": "^10.9.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.5",
+    "globals": "^16.4.0",
+    "jest": "^30.5.0",
+    "postcss": "^8.5.26",
+    "tailwindcss": "^3.4.19",
+    "ts-jest": "^29.4.12",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.68.0",
+    "vite": "^7.3.6"
   }
 }

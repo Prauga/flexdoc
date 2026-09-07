@@ -1,10 +1,9 @@
 const { test, expect } = require('@playwright/test');
 
 async function openHostApiClient(page) {
-  await page.goto('/e2e/index.html?hostExecution=1#get-pets-id');
-  await page.getByLabel('path id').fill('42');
+  await page.goto('/e2e/index.html?hostExecution=1#get-~2Fpets~2F~7Bid~7D');
   await page.getByRole('button', { name: 'Open in API Client' }).click();
-  const apiClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  const apiClient = page.locator('[data-api-client-page="api-client"]');
   await expect(apiClient).toBeVisible();
   return apiClient;
 }
@@ -38,14 +37,17 @@ test('host-only auth executes through the API host and keeps the normal response
   });
 
   const apiClient = await openHostApiClient(page);
+  await apiClient.getByRole('tab', { name: 'Authorization' }).click();
   await apiClient.getByLabel('Authorization type', { exact: true }).selectOption('digest');
   await apiClient.getByLabel('Digest username').fill('alice');
   await apiClient.getByLabel('Digest password').fill('secret');
   await apiClient.getByLabel('Client certificate').selectOption('client-cert');
   await apiClient.getByLabel('Use API host cookie jar').check();
+  await apiClient.getByRole('tab', { name: 'Scripts' }).click();
+  await apiClient.getByRole('tab', { name: 'Tests' }).click();
   await apiClient.getByLabel('Tests script').fill("flex.test('host response', () => flex.expect(flex.response?.code).to.equal(201));");
 
-  await expect(apiClient.getByRole('status')).toContainText('FlexDoc will execute it from the API host');
+  await expect(apiClient.getByRole('status', { name: 'Host execution status' })).toContainText('FlexDoc will execute it from the API host');
   await apiClient.getByRole('button', { name: 'Send request' }).click();
 
   await expect.poll(() => hostRequest?.envelope?.request?.auth?.type).toBe('digest');
@@ -62,10 +64,10 @@ test('host-only auth executes through the API host and keeps the normal response
 
 test('host-only auth remains unavailable when the docs host exposes no executor', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop host capability gating coverage');
-  await page.goto('/e2e/index.html#get-pets-id');
-  await page.getByLabel('path id').fill('42');
+  await page.goto('/e2e/index.html#get-~2Fpets~2F~7Bid~7D');
   await page.getByRole('button', { name: 'Open in API Client' }).click();
-  const apiClient = page.locator('section[aria-labelledby="api-client-heading"]');
+  const apiClient = page.locator('[data-api-client-page="api-client"]');
+  await apiClient.getByRole('tab', { name: 'Authorization' }).click();
   const auth = apiClient.getByLabel('Authorization type', { exact: true });
   await expect(auth.locator('option[value="digest"]')).toHaveAttribute('disabled', '');
   await expect(auth.locator('option[value="oauth1"]')).toHaveAttribute('disabled', '');

@@ -20,15 +20,17 @@ test('CLI static export renders, deep-links, and executes Try It', async ({ page
   await expect(sidebar.getByText('/pets/{id}', { exact: true })).toBeVisible();
 
   await sidebar.locator('button').filter({ hasText: '/pets/{id}' }).click();
-  await expect(page).toHaveURL(/#get-pets-id$/);
+  await expect(page).toHaveURL(/#get-~2Fpets~2F~7Bid~7D$/);
   await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
-  const tryIt = page.getByRole('button', { name: 'Try It', exact: true });
-  await expect(tryIt).toHaveAttribute('aria-expanded', 'false');
-  await tryIt.click();
-  await expect(tryIt).toHaveAttribute('aria-expanded', 'true');
-  await page.getByLabel('path id').fill('42');
-  await page.getByRole('button', { name: 'Send request' }).click();
-  await expect(page.getByText(/Response\s+200\s+OK/)).toBeVisible();
+  const tryItButton = page.getByRole('button', { name: 'Try It', exact: true });
+  await expect(tryItButton).toHaveAttribute('aria-expanded', 'false');
+  await tryItButton.click();
+  await expect(tryItButton).toHaveAttribute('aria-expanded', 'true');
+
+  const tryIt = page.locator('[data-try-it-session]');
+  await tryIt.getByLabel('Request URL').fill('https://api.example.test/pets/42');
+  await tryIt.getByRole('button', { name: 'Send request' }).click();
+  await expect(page.getByText('200 OK', { exact: true })).toBeVisible();
   await expect(page.locator('pre').filter({ hasText: 'Milo' })).toBeVisible();
 
   expect(localRequests.some((url) => url.endsWith('/docs/openapi.json'))).toBeTruthy();
@@ -36,7 +38,7 @@ test('CLI static export renders, deep-links, and executes Try It', async ({ page
 });
 
 test('CLI static export supports direct endpoint hashes under a base path', async ({ page }) => {
-  await page.goto('#get-pets-id');
-  await expect(page).toHaveURL(/\/docs\/#get-pets-id$/);
+  await page.goto('#get-~2Fpets~2F~7Bid~7D');
+  await expect(page).toHaveURL(/\/docs\/#get-~2Fpets~2F~7Bid~7D$/);
   await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
 });

@@ -191,7 +191,7 @@ export function buildRequest(spec: OpenAPISpec, path: string, method: string, va
   let body: string | undefined;
   let bodyKind: BuiltRequest['bodyKind'];
   let requestBody: BodyInit | undefined;
-  if (values.body && !['GET', 'HEAD'].includes(normalized.method)) {
+  if (values.body) {
     const contentType = values.contentType || 'application/json';
     body = values.body;
     if (contentType === 'application/x-www-form-urlencoded') {

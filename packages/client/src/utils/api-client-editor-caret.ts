@@ -16,7 +16,9 @@ export function apiClientEditorCaretPosition(textarea: HTMLTextAreaElement, posi
   mirror.style.width = `${textarea.clientWidth}px`;
   mirror.style.height = `${textarea.clientHeight}px`;
   mirror.style.overflow = 'hidden';
-  mirror.style.whiteSpace = 'pre';
+  mirror.style.whiteSpace = style.whiteSpace;
+  mirror.style.overflowWrap = style.overflowWrap;
+  mirror.style.wordBreak = style.wordBreak;
   mirror.style.fontFamily = style.fontFamily;
   mirror.style.fontSize = style.fontSize;
   mirror.style.fontWeight = style.fontWeight;

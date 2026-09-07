@@ -24,7 +24,7 @@ describe('ApiClient', () => {
       body: '{"name":"Mochi"}',
       contentType: 'application/json',
     }} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Send request/ }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const [, init] = fetchMock.mock.calls[0];
@@ -46,7 +46,7 @@ describe('ApiClient', () => {
         { key: 'X-Trace', value: 'two' },
       ],
     }} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Send request/ }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const [, init] = fetchMock.mock.calls[0];
@@ -64,7 +64,7 @@ describe('ApiClient', () => {
 
     expect(screen.getByLabelText('Query parameters 1 key')).toHaveValue('limit');
     expect(screen.getByLabelText('Query parameters 1 value')).toHaveValue('10');
-    fireEvent.click(screen.getByRole('button', { name: 'Send request' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Send request/ }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     const [url, init] = fetchMock.mock.calls[0];
