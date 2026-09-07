@@ -4,13 +4,13 @@ All runnable or compile/smoke-tested FlexDoc framework examples live here. CI ke
 
 | Example | FlexDoc package / integration |
 | --- | --- |
-| [`basic-usage`](./basic-usage) | React + `@prauga/flexdoc-client` `2.9.5` |
-| [`interactive-demo`](./interactive-demo) | React + `@prauga/flexdoc-client` `2.9.5` |
-| [`api-client`](./api-client) | Full API Client + `@prauga/flexdoc-client` `2.9.5` |
-| [`nestjs`](./nestjs) | NestJS + `@prauga/flexdoc-backend` `2.9.5` |
-| [`javascript-express`](./javascript-express) | Express + `@prauga/flexdoc-backend` `2.9.5` |
-| [`javascript-fastify`](./javascript-fastify) | Fastify + `@prauga/flexdoc-backend` `2.9.5` |
-| [`javascript-hono`](./javascript-hono) | Hono + `@prauga/flexdoc-backend` `2.9.5` |
+| [`basic-usage`](./basic-usage) | React + `@prauga/flexdoc-client` `2.9.9` |
+| [`interactive-demo`](./interactive-demo) | React + `@prauga/flexdoc-client` `2.9.9` |
+| [`api-client`](./api-client) | Full API Client + `@prauga/flexdoc-client` `2.9.9` |
+| [`nestjs`](./nestjs) | NestJS + `@prauga/flexdoc-backend` `2.9.9` |
+| [`javascript-express`](./javascript-express) | Express + `@prauga/flexdoc-backend` `2.9.9` |
+| [`javascript-fastify`](./javascript-fastify) | Fastify + `@prauga/flexdoc-backend` `2.9.9` |
+| [`javascript-hono`](./javascript-hono) | Hono + `@prauga/flexdoc-backend` `2.9.9` |
 | [`dotnet-aspnetcore`](./dotnet-aspnetcore) | `Prauga.FlexDoc.AspNetCore` `0.4.1` |
 | [`java-spring`](./java-spring) | Spring Boot + `flexdoc-spring-boot-starter` `0.7.1` |
 | [`java-quarkus`](./java-quarkus) | Quarkus/Jakarta REST + `flexdoc-jaxrs` `0.7.1` |

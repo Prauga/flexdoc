@@ -6,8 +6,8 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 
 | Artifact | Version represented by source | Release tag | Compatibility |
 | --- | --- | --- | --- |
-| `@prauga/flexdoc-client` | `2.9.5` | `js/v2.9.5` | canonical renderer; renderer contract v1 |
-| `@prauga/flexdoc-backend` | `2.9.5` | `js/v2.9.5` | matching renderer; contract v1 |
+| `@prauga/flexdoc-client` | `2.9.9` | `js/v2.9.9` | canonical renderer; renderer contract v1 |
+| `@prauga/flexdoc-backend` | `2.9.9` | `js/v2.9.9` | matching renderer; contract v1 |
 | `@prauga/flexdoc-core` | `0.4.0` | `core/v0.4.0` | framework-neutral OpenAPI engine |
 | `@prauga/flexdoc-cli` | `0.4.0` | `cli/v0.4.0` | compatible Prauga renderer |
 | `Prauga.FlexDoc.AspNetCore` | `0.4.1` | `dotnet/v0.4.1` | ASP.NET Core 8+; renderer contract v1 |
@@ -24,7 +24,7 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 
 The table describes the versions encoded by the current source tree. A new source version is not considered published merely because it appears here; publication still requires its matching release workflow to complete successfully.
 
-Versions are intentionally independent across ecosystems. The FlexDoc product release line advanced directly from shipped `2.3.0` to published `2.8.0`; the published coordinated product line is `2.9.0`, and this source tree is prepared for the coordinated `2.9.5` parity-hardening release candidate. The renderer contract, not matching package numbers, is the cross-ecosystem compatibility boundary.
+Versions are intentionally independent across ecosystems. The FlexDoc product release line advanced through published `2.8.0`, `2.9.0`, and `2.9.5`; this source tree is prepared for the coordinated `2.9.9` performance-readiness release candidate. Because 2.9.9 changes Node hosting behavior and release metadata without changing the canonical renderer bytes, native adapters remain on their existing published versions and are not republished for this release. The renderer contract, not matching package numbers, is the cross-ecosystem compatibility boundary.
 
 ## Self-contained adapter artifacts
 
@@ -63,7 +63,7 @@ Before the first publish, configure a NuGet.org Trusted Publishing policy for re
 
 ## Maven Central
 
-The FlexDoc Java family carrying the 2.9.5 release-candidate renderer is coordinated at `0.7.1`:
+The current FlexDoc Java family remains coordinated at `0.7.1`. FlexDoc 2.9.9 does not change the canonical renderer bytes, so the Java artifacts do not require a republish for this release:
 
 ```text
 com.prauga.flexdoc:flexdoc-jvm:0.7.1

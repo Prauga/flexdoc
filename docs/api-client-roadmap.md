@@ -2,7 +2,7 @@
 
 FlexDoc 2.3.0 was the last coordinated product release before the API Client workspace grew through several focused development milestones. Those milestone numbers described source-development slices; they were not separate published FlexDoc package releases. The coordinated product line moved directly from published **2.3.0** to published **2.8.0** after the 2.8 source definition of done was satisfied.
 
-The current published coordinated product line is **2.9.5**. FlexDoc **2.9.9 is source-complete in this performance-readiness PR** and remains unpublished until its release preparation and release workflow complete successfully.
+The current published coordinated product line is **2.9.5**. FlexDoc **2.9.9 is source-complete and prepared as the coordinated performance-readiness release candidate**; it remains unpublished until the matching `js/v2.9.9` release workflow completes successfully.
 
 Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and `@prauga/flexdoc-backend` carry the coordinated FlexDoc product version because they own and distribute the canonical renderer. Native adapters receive their own semantic-version increment when they package a new renderer, rather than being renamed to the product version.
 
@@ -18,7 +18,7 @@ Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and 
 | **2.8** | Postman import into the canonical standalone workspace and coordinated product-version catch-up | shipped |
 | **2.9** | shared request executor, collection/folder runner product UI, scripting IntelliSense, grouped run history, and full request-history inspector | shipped |
 | **2.9.5** | REST workspace parity hardening plus capability-gated Node API-host execution for browser-impossible request features | shipped |
-| **2.9.9** | measured performance baseline, production delivery hardening, host-page caching/revalidation, and regression budgets before Runtime Intelligence | source complete / pending merge |
+| **2.9.9** | measured performance baseline, production delivery hardening, host-page caching/revalidation, and regression budgets before Runtime Intelligence | release candidate |
 
 Viewer expansion defaults/settings and renderer-option parity landed before the 2.8 release and are included in the 2.8 product surface.
 
@@ -74,7 +74,7 @@ The 2.9 source release candidate is complete with the following satisfied:
 - [x] future-version example manifests and the deterministic future-tag Go checksum represent the release-candidate source tree without pretending registry artifacts already exist
 - [x] the canonical standalone renderer is rebuilt and synchronized across committed adapter assets, with parity checks passing before the release candidate is proposed
 
-2.9.0 is published. 2.9.5 is also published; 2.9.9 is the current source-complete performance-readiness milestone pending merge and release preparation.
+2.9.0 and 2.9.5 are published. 2.9.9 is now prepared as the final 2.x performance-readiness release candidate.
 
 ## 2.8.0 definition of done
 
@@ -110,7 +110,7 @@ Definition of done:
 
 The architectural priority test remains unchanged: **could Scalar implement this without being installed inside the backend?** Performance work is justified here because backend installation is part of FlexDoc's differentiation; the cost of that installation must be explicit, small, and continuously measurable.
 
-## Backend-native roadmap after 2.9.5
+## Backend-native roadmap after 2.9.9
 
 FlexDoc should differentiate through information and actions available because it is installed **inside the running backend**, not by indefinitely chasing generic hosted-docs or API-client parity. The prioritization question for major roadmap work is:
 
@@ -130,6 +130,6 @@ Cloud collaboration, teams, enterprise controls, CI workflow, and additional pro
 
 ## Release interpretation
 
-Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product line moved through published **2.8.0**, **2.9.0**, and **2.9.5**. FlexDoc **2.9.9** is the final 2.x performance-readiness milestone before 3.0 and is not published until its dedicated release preparation and release workflow complete successfully.
+Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product line moved through published **2.8.0**, **2.9.0**, and **2.9.5**. FlexDoc **2.9.9** is the final 2.x performance-readiness release candidate before 3.0 and remains unpublished until the `js/v2.9.9` release workflow completes successfully.
 
 For native adapters, each package remains on its independently versioned semantic-release line while carrying the current coordinated renderer. `@prauga/flexdoc-core` remains independently versioned unless the framework-neutral engine itself changes. The CLI also remains independently versioned and consumes the coordinated client line.
