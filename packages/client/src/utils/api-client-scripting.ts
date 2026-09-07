@@ -1,52 +1,63 @@
 import type { HttpKeyValue, HttpRequestDraft, HttpVariables } from './http-client';
 
+/** Scripts attached to one API Client request. */
 export interface ApiClientRequestScripts {
-  preRequest: string;
-  tests: string;
+  /** JavaScript executed before variable resolution/request construction. */ preRequest: string;
+  /** JavaScript executed after a response is available. */ tests: string;
 }
 
+/** One environment-variable mutation emitted by a script. */
 export interface ApiClientScriptEnvironmentChange {
-  action: 'set' | 'unset';
-  key: string;
-  value?: string;
+  /** Whether to assign or remove the variable. */ action: 'set' | 'unset';
+  /** Variable name. */ key: string;
+  /** Assigned value for `set` actions. */ value?: string;
 }
 
+/** One collection-variable mutation emitted by a script. */
 export interface ApiClientScriptCollectionChange {
-  action: 'set' | 'unset';
-  key: string;
-  value?: string;
+  /** Whether to assign or remove the variable. */ action: 'set' | 'unset';
+  /** Variable name. */ key: string;
+  /** Assigned value for `set` actions. */ value?: string;
 }
 
+/** Result of one `flex.test(...)` assertion callback. */
 export interface ApiClientScriptTestResult {
-  name: string;
-  passed: boolean;
-  error?: string;
+  /** User-provided test name. */ name: string;
+  /** Whether the test callback completed without throwing/rejecting. */ passed: boolean;
+  /** Assertion/runtime error when the test failed. */ error?: string;
 }
 
+/** Response data exposed to post-response test scripts. */
 export interface ApiClientScriptResponse {
-  status: number;
-  statusText: string;
-  headers: Array<[string, string]>;
-  body: string;
-  responseTime: number;
+  /** HTTP status code. */ status: number;
+  /** HTTP status text. */ statusText: string;
+  /** Ordered response headers. */ headers: Array<[string, string]>;
+  /** Response body decoded as text. */ body: string;
+  /** Measured response time in milliseconds. */ responseTime: number;
 }
 
+/** Complete result of running one pre-request or test script. */
 export interface ApiClientScriptRunResult {
-  draft: HttpRequestDraft;
-  variables: HttpVariables;
-  collectionVariables: HttpVariables;
-  externalVariables: HttpVariables;
-  environmentVariables: HttpVariables;
-  collectionChanges: ApiClientScriptCollectionChange[];
-  environmentChanges: ApiClientScriptEnvironmentChange[];
-  tests: ApiClientScriptTestResult[];
-  logs: string[];
-  error?: string;
+  /** Cloned request draft after script mutations. */ draft: HttpRequestDraft;
+  /** Effective local/combined variables after script mutations. */ variables: HttpVariables;
+  /** Collection variables after script mutations. */ collectionVariables: HttpVariables;
+  /** External variables visible to the script; scripts do not persist changes into this scope. */ externalVariables: HttpVariables;
+  /** Environment variables after script mutations. */ environmentVariables: HttpVariables;
+  /** Collection mutations emitted for workspace persistence. */ collectionChanges: ApiClientScriptCollectionChange[];
+  /** Environment mutations emitted for workspace persistence. */ environmentChanges: ApiClientScriptEnvironmentChange[];
+  /** Test assertion results. */ tests: ApiClientScriptTestResult[];
+  /** Captured script console output. */ logs: string[];
+  /** Top-level script runtime error, if execution failed outside an individual `flex.test`. */ error?: string;
 }
 
 /** Empty pre-request and test scripts. */
 export const EMPTY_API_CLIENT_SCRIPTS: ApiClientRequestScripts = { preRequest: '', tests: '' };
 
+/**
+ * Clone partial script input into the complete API Client script shape.
+ * @param scripts Optional partial pre-request/test scripts.
+ * @returns Independent script object with missing phases defaulted to empty strings.
+ */
 export function cloneApiClientScripts(scripts?: Partial<ApiClientRequestScripts>): ApiClientRequestScripts {
   return {
     preRequest: scripts?.preRequest || '',
@@ -193,16 +204,23 @@ function createResponseHeadersApi(headers: Array<[string, string]>) {
   };
 }
 
-/** Run a pre-request or test script against the current draft and variable scopes. */
+/**
+ * Run a pre-request or test script against the current draft and variable scopes.
+ *
+ * Scripts are trusted local JavaScript, not a security sandbox.
+ *
+ * @param options Script source, phase, request draft, variable scopes, and optional response data.
+ * @returns Mutated draft/scopes, persistence changes, tests, logs, and any top-level script error.
+ */
 export async function runApiClientScript(options: {
-  script: string;
-  phase: 'pre-request' | 'tests';
-  draft: HttpRequestDraft;
-  variables?: HttpVariables;
-  collectionVariables?: HttpVariables;
-  externalVariables?: HttpVariables;
-  environmentVariables?: HttpVariables;
-  response?: ApiClientScriptResponse;
+  /** JavaScript source to execute. */ script: string;
+  /** Script phase controlling response/test API availability. */ phase: 'pre-request' | 'tests';
+  /** Request draft cloned before the script mutates it. */ draft: HttpRequestDraft;
+  /** Effective local/combined variables. */ variables?: HttpVariables;
+  /** Collection-scoped variables. */ collectionVariables?: HttpVariables;
+  /** External host-supplied variables. */ externalVariables?: HttpVariables;
+  /** Active environment variables. */ environmentVariables?: HttpVariables;
+  /** Response exposed to test scripts. */ response?: ApiClientScriptResponse;
 }): Promise<ApiClientScriptRunResult> {
   const draft = cloneDraft(options.draft);
   const variables = safeVariables(options.variables || {});
