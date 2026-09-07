@@ -16,31 +16,31 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - **Rust:** Axum, Actix Web
 - **Elixir:** Plug, Phoenix
 
-The backend-coverage program shipped in 2.3.0, and the coordinated product line has now reached published **2.9.5**. The source tree is prepared as the **2.9.9 release candidate**, focused on measured production readiness: repeatable performance baselines, Node docs-page caching/revalidation, normal-route isolation, and deterministic bundle-size budgets. After 2.9.9, roadmap priority moves to backend-native **3.0 Runtime Intelligence**. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the release definition and backend-native roadmap.
+The backend-coverage program shipped in 2.3.0 and the coordinated 2.x line culminated in published **2.9.9**. This source tree is prepared for stable **3.0.0**, combining backend-native Runtime Intelligence with the completed renderer/API Client product-quality gate: live route discovery and implementation drift where the backend can genuinely observe it, shared request execution and editing, responsive/localized chrome, accessibility hardening, and deterministic performance budgets. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the 3.0 definition and follow-on roadmap.
 
 ## Package family
 
 | Ecosystem | Package | Source version |
 | --- | --- | ---: |
-| npm | `@prauga/flexdoc-client` | `2.9.9` |
-| npm | `@prauga/flexdoc-backend` | `2.9.9` |
-| npm | `@prauga/flexdoc-core` | `0.4.0` |
-| npm | `@prauga/flexdoc-cli` | `0.4.0` |
-| NuGet | `Prauga.FlexDoc.AspNetCore` | `0.4.1` |
-| Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.7.1` |
-| Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.7.1` |
-| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.7.1` |
-| PyPI | `prauga-flexdoc` | `0.6.1` |
-| Composer | `prauga/flexdoc` | `0.4.1` |
-| RubyGems | `prauga-flexdoc` | `0.4.1` |
-| crates.io | `prauga-flexdoc-axum` | `0.5.1` |
-| crates.io | `prauga-flexdoc-actix` | `0.4.1` |
-| Hex | `prauga_flexdoc` | `0.4.1` |
-| Go | `github.com/prauga/flexdoc/adapters/go` | `0.5.1` |
+| npm | `@prauga/flexdoc-client` | `3.0.0` |
+| npm | `@prauga/flexdoc-backend` | `3.0.0` |
+| npm | `@prauga/flexdoc-core` | `0.5.0` |
+| npm | `@prauga/flexdoc-cli` | `0.5.0` |
+| NuGet | `Prauga.FlexDoc.AspNetCore` | `0.5.0` |
+| Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.8.0` |
+| Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.8.0` |
+| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.8.0` |
+| PyPI | `prauga-flexdoc` | `0.7.0` |
+| Composer | `prauga/flexdoc` | `0.4.2` |
+| RubyGems | `prauga-flexdoc` | `0.4.2` |
+| crates.io | `prauga-flexdoc-axum` | `0.5.2` |
+| crates.io | `prauga-flexdoc-actix` | `0.4.2` |
+| Hex | `prauga_flexdoc` | `0.4.2` |
+| Go | `github.com/prauga/flexdoc/adapters/go` | `0.5.2` |
 
 Ecosystem package versions are intentionally independent. Renderer contract v1 is the cross-language compatibility boundary.
 
-> The package table reflects the versions encoded by the current source commit. Release-preparation commits update these source versions only when the matching release candidate is ready; source version numbers alone do not mean an artifact has been published.
+> The package table reflects the versions encoded by the current source commit. Release-preparation commits update these source versions only when the matching release is ready; source version numbers alone do not mean an artifact has been published.
 
 ## Architecture
 
