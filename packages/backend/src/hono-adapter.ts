@@ -7,24 +7,37 @@ import { hostExecutionRequestOrigin, runHostCookiesRoute, runHostExecutionRoute 
 import { createCachedFlexDocPage, matchesFlexDocEtag } from './page-cache';
 import { buildRuntimeIntelligenceSnapshot, discoverHonoRoutes, runtimeIntelligenceEnabled } from './runtime-intelligence';
 
+/** Minimal Hono request surface required by FlexDoc's adapter. */
 export interface HonoLikeRequest {
-  header(name: string): string | undefined;
-  raw?: Request;
+  /** Read one incoming request header by name. */ header(name: string): string | undefined;
+  /** Native Fetch `Request` when exposed by the Hono runtime. */ raw?: Request;
 }
 
+/** Minimal Hono context surface required by FlexDoc's adapter. */
 export interface HonoLikeContext {
-  req: HonoLikeRequest;
+  /** Incoming Hono request wrapper. */ req: HonoLikeRequest;
+  /** Create a response from body text/bytes, status, and headers. */
   body(body: string | Uint8Array, status?: number, headers?: Record<string, string>): unknown;
 }
 
+/** Minimal Hono application surface required by `setupHonoFlexDoc`. */
 export interface HonoLikeApplication {
+  /** Register a GET route. */
   get(path: string, handler: (context: HonoLikeContext) => unknown | Promise<unknown>): unknown;
+  /** Register a POST route when supported by the host. Required for API-host execution. */
   post?: (path: string, handler: (context: HonoLikeContext) => unknown | Promise<unknown>) => unknown;
+  /** Register a DELETE route when supported by the host. Used to clear host cookies. */
   delete?: (path: string, handler: (context: HonoLikeContext) => unknown | Promise<unknown>) => unknown;
+  /** Hono's registered route list used by Runtime Intelligence discovery. */
   routes?: Array<{ method: string; path: string }>;
 }
 
-/** Register FlexDoc on Hono without adding Hono as a backend package dependency. */
+/**
+ * Register FlexDoc on Hono without adding Hono as a backend package dependency.
+ * @param app Hono-compatible application instance.
+ * @param path Documentation mount path.
+ * @param options Inline/remote OpenAPI source plus renderer, auth, Runtime Intelligence, and Try It options.
+ */
 export function setupHonoFlexDoc(
   app: HonoLikeApplication,
   path: string,
