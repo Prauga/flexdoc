@@ -12,6 +12,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpHeaders;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.method.HandlerMethod;
@@ -36,14 +37,17 @@ class SpringRuntimeIntelligenceTest {
     MockHttpServletRequest request = new MockHttpServletRequest();
     request.setScheme("https");
     request.addHeader("Host", "api.example.test");
+    request.setLocalPort(8443);
 
     Map<String, Object> snapshot = SpringRuntimeIntelligence.buildSnapshot(
-        mappings, spec, request, "/docs", "/v3/api-docs");
+        mappings, spec, request, "/docs", "/v3/api-docs", "staging");
     JsonNode json = objectMapper.valueToTree(snapshot);
 
     assertThat(json.get("framework").asText()).isEqualTo("spring");
     assertThat(json.get("runtime").get("name").asText()).isEqualTo("java");
     assertThat(json.get("serverOrigin").asText()).isEqualTo("https://api.example.test");
+    assertThat(json.get("server").get("localPort").asInt()).isEqualTo(8443);
+    assertThat(json.get("environment").get("name").asText()).isEqualTo("staging");
     assertThat(json.get("discoveryComplete").asBoolean()).isTrue();
     assertThat(json.get("summary")).isEqualTo(objectMapper.valueToTree(Map.of(
         "documented", 2,
@@ -75,11 +79,14 @@ class SpringRuntimeIntelligenceTest {
     FlexDocProperties properties = new FlexDocProperties();
     properties.setRuntimeIntelligence(true);
     FlexDocSpecProvider specProvider = () -> Map.of("paths", Map.of("/orders/{orderId}", Map.of("get", Map.of())));
-    SpringRuntimeIntelligence runtime = new SpringRuntimeIntelligence(properties, specProvider, mappingProvider, objectMapper);
+    MockEnvironment environment = new MockEnvironment();
+    environment.setActiveProfiles("test");
+    SpringRuntimeIntelligence runtime = new SpringRuntimeIntelligence(properties, specProvider, mappingProvider, objectMapper, environment);
     FlexDocRuntimeController controller = new FlexDocRuntimeController(runtime, objectMapper);
     MockHttpServletRequest request = new MockHttpServletRequest();
     request.setScheme("http");
     request.addHeader("Host", "localhost:8080");
+    request.setLocalPort(8080);
 
     var response = controller.runtime(request);
     JsonNode json = objectMapper.readTree(response.getBody());
@@ -88,6 +95,8 @@ class SpringRuntimeIntelligenceTest {
     assertThat(response.getHeaders().getFirst(HttpHeaders.CACHE_CONTROL)).isEqualTo("no-store");
     assertThat(json.get("summary").get("runtime").asInt()).isEqualTo(2);
     assertThat(json.get("runtimeOnly").get(0).get("path").asText()).isEqualTo("/internal");
+    assertThat(json.get("server").get("localPort").asInt()).isEqualTo(8080);
+    assertThat(json.get("environment").get("name").asText()).isEqualTo("test");
   }
 
   @Test

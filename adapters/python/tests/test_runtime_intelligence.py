@@ -60,13 +60,14 @@ class RuntimeIntelligenceTest(unittest.TestCase):
 
         snapshot = build_fastapi_runtime_snapshot(
             app,
-            {"scheme": "https", "headers": [(b"host", b"api.example.test")]},
+            {"scheme": "https", "headers": [(b"host", b"api.example.test")], "server": ("127.0.0.1", 8443)},
             "/reference",
         )
 
         self.assertEqual(snapshot["framework"], "fastapi")
         self.assertEqual(snapshot["runtime"]["name"], "python")
         self.assertEqual(snapshot["serverOrigin"], "https://api.example.test")
+        self.assertEqual(snapshot["server"], {"localPort": 8443})
         self.assertTrue(snapshot["discoveryComplete"])
         self.assertEqual(snapshot["runtimeOnly"], [{"method": "POST", "path": "/internal"}])
         self.assertEqual(snapshot["documentedOnly"], [{"method": "POST", "path": "/missing"}])
@@ -78,6 +79,7 @@ class RuntimeIntelligenceTest(unittest.TestCase):
             "documentedOnly": 1,
         })
         self.assertNotIn({"method": "HEAD", "path": "/mounted/items/{item_id}"}, snapshot["routes"])
+        self.assertNotIn("environment", snapshot)
 
     def test_marks_opaque_mounts_partial(self):
         app = FakeFastAPI([FakeMount("/opaque", [])])

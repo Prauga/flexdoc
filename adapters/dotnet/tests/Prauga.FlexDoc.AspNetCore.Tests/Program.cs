@@ -78,27 +78,39 @@ app.MapGet("/docs", () => Results.Ok());
 var context = new DefaultHttpContext();
 context.Request.Scheme = "https";
 context.Request.Host = new HostString("api.example.test");
-var openApiElement = AspNetRuntimeIntelligence.OpenApiDocumentElement(runtimeSpec);
-var snapshot = AspNetRuntimeIntelligence.BuildSnapshot(
-    ((IEndpointRouteBuilder)app).DataSources.SelectMany(static source => source.Endpoints),
-    openApiElement,
-    context,
-    "/docs",
-    "/openapi.json");
-var snapshotJson = JsonSerializer.SerializeToElement(snapshot);
-Check(snapshotJson.GetProperty("framework").GetString() == "aspnetcore", "snapshot framework must be ASP.NET Core");
-Check(snapshotJson.GetProperty("runtime").GetProperty("name").GetString() == "dotnet", "snapshot runtime must be dotnet");
-Check(snapshotJson.GetProperty("serverOrigin").GetString() == "https://api.example.test", "snapshot origin must come from the request");
-Check(snapshotJson.GetProperty("discoveryComplete").GetBoolean(), "known HTTP endpoint discovery should be complete");
-var runtimeOnly = snapshotJson.GetProperty("runtimeOnly");
-Check(runtimeOnly.GetArrayLength() == 1, "one runtime-only endpoint expected");
-Check(runtimeOnly[0].GetProperty("method").GetString() == "POST" && runtimeOnly[0].GetProperty("path").GetString() == "/internal", "runtime-only endpoint must be /internal");
-var documentedOnly = snapshotJson.GetProperty("documentedOnly");
-Check(documentedOnly.GetArrayLength() == 1, "one documented-only endpoint expected");
-Check(documentedOnly[0].GetProperty("path").GetString() == "/missing", "documented-only endpoint must be /missing");
-var discoveredRoutes = snapshotJson.GetProperty("routes");
-Check(discoveredRoutes.EnumerateArray().Any(route => route.GetProperty("path").GetString() == "/orders/{orderId}"), "ASP.NET route constraints must normalize to OpenAPI parameter syntax");
-Check(!discoveredRoutes.EnumerateArray().Any(route => route.GetProperty("path").GetString() == "/openapi.json"), "OpenAPI infrastructure must be excluded");
-Check(!discoveredRoutes.EnumerateArray().Any(route => route.GetProperty("path").GetString() == "/docs"), "FlexDoc infrastructure must be excluded");
+context.Connection.LocalPort = 8443;
+var originalEnvironment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", "Staging");
+try
+{
+    var openApiElement = AspNetRuntimeIntelligence.OpenApiDocumentElement(runtimeSpec);
+    var snapshot = AspNetRuntimeIntelligence.BuildSnapshot(
+        ((IEndpointRouteBuilder)app).DataSources.SelectMany(static source => source.Endpoints),
+        openApiElement,
+        context,
+        "/docs",
+        "/openapi.json");
+    var snapshotJson = JsonSerializer.SerializeToElement(snapshot);
+    Check(snapshotJson.GetProperty("framework").GetString() == "aspnetcore", "snapshot framework must be ASP.NET Core");
+    Check(snapshotJson.GetProperty("runtime").GetProperty("name").GetString() == "dotnet", "snapshot runtime must be dotnet");
+    Check(snapshotJson.GetProperty("serverOrigin").GetString() == "https://api.example.test", "snapshot origin must come from the request");
+    Check(snapshotJson.GetProperty("server").GetProperty("localPort").GetInt32() == 8443, "snapshot must expose only the backend listener port");
+    Check(snapshotJson.GetProperty("environment").GetProperty("name").GetString() == "Staging", "snapshot must expose the standard ASP.NET environment name");
+    Check(snapshotJson.GetProperty("discoveryComplete").GetBoolean(), "known HTTP endpoint discovery should be complete");
+    var runtimeOnly = snapshotJson.GetProperty("runtimeOnly");
+    Check(runtimeOnly.GetArrayLength() == 1, "one runtime-only endpoint expected");
+    Check(runtimeOnly[0].GetProperty("method").GetString() == "POST" && runtimeOnly[0].GetProperty("path").GetString() == "/internal", "runtime-only endpoint must be /internal");
+    var documentedOnly = snapshotJson.GetProperty("documentedOnly");
+    Check(documentedOnly.GetArrayLength() == 1, "one documented-only endpoint expected");
+    Check(documentedOnly[0].GetProperty("path").GetString() == "/missing", "documented-only endpoint must be /missing");
+    var discoveredRoutes = snapshotJson.GetProperty("routes");
+    Check(discoveredRoutes.EnumerateArray().Any(route => route.GetProperty("path").GetString() == "/orders/{orderId}"), "ASP.NET route constraints must normalize to OpenAPI parameter syntax");
+    Check(!discoveredRoutes.EnumerateArray().Any(route => route.GetProperty("path").GetString() == "/openapi.json"), "OpenAPI infrastructure must be excluded");
+    Check(!discoveredRoutes.EnumerateArray().Any(route => route.GetProperty("path").GetString() == "/docs"), "FlexDoc infrastructure must be excluded");
+}
+finally
+{
+    Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", originalEnvironment);
+}
 
 Console.WriteLine(".NET FlexDoc renderer and Runtime Intelligence contracts passed.");
