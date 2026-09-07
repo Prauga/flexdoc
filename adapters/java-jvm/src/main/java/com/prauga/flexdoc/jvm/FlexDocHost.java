@@ -65,6 +65,13 @@ public final class FlexDocHost {
     rendererOptions.put("theme", config.theme());
     rendererOptions.put("tryIt", tryIt);
     if (config.expand() != null) rendererOptions.put("expand", config.expand());
+    if (config.runtimeIntelligenceFramework() != null) {
+      Map<String, Object> runtime = new LinkedHashMap<>();
+      runtime.put("available", true);
+      runtime.put("endpoint", config.path() + "/__flexdoc/runtime");
+      runtime.put("framework", config.runtimeIntelligenceFramework());
+      rendererOptions.put("runtimeIntelligence", runtime);
+    }
     String options = jsonValue(rendererOptions);
 
     String base = escapeHtmlAttribute(config.path());

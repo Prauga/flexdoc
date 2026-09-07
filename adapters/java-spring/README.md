@@ -60,6 +60,23 @@ FlexDocSpecProvider flexDocSpecProvider(ObjectMapper mapper, OpenAPI openApi) {
 
 A provider takes precedence over `spec-url`. `spec-location` creates the default provider only when explicitly configured. The Spring auto-configuration serializes that provider into the neutral `FlexDocHost`; the MVC controller only converts `FlexDocHttpResponse` into a `ResponseEntity`.
 
+## Runtime Intelligence
+
+Spring MVC can opt into FlexDoc 3.0 Runtime Intelligence using the live `RequestMappingHandlerMapping` registry:
+
+```yaml
+flexdoc:
+  path: /docs
+  spec-url: /v3/api-docs
+  runtime-intelligence: true
+```
+
+Runtime Intelligence also requires a `FlexDocSpecProvider` so FlexDoc compares the live request-mapping registry with the exact application-generated OpenAPI document rather than fetching `spec-url` back through HTTP or coupling itself to springdoc internals. Existing `spec-location` configuration already creates such a provider; for springdoc or another code-first producer, supply a programmatic provider bean.
+
+When enabled, `GET /docs/__flexdoc/runtime` returns a `Cache-Control: no-store` snapshot containing Spring/Java runtime metadata, the request-derived server origin, live routes, implemented-but-undocumented routes, documented-but-not-observed routes, and discovery completeness. Spring route constraints such as `{id:\d+}` and capture-all parameters are normalized to OpenAPI `{id}` form. Methodless or wildcard mappings that cannot be represented as one OpenAPI operation make discovery partial instead of being expanded speculatively. The configured OpenAPI route and the FlexDoc docs subtree are excluded.
+
+Runtime discovery can reveal intentionally undocumented endpoints. The Spring adapter currently relies on Spring Security/application middleware or upstream access control rather than a FlexDoc-native docs-auth option, so protect the docs subtree before enabling Runtime Intelligence on non-private documentation.
+
 ## Building in this repository
 
 Build the standalone renderer first, then build the coordinated Java family:

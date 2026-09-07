@@ -53,6 +53,19 @@ app.MapFlexDoc(options =>
 
 `RuntimeOpenApiDocument` is server-only. Requiring it lets FlexDoc compare live `EndpointDataSource` routes against the exact OpenAPI document without making an HTTP request back into the application or coupling the adapter to Swashbuckle, NSwag, or a version-specific OpenAPI provider.
 
+### Spring MVC
+
+The Spring Boot starter can inspect Spring MVC's live request-mapping registry:
+
+```yaml
+flexdoc:
+  path: /docs
+  spec-url: /v3/api-docs
+  runtime-intelligence: true
+```
+
+Spring Runtime Intelligence requires a `FlexDocSpecProvider`. Existing `spec-location` configuration creates one automatically; code-first applications can provide the exact generated OpenAPI model as a bean. FlexDoc deliberately does not fetch `spec-url` server-side and does not couple this feature to springdoc internals.
+
 When enabled, FlexDoc registers `GET <docsPath>/__flexdoc/runtime` under the documentation route. The renderer requests that endpoint and shows:
 
 - the detected framework and framework version when available;
@@ -64,7 +77,7 @@ When enabled, FlexDoc registers `GET <docsPath>/__flexdoc/runtime` under the doc
 - documented routes not observed in the runtime router;
 - whether discovery is complete or partial.
 
-A snapshot has one framework-neutral shape. The runtime `name` identifies the host runtime, for example `node`, `python`, or `dotnet`:
+A snapshot has one framework-neutral shape. The runtime `name` identifies the host runtime, for example `node`, `python`, `dotnet`, or `java`:
 
 ```json
 {
@@ -103,13 +116,15 @@ A snapshot has one framework-neutral shape. The runtime `name` identifies the ho
 
 **ASP.NET Core** — FlexDoc reads the live `EndpointDataSource` at request time. Structured route patterns normalize constraints, defaults, optional parameters, and catch-all parameters to OpenAPI `{parameter}` form. Endpoints with no concrete HTTP-method metadata or unsupported methods make discovery partial rather than being expanded speculatively. The FlexDoc docs subtree and configured OpenAPI route are excluded from drift.
 
+**Spring MVC** — FlexDoc reads `RequestMappingHandlerMapping` at request time and compares it with the exact document returned by `FlexDocSpecProvider`. Spring path-variable constraints and capture-all parameters are normalized to OpenAPI parameter syntax. Mappings without a concrete HTTP method and raw wildcard mappings are not expanded speculatively; they mark discovery partial. The configured OpenAPI route and FlexDoc docs subtree are excluded.
+
 FlexDoc's own documentation, renderer, runtime-intelligence, and host-execution routes under the docs prefix are excluded from the runtime inventory.
 
 ### Security
 
 Runtime discovery can reveal endpoints that were intentionally omitted from the public OpenAPI document. Enabling it is therefore an operator security decision.
 
-On Node integrations, the runtime endpoint is registered under the same FlexDoc documentation-auth boundary as the docs page. FastAPI and ASP.NET Core currently rely on application middleware or upstream access control rather than a FlexDoc-native documentation-auth option; protect the docs subtree at the application or proxy layer before enabling Runtime Intelligence on non-private documentation.
+On Node integrations, the runtime endpoint is registered under the same FlexDoc documentation-auth boundary as the docs page. FastAPI, ASP.NET Core, and Spring MVC currently rely on application middleware/security or upstream access control rather than a FlexDoc-native documentation-auth option; protect the docs subtree at the application or proxy layer before enabling Runtime Intelligence on non-private documentation.
 
 ### Discovery completeness
 
