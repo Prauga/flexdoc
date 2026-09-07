@@ -36,4 +36,26 @@ app.Run();
 
 FlexDoc serves the docs shell at `/docs` and version-fingerprinted renderer assets beneath `/docs/__flexdoc/`. ASP.NET Core endpoint routing also accepts the equivalent trailing-slash request `/docs/`; CI exercises both forms. The HTML shell is `no-cache`; renderer JS/CSS are immutable and self-hosted.
 
-The integration only needs an OpenAPI JSON URL. It deliberately has no dependency on Swashbuckle, NSwag, or a particular OpenAPI generator.
+The basic docs integration only needs an OpenAPI JSON URL and deliberately has no dependency on Swashbuckle, NSwag, or a particular OpenAPI generator.
+
+## Runtime Intelligence
+
+ASP.NET Core can opt into FlexDoc 3.0 Runtime Intelligence using the live endpoint-routing data source:
+
+```csharp
+var openApiDocument = BuildMyOpenApiDocument();
+
+app.MapFlexDoc(options =>
+{
+    options.Path = "/docs";
+    options.SpecUrl = "/openapi/v1.json";
+    options.RuntimeIntelligence = true;
+    options.RuntimeOpenApiDocument = openApiDocument;
+});
+```
+
+`RuntimeOpenApiDocument` is server-only and is never serialized into the browser bootstrap. It can be a serializable OpenAPI object, `JsonElement`/`JsonDocument`, or a JSON string. FlexDoc requires it when Runtime Intelligence is enabled so the adapter can compare the live `EndpointDataSource` with the exact document without making a server-side HTTP request or depending on one OpenAPI generator. Route constraints such as `{id:int}` are normalized to `{id}` before comparison; FlexDoc's own docs subtree and the configured OpenAPI route are excluded.
+
+The runtime endpoint is `GET /docs/__flexdoc/runtime`, returns `Cache-Control: no-store`, and reports ASP.NET Core/.NET metadata, request-derived server origin, implemented-but-undocumented routes, documented-but-not-observed routes, and discovery completeness.
+
+Runtime discovery can expose intentionally undocumented endpoints. The ASP.NET Core adapter currently relies on application authorization middleware or upstream access control rather than a FlexDoc-native docs-auth option, so protect the docs subtree before enabling Runtime Intelligence on non-private documentation.

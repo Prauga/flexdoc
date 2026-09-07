@@ -67,6 +67,13 @@ export interface FlexDocHostExecutionPublicOptions {
   cookiesEndpoint?: string;
 }
 
+export interface FlexDocRuntimeIntelligenceOptions { enabled: true; }
+export interface FlexDocRuntimeIntelligencePublicOptions {
+  available: boolean;
+  endpoint: string;
+  framework: string;
+}
+
 export interface FlexDocOptions {
   contractVersion?: '1';
   title?: string; description?: string; altDescription?: string; version?: string;
@@ -79,6 +86,8 @@ export interface FlexDocOptions {
   noAutoAuth?: boolean; lazyRendering?: boolean; scrollYOffset?: number | string; suppressWarnings?: boolean; payloadSampleIdx?: number;
   /** Protect the documentation route itself. This is server-only and is never exposed to the renderer. */
   auth?: { type: 'basic' | 'bearer'; secretKey: string };
+  /** Explicit opt-in to expose backend runtime route topology and presence drift under the docs auth boundary. */
+  runtimeIntelligence?: boolean | FlexDocRuntimeIntelligenceOptions;
   tryIt?: {
     enabled?: boolean;
     defaultServer?: string;

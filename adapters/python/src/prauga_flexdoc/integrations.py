@@ -5,6 +5,7 @@ from typing import Literal
 
 from .asgi import FlexDocASGI
 from .host import FlexDocConfig, FlexDocHost, FlexDocResponse
+from .runtime_intelligence import build_fastapi_runtime_snapshot
 
 
 def _normalized_path(path: str) -> str:
@@ -37,6 +38,7 @@ def setup_fastapi_flexdoc(
     try_it_default_server: str | None = None,
     try_it_credentials: Literal["omit", "same-origin", "include"] | None = None,
     try_it_api_client_persistence_key: str | Literal[False] | None = None,
+    runtime_intelligence: bool = False,
 ) -> FlexDocASGI:
     """Mount FlexDoc on FastAPI using the application's generated OpenAPI endpoint."""
     spec_url = getattr(app, "openapi_url", None)
@@ -51,19 +53,29 @@ def setup_fastapi_flexdoc(
                 f"Disable it when creating FastAPI (for example docs_url=None) or choose a different FlexDoc path."
             )
 
-    docs = FlexDocASGI(FlexDocConfig(
-        path=normalized_path,
-        spec_url=spec_url,
-        title=title,
-        theme=theme,
-        try_it_enabled=try_it_enabled,
-        **_config_options(
-            expand=expand,
-            try_it_default_server=try_it_default_server,
-            try_it_credentials=try_it_credentials,
-            try_it_api_client_persistence_key=try_it_api_client_persistence_key,
+    runtime_provider = None
+    runtime_framework = None
+    if runtime_intelligence:
+        runtime_provider = lambda scope: build_fastapi_runtime_snapshot(app, scope, normalized_path)
+        runtime_framework = "fastapi"
+
+    docs = FlexDocASGI(
+        FlexDocConfig(
+            path=normalized_path,
+            spec_url=spec_url,
+            title=title,
+            theme=theme,
+            try_it_enabled=try_it_enabled,
+            **_config_options(
+                expand=expand,
+                try_it_default_server=try_it_default_server,
+                try_it_credentials=try_it_credentials,
+                try_it_api_client_persistence_key=try_it_api_client_persistence_key,
+            ),
         ),
-    ))
+        runtime_provider=runtime_provider,
+        runtime_framework=runtime_framework,
+    )
     app.mount(normalized_path, docs)
     return docs
 
