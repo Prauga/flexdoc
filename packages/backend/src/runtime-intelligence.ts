@@ -50,9 +50,7 @@ export interface FlexDocRuntimeIntelligenceSnapshot {
 const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD', 'TRACE']);
 
 export function runtimeIntelligenceEnabled(value: boolean | FlexDocRuntimeIntelligenceOptions | undefined): boolean {
-  if (value === true) return true;
-  if (!value) return false;
-  return value.enabled !== false;
+  return value === true || (typeof value === 'object' && value?.enabled === true);
 }
 
 export function normalizeRuntimePath(value: string): string {
@@ -149,7 +147,7 @@ export async function discoverFastifyRoutes(app: any, excludePrefix?: string): P
   }
 
   try {
-    if (typeof app.ready === 'function') await app.ready();
+    if (typeof app?.ready === 'function') await app.ready();
     const printed = app.printRoutes({ commonPrefix: false });
     if (typeof printed !== 'string') {
       return { framework: 'fastify', ...(frameworkVersion ? { frameworkVersion } : {}), routes: [], complete: false };
