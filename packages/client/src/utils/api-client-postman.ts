@@ -550,6 +550,7 @@ function importItems(options: {
   });
 }
 
+/** Import a Postman collection into API Client workspace structures. */
 export function importPostmanCollection(value: unknown): PostmanCollectionImportResult {
   if (!isRecord(value) || !isRecord(value.info) || !Array.isArray(value.item)) {
     throw new Error('This JSON is not a Postman collection. Expected info and item fields.');
@@ -588,6 +589,7 @@ export function importPostmanCollection(value: unknown): PostmanCollectionImport
   return { collection, folders, requests, warnings };
 }
 
+/** Import a Postman environment into API Client workspace structures. */
 export function importPostmanEnvironment(value: unknown): PostmanEnvironmentImportResult {
   if (!isRecord(value) || !Array.isArray(value.values) || typeof value.name !== 'string') {
     throw new Error('This JSON is not a Postman environment. Expected name and values fields.');
@@ -608,6 +610,7 @@ export function importPostmanEnvironment(value: unknown): PostmanEnvironmentImpo
   };
 }
 
+/** Detect and import either a Postman collection or environment document. */
 export function importPostmanDocument(value: unknown): PostmanDocumentImportResult {
   if (isRecord(value) && isRecord(value.info) && Array.isArray(value.item)) {
     return { kind: 'collection', result: importPostmanCollection(value) };
@@ -626,6 +629,7 @@ function hasPristineDefaultCollection(workspace: ApiClientWorkspaceState): boole
     && collection.variables.length === 0;
 }
 
+/** Merge an imported Postman collection into an existing workspace state. */
 export function mergePostmanCollectionImport(
   workspace: ApiClientWorkspaceState,
   imported: PostmanCollectionImportResult,
@@ -639,6 +643,7 @@ export function mergePostmanCollectionImport(
   };
 }
 
+/** Merge an imported Postman environment into an existing workspace state. */
 export function mergePostmanEnvironmentImport(
   workspace: ApiClientWorkspaceState,
   imported: PostmanEnvironmentImportResult,

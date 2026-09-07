@@ -14,17 +14,21 @@ public class FlexDocController {
   private final FlexDocProperties properties;
   private final FlexDocHost host;
 
+  /** Creates the controller from bound properties and the configured host. */
   public FlexDocController(FlexDocProperties properties, FlexDocHost host) {
     this.properties = properties;
     this.host = host;
   }
 
+  /** @return the no-cache FlexDoc documentation HTML shell */
   @GetMapping(value = "${flexdoc.path:/docs}", produces = MediaType.TEXT_HTML_VALUE)
   public ResponseEntity<byte[]> documentation() throws Exception { return response(host.documentation()); }
 
+  /** @return the immutable canonical renderer JavaScript asset */
   @GetMapping(value = "${flexdoc.path:/docs}/__flexdoc/renderer.js", produces = "application/javascript")
   public ResponseEntity<byte[]> rendererJavaScript() { return response(host.rendererJavaScript()); }
 
+  /** @return the immutable canonical renderer stylesheet asset */
   @GetMapping(value = "${flexdoc.path:/docs}/__flexdoc/renderer.css", produces = "text/css")
   public ResponseEntity<byte[]> rendererCss() { return response(host.rendererCss()); }
 

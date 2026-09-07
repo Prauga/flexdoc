@@ -7,10 +7,12 @@ import { sampleSpec } from './data/sample-spec';
 import { themeVariant } from './utils/theme';
 import { Footer } from './components/Footer';
 
+/** Props for the interactive OpenAPI upload demo application. */
 export interface AppProps {
   theme?: 'light' | 'dark';
 }
 
+/** Demo application that loads OpenAPI specs from file upload or the bundled sample. */
 export const App: React.FC<AppProps> = ({ theme = 'light' }) => {
   const [spec, setSpec] = useState<OpenAPISpec | null>(null);
   const [loading, setLoading] = useState(false);

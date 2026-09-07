@@ -10,6 +10,7 @@ import { setupFlexDoc } from './setup';
 import { FlexDocService } from './flexdoc.service';
 import { FlexDocModuleOptions } from './interfaces';
 
+/** NestJS module that registers FlexDoc routes on the underlying HTTP adapter. */
 @Module({})
 export class FlexDocModule implements OnModuleInit {
   constructor(

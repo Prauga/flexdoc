@@ -98,6 +98,7 @@ const MAX_REDIRECTS = 5;
 const MAX_SESSION_JARS = 1000;
 const SESSION_COOKIE = '__flexdoc_session';
 
+/** Create host-execution state from Try It host-execution options. */
 export function createHostExecutionState(value: boolean | FlexDocHostExecutionOptions | undefined): HostExecutionState {
   const enabled = value === true || (typeof value === 'object' && value !== null && value.enabled !== false);
   const options = typeof value === 'object' ? value : {};
@@ -115,6 +116,7 @@ export function createHostExecutionState(value: boolean | FlexDocHostExecutionOp
   };
 }
 
+/** Public host-execution metadata serialized to the browser renderer. */
 export function publicHostExecutionOptions(state: HostExecutionState, rendererBasePath: string): FlexDocHostExecutionPublicOptions | undefined {
   if (!state.enabled) return undefined;
   return {
@@ -745,6 +747,7 @@ async function sendPrepared(
   }
 }
 
+/** Execute one API-host request on behalf of the browser renderer. */
 export async function executeHostRequest(
   state: HostExecutionState,
   envelope: ParsedHostExecutionEnvelope,

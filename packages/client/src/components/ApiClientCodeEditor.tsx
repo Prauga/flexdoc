@@ -5,6 +5,7 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 
 export type ApiClientCodeLanguage = 'javascript' | 'json' | 'text' | 'xml' | 'html' | 'graphql';
 
+/** Imperative handle for focusing and querying the CodeMirror editor instance. */
 export interface ApiClientCodeEditorHandle {
   focus: () => void;
   getSelection: () => { from: number; to: number };
@@ -12,6 +13,7 @@ export interface ApiClientCodeEditorHandle {
   coordsAtPos: (position: number) => { left: number; right: number; top: number; bottom: number } | null;
 }
 
+/** Props for the shared CodeMirror-based editor used by API Client panels. */
 export interface ApiClientCodeEditorProps {
   ariaLabel: string;
   value: string;
@@ -103,6 +105,7 @@ function editorKeymap(autoIndent: boolean): Extension {
     : [plainNewline, ...base, ...historyKeymap]);
 }
 
+/** CodeMirror editor with language modes for API Client request and response bodies. */
 export const ApiClientCodeEditor = forwardRef<ApiClientCodeEditorHandle, ApiClientCodeEditorProps>(({
   ariaLabel,
   value,

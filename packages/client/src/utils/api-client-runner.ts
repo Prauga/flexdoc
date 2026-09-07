@@ -25,6 +25,7 @@ export interface ApiClientCollectionRunItem {
   outcome: ApiClientExecutionOutcome;
 }
 
+/** Result of executing every request in a collection or folder scope. */
 export interface ApiClientCollectionRunResult {
   runId: string;
   runName: string;
@@ -80,6 +81,7 @@ function folderScope(workspace: ApiClientWorkspaceState, collectionId: string, f
   return scoped;
 }
 
+/** Saved requests included in a collection or folder run. */
 export function apiClientCollectionRunRequests(
   workspace: ApiClientWorkspaceState,
   collectionId: string,
@@ -106,6 +108,7 @@ function folderPath(folders: ApiClientFolder[], folderId: string): string {
   return names.join(' / ');
 }
 
+/** Default display name for a collection or folder run. */
 export function apiClientCollectionRunName(
   workspace: ApiClientWorkspaceState,
   collectionId: string,
@@ -123,6 +126,7 @@ function outcomePassed(outcome: ApiClientExecutionOutcome): boolean {
     && outcome.scriptTests.every((test) => test.passed);
 }
 
+/** Execute saved requests in a collection or folder, recording history for each item. */
 export async function runApiClientCollection(options: RunApiClientCollectionOptions): Promise<ApiClientCollectionRunResult> {
   const requests = apiClientCollectionRunRequests(options.workspace, options.collectionId, options.folderId);
   const runId = options.runId || createApiClientId('run');

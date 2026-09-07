@@ -40,7 +40,23 @@ def setup_fastapi_flexdoc(
     try_it_api_client_persistence_key: str | Literal[False] | None = None,
     runtime_intelligence: bool = False,
 ) -> FlexDocASGI:
-    """Mount FlexDoc on FastAPI using the application's generated OpenAPI endpoint."""
+    """Mount FlexDoc on FastAPI using the application's generated OpenAPI endpoint.
+
+    Args:
+        app: FastAPI application with OpenAPI generation enabled.
+        path: Docs mount path. Must not conflict with built-in Swagger UI or ReDoc routes.
+        title: Page and renderer title.
+        theme: Renderer theme preset.
+        try_it_enabled: Whether the Try It client is enabled.
+        expand: Optional expansion preset or section list.
+        try_it_default_server: Optional default server URL for Try It requests.
+        try_it_credentials: Optional fetch credentials mode for Try It requests.
+        try_it_api_client_persistence_key: Optional persistence key, or ``False``.
+        runtime_intelligence: When ``True``, expose a live runtime snapshot endpoint.
+
+    Returns:
+        The mounted :class:`~prauga_flexdoc.asgi.FlexDocASGI` application.
+    """
     spec_url = getattr(app, "openapi_url", None)
     if not spec_url:
         raise ValueError("FastAPI OpenAPI generation is disabled; set openapi_url or mount FlexDoc with an explicit spec_url")
@@ -93,7 +109,23 @@ def setup_flask_flexdoc(
     try_it_credentials: Literal["omit", "same-origin", "include"] | None = None,
     try_it_api_client_persistence_key: str | Literal[False] | None = None,
 ) -> FlexDocHost:
-    """Register FlexDoc routes on a Flask application without making Flask a hard dependency."""
+    """Register FlexDoc routes on a Flask application without making Flask a hard dependency.
+
+    Args:
+        app: Flask application used to register URL rules.
+        path: Docs mount path.
+        spec_url: OpenAPI document URL resolved by the browser bootstrap page.
+        title: Page and renderer title.
+        theme: Renderer theme preset.
+        try_it_enabled: Whether the Try It client is enabled.
+        expand: Optional expansion preset or section list.
+        try_it_default_server: Optional default server URL for Try It requests.
+        try_it_credentials: Optional fetch credentials mode for Try It requests.
+        try_it_api_client_persistence_key: Optional persistence key, or ``False``.
+
+    Returns:
+        The :class:`~prauga_flexdoc.host.FlexDocHost` backing the registered routes.
+    """
     host = FlexDocHost(FlexDocConfig(
         path=path,
         spec_url=spec_url,
@@ -134,7 +166,22 @@ def django_urlpatterns(
     try_it_credentials: Literal["omit", "same-origin", "include"] | None = None,
     try_it_api_client_persistence_key: str | Literal[False] | None = None,
 ):
-    """Return Django URL patterns for FlexDoc. Django is imported lazily and remains optional."""
+    """Return Django URL patterns for FlexDoc. Django is imported lazily and remains optional.
+
+    Args:
+        path: Docs mount path.
+        spec_url: OpenAPI document URL resolved by the browser bootstrap page.
+        title: Page and renderer title.
+        theme: Renderer theme preset.
+        try_it_enabled: Whether the Try It client is enabled.
+        expand: Optional expansion preset or section list.
+        try_it_default_server: Optional default server URL for Try It requests.
+        try_it_credentials: Optional fetch credentials mode for Try It requests.
+        try_it_api_client_persistence_key: Optional persistence key, or ``False``.
+
+    Returns:
+        A list of Django ``re_path`` patterns for the docs shell and renderer assets.
+    """
     try:
         from django.http import HttpResponse
         from django.urls import re_path

@@ -31,9 +31,13 @@ import type { ApiClientWorkspaceChromeState, ApiClientWorkspaceHandoff } from '.
 import type { TryItApiClientHandoff } from './TryItApiClientWorkspace';
 
 export interface FlexDocProps {
+  /** Parsed OpenAPI document to render. */
   spec: OpenAPISpec;
+  /** Root theme for the documentation chrome. */
   theme?: 'light' | 'dark';
+  /** Inline styles applied to the renderer root element. */
   customStyles?: React.CSSProperties;
+  /** Renderer configuration such as Try It, theme tokens, and runtime intelligence. */
   options?: FlexDocRendererOptions;
 }
 
@@ -129,6 +133,7 @@ function Logo({ logo, onHome }: { logo: string | LogoOptions; onHome: () => void
   </div>;
 }
 
+/** Self-hosted OpenAPI documentation renderer with Try It and API Client integration. */
 export const FlexDoc: React.FC<FlexDocProps> = ({
   spec,
   theme = 'light',

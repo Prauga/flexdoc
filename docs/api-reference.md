@@ -1,308 +1,137 @@
-# FlexDoc API Reference
+# FlexDoc public API reference
 
-This document provides a comprehensive reference for the FlexDoc API, covering both backend and frontend components.
+This reference describes the supported entry points shipped by the FlexDoc 3.0 source tree. Package declarations and native source comments are the authoritative signature reference; configuration behavior is detailed in [Configuration](./configuration.md).
 
-## Backend API
+## Browser client
 
-### NestJS Module
+Install `@prauga/flexdoc-client` and import from its package root.
 
-#### `FlexDocModule.forRoot(options)`
+### `FlexDoc`
 
-Creates and configures the FlexDoc module for NestJS applications.
+Renders an OpenAPI 3.0.x or 3.1.x document, including navigation, operation documentation, Basic/Advanced Try It, code samples, Runtime Intelligence when advertised by the host, and the sibling API Client workspace.
 
-```typescript
-import { FlexDocModule } from '@flexdoc/backend';
+```tsx
+import { FlexDoc } from '@prauga/flexdoc-client';
 
-@Module({
-  imports: [
-    FlexDocModule.forRoot({
-      path: 'api-docs',
-      options: {
-        title: 'API Documentation',
-        // ... other options
-      },
-    }),
-  ],
-})
-export class AppModule {}
+<FlexDoc
+  spec={openApiDocument}
+  theme="light"
+  options={{
+    tryIt: { enabled: true },
+  }}
+/>;
 ```
 
-**Parameters:**
+`FlexDocProps` accepts:
 
-| Parameter | Type     | Description                                                             |
-| --------- | -------- | ----------------------------------------------------------------------- |
-| `path`    | `string` | The URL path where the documentation will be served                     |
-| `options` | `object` | Configuration options (see [Configuration Options](./configuration.md)) |
+- `spec`: the parsed `OpenAPISpec`;
+- `theme`: the host default, `light` or `dark`;
+- `customStyles`: styles applied to the renderer root;
+- `options`: `FlexDocRendererOptions`, including theme, navigation, Try It, code-sample, localization, and Runtime Intelligence settings.
 
-#### `FlexDocModule.forRootAsync(options)`
+### `ApiClient` and `ApiClientWorkspace`
 
-Asynchronously creates and configures the FlexDoc module for NestJS applications.
+`ApiClient` is the low-level request editor and executor. `ApiClientWorkspace` adds persisted collections, nested folders, environments, scripts, history, and collection runs.
 
-```typescript
-import { FlexDocModule } from '@flexdoc/backend';
+```tsx
+import { ApiClientWorkspace } from '@prauga/flexdoc-client';
 
-@Module({
-  imports: [
-    FlexDocModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        path: configService.get('FLEXDOC_PATH'),
-        options: {
-          title: configService.get('FLEXDOC_TITLE'),
-          // ... other options
-        },
-      }),
-      inject: [ConfigService],
-    }),
-  ],
-})
-export class AppModule {}
+<ApiClientWorkspace
+  persistenceKey="pets-api"
+  initialRequest={{ method: 'GET', url: '{{baseUrl}}/pets' }}
+/>;
 ```
 
-**Parameters:**
+Set `persistenceKey={false}` to disable IndexedDB persistence. Request credentials and scripts are stored as entered and are not encrypted.
 
-| Parameter    | Type         | Description                                      |
-| ------------ | ------------ | ------------------------------------------------ |
-| `imports`    | `Array<any>` | Modules to import                                |
-| `useFactory` | `Function`   | Factory function that returns the module options |
-| `inject`     | `Array<any>` | Dependencies to inject into the factory function |
+### OpenAPI and request utilities
 
-### Express Setup
+The package root exports:
 
-#### `setupFlexDoc(app, options)`
+- parsing and references: `OpenAPIParser`, `bundleExternalReferences`;
+- normalization: `normalizeOperation`, `resolveObject`, `resolvePathItem`, `resolveServerVariables`;
+- OpenAPI requests: `buildRequest`, `initialRequestValues`, `parametersFor`;
+- API Client requests: `buildHttpRequest`, `inferHttpBodyMode`, `resolveHttpRequestDraftVariables`, `requestDraftFromBuiltRequest`;
+- execution and runners: `executeApiClientRequest`, `runApiClientCollection`;
+- Try It handoff: `createOpenApiApiClientSession`;
+- scripting: `runApiClientScript` and the `apiClientScript*Completions` helpers;
+- Postman import: `importPostmanDocument`, `importPostmanCollection`, `importPostmanEnvironment`, and merge helpers;
+- code samples: `generateCodeSample`, `languageLabel`.
 
-Sets up FlexDoc for Express applications.
+Use the exported TypeScript declarations for complete parameter and result types.
 
-```typescript
-import express from 'express';
-import { setupFlexDoc } from '@flexdoc/backend';
+## Node backend
 
-const app = express();
+Install `@prauga/flexdoc-backend`. Express, Fastify, Fastify Swagger, and Hono helpers mount the same packaged renderer and accept a path plus `FlexDocModuleOptions` without its `path` field. `setupNestFlexDoc` is the exception: it takes the Nest application, path, `@nestjs/swagger` document-builder config, then FlexDoc options (without `path`, `spec`, or `specUrl`) and creates the document internally. `setupFastifySwaggerFlexDoc` also omits `spec` and `specUrl` because it reads the document from `@fastify/swagger`.
 
-setupFlexDoc(app, {
-  path: 'api-docs',
+```ts
+import { setupExpressFlexDoc } from '@prauga/flexdoc-backend';
+
+setupExpressFlexDoc(app, '/docs', {
+  spec,
   options: {
-    title: 'API Documentation',
-    // ... other options
+    runtimeIntelligence: true,
+    tryIt: { hostExecution: { enabled: true } },
   },
 });
 ```
 
-**Parameters:**
+Supported setup entry points are:
 
-| Parameter         | Type      | Description                                                             |
-| ----------------- | --------- | ----------------------------------------------------------------------- |
-| `app`             | `Express` | The Express application instance                                        |
-| `options`         | `object`  | Configuration options                                                   |
-| `options.path`    | `string`  | The URL path where the documentation will be served                     |
-| `options.options` | `object`  | Documentation options (see [Configuration Options](./configuration.md)) |
+- `setupFlexDoc` and `setupExpressFlexDoc`;
+- `setupFastifyFlexDoc` and `setupFastifySwaggerFlexDoc`;
+- `setupNestFlexDoc`;
+- `setupHonoFlexDoc`;
+- NestJS `FlexDocModule.forRoot(...)` and `FlexDocModule.forRootAsync(...)`.
 
-### Authentication
+Runtime Intelligence helpers and host-execution primitives are exported for adapter authors. Applications should normally use the framework setup functions instead of calling those low-level primitives directly.
 
-#### `generatePassword(username, secret)`
+Documentation authentication is configured through `options.auth`. Host execution and Runtime Intelligence are separate, explicit opt-ins. Server-only secrets are not serialized into renderer options.
 
-Generates a deterministic password for basic authentication.
+## Framework-neutral core
 
-```typescript
-import { generatePassword } from '@flexdoc/backend/auth';
+`@prauga/flexdoc-core` contains the non-React OpenAPI parser, resolver, normalizer, request builder, HTTP request model, and code-sample generator used by the renderer and CLI.
 
-const password = generatePassword('admin', 'your-strong-secret-key');
+```ts
+import {
+  OpenAPIParser,
+  buildHttpRequest,
+  buildRequest,
+  generateCodeSample,
+} from '@prauga/flexdoc-core';
 ```
 
-**Parameters:**
+It does not render UI or perform network requests.
 
-| Parameter  | Type     | Description    |
-| ---------- | -------- | -------------- |
-| `username` | `string` | The username   |
-| `secret`   | `string` | The secret key |
+## CLI
 
-**Returns:** `string` - The generated password
-
-#### `generateToken(expiry, secret)`
-
-Generates a JWT token for bearer authentication.
-
-```typescript
-import { generateToken } from '@flexdoc/backend/auth';
-
-const token = generateToken(30, 'your-strong-secret-key');
-```
-
-**Parameters:**
-
-| Parameter | Type     | Description          |
-| --------- | -------- | -------------------- |
-| `expiry`  | `number` | Token expiry in days |
-| `secret`  | `string` | The secret key       |
-
-**Returns:** `string` - The generated JWT token
-
-## Frontend API
-
-### React Component
-
-#### `<FlexDoc />`
-
-React component for rendering FlexDoc documentation.
-
-```tsx
-import { FlexDoc } from '@bluejeans/flexdoc';
-import { openApiSpec } from './your-spec';
-
-function App() {
-  return (
-    <FlexDoc
-      spec={openApiSpec}
-      options={{
-        title: 'API Documentation',
-        // ... other options
-      }}
-    />
-  );
-}
-```
-
-**Props:**
-
-| Prop      | Type     | Description                                                             |
-| --------- | -------- | ----------------------------------------------------------------------- |
-| `spec`    | `object` | OpenAPI specification object                                            |
-| `options` | `object` | Configuration options (see [Configuration Options](./configuration.md)) |
-| `url`     | `string` | URL to fetch the OpenAPI specification from (alternative to `spec`)     |
-
-### Theme API
-
-#### `themes`
-
-Object containing predefined themes.
-
-```typescript
-import { FlexDoc, themes } from '@bluejeans/flexdoc';
-
-function App() {
-  return (
-    <FlexDoc
-      spec={openApiSpec}
-      options={{
-        theme: themes.material,
-      }}
-    />
-  );
-}
-```
-
-**Available Themes:**
-
-- `themes.default`
-- `themes.material`
-- `themes.github`
-- `themes.monokai`
-- `themes.nord`
-
-## CLI Tools
-
-### Authentication CLI
-
-The FlexDoc package includes CLI tools for generating authentication credentials.
-
-#### Basic Authentication
+`@prauga/flexdoc-cli` exposes `flexdoc serve` and `flexdoc build`.
 
 ```bash
-npx ts-node generate-auth.ts basic --username admin --secret your-strong-secret-key
+flexdoc serve openapi.yaml --watch
+flexdoc build openapi.yaml --out ./docs --base-path /reference/
 ```
 
-**Options:**
+Both commands accept local JSON/YAML documents or HTTP(S) URLs and bundle external references. Static output contains the version-matched canonical renderer and requires no runtime CDN.
 
-| Option       | Description                       |
-| ------------ | --------------------------------- |
-| `--username` | Username to generate password for |
-| `--secret`   | Secret key used for generation    |
+## Native adapters
 
-#### Bearer Authentication
+Native packages expose one configuration type and one or more framework mount helpers. Their source comments and package READMEs provide exact signatures:
 
-```bash
-npx ts-node generate-auth.ts bearer --expiry 30 --secret your-strong-secret-key
-```
+- ASP.NET Core: `FlexDocOptions` and `MapFlexDoc`;
+- JVM: `FlexDocConfig`, `FlexDocHost`, `FlexDocHttpResponse`, and `FlexDocSpecSupplier`;
+- Jakarta REST: `FlexDocJaxRsResource`;
+- Spring Boot: `FlexDocProperties`, `FlexDocSpecProvider`, and auto-configuration;
+- Python: `FlexDocConfig`, `FlexDocHost`, `FlexDocASGI`, `FlexDocWSGI`, and framework setup helpers;
+- PHP: `FlexDocConfig`, `FlexDocHost`, Laravel registration, and the Symfony controller;
+- Ruby: `Prauga::FlexDoc::Config`, `Host`, `RackApp`, and Rails mounting;
+- Rust/Axum: `Config`, `router`, and `router_with_openapi`;
+- Rust/Actix: `Config` and `scope`;
+- Elixir: `PraugaFlexDoc.Config` and `PraugaFlexDoc.Plug`;
+- Go: `Config`, `Handler`, `HandlerFromOpenAPI`, and `HandlerWithAssets`.
 
-**Options:**
+Renderer contract v1 is the compatibility boundary between the canonical browser client and native hosts. Package version numbers remain independent across ecosystems.
 
-| Option     | Description                        |
-| ---------- | ---------------------------------- |
-| `--expiry` | Token expiry in days (default: 30) |
-| `--secret` | Secret key used for signing        |
+## Version and publication status
 
-## Interfaces
-
-### FlexDocOptions
-
-```typescript
-interface FlexDocOptions {
-  title?: string;
-  description?: string;
-  version?: string;
-  theme?: ThemeOptions;
-  hideHostname?: boolean;
-  pathInMiddlePanel?: boolean;
-  defaultModelsExpandDepth?: number;
-  defaultModelExpandDepth?: number;
-  defaultModelRendering?: 'model' | 'example';
-  displayOperationId?: boolean;
-  displayRequestDuration?: boolean;
-  docExpansion?: 'list' | 'full' | 'none';
-  filter?: boolean | string;
-  maxDisplayedTags?: number;
-  showExtensions?: boolean;
-  showCommonExtensions?: boolean;
-  tagSorter?: (a: any, b: any) => number;
-  operationSorter?: (a: any, b: any) => number;
-  favicon?: string;
-  auth?: AuthOptions;
-  customCss?: string;
-}
-```
-
-### AuthOptions
-
-```typescript
-interface AuthOptions {
-  type: 'basic' | 'bearer';
-  secretKey: string;
-}
-```
-
-### ThemeOptions
-
-```typescript
-interface ThemeOptions {
-  primaryColor?: string;
-  secondaryColor?: string;
-  backgroundColor?: string;
-  textColor?: string;
-  headingColor?: string;
-  linkColor?: string;
-  navbarColor?: string;
-  navbarTextColor?: string;
-  codeBackgroundColor?: string;
-  codeTextColor?: string;
-  borderColor?: string;
-  errorColor?: string;
-  successColor?: string;
-  warningColor?: string;
-  infoColor?: string;
-  components?: {
-    header?: HeaderThemeOptions;
-    sidebar?: SidebarThemeOptions;
-    content?: ContentThemeOptions;
-    codeBlock?: CodeBlockThemeOptions;
-    button?: ButtonThemeOptions;
-  };
-  dark?: ThemeOptions;
-  logo?: {
-    url: string;
-    altText?: string;
-    height?: string;
-  };
-}
-```
-
-For more detailed information, see the [Examples](../examples) directory.
+The exact versions encoded by source are listed in [Distribution and versioning](./distribution.md). During release preparation, source manifests may be ahead of registry packages. Standalone examples deliberately remain pinned to the last published versions until the corresponding tags and registry artifacts exist; a separate post-publish lock-refresh change advances those pins.

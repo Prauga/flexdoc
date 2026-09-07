@@ -21,6 +21,12 @@ public final class FlexDocRuntimeController {
     this.objectMapper = objectMapper;
   }
 
+  /**
+   * Returns a no-store Runtime Intelligence snapshot for the current request.
+   *
+   * @param request the active HTTP request used to derive server origin metadata
+   * @return JSON describing live routes, OpenAPI drift, and runtime metadata
+   */
   @GetMapping(value = "${flexdoc.path:/docs}/__flexdoc/runtime", produces = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<byte[]> runtime(HttpServletRequest request) {
     try {

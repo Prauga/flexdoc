@@ -18,6 +18,14 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 @EnableConfigurationProperties(FlexDocProperties.class)
 @ConditionalOnProperty(prefix = "flexdoc", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class FlexDocAutoConfiguration {
+  /**
+   * Creates a classpath-backed spec provider when {@code flexdoc.spec-location} is set.
+   *
+   * @param properties bound FlexDoc configuration properties
+   * @param resourceLoader loader used to resolve the configured spec location
+   * @param objectMapper Jackson mapper used to deserialize the OpenAPI document
+   * @return a provider that reads the configured OpenAPI resource
+   */
   @Bean
   @ConditionalOnMissingBean
   @ConditionalOnProperty(prefix = "flexdoc", name = "spec-location")
@@ -28,6 +36,14 @@ public class FlexDocAutoConfiguration {
     };
   }
 
+  /**
+   * Creates the framework-neutral FlexDoc host used by the MVC controller.
+   *
+   * @param properties bound FlexDoc configuration properties
+   * @param provider optional application-provided OpenAPI document source
+   * @param objectMapper Jackson mapper used to serialize provider output
+   * @return configured FlexDoc host
+   */
   @Bean
   @ConditionalOnMissingBean
   FlexDocHost flexDocHost(FlexDocProperties properties, ObjectProvider<FlexDocSpecProvider> provider, ObjectMapper objectMapper) {
@@ -39,11 +55,28 @@ public class FlexDocAutoConfiguration {
     });
   }
 
+  /**
+   * Registers the MVC controller that serves documentation and renderer assets.
+   *
+   * @param properties bound FlexDoc configuration properties
+   * @param host configured FlexDoc host
+   * @return FlexDoc MVC controller
+   */
   @Bean
   FlexDocController flexDocController(FlexDocProperties properties, FlexDocHost host) {
     return new FlexDocController(properties, host);
   }
 
+  /**
+   * Registers the Runtime Intelligence endpoint when {@code flexdoc.runtime-intelligence=true}.
+   *
+   * @param properties bound FlexDoc configuration properties
+   * @param specProvider application OpenAPI document source required for drift comparison
+   * @param handlerMapping live Spring MVC request-mapping registry
+   * @param objectMapper Jackson mapper used to serialize the snapshot
+   * @param environment Spring environment used for active profile metadata
+   * @return Runtime Intelligence MVC controller
+   */
   @Bean
   @ConditionalOnProperty(prefix = "flexdoc", name = "runtime-intelligence", havingValue = "true")
   FlexDocRuntimeController flexDocRuntimeController(

@@ -1,5 +1,10 @@
 # frozen_string_literal: true
 
+# Self-hosted FlexDoc integration for Rack and Rails applications.
+#
+# Require this file to load {Prauga::FlexDoc::Host}, {Prauga::FlexDoc::RackApp},
+# {Prauga::FlexDoc::Config}, and the Rails mount helper.
+
 require_relative "flexdoc/version"
 require_relative "flexdoc/config"
 require_relative "flexdoc/response"

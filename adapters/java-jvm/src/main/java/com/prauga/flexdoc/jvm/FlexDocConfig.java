@@ -4,23 +4,34 @@ import java.util.List;
 
 /** Immutable framework-neutral configuration for a FlexDoc host. */
 public record FlexDocConfig(
+    /** Route where FlexDoc is mounted. */
     String path,
+    /** OpenAPI JSON URL loaded by the browser when no inline spec supplier is configured. */
     String specUrl,
+    /** Browser title and renderer title. */
     String title,
+    /** Initial theme: system, light, or dark. */
     String theme,
+    /** Whether Try It and the API Client handoff are enabled. */
     boolean tryItEnabled,
+    /** Renderer expansion preset or explicit section list. Omitted when unset. */
     Object expand,
+    /** Default Try It server URL. Omitted when unset. */
     String tryItDefaultServer,
+    /** Fetch credentials mode: omit, same-origin, or include. Omitted when unset. */
     String tryItCredentials,
+    /** API Client persistence key, or {@code false} to disable IndexedDB workspace persistence. */
     Object tryItApiClientPersistenceKey,
+    /** Advertise the host-execution protocol shape in renderer options. Host execution is not implemented yet. */
     boolean tryItHostExecution,
+    /** Framework identifier exposed to Runtime Intelligence, or {@code null} when disabled. */
     String runtimeIntelligenceFramework) {
-  /** Preserves the original public constructor while leaving new renderer settings unset. */
+  /** Creates configuration with the original public fields; later renderer settings remain unset. */
   public FlexDocConfig(String path, String specUrl, String title, String theme, boolean tryItEnabled) {
     this(path, specUrl, title, theme, tryItEnabled, null, null, null, null, false, null);
   }
 
-  /** Preserves the 2.9.0 constructor while adding later capability fields as unset. */
+  /** Creates configuration with renderer expansion and Try It settings; host execution and Runtime Intelligence remain unset. */
   public FlexDocConfig(
       String path,
       String specUrl,
@@ -34,7 +45,7 @@ public record FlexDocConfig(
     this(path, specUrl, title, theme, tryItEnabled, expand, tryItDefaultServer, tryItCredentials, tryItApiClientPersistenceKey, false, null);
   }
 
-  /** Preserves the 2.9.5 constructor while leaving Runtime Intelligence disabled. */
+  /** Creates configuration with host-execution advertisement enabled; Runtime Intelligence remains disabled. */
   public FlexDocConfig(
       String path,
       String specUrl,
@@ -114,19 +125,46 @@ public record FlexDocConfig(
     private boolean tryItHostExecution;
     private String runtimeIntelligenceFramework;
 
+    /** Sets the route where FlexDoc is mounted. */
     public Builder path(String value) { path = value; return this; }
+
+    /** Sets the OpenAPI JSON URL loaded by the browser. */
     public Builder specUrl(String value) { specUrl = value; return this; }
+
+    /** Sets the browser title and renderer title. */
     public Builder title(String value) { title = value; return this; }
+
+    /** Sets the initial theme: system, light, or dark. */
     public Builder theme(String value) { theme = value; return this; }
+
+    /** Enables or disables Try It and the API Client handoff. */
     public Builder tryItEnabled(boolean value) { tryItEnabled = value; return this; }
+
+    /** Sets a renderer expansion preset. */
     public Builder expand(String value) { expand = value; return this; }
+
+    /** Sets explicit renderer sections to expand. */
     public Builder expandSections(List<String> value) { expand = value == null ? null : List.copyOf(value); return this; }
+
+    /** Sets the default Try It server URL. */
     public Builder tryItDefaultServer(String value) { tryItDefaultServer = value; return this; }
+
+    /** Sets the Try It fetch credentials mode. */
     public Builder tryItCredentials(String value) { tryItCredentials = value; return this; }
+
+    /** Sets the API Client persistence key. */
     public Builder tryItApiClientPersistenceKey(String value) { tryItApiClientPersistenceKey = value; return this; }
+
+    /** Disables API Client persistence when {@code false}. */
     public Builder tryItApiClientPersistenceKey(boolean value) { tryItApiClientPersistenceKey = value; return this; }
+
+    /** Advertises the host-execution protocol shape in renderer options. */
     public Builder tryItHostExecution(boolean value) { tryItHostExecution = value; return this; }
+
+    /** Enables Runtime Intelligence for the given framework identifier. */
     public Builder runtimeIntelligenceFramework(String value) { runtimeIntelligenceFramework = value; return this; }
+
+    /** Builds validated host configuration. */
     public FlexDocConfig build() {
       return new FlexDocConfig(
           path,

@@ -2,6 +2,28 @@
 
 module Prauga
   module FlexDoc
+    # FlexDoc renderer configuration.
+    #
+    # @!attribute [r] path
+    #   Normalized docs mount path.
+    # @!attribute [r] spec_url
+    #   OpenAPI document URL resolved by the browser bootstrap page.
+    # @!attribute [r] title
+    #   Page and renderer title.
+    # @!attribute [r] theme
+    #   Renderer theme preset: `system`, `light`, or `dark`.
+    # @!attribute [r] try_it_enabled
+    #   Whether the Try It client is enabled.
+    # @!attribute [r] expand
+    #   Optional expansion preset or section list.
+    # @!attribute [r] try_it_default_server
+    #   Optional default server URL for Try It requests.
+    # @!attribute [r] try_it_credentials
+    #   Optional fetch credentials mode: `omit`, `same-origin`, or `include`.
+    # @!attribute [r] try_it_api_client_persistence_key
+    #   Optional persistence key, or `false` to disable.
+    # @!attribute [r] try_it_host_execution
+    #   Emits host-execution protocol metadata; execution is not implemented by this adapter.
     Config = Data.define(
       :path,
       :spec_url,
@@ -14,6 +36,18 @@ module Prauga
       :try_it_api_client_persistence_key,
       :try_it_host_execution
     ) do
+      # Create a validated configuration.
+      #
+      # @param path [String] docs mount path
+      # @param spec_url [String] OpenAPI document URL
+      # @param title [String] page and renderer title
+      # @param theme [String] renderer theme preset
+      # @param try_it_enabled [Boolean] whether Try It is enabled
+      # @param expand [String, Array<String>, nil] optional expansion preset or section list
+      # @param try_it_default_server [String, nil] optional default server URL for Try It
+      # @param try_it_credentials [String, nil] optional fetch credentials mode
+      # @param try_it_api_client_persistence_key [String, false, nil] optional persistence key
+      # @param try_it_host_execution [Boolean] emit host-execution protocol metadata; execution is not implemented by this adapter
       def initialize(
         path: "/docs",
         spec_url: "/openapi.json",
