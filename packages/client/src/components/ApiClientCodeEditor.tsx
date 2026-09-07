@@ -3,33 +3,54 @@ import { EditorState, Compartment, Prec, type Extension } from '@codemirror/stat
 import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, type KeyBinding } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 
+/** Syntax/language mode used by the shared API Client code editor. */
 export type ApiClientCodeLanguage = 'javascript' | 'json' | 'text' | 'xml' | 'html' | 'graphql';
 
 /** Imperative handle for focusing and querying the CodeMirror editor instance. */
 export interface ApiClientCodeEditorHandle {
+  /** Move keyboard focus into the editor. */
   focus: () => void;
+  /** Return the current primary selection offsets. */
   getSelection: () => { from: number; to: number };
+  /** Set the primary selection, clamped to the current document length. */
   setSelection: (from: number, to?: number) => void;
+  /** Return viewport coordinates for a document offset, or `null` when unavailable. */
   coordsAtPos: (position: number) => { left: number; right: number; top: number; bottom: number } | null;
 }
 
 /** Props for the shared CodeMirror-based editor used by API Client panels. */
 export interface ApiClientCodeEditorProps {
+  /** Accessible label applied to the editor textbox. */
   ariaLabel: string;
+  /** Controlled document text. */
   value: string;
+  /** Called whenever user editing changes the document text. */
   onChange: (value: string) => void;
+  /** Syntax/language mode advertised by the editor. */
   language?: ApiClientCodeLanguage;
+  /** Light or dark editor chrome. */
   theme?: 'light' | 'dark';
+  /** Minimum visible editor height expressed in text lines. */
   minLines?: number;
+  /** Maximum visible editor height before internal scrolling begins. */
   maxLines?: number;
+  /** Optional `data-testid` value applied to the editable surface. */
   dataTestId?: string;
+  /** Soft-wrap long lines when `true`. */
   wrap?: boolean;
+  /** Enable CodeMirror's normal newline indentation and Tab indentation behavior. */
   autoIndent?: boolean;
+  /** Id of the element controlled by the editor for ARIA composite widgets. */
   ariaControls?: string;
+  /** Id of the currently active descendant, typically an autocomplete option. */
   ariaActiveDescendant?: string;
+  /** ARIA autocomplete mode exposed by the editor. */
   ariaAutocomplete?: 'none' | 'inline' | 'list' | 'both';
+  /** Whether an associated popup/listbox is currently expanded. */
   ariaExpanded?: boolean;
+  /** Receives editor keydown events before CodeMirror handles non-prevented keys. */
   onEditorKeyDown?: (event: KeyboardEvent) => void;
+  /** Called when the primary cursor position changes. */
   onCursorChange?: (position: number) => void;
 }
 
