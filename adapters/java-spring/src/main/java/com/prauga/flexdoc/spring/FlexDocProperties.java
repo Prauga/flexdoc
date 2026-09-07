@@ -19,6 +19,7 @@ public class FlexDocProperties {
   private String tryItDefaultServer = "";
   private String tryItCredentials = "";
   private Object tryItApiClientPersistenceKey;
+  private boolean runtimeIntelligence;
 
   public boolean isEnabled() { return enabled; }
   public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -44,6 +45,8 @@ public class FlexDocProperties {
   public void setTryItCredentials(String tryItCredentials) { this.tryItCredentials = tryItCredentials; }
   public Object getTryItApiClientPersistenceKey() { return tryItApiClientPersistenceKey; }
   public void setTryItApiClientPersistenceKey(Object tryItApiClientPersistenceKey) { this.tryItApiClientPersistenceKey = tryItApiClientPersistenceKey; }
+  public boolean isRuntimeIntelligence() { return runtimeIntelligence; }
+  public void setRuntimeIntelligence(boolean runtimeIntelligence) { this.runtimeIntelligence = runtimeIntelligence; }
 
   FlexDocConfig toConfig() {
     FlexDocConfig.Builder builder = FlexDocConfig.builder()
@@ -55,6 +58,7 @@ public class FlexDocProperties {
         .tryItDefaultServer(tryItDefaultServer)
         .tryItCredentials(tryItCredentials);
 
+    if (runtimeIntelligence) builder.runtimeIntelligenceFramework("spring");
     if (expandSections != null && !expandSections.isEmpty()) builder.expandSections(expandSections);
     else if (expand != null && !expand.isBlank()) builder.expand(expand);
 

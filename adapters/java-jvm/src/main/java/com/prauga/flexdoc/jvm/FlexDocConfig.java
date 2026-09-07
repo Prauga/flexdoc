@@ -13,13 +13,14 @@ public record FlexDocConfig(
     String tryItDefaultServer,
     String tryItCredentials,
     Object tryItApiClientPersistenceKey,
-    boolean tryItHostExecution) {
+    boolean tryItHostExecution,
+    String runtimeIntelligenceFramework) {
   /** Preserves the original public constructor while leaving new renderer settings unset. */
   public FlexDocConfig(String path, String specUrl, String title, String theme, boolean tryItEnabled) {
-    this(path, specUrl, title, theme, tryItEnabled, null, null, null, null, false);
+    this(path, specUrl, title, theme, tryItEnabled, null, null, null, null, false, null);
   }
 
-  /** Preserves the 2.9.0 constructor while adding the host-execution capability flag. */
+  /** Preserves the 2.9.0 constructor while adding later capability fields as unset. */
   public FlexDocConfig(
       String path,
       String specUrl,
@@ -30,7 +31,22 @@ public record FlexDocConfig(
       String tryItDefaultServer,
       String tryItCredentials,
       Object tryItApiClientPersistenceKey) {
-    this(path, specUrl, title, theme, tryItEnabled, expand, tryItDefaultServer, tryItCredentials, tryItApiClientPersistenceKey, false);
+    this(path, specUrl, title, theme, tryItEnabled, expand, tryItDefaultServer, tryItCredentials, tryItApiClientPersistenceKey, false, null);
+  }
+
+  /** Preserves the 2.9.5 constructor while leaving Runtime Intelligence disabled. */
+  public FlexDocConfig(
+      String path,
+      String specUrl,
+      String title,
+      String theme,
+      boolean tryItEnabled,
+      Object expand,
+      String tryItDefaultServer,
+      String tryItCredentials,
+      Object tryItApiClientPersistenceKey,
+      boolean tryItHostExecution) {
+    this(path, specUrl, title, theme, tryItEnabled, expand, tryItDefaultServer, tryItCredentials, tryItApiClientPersistenceKey, tryItHostExecution, null);
   }
 
   /** Creates validated configuration and normalizes the documentation path. */
@@ -41,6 +57,7 @@ public record FlexDocConfig(
     theme = theme == null || theme.isBlank() ? "light" : theme;
     tryItDefaultServer = blankToNull(tryItDefaultServer);
     tryItCredentials = blankToNull(tryItCredentials);
+    runtimeIntelligenceFramework = blankToNull(runtimeIntelligenceFramework);
     if (!theme.equals("system") && !theme.equals("light") && !theme.equals("dark")) {
       throw new IllegalArgumentException("FlexDoc theme must be system, light, or dark");
     }
@@ -95,6 +112,7 @@ public record FlexDocConfig(
     private String tryItCredentials;
     private Object tryItApiClientPersistenceKey;
     private boolean tryItHostExecution;
+    private String runtimeIntelligenceFramework;
 
     public Builder path(String value) { path = value; return this; }
     public Builder specUrl(String value) { specUrl = value; return this; }
@@ -108,6 +126,7 @@ public record FlexDocConfig(
     public Builder tryItApiClientPersistenceKey(String value) { tryItApiClientPersistenceKey = value; return this; }
     public Builder tryItApiClientPersistenceKey(boolean value) { tryItApiClientPersistenceKey = value; return this; }
     public Builder tryItHostExecution(boolean value) { tryItHostExecution = value; return this; }
+    public Builder runtimeIntelligenceFramework(String value) { runtimeIntelligenceFramework = value; return this; }
     public FlexDocConfig build() {
       return new FlexDocConfig(
           path,
@@ -119,7 +138,8 @@ public record FlexDocConfig(
           tryItDefaultServer,
           tryItCredentials,
           tryItApiClientPersistenceKey,
-          tryItHostExecution);
+          tryItHostExecution,
+          runtimeIntelligenceFramework);
     }
   }
 }
