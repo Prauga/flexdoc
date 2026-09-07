@@ -59,6 +59,18 @@ export interface FlexDocHostExecutionPublicOptions {
   cookiesEndpoint?: string;
 }
 
+export interface FlexDocRuntimeRoute { method: string; path: string; }
+export interface FlexDocRuntimeIntelligenceSnapshot {
+  framework: string;
+  serverOrigin?: string;
+  discoveryComplete: boolean;
+  routes: FlexDocRuntimeRoute[];
+  runtimeOnly: FlexDocRuntimeRoute[];
+  documentedOnly: FlexDocRuntimeRoute[];
+  summary: { documented: number; runtime: number; matched: number; runtimeOnly: number; documentedOnly: number };
+}
+export interface FlexDocRuntimeIntelligencePublicOptions { available: boolean; endpoint: string; framework: string; }
+
 export interface FlexDocRendererOptions {
   contractVersion?: '1';
   title?: string;
@@ -92,6 +104,7 @@ export interface FlexDocRendererOptions {
   scrollYOffset?: number | string;
   suppressWarnings?: boolean;
   payloadSampleIdx?: number;
+  runtimeIntelligence?: FlexDocRuntimeIntelligencePublicOptions;
   tryIt?: {
     enabled?: boolean;
     defaultServer?: string;

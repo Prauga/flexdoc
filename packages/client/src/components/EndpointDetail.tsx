@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { AlertCircle, ChevronDown, ChevronRight, Lock, Unlock } from 'lucide-react';
 import { OpenAPISpec, Operation, RequestBody, Response } from '../types/openapi';
-import { ExpandSection, FlexDocRendererOptions } from '../types/options';
+import { ExpandSection, FlexDocRendererOptions, FlexDocRuntimeIntelligenceSnapshot } from '../types/options';
 import { resolveExpandSections } from '../utils/renderer-preferences';
 import { OpenAPIParser } from '../utils/openapi-parser';
 import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
@@ -17,11 +17,12 @@ interface EndpointDetailProps {
   theme?: 'light' | 'dark';
   options?: FlexDocRendererOptions;
   defaultExpandedSections?: ExpandSection[];
+  runtimeSnapshot?: FlexDocRuntimeIntelligenceSnapshot;
 }
 
 const DEFAULT_LANGUAGES: CodeSampleLanguage[] = ['curl', 'javascript', 'python', 'go', 'java'];
 
-export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, method, theme = 'light', options = {}, defaultExpandedSections }) => {
+export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, method, theme = 'light', options = {}, defaultExpandedSections, runtimeSnapshot }) => {
   const defaultExpanded = defaultExpandedSections ?? resolveExpandSections(options.expand, options.expand === undefined ? options.expandResponses : undefined);
   const expansionKey = `${method}:${path}:${defaultExpanded.join('|')}`;
   const [expansionState, setExpansionState] = useState<{ key: string; sections: Set<ExpandSection> }>(() => ({
@@ -69,6 +70,7 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
 
   const extensionEntries = Object.entries(operation).filter(([key]) => key.startsWith('x-'));
   const methodTheme = typeof options.theme === 'object' ? options.theme.methodColors?.[method.toLowerCase()] : undefined;
+  const runtimeObserved = runtimeSnapshot?.routes.some((route) => route.method === method.toUpperCase() && route.path === path);
 
   return <div className={`h-full overflow-y-auto ${surface}`}>
     <article className='mx-auto w-full max-w-6xl p-4 sm:p-6 lg:p-8'>
@@ -82,6 +84,7 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
         <div className='mt-4 flex flex-wrap gap-3 text-sm'>
           {operation.deprecated && <span className='inline-flex items-center gap-1 text-orange-600'><AlertCircle className='h-4 w-4' />Deprecated</span>}
           {security?.length ? <span className='inline-flex items-center gap-1 text-red-600'><Lock className='h-4 w-4' />Authentication required</span> : <span className='inline-flex items-center gap-1 text-green-600'><Unlock className='h-4 w-4' />No authentication required</span>}
+          {runtimeSnapshot && (runtimeObserved ? <span className='text-green-600'>Observed at runtime</span> : <span className={runtimeSnapshot.discoveryComplete ? 'text-amber-600' : muted}>{runtimeSnapshot.discoveryComplete ? 'Not found at runtime' : 'Not observed in partial runtime discovery'}</span>)}
           {operation.operationId && <span className={muted}>operationId: <code>{operation.operationId}</code></span>}
         </div>
         {(options.showExtensions || options.showCommonExtensions) && extensionEntries.length > 0 && <div className={`mt-4 rounded-lg border p-3 text-xs ${card}`}>
