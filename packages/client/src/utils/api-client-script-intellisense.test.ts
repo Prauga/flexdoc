@@ -33,6 +33,12 @@ function runtimeSurfaceScript(): string {
 }
 
 describe('api-client-script-intellisense', () => {
+  it('offers member completions on subsequent lines', () => {
+    const source = "console.log('first');\nflex.re";
+    const result = apiClientScriptCompletionsAtPosition(source, source.length, 'tests');
+    expect(result?.items.map((item) => item.label)).toContain('response');
+  });
+
   it('keeps response and test helpers out of pre-request completion', () => {
     const preRequest = apiClientScriptMemberCompletions('flex', 'pre-request').map((item) => item.label);
     const tests = apiClientScriptMemberCompletions('flex', 'tests').map((item) => item.label);

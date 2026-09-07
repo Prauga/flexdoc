@@ -1,11 +1,14 @@
 import { createRoot, Root } from 'react-dom/client';
 import { FlexDoc } from './components/FlexDoc';
+import { ApiClientWorkspace } from './components/ApiClientWorkspace';
+import type { ApiClientWorkspaceProps } from './components/ApiClientWorkspace';
 import { OpenAPISpec } from './types/openapi';
 import { FlexDocRendererOptions } from './types/options';
 import { bundleExternalReferences, DocumentLoader } from './utils/openapi-resolver';
 import './styles.css';
 
 export type StandaloneFlexDocOptions = FlexDocRendererOptions;
+export type StandaloneApiClientConfig = ApiClientWorkspaceProps;
 
 export interface StandaloneFlexDocConfig {
   spec: OpenAPISpec;
@@ -75,6 +78,15 @@ export function mountFlexDoc(element: Element, config: StandaloneFlexDocConfig):
   return renderFlexDoc(element, config.spec, options);
 }
 
+export function mountApiClient(element: Element, config: StandaloneApiClientConfig = {}): () => void {
+  const existingRoot = roots.get(element);
+  if (existingRoot) existingRoot.unmount();
+  const root = createRoot(element);
+  roots.set(element, root);
+  root.render(<ApiClientWorkspace {...config} />);
+  return () => { if (roots.get(element) === root) roots.delete(element); root.unmount(); };
+}
+
 export async function mountFlexDocAsync(element: Element, config: StandaloneFlexDocConfig): Promise<() => void> {
   const options = { contractVersion: FLEXDOC_CONTRACT_VERSION, ...(config.options || {}) } as StandaloneFlexDocOptions;
   const spec = config.baseUri
@@ -88,6 +100,7 @@ declare global {
     FlexDocStandalone?: {
       mount: typeof mountFlexDoc;
       mountAsync: typeof mountFlexDocAsync;
+      mountApiClient: typeof mountApiClient;
       prepareSpec: typeof prepareSpec;
       contractVersion: typeof FLEXDOC_CONTRACT_VERSION;
     };
@@ -97,6 +110,7 @@ declare global {
 if (typeof window !== 'undefined') window.FlexDocStandalone = {
   mount: mountFlexDoc,
   mountAsync: mountFlexDocAsync,
+  mountApiClient,
   prepareSpec,
   contractVersion: FLEXDOC_CONTRACT_VERSION,
 };

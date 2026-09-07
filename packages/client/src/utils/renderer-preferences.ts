@@ -1,4 +1,4 @@
-import type { ExpandOption, ExpandPreset, ExpandSection } from '../types/options';
+import type { ExpandOption, ExpandPreset, ExpandSection, FlexDocViewerTheme } from '../types/options';
 
 export const EXPAND_SECTIONS: ExpandSection[] = ['parameters', 'requestBody', 'responses', 'tryIt', 'codeSamples'];
 
@@ -13,10 +13,14 @@ const EXPAND_PRESETS: Record<ExpandPreset, ExpandSection[]> = {
 const ARRAY_PRESETS = new Set(['minimal', 'documentation', 'interactive']);
 const SECTION_SET = new Set(EXPAND_SECTIONS);
 const PRESET_SET = new Set(Object.keys(EXPAND_PRESETS));
+const VIEWER_THEMES = new Set<FlexDocViewerTheme>(['light', 'dark', 'high-contrast']);
 
 export interface FlexDocViewerPreferences {
   version: 1;
   expand?: ExpandOption;
+  sidebarCollapsed?: boolean;
+  theme?: FlexDocViewerTheme;
+  expandedTags?: string[];
 }
 
 export function isExpandOption(value: unknown): value is ExpandOption {
@@ -58,21 +62,63 @@ export function readFlexDocViewerPreferences(key: string, storage?: Storage): Fl
   try {
     const raw = resolvedStorage.getItem(key);
     if (!raw) return { version: 1 };
-    const parsed = JSON.parse(raw) as { version?: unknown; expand?: unknown };
-    if (parsed.version !== 1 || (parsed.expand !== undefined && !isExpandOption(parsed.expand))) return { version: 1 };
-    return { version: 1, ...(parsed.expand !== undefined ? { expand: parsed.expand } : {}) };
+    const parsed = JSON.parse(raw) as { version?: unknown; expand?: unknown; sidebarCollapsed?: unknown; theme?: unknown; expandedTags?: unknown };
+    if (parsed.version !== 1) return { version: 1 };
+    if (parsed.expand !== undefined && !isExpandOption(parsed.expand)) return { version: 1 };
+    if (parsed.sidebarCollapsed !== undefined && typeof parsed.sidebarCollapsed !== 'boolean') return { version: 1 };
+    if (parsed.theme !== undefined && (typeof parsed.theme !== 'string' || !VIEWER_THEMES.has(parsed.theme as FlexDocViewerTheme))) return { version: 1 };
+    if (parsed.expandedTags !== undefined && (!Array.isArray(parsed.expandedTags) || !parsed.expandedTags.every((tag) => typeof tag === 'string'))) return { version: 1 };
+    return {
+      version: 1,
+      ...(parsed.expand !== undefined ? { expand: parsed.expand } : {}),
+      ...(parsed.sidebarCollapsed !== undefined ? { sidebarCollapsed: parsed.sidebarCollapsed } : {}),
+      ...(parsed.theme !== undefined ? { theme: parsed.theme as FlexDocViewerTheme } : {}),
+      ...(parsed.expandedTags !== undefined ? { expandedTags: [...new Set(parsed.expandedTags as string[])] } : {}),
+    };
   } catch {
     return { version: 1 };
   }
 }
 
-export function writeFlexDocViewerExpandPreference(key: string, expand?: ExpandOption, storage?: Storage): void {
+function writePreferences(key: string, next: FlexDocViewerPreferences, storage?: Storage): void {
   const resolvedStorage = storage ?? (typeof window !== 'undefined' ? window.localStorage : undefined);
   if (!resolvedStorage) return;
   try {
-    if (expand === undefined) resolvedStorage.removeItem(key);
-    else resolvedStorage.setItem(key, JSON.stringify({ version: 1, expand } satisfies FlexDocViewerPreferences));
+    if (next.expand === undefined && next.sidebarCollapsed === undefined && next.theme === undefined && next.expandedTags === undefined) resolvedStorage.removeItem(key);
+    else resolvedStorage.setItem(key, JSON.stringify(next));
   } catch {
     // Viewer preferences are best-effort and must never prevent documentation rendering.
   }
+}
+
+export function writeFlexDocViewerExpandPreference(key: string, expand?: ExpandOption, storage?: Storage): void {
+  const current = readFlexDocViewerPreferences(key, storage);
+  const next: FlexDocViewerPreferences = { ...current };
+  if (expand === undefined) delete next.expand;
+  else next.expand = expand;
+  writePreferences(key, next, storage);
+}
+
+export function writeFlexDocViewerSidebarPreference(key: string, sidebarCollapsed?: boolean, storage?: Storage): void {
+  const current = readFlexDocViewerPreferences(key, storage);
+  const next: FlexDocViewerPreferences = { ...current };
+  if (sidebarCollapsed === undefined) delete next.sidebarCollapsed;
+  else next.sidebarCollapsed = sidebarCollapsed;
+  writePreferences(key, next, storage);
+}
+
+export function writeFlexDocViewerThemePreference(key: string, theme?: FlexDocViewerTheme, storage?: Storage): void {
+  const current = readFlexDocViewerPreferences(key, storage);
+  const next: FlexDocViewerPreferences = { ...current };
+  if (theme === undefined) delete next.theme;
+  else next.theme = theme;
+  writePreferences(key, next, storage);
+}
+
+export function writeFlexDocViewerExpandedTagsPreference(key: string, expandedTags?: string[], storage?: Storage): void {
+  const current = readFlexDocViewerPreferences(key, storage);
+  const next: FlexDocViewerPreferences = { ...current };
+  if (expandedTags === undefined) delete next.expandedTags;
+  else next.expandedTags = [...new Set(expandedTags)];
+  writePreferences(key, next, storage);
 }

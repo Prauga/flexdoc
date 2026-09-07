@@ -55,6 +55,30 @@ describe('ApiClientHistoryPage', () => {
     expect(onBack).toHaveBeenCalled();
   });
 
+  it('confirms deleting one history entry and clearing all history', () => {
+    const onWorkspaceChange = jest.fn();
+    const confirm = jest.fn(() => false);
+    Object.defineProperty(window, 'confirm', { configurable: true, writable: true, value: confirm });
+    render(<ApiClientHistoryPage workspace={workspaceFixture()} onWorkspaceChange={onWorkspaceChange} onLoadRequest={jest.fn()} onBack={jest.fn()} theme='light' initialEntryId='history-new' />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete selected history entry' }));
+    expect(confirm).toHaveBeenLastCalledWith('Delete this history entry? This cannot be undone.');
+    expect(onWorkspaceChange).not.toHaveBeenCalled();
+
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete selected history entry' }));
+    expect(onWorkspaceChange).toHaveBeenCalledTimes(1);
+
+    confirm.mockReturnValue(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear history' }));
+    expect(confirm).toHaveBeenLastCalledWith('Clear all request history? This cannot be undone.');
+    expect(onWorkspaceChange).toHaveBeenCalledTimes(1);
+
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear history' }));
+    expect(onWorkspaceChange).toHaveBeenCalledTimes(2);
+  });
+
   it('filters by search text, collection metadata, run metadata, method, outcome, and tests', () => {
     const workspace = workspaceFixture();
     expect(filterApiClientHistoryEntries(workspace, { query: 'login', method: 'all', outcome: 'all' }).map((entry) => entry.id)).toEqual(['history-old']);

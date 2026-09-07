@@ -34,7 +34,10 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
   };
 
   const removeHistory = (id: string) => {
-    onWorkspaceChange((current) => ({ ...current, history: current.history.filter((entry) => entry.id !== id) }));
+    const entry = workspace.history.find((candidate) => candidate.id === id);
+    if (!entry) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Delete this history entry?\n\n${entry.executedMethod.toUpperCase()} ${entry.resolvedUrl}`)) return;
+    onWorkspaceChange((current) => ({ ...current, history: current.history.filter((candidate) => candidate.id !== id) }));
   };
 
   return <section className='space-y-3' aria-labelledby='api-client-history-heading'>
@@ -74,7 +77,7 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
           </button>
         </div>;
       })}
-      {workspace.history.length === 0 && <p className={`px-2 text-xs ${mutedClass}`}>Sent requests appear here for quick replay.</p>}
+      {workspace.history.length === 0 && <div className={`rounded-md border border-dashed px-3 py-3 text-xs ${mutedClass}`}>Sent requests appear here for quick replay. Import or open a collection request, then Send it to start building history.</div>}
     </div>
 
     {workspace.history.length > 0 && onViewAll && <button type='button' className='w-full rounded-md border px-3 py-2 text-xs font-medium hover:bg-blue-500/10' onClick={onViewAll}>Open full history · {workspace.history.length}</button>}

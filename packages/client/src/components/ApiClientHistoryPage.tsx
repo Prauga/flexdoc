@@ -93,11 +93,13 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
   };
 
   const removeHistory = (id: string) => {
+    if (!window.confirm('Delete this history entry? This cannot be undone.')) return;
     onWorkspaceChange((current) => ({ ...current, history: current.history.filter((entry) => entry.id !== id) }));
     if (selectedId === id) setSelectedId(undefined);
   };
 
   const clearHistory = () => {
+    if (!window.confirm('Clear all request history? This cannot be undone.')) return;
     onWorkspaceChange((current) => ({ ...current, history: [] }));
     resetSelection();
   };

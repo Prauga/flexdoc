@@ -1,4 +1,4 @@
-import { prepareSpec } from './standalone';
+import { mountApiClient, prepareSpec } from './standalone';
 import { OpenAPISpec } from './types/openapi';
 
 const spec: OpenAPISpec = {
@@ -54,4 +54,9 @@ describe('prepareSpec', () => {
 
     expect(result.components?.schemas?.Node).toEqual(spec.components?.schemas?.Node);
   });
+});
+
+
+test('standalone bundle exposes the API Client workspace mount', () => {
+  expect(window.FlexDocStandalone?.mountApiClient).toBe(mountApiClient);
 });

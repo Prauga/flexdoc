@@ -44,12 +44,14 @@ describe('FlexDoc', () => {
     expect(container.firstElementChild).toHaveStyle({ maxWidth: '1200px' });
   });
 
-  it('honors topbar, hostname and download options', () => {
+  it('honors topbar, hostname and download options while keeping navigation reachable', () => {
     const { rerender } = render(<FlexDoc spec={mockSpec} options={{ hideHostname: true, hideDownloadButton: true }} />);
     expect(screen.queryByText('https://api.example.com')).not.toBeInTheDocument();
     expect(screen.queryByText('Download spec')).not.toBeInTheDocument();
     rerender(<FlexDoc spec={mockSpec} options={{ hideTopbar: true }} />);
-    expect(screen.queryByLabelText('Open API navigation')).not.toBeInTheDocument();
+    const trigger = screen.getByRole('button', { name: 'Open API navigation' });
+    expect(trigger).toBeInTheDocument();
+    expect(trigger.className).toContain('fixed');
   });
 
   it('renders a configured logo and footer', () => {

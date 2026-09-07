@@ -49,6 +49,79 @@ export interface ThemeConfig {
 export type ExpandSection = 'parameters' | 'requestBody' | 'responses' | 'tryIt' | 'codeSamples';
 export type ExpandPreset = 'all' | 'none' | 'minimal' | 'documentation' | 'interactive';
 export type ExpandOption = ExpandPreset | Array<ExpandSection | Exclude<ExpandPreset, 'all' | 'none'>>;
+export type FlexDocViewerTheme = 'light' | 'dark' | 'high-contrast';
+
+/**
+ * Renderer-owned chrome translations. Hosts can override any entry while
+ * OpenAPI-authored summaries/descriptions remain sourced from the spec.
+ */
+export interface FlexDocMessages {
+  parameters?: string;
+  requestBody?: string;
+  responses?: string;
+  tryIt?: string;
+  codeExamples?: string;
+  tryItBasic?: string;
+  tryItAdvanced?: string;
+  openApiClient?: string;
+  apiClient?: string;
+  backToOperation?: string;
+  environment?: string;
+  noEnvironment?: string;
+  unsavedChanges?: string;
+  sendRequest?: string;
+  cancelRequest?: string;
+  requestCancelled?: string;
+  openOverview?: string;
+  openSettings?: string;
+  openRuntime?: string;
+  commandPalette?: string;
+  closeCommandPalette?: string;
+  searchCommands?: string;
+  searchCommandsPlaceholder?: string;
+  commandResults?: string;
+  noCommandResults?: string;
+  sendCurrentRequest?: string;
+  searchEndpoints?: string;
+  searchEndpointsPlaceholder?: string;
+  apiInformation?: string;
+  versionLabel?: string;
+  servers?: string;
+  endpoints?: string;
+  noEndpointsMatch?: string;
+  generalTag?: string;
+  apiNavigation?: string;
+  closeApiNavigation?: string;
+  runtimeIntelligence?: string;
+  runtimeIntelligenceDescription?: string;
+  closeRuntimeIntelligence?: string;
+  closeRuntimeIntelligencePanel?: string;
+  inspectingRuntimeRoutes?: string;
+  framework?: string;
+  matched?: string;
+  runtime?: string;
+  runtimeServer?: string;
+  backendListenerPort?: string;
+  routeDiscoveryPartial?: string;
+  implementedButUndocumented?: string;
+  noUndocumentedRuntimeRoutes?: string;
+  documentedButNotObserved?: string;
+  everyDocumentedRouteObserved?: string;
+  runtimeAligned?: string;
+  openRuntimeRoute?: string;
+  unusualBodyAdvisory?: string;
+  unusualBodyHostExecution?: string;
+  unusualBodyBrowserWarning?: string;
+  hostBrowserUnsupported?: string;
+  hostExecutionDisabled?: string;
+  hostExecutionStatus?: string;
+  viewerTheme?: string;
+  lightTheme?: string;
+  darkTheme?: string;
+  highContrast?: string;
+  printOperation?: string;
+  downloadFailed?: string;
+}
 
 export type FlexDocHostExecutionCapability = 'cookies' | 'clientCertificates' | 'digest' | 'hawk' | 'ntlm' | 'oauth1' | 'awsv4';
 export interface FlexDocHostExecutionPublicOptions {
@@ -86,6 +159,10 @@ export interface FlexDocRendererOptions {
   version?: string;
   tagGroups?: Array<{ name: string; tags: string[] }>;
   theme?: 'light' | 'dark' | ThemeConfig;
+  /** BCP 47 locale applied to renderer-owned chrome and operation content. */
+  locale?: string;
+  /** Host-provided renderer chrome translations. Omitted keys keep the built-in English copy. */
+  messages?: FlexDocMessages;
   customCss?: string;
   customJs?: string;
   favicon?: string;

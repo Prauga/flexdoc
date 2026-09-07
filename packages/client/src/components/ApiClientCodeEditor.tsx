@@ -1,11 +1,16 @@
-import React, { forwardRef, useMemo, useRef, useState } from 'react';
-import Prism from 'prismjs';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-json';
-import 'prismjs/components/prism-markup';
-import 'prismjs/components/prism-graphql';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { EditorState, Compartment, Prec, type Extension } from '@codemirror/state';
+import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers, type KeyBinding } from '@codemirror/view';
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 
 export type ApiClientCodeLanguage = 'javascript' | 'json' | 'text' | 'xml' | 'html' | 'graphql';
+
+export interface ApiClientCodeEditorHandle {
+  focus: () => void;
+  getSelection: () => { from: number; to: number };
+  setSelection: (from: number, to?: number) => void;
+  coordsAtPos: (position: number) => { left: number; right: number; top: number; bottom: number } | null;
+}
 
 export interface ApiClientCodeEditorProps {
   ariaLabel: string;
@@ -16,36 +21,89 @@ export interface ApiClientCodeEditorProps {
   minLines?: number;
   maxLines?: number;
   dataTestId?: string;
-  onEditorKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  wrap?: boolean;
+  autoIndent?: boolean;
+  ariaControls?: string;
+  ariaActiveDescendant?: string;
+  ariaAutocomplete?: 'none' | 'inline' | 'list' | 'both';
+  ariaExpanded?: boolean;
+  onEditorKeyDown?: (event: KeyboardEvent) => void;
   onCursorChange?: (position: number) => void;
 }
 
-const TOKEN_STYLE = `
-.api-client-code-editor .token.comment,.api-client-code-editor .token.prolog,.api-client-code-editor .token.doctype,.api-client-code-editor .token.cdata{color:#6b7280}
-.api-client-code-editor.light .token.punctuation{color:#4b5563}.api-client-code-editor.dark .token.punctuation{color:#d1d5db}
-.api-client-code-editor.light .token.property,.api-client-code-editor.light .token.tag,.api-client-code-editor.light .token.boolean,.api-client-code-editor.light .token.number,.api-client-code-editor.light .token.constant,.api-client-code-editor.light .token.symbol{color:#b91c1c}
-.api-client-code-editor.dark .token.property,.api-client-code-editor.dark .token.tag,.api-client-code-editor.dark .token.boolean,.api-client-code-editor.dark .token.number,.api-client-code-editor.dark .token.constant,.api-client-code-editor.dark .token.symbol{color:#fca5a5}
-.api-client-code-editor.light .token.selector,.api-client-code-editor.light .token.attr-name,.api-client-code-editor.light .token.string,.api-client-code-editor.light .token.char,.api-client-code-editor.light .token.builtin,.api-client-code-editor.light .token.inserted{color:#047857}
-.api-client-code-editor.dark .token.selector,.api-client-code-editor.dark .token.attr-name,.api-client-code-editor.dark .token.string,.api-client-code-editor.dark .token.char,.api-client-code-editor.dark .token.builtin,.api-client-code-editor.dark .token.inserted{color:#6ee7b7}
-.api-client-code-editor.light .token.operator,.api-client-code-editor.light .token.entity,.api-client-code-editor.light .token.url,.api-client-code-editor.light .token.variable{color:#92400e}
-.api-client-code-editor.dark .token.operator,.api-client-code-editor.dark .token.entity,.api-client-code-editor.dark .token.url,.api-client-code-editor.dark .token.variable{color:#fcd34d}
-.api-client-code-editor.light .token.atrule,.api-client-code-editor.light .token.attr-value,.api-client-code-editor.light .token.function,.api-client-code-editor.light .token.class-name{color:#1d4ed8}
-.api-client-code-editor.dark .token.atrule,.api-client-code-editor.dark .token.attr-value,.api-client-code-editor.dark .token.function,.api-client-code-editor.dark .token.class-name{color:#93c5fd}
-.api-client-code-editor.light .token.keyword{color:#7e22ce}.api-client-code-editor.dark .token.keyword{color:#d8b4fe}
-.api-client-code-editor.light .token.regex,.api-client-code-editor.light .token.important{color:#c2410c}.api-client-code-editor.dark .token.regex,.api-client-code-editor.dark .token.important{color:#fdba74}
-`;
-
-function escapeHtml(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function contentAttributes({
+  ariaLabel,
+  dataTestId,
+  ariaControls,
+  ariaActiveDescendant,
+  ariaAutocomplete,
+  ariaExpanded,
+}: Pick<ApiClientCodeEditorProps, 'ariaLabel' | 'dataTestId' | 'ariaControls' | 'ariaActiveDescendant' | 'ariaAutocomplete' | 'ariaExpanded'>): Record<string, string> {
+  const attributes: Record<string, string> = {
+    'aria-label': ariaLabel,
+    'aria-multiline': 'true',
+    role: 'textbox',
+    spellcheck: 'false',
+  };
+  if (dataTestId) attributes['data-testid'] = dataTestId;
+  if (ariaControls) attributes['aria-controls'] = ariaControls;
+  if (ariaActiveDescendant) attributes['aria-activedescendant'] = ariaActiveDescendant;
+  if (ariaAutocomplete) attributes['aria-autocomplete'] = ariaAutocomplete;
+  if (ariaExpanded !== undefined) attributes['aria-expanded'] = String(ariaExpanded);
+  return attributes;
 }
 
-function prismLanguage(language: ApiClientCodeLanguage): { grammar?: Prism.Grammar; name: string } {
-  if (language === 'text') return { name: 'text' };
-  if (language === 'xml' || language === 'html') return { grammar: Prism.languages.markup, name: 'markup' };
-  return { grammar: Prism.languages[language], name: language };
+function visualTheme(theme: 'light' | 'dark'): Extension {
+  const dark = theme === 'dark';
+  return EditorView.theme({
+    '&': {
+      height: '100%',
+      backgroundColor: dark ? '#030712' : '#ffffff',
+      color: dark ? '#f3f4f6' : '#111827',
+    },
+    '&.cm-focused': { outline: 'none' },
+    '.cm-scroller': {
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+      fontSize: '12px',
+      lineHeight: '24px',
+      overflow: 'auto',
+    },
+    '.cm-content': {
+      minHeight: '100%',
+      padding: '8px 12px',
+      caretColor: dark ? '#f9fafb' : '#111827',
+    },
+    '.cm-line': { padding: '0' },
+    '.cm-cursor, .cm-dropCursor': { borderLeftColor: dark ? '#f9fafb' : '#111827' },
+    '.cm-gutters': {
+      backgroundColor: dark ? '#111827' : '#f9fafb',
+      color: dark ? '#6b7280' : '#9ca3af',
+      borderRight: `1px solid ${dark ? '#1f2937' : '#e5e7eb'}`,
+    },
+    '.cm-activeLine': { backgroundColor: dark ? '#11182780' : '#f3f4f680' },
+    '.cm-activeLineGutter': { backgroundColor: dark ? '#1f2937' : '#f3f4f6' },
+    '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
+      backgroundColor: dark ? '#1d4ed880' : '#bfdbfe',
+    },
+  }, { dark });
 }
 
-export const ApiClientCodeEditor = forwardRef<HTMLTextAreaElement, ApiClientCodeEditorProps>(({
+const plainNewline: KeyBinding = {
+  key: 'Enter',
+  run: (view: EditorView) => {
+    view.dispatch(view.state.replaceSelection('\n'));
+    return true;
+  },
+};
+
+function editorKeymap(autoIndent: boolean): Extension {
+  const base = defaultKeymap.filter((binding) => binding.key !== 'Enter');
+  return keymap.of(autoIndent
+    ? [...defaultKeymap, ...historyKeymap, indentWithTab]
+    : [plainNewline, ...base, ...historyKeymap]);
+}
+
+export const ApiClientCodeEditor = forwardRef<ApiClientCodeEditorHandle, ApiClientCodeEditorProps>(({
   ariaLabel,
   value,
   onChange,
@@ -54,95 +112,142 @@ export const ApiClientCodeEditor = forwardRef<HTMLTextAreaElement, ApiClientCode
   minLines = 7,
   maxLines = 16,
   dataTestId,
+  wrap = false,
+  autoIndent = false,
+  ariaControls,
+  ariaActiveDescendant,
+  ariaAutocomplete,
+  ariaExpanded,
   onEditorKeyDown,
   onCursorChange,
 }, forwardedRef) => {
-  const localRef = useRef<HTMLTextAreaElement | null>(null);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  const onChangeRef = useRef(onChange);
+  const onCursorChangeRef = useRef(onCursorChange);
+  const onEditorKeyDownRef = useRef(onEditorKeyDown);
+  const syncingValueRef = useRef(false);
+  const initialConfigRef = useRef({ value, theme, wrap, autoIndent, ariaLabel, dataTestId, ariaControls, ariaActiveDescendant, ariaAutocomplete, ariaExpanded });
+
+  const themeCompartment = useMemo(() => new Compartment(), []);
+  const wrapCompartment = useMemo(() => new Compartment(), []);
+  const gutterCompartment = useMemo(() => new Compartment(), []);
+  const keymapCompartment = useMemo(() => new Compartment(), []);
+  const attributesCompartment = useMemo(() => new Compartment(), []);
+
+  onChangeRef.current = onChange;
+  onCursorChangeRef.current = onCursorChange;
+  onEditorKeyDownRef.current = onEditorKeyDown;
+
+  useImperativeHandle(forwardedRef, () => ({
+    focus: () => viewRef.current?.focus(),
+    getSelection: () => {
+      const main = viewRef.current?.state.selection.main;
+      return main ? { from: main.from, to: main.to } : { from: 0, to: 0 };
+    },
+    setSelection: (from, to = from) => {
+      const view = viewRef.current;
+      if (!view) return;
+      const length = view.state.doc.length;
+      const anchor = Math.max(0, Math.min(from, length));
+      const head = Math.max(0, Math.min(to, length));
+      view.dispatch({ selection: { anchor, head }, scrollIntoView: true });
+      view.focus();
+      onCursorChangeRef.current?.(anchor);
+    },
+    coordsAtPos: (position) => {
+      const view = viewRef.current;
+      if (!view) return null;
+      const safePosition = Math.max(0, Math.min(position, view.state.doc.length));
+      const coords = view.coordsAtPos(safePosition);
+      return coords ? { left: coords.left, right: coords.right, top: coords.top, bottom: coords.bottom } : null;
+    },
+  }), []);
+
+  useEffect(() => {
+    if (!hostRef.current || viewRef.current) return;
+    const initial = initialConfigRef.current;
+    const state = EditorState.create({
+      doc: initial.value,
+      extensions: [
+        history(),
+        drawSelection(),
+        themeCompartment.of(visualTheme(initial.theme)),
+        wrapCompartment.of(initial.wrap ? EditorView.lineWrapping : []),
+        gutterCompartment.of(initial.wrap ? [] : [lineNumbers(), highlightActiveLineGutter(), highlightActiveLine()]),
+        keymapCompartment.of(editorKeymap(initial.autoIndent)),
+        attributesCompartment.of(EditorView.contentAttributes.of(contentAttributes(initial))),
+        Prec.highest(EditorView.domEventHandlers({
+          keydown: (event) => {
+            onEditorKeyDownRef.current?.(event);
+            return event.defaultPrevented;
+          },
+        })),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged && !syncingValueRef.current) onChangeRef.current(update.state.doc.toString());
+          if (update.selectionSet || update.docChanged) onCursorChangeRef.current?.(update.state.selection.main.head);
+        }),
+      ],
+    });
+    const view = new EditorView({ state, parent: hostRef.current });
+    viewRef.current = view;
+    return () => {
+      view.destroy();
+      viewRef.current = null;
+    };
+  }, [attributesCompartment, gutterCompartment, keymapCompartment, themeCompartment, wrapCompartment]);
+
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || view.state.doc.toString() === value) return;
+    const selection = view.state.selection.main;
+    syncingValueRef.current = true;
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: value },
+      selection: { anchor: Math.min(selection.anchor, value.length), head: Math.min(selection.head, value.length) },
+    });
+    syncingValueRef.current = false;
+  }, [value]);
+
+  useEffect(() => {
+    viewRef.current?.dispatch({ effects: themeCompartment.reconfigure(visualTheme(theme)) });
+  }, [theme, themeCompartment]);
+
+  useEffect(() => {
+    viewRef.current?.dispatch({ effects: wrapCompartment.reconfigure(wrap ? EditorView.lineWrapping : []) });
+    viewRef.current?.dispatch({ effects: gutterCompartment.reconfigure(wrap ? [] : [lineNumbers(), highlightActiveLineGutter(), highlightActiveLine()]) });
+  }, [gutterCompartment, wrap, wrapCompartment]);
+
+  useEffect(() => {
+    viewRef.current?.dispatch({ effects: keymapCompartment.reconfigure(editorKeymap(autoIndent)) });
+  }, [autoIndent, keymapCompartment]);
+
+  useEffect(() => {
+    viewRef.current?.dispatch({
+      effects: attributesCompartment.reconfigure(EditorView.contentAttributes.of(contentAttributes({
+        ariaLabel,
+        dataTestId,
+        ariaControls,
+        ariaActiveDescendant,
+        ariaAutocomplete,
+        ariaExpanded,
+      }))),
+    });
+  }, [ariaActiveDescendant, ariaAutocomplete, ariaControls, ariaExpanded, ariaLabel, attributesCompartment, dataTestId]);
+
   const lineCount = Math.max(1, value.split('\n').length);
   const visibleLines = Math.min(maxLines, Math.max(minLines, lineCount));
   const height = visibleLines * 24 + 16;
-  const highlighted = useMemo(() => {
-    const descriptor = prismLanguage(language);
-    return descriptor.grammar ? Prism.highlight(value || ' ', descriptor.grammar, descriptor.name) : escapeHtml(value || ' ');
-  }, [language, value]);
-
-  const assignRef = (node: HTMLTextAreaElement | null) => {
-    localRef.current = node;
-    if (typeof forwardedRef === 'function') forwardedRef(node);
-    else if (forwardedRef) forwardedRef.current = node;
-  };
-
-  const setSelectionAfterChange = (position: number) => requestAnimationFrame(() => {
-    const textarea = localRef.current;
-    if (!textarea) return;
-    textarea.focus();
-    textarea.setSelectionRange(position, position);
-    onCursorChange?.(position);
-  });
-
-  const insertIndent = (textarea: HTMLTextAreaElement, reverse: boolean) => {
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    if (reverse) {
-      const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-      const removable = value.slice(lineStart, Math.min(lineStart + 2, value.length)).match(/^ {1,2}/)?.[0] || '';
-      if (!removable) return;
-      onChange(`${value.slice(0, lineStart)}${value.slice(lineStart + removable.length)}`);
-      setSelectionAfterChange(Math.max(lineStart, start - removable.length));
-      return;
-    }
-    onChange(`${value.slice(0, start)}  ${value.slice(end)}`);
-    setSelectionAfterChange(start + 2);
-  };
-
   const dark = theme === 'dark';
-  return <div className={`api-client-code-editor ${dark ? 'dark' : 'light'} overflow-hidden rounded-md border ${dark ? 'border-gray-700 bg-gray-950' : 'border-gray-300 bg-white'}`}>
-    <style>{TOKEN_STYLE}</style>
-    <div className='grid grid-cols-[3rem_minmax(0,1fr)]' style={{ height }}>
-      <div aria-hidden='true' className={`select-none overflow-hidden border-r py-2 pr-2 text-right font-mono text-xs leading-6 ${dark ? 'border-gray-800 bg-gray-900 text-gray-600' : 'border-gray-200 bg-gray-50 text-gray-400'}`}>
-        <div style={{ transform: `translateY(${-scrollTop}px)` }}>
-          {Array.from({ length: lineCount }, (_, index) => <div key={index}>{index + 1}</div>)}
-        </div>
-      </div>
-      <div className='relative min-w-0 overflow-hidden'>
-        <div aria-hidden='true' className='pointer-events-none absolute inset-0 overflow-hidden'>
-          <pre className={`m-0 min-w-max whitespace-pre px-3 py-2 font-mono text-xs leading-6 ${dark ? 'text-gray-100' : 'text-gray-900'}`} style={{ transform: `translate(${-scrollLeft}px, ${-scrollTop}px)`, tabSize: 2 }}>
-            <code dangerouslySetInnerHTML={{ __html: highlighted.endsWith('\n') ? highlighted : `${highlighted}\n` }} />
-          </pre>
-        </div>
-        <textarea
-          ref={assignRef}
-          aria-label={ariaLabel}
-          className='absolute inset-0 h-full w-full resize-none overflow-auto bg-transparent px-3 py-2 font-mono text-xs leading-6 outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500'
-          data-testid={dataTestId}
-          onChange={(event) => {
-            onChange(event.target.value);
-            onCursorChange?.(event.target.selectionStart);
-          }}
-          onClick={(event) => onCursorChange?.(event.currentTarget.selectionStart)}
-          onKeyDown={(event) => {
-            onEditorKeyDown?.(event);
-            if (event.defaultPrevented) return;
-            if (event.key === 'Tab') {
-              event.preventDefault();
-              insertIndent(event.currentTarget, event.shiftKey);
-            }
-          }}
-          onKeyUp={(event) => onCursorChange?.(event.currentTarget.selectionStart)}
-          onScroll={(event) => {
-            setScrollTop(event.currentTarget.scrollTop);
-            setScrollLeft(event.currentTarget.scrollLeft);
-          }}
-          onSelect={(event) => onCursorChange?.(event.currentTarget.selectionStart)}
-          spellCheck={false}
-          style={{ color: 'transparent', caretColor: dark ? '#f9fafb' : '#111827', WebkitTextFillColor: 'transparent', tabSize: 2, whiteSpace: 'pre' }}
-          value={value}
-          wrap='off'
-        />
-      </div>
-    </div>
+
+  return <div
+    className={`api-client-code-editor min-w-0 overflow-hidden rounded-md border focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 ${dark ? 'border-gray-700 bg-gray-950' : 'border-gray-300 bg-white'}`}
+    data-editor='codemirror'
+    data-language={language}
+    data-wrap={wrap ? 'soft' : 'off'}
+    style={{ height }}
+  >
+    <div ref={hostRef} className='h-full min-w-0' />
   </div>;
 });
 
