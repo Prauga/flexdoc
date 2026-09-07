@@ -6,11 +6,14 @@ require "json"
 
 module Prauga
   module FlexDoc
+    # Framework-neutral FlexDoc host serving the HTML shell and packaged renderer assets.
     class Host
       IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 
       attr_reader :config, :fingerprint
 
+      # @param config [Config] renderer and route settings
+      # @param assets_dir [String, nil] optional directory overriding bundled renderer assets
       def initialize(config = Config.new, assets_dir: nil)
         @config = config
         root = assets_dir || File.expand_path("../../../assets", __dir__)
@@ -19,6 +22,10 @@ module Prauga
         @fingerprint = Digest::SHA256.hexdigest(@javascript + "\0" + @css)[0, 16]
       end
 
+      # Match a request path and return the docs shell, renderer asset, or 404 response.
+      #
+      # @param path [String] request path
+      # @return [Response]
       def response_for_path(path)
         return documentation if path == config.path || path == "#{config.path}/"
         return renderer_javascript if path == "#{config.path}/__flexdoc/renderer.js"
@@ -27,6 +34,9 @@ module Prauga
         Response.new(status: 404, content_type: "text/plain; charset=utf-8", body: "Not Found", cache_control: nil)
       end
 
+      # Build the HTML docs shell response.
+      #
+      # @return [Response]
       def documentation
         try_it = { enabled: config.try_it_enabled }
         try_it[:defaultServer] = config.try_it_default_server unless config.try_it_default_server.nil?
@@ -57,10 +67,16 @@ module Prauga
         Response.new(status: 200, content_type: "text/html; charset=utf-8", body:, cache_control: "no-cache")
       end
 
+      # Return the packaged renderer JavaScript asset.
+      #
+      # @return [Response]
       def renderer_javascript
         Response.new(status: 200, content_type: "application/javascript; charset=utf-8", body: @javascript, cache_control: IMMUTABLE_CACHE)
       end
 
+      # Return the packaged renderer CSS asset.
+      #
+      # @return [Response]
       def renderer_css
         Response.new(status: 200, content_type: "text/css; charset=utf-8", body: @css, cache_control: IMMUTABLE_CACHE)
       end

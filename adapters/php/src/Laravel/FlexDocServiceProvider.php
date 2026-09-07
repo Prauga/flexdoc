@@ -9,6 +9,9 @@ use Illuminate\Support\ServiceProvider;
 use Prauga\FlexDoc\FlexDocConfig;
 use Prauga\FlexDoc\FlexDocHost;
 
+/**
+ * Laravel service provider that binds {@see FlexDocHost} and registers FlexDoc routes.
+ */
 final class FlexDocServiceProvider extends ServiceProvider
 {
     public function register(): void
@@ -19,7 +22,10 @@ final class FlexDocServiceProvider extends ServiceProvider
         });
     }
 
-    /** @param array<string, mixed> $config */
+    /** Build a {@see FlexDocHost} from Laravel configuration values.
+     *
+     * @param array<string, mixed> $config Laravel `flexdoc` config values.
+     */
     public static function hostFromConfig(array $config): FlexDocHost
     {
         $tryItEnabled = filter_var(

@@ -3,6 +3,7 @@ import { normalizeOperation, resolveObject, resolveServerVariables } from './ope
 
 export type RequestValue = string | number | boolean | string[] | number[] | Record<string, unknown>;
 
+/** User-entered Try It values keyed by parameter location and name. */
 export interface RequestValues {
   parameters?: Record<string, RequestValue>;
   headers?: Record<string, string>;
@@ -14,6 +15,7 @@ export interface RequestValues {
   serverVariables?: Record<string, string>;
 }
 
+/** Canonical fetch-ready request produced from an OpenAPI operation and values. */
 export interface BuiltRequest {
   url: string;
   init: RequestInit;
@@ -23,10 +25,12 @@ export interface BuiltRequest {
   bodyKind?: 'json' | 'text' | 'form' | 'multipart' | 'binary';
 }
 
+/** Return the operation object for one path and HTTP method. */
 export function operationFor(spec: OpenAPISpec, path: string, method: string) {
   return normalizeOperation(spec, path, method).operation;
 }
 
+/** Return merged parameters for one operation. */
 export function parametersFor(spec: OpenAPISpec, path: string, method: string): Parameter[] {
   return normalizeOperation(spec, path, method).parameters;
 }
@@ -49,6 +53,7 @@ function parameterExample(spec: OpenAPISpec, parameter: Parameter): RequestValue
   return '';
 }
 
+/** Default Try It values derived from OpenAPI examples and schemas. */
 export function initialRequestValues(spec: OpenAPISpec, path: string, method: string): RequestValues {
   const normalized = normalizeOperation(spec, path, method);
   const values: RequestValues = { parameters: {}, headers: {}, cookies: {}, auth: {} };
@@ -170,6 +175,7 @@ function parseBodyObject(body: string): Record<string, unknown> | undefined {
   } catch { return undefined; }
 }
 
+/** Build a transport request for one OpenAPI operation. */
 export function buildRequest(spec: OpenAPISpec, path: string, method: string, values: RequestValues = {}): BuiltRequest {
   const normalized = normalizeOperation(spec, path, method);
   const serverObject = normalized.servers[0];

@@ -2,7 +2,7 @@
 
 FlexDoc keeps one canonical browser renderer and thin language/framework hosts. Product release numbers track the overall FlexDoc line; ecosystem packages continue to use independent semantic versions.
 
-## Stacked implementation
+## Shipped implementation history
 
 | FlexDoc slice | Coverage | Stack PR |
 | --- | --- | --- |
@@ -13,7 +13,7 @@ FlexDoc keeps one canonical browser renderer and thin language/framework hosts. 
 | **2.2.9** | Ruby host, Rack, Rails | #34 |
 | **2.3.0** | Hono, Gin/Chi/Echo/Fiber, Actix Web, Ktor, Plug/Phoenix and coverage closure | final stacked PR |
 
-The open stack is implementation work, not a released version. Do not mark a slice shipped until its PR is explicitly approved, merged, and its relevant packages are published.
+This table records the implementation sequence that culminated in the published 2.3.0 product line. The stack is closed; current package versions and tags are listed in [Distribution and versioning](./distribution.md).
 
 ## Architecture rule
 
@@ -31,7 +31,7 @@ Do not create a renderer implementation per framework. Each ecosystem exposes th
 
 ## 2.3.0 definition of done
 
-The stack must provide documented and CI/compile/smoke-tested paths for:
+The shipped stack provides documented and CI/compile/smoke-tested paths for:
 
 - [x] JavaScript/TypeScript: Express, Fastify, NestJS, Hono
 - [x] C#/.NET: ASP.NET Core
@@ -43,4 +43,4 @@ The stack must provide documented and CI/compile/smoke-tested paths for:
 - [x] Rust: Axum, Actix Web
 - [x] Elixir: Plug, Phoenix
 
-The checkboxes describe what is implemented in the **stacked branches**, not what is already merged/released. Final release readiness additionally requires all stacked PR checks green, explicit merge approval, coordinated package publication, and the npm 2.3.0 release-preparation bump.
+These checkboxes are the archived 2.3.0 definition of done. They describe merged coverage, not open branches or current release work.

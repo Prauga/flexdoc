@@ -5,6 +5,7 @@ import { buildRequest } from './request-builder';
 import type { RequestValues } from './request-builder';
 
 export interface OpenApiApiClientSession {
+  /** Editable request draft handed off to the API Client. */
   request: HttpRequestDraft;
   serverUrl?: string;
 }

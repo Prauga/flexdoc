@@ -21,6 +21,7 @@ export type ApiClientRequestTab = 'params' | 'headers' | 'authorization' | 'body
 export type ApiClientScriptTab = 'pre-request' | 'tests';
 
 export interface ApiClientProps {
+  /** Initial request draft shown in the editor. */
   initialRequest?: Partial<HttpRequestDraft>;
   initialScripts?: Partial<ApiClientRequestScripts>;
   initialRequestTab?: ApiClientRequestTab;
@@ -155,6 +156,7 @@ function urlVariableState(url: string, variables: HttpVariables): { names: strin
   return { names: unique, missing, resolved };
 }
 
+/** Low-level HTTP request editor and executor without workspace persistence. */
 export const ApiClient: React.FC<ApiClientProps> = ({
   initialRequest,
   initialScripts,

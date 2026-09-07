@@ -30,7 +30,9 @@ import type { ApiClientWorkspaceState } from '../utils/api-client-workspace';
 
 export interface ApiClientWorkspaceChromeState { environments: Array<{ id: string; name: string }>; activeEnvironmentId?: string; hasUnsavedRequest: boolean; }
 export interface ApiClientWorkspaceHandoff { id: number; request: HttpRequestDraft; scripts?: ApiClientRequestScripts; requestTab?: ApiClientRequestTab; scriptTab?: ApiClientScriptTab; serverUrl?: string; }
+/** Props for the full API development workspace with collections, environments, and history. */
 export interface ApiClientWorkspaceProps extends ApiClientProps {
+  /** IndexedDB persistence key. Use `false` to disable persistence. */
   persistenceKey?: string | false;
   pageMode?: boolean;
   manageTheme?: boolean;
@@ -92,6 +94,7 @@ function hasMeaningfulDraft(request: HttpRequestDraft, scripts: ApiClientRequest
     || !!scripts.tests.trim();
 }
 
+/** Full API Client workspace with collections, folders, environments, scripts, and history. */
 export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   initialRequest,
   initialScripts,

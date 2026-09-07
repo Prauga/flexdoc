@@ -1,3 +1,10 @@
+/**
+ * @packageDocumentation
+ * Framework-neutral OpenAPI engine for FlexDoc request construction, resolution, and serialization.
+ *
+ * Shared by `@prauga/flexdoc-client`, `@prauga/flexdoc-cli`, and backend integrations.
+ * Has no React dependency and does not render UI.
+ */
 export * from './types/openapi.js';
 export { OpenAPIParser } from './openapi-parser.js';
 export { bundleExternalReferences, EXTERNAL_DOCUMENTS_KEY } from './openapi-resolver.js';

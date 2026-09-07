@@ -1,3 +1,4 @@
+// Package flexdoc provides a self-contained net/http handler for the Prauga FlexDoc renderer.
 package flexdoc
 
 import (
@@ -15,16 +16,27 @@ import (
 //go:embed assets/flexdoc.standalone.js assets/flexdoc.standalone.css
 var embeddedRenderer embed.FS
 
+// Config holds FlexDoc renderer settings.
 type Config struct {
+    // Path is the URL prefix where the docs shell and renderer assets are served.
     Path                          string
+    // SpecURL is the OpenAPI document URL resolved by the browser bootstrap page.
     SpecURL                       string
+    // Title is the page and renderer title shown in the docs shell.
     Title                         string
+    // Theme is the renderer theme preset: "system", "light", or "dark".
     Theme                         string
+    // TryItEnabled controls whether the Try It client is enabled.
     TryItEnabled                  bool
+    // Expand is an optional expansion preset or section list forwarded to the renderer.
     Expand                        any
+    // TryItDefaultServer is an optional default server URL for Try It requests.
     TryItDefaultServer            string
+    // TryItCredentials is an optional fetch credentials mode for Try It requests.
     TryItCredentials              string
+    // TryItAPIClientPersistenceKey is an optional persistence key, or false to disable.
     TryItAPIClientPersistenceKey  any
+    // TryItHostExecution emits host-execution protocol metadata; execution is not implemented by this adapter.
     TryItHostExecution              bool
 }
 

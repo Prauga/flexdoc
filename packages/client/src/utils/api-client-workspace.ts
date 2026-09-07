@@ -9,6 +9,7 @@ export interface ApiClientEnvironmentVariable {
   enabled?: boolean;
 }
 
+/** Collection metadata and variables for one API Client workspace collection. */
 export interface ApiClientCollection {
   id: string;
   name: string;
@@ -99,6 +100,7 @@ export interface ApiClientHistoryInput {
   scriptError?: string;
 }
 
+/** In-memory API Client workspace state persisted to IndexedDB by default. */
 export interface ApiClientWorkspaceState {
   version: 6;
   collections: ApiClientCollection[];

@@ -11,7 +11,7 @@ Framework and language packages **must not implement OpenAPI rendering**. Their 
 3. serve the version-matched FlexDoc renderer assets
 4. optionally protect those routes using framework-native authentication/middleware
 
-The browser renderer owns all OpenAPI/product behavior: navigation, schema presentation, search, code samples, request construction, Try It, theming, and future OpenAPI-version support.
+The browser renderer owns all OpenAPI/product behavior: OpenAPI 3.0/3.1 interpretation, navigation, schema presentation, search, code samples, request construction, Basic/Advanced Try It, the API Client workspace, Runtime Intelligence presentation, theming, and accessibility.
 
 ## Host contract
 
@@ -59,12 +59,12 @@ It does **not** own schema rendering, endpoint rendering, code-sample generation
 
 ## Multi-language distribution
 
-Non-JavaScript adapters should package the exact renderer assets produced by a FlexDoc release. This can be done by publishing the standalone renderer as a versioned release artifact in addition to npm.
+Non-JavaScript adapters package the exact renderer assets produced by a FlexDoc release. Release workflows build or consume the canonical standalone artifact and verify byte parity where the ecosystem embeds committed assets.
 
 For example:
 
 ```text
-FlexDoc release v2.1.0
+FlexDoc coordinated release
 ├── flexdoc.standalone.js
 ├── flexdoc.standalone.css
 ├── npm packages
@@ -91,10 +91,11 @@ A feature belongs in the renderer when it changes what documentation users see o
 
 A feature belongs in an adapter when it is framework/server specific. Examples:
 
-- generating an OpenAPI document from NestJS decorators
+- discovering routes from Express, Fastify, Hono, FastAPI, ASP.NET Core, or Spring
 - Express/Fastify route registration
 - Spring Boot resource wiring
 - middleware authentication
 - loading a private spec from a server-only location
+- capability-gated API-host execution
 
 Following this boundary prevents FlexDoc from becoming N renderers that happen to share a name.

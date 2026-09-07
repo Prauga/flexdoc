@@ -22,10 +22,19 @@ public final class FlexDocHost {
   private final byte[] css;
   private final String fingerprint;
 
-  /** Creates a host that loads the OpenAPI document from {@link FlexDocConfig#specUrl()}. */
+  /**
+   * Creates a host that loads the OpenAPI document from {@link FlexDocConfig#specUrl()}.
+   *
+   * @param config normalized host configuration
+   */
   public FlexDocHost(FlexDocConfig config) { this(config, null); }
 
-  /** Creates a host with an optional in-process serialized OpenAPI document supplier. */
+  /**
+   * Creates a host with an optional in-process serialized OpenAPI document supplier.
+   *
+   * @param config normalized host configuration
+   * @param specSupplier optional supplier that overrides the configured spec URL
+   */
   public FlexDocHost(FlexDocConfig config, FlexDocSpecSupplier specSupplier) {
     this.config = Objects.requireNonNull(config, "config");
     this.specSupplier = specSupplier;
@@ -37,7 +46,12 @@ public final class FlexDocHost {
   /** @return normalized host configuration */
   public FlexDocConfig config() { return config; }
 
-  /** Builds the no-cache HTML shell used by any JVM HTTP framework. */
+  /**
+   * Builds the no-cache HTML shell used by any JVM HTTP framework.
+   *
+   * @return documentation HTML with embedded renderer bootstrap options
+   * @throws Exception when the optional spec supplier cannot produce JSON
+   */
   public FlexDocHttpResponse documentation() throws Exception {
     String supplied = specSupplier == null ? null : specSupplier.getOpenApiJson();
     boolean hasInlineSpec = supplied != null && !supplied.isBlank();

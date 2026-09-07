@@ -1,6 +1,7 @@
 import * as yaml from 'js-yaml';
 import type { OpenAPISpec, Reference } from './types/openapi.js';
 
+/** Parse JSON or YAML OpenAPI documents and resolve local JSON Pointer references. */
 export class OpenAPIParser {
   static async parseSpec(input: string | object): Promise<OpenAPISpec> {
     let spec: any;

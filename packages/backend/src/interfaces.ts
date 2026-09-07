@@ -74,6 +74,7 @@ export interface FlexDocRuntimeIntelligencePublicOptions {
   framework: string;
 }
 
+/** Renderer and Try It options passed to backend integrations. */
 export interface FlexDocOptions {
   contractVersion?: '1';
   title?: string; description?: string; altDescription?: string; version?: string;
@@ -100,4 +101,5 @@ export interface FlexDocOptions {
   footer?: { copyright?: string; link?: Array<{ text: string; url: string; icon?: string }> };
 }
 
+/** Mount options for FlexDoc backend integrations. */
 export interface FlexDocModuleOptions { path: string; specUrl?: string; spec?: object; options?: FlexDocOptions; }

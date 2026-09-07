@@ -1,5 +1,6 @@
 import { OpenAPISpec } from '../types/openapi';
 
+/** Sample Pet Store OpenAPI document used by the demo application. */
 export const sampleSpec: OpenAPISpec = {
   openapi: '3.0.0',
   info: {
