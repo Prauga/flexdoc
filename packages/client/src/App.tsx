@@ -9,6 +9,7 @@ import { Footer } from './components/Footer';
 
 /** Props for the interactive OpenAPI upload demo application. */
 export interface AppProps {
+  /** Light or dark theme applied to the demo shell and rendered documentation. */
   theme?: 'light' | 'dark';
 }
 

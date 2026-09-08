@@ -11,13 +11,13 @@ import type { HttpKeyValue, HttpRequestDraft } from '../utils/http-client';
 
 /** Props for the standalone workspace history page. */
 export interface ApiClientHistoryPageProps {
-  workspace: ApiClientWorkspaceState;
-  onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
-  onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts, collectionId?: string, folderId?: string) => void;
-  onBack: () => void;
-  theme: 'light' | 'dark';
-  initialEntryId?: string;
-  initialRunId?: string;
+  /** Workspace whose execution history, collections, and folders are displayed. */ workspace: ApiClientWorkspaceState;
+  /** State dispatcher used for destructive history actions such as deleting/clearing entries. */ onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
+  /** Load a historical request/scripts back into API Client, retaining collection/folder context when available. */ onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts, collectionId?: string, folderId?: string) => void;
+  /** Return from the history page to the main API Client workspace view. */ onBack: () => void;
+  /** Light or dark history-page chrome. */ theme: 'light' | 'dark';
+  /** History entry selected when the page first mounts. */ initialEntryId?: string;
+  /** Collection-run group selected when the page first mounts; takes precedence over `initialEntryId`. */ initialRunId?: string;
 }
 
 function displayTime(value: string): string {
