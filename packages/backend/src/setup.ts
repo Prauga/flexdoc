@@ -86,7 +86,12 @@ function fetchJson(urlString: string, redirectsRemaining = 3): Promise<any> {
   });
 }
 
-/** Register FlexDoc routes on an Express-compatible application. */
+/**
+ * Register FlexDoc routes on an Express-compatible application.
+ * @param app Application exposing Express-style `use(path, handler)` registration.
+ * @param path Documentation mount path, with or without a leading slash.
+ * @param options Inline/remote OpenAPI source plus renderer, auth, Runtime Intelligence, and Try It options.
+ */
 export function setupFlexDoc(
   app: AppWithUse,
   path: string,

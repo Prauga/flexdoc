@@ -122,7 +122,18 @@ async function ensureEmptyOutput(outDir, force) {
   await mkdir(outDir, { recursive: true });
 }
 
-/** Write a static FlexDoc site to disk and return the output directory. */
+/**
+ * Build a self-contained static FlexDoc site from an OpenAPI file or URL.
+ *
+ * @param {string} input Local JSON/YAML path or HTTP(S) URL containing the root OpenAPI document.
+ * @param {object} [options] Static-site build options.
+ * @param {string} [options.out='flexdoc-dist'] Output directory. Existing non-FlexDoc directories require `force`.
+ * @param {string} [options.basePath='/'] URL base path used by generated asset/spec links.
+ * @param {string} [options.title] Optional title overriding `spec.info.title` in the bundled document and page shell.
+ * @param {boolean} [options.force=false] Replace an existing output directory even when it lacks FlexDoc's generated marker.
+ * @param {boolean} [options.liveReload=false] Include the CLI live-reload EventSource script in generated HTML.
+ * @returns {Promise<{outDir: string, spec: object}>} Absolute output directory and bundled OpenAPI document.
+ */
 export async function buildSite(input, options = {}) {
   const outDir = resolve(options.out || 'flexdoc-dist');
   await ensureEmptyOutput(outDir, Boolean(options.force));
@@ -191,7 +202,18 @@ async function createStaticServer(root, { host, port, basePath }) {
   };
 }
 
-/** Build and serve a FlexDoc site locally, optionally rebuilding on file changes. */
+/**
+ * Build and serve a FlexDoc site locally, optionally rebuilding on source-file changes.
+ *
+ * @param {string} input Local JSON/YAML path or HTTP(S) URL containing the root OpenAPI document.
+ * @param {object} [options] Local-server options plus all `buildSite` options except `out`.
+ * @param {string} [options.host='127.0.0.1'] Interface/hostname passed to Node's HTTP server.
+ * @param {number} [options.port=4174] Requested TCP port. Use `0` to let the OS choose an available port programmatically.
+ * @param {string} [options.basePath='/'] URL base path at which the generated site is served.
+ * @param {string} [options.title] Optional documentation title override.
+ * @param {boolean} [options.watch=false] Watch a local root input file and rebuild/reload clients after changes.
+ * @returns {Promise<{server: import('node:http').Server, close: () => Promise<void>, url: string}>} Server handle, async cleanup function, and resolved local URL.
+ */
 export async function serveSite(input, options = {}) {
   const host = options.host || '127.0.0.1';
   const requestedPort = options.port ?? 4174;
@@ -228,7 +250,12 @@ export async function serveSite(input, options = {}) {
   return { server: staticServer.server, close, url };
 }
 
-/** Parse CLI arguments and run `build` or `serve`. */
+/**
+ * Parse FlexDoc CLI arguments and execute the selected build/serve command.
+ * @param {string[]} argv Argument vector excluding the Node executable/script path.
+ * @returns {Promise<void>} Resolves after a build completes or after the serve command has started its server.
+ * @throws For invalid arguments, invalid OpenAPI input, build failures, or server startup failures.
+ */
 export async function runCli(argv) {
   const options = parseArgs(argv);
   if (options.help) { console.log(HELP); return; }

@@ -1,6 +1,6 @@
 # FlexDoc
 
-FlexDoc is Prauga's open-source, self-hosted OpenAPI documentation renderer and API explorer. It ships one canonical browser renderer and thin ecosystem adapters so supported backends expose the same documentation, Try It, and API Client behavior.
+FlexDoc is Prauga's open-source, self-hosted OpenAPI documentation renderer and API explorer. It ships one canonical browser renderer and thin ecosystem adapters so supported backends expose the same documentation, Try It, API Client, Runtime Intelligence, and backend-produced Contract Validation behavior where the host can genuinely observe it.
 
 No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is required.
 
@@ -16,7 +16,19 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - **Rust:** Axum, Actix Web
 - **Elixir:** Plug, Phoenix
 
-The backend-coverage program shipped in 2.3.0 and the coordinated 2.x line culminated in published **2.9.9**. This source tree is prepared for stable **3.0.0**, combining backend-native Runtime Intelligence with the completed renderer/API Client product-quality gate: live route discovery and implementation drift where the backend can genuinely observe it, shared request execution and editing, responsive/localized chrome, accessibility hardening, and deterministic performance budgets. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the 3.0 definition and follow-on roadmap.
+The backend-coverage program shipped in 2.3.0 and the coordinated 2.x line culminated in published **2.9.9**. Stable **3.0.0** added backend-native Runtime Intelligence and the completed renderer/API Client product-quality gate. The current 3.1 source milestone adds a narrow operation-level Contract Validation slice on Node Express/Fastify/Hono/NestJS, with the renderer and CLI consuming the same backend-produced findings. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the exact milestone boundary and deferred work.
+
+## CLI
+
+`@prauga/flexdoc-cli` is the first-class command-line surface for static docs and 3.1 Contract Validation:
+
+```bash
+npx @prauga/flexdoc-cli serve openapi.yaml --watch
+npx @prauga/flexdoc-cli build openapi.yaml --out ./public
+npx @prauga/flexdoc-cli validate http://127.0.0.1:3000/docs/__flexdoc/runtime
+```
+
+`validate` consumes the installed Node backend's structured 3.1 validation result rather than reimplementing contract comparison. It supports JSON output, custom headers, bearer/basic authentication for protected Runtime Intelligence endpoints, and opt-in stricter CI failure policies such as `--fail-on warning`. By default it exits `1` only when the backend reports `fail` (or the endpoint/payload cannot be consumed).
 
 ## Package family
 

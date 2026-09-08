@@ -13,12 +13,12 @@ import type {
 
 /** Props for the pre-request and test script editor with IntelliSense and formatting. */
 export interface ApiClientScriptEditorProps {
-  ariaLabel: string;
-  value: string;
-  onChange: (value: string) => void;
-  phase: ApiClientScriptPhase;
-  theme?: 'light' | 'dark';
-  variableKeys?: ApiClientScriptVariableKeys;
+  /** Accessible label applied to the underlying script textbox/editor. */ ariaLabel: string;
+  /** Controlled JavaScript source text. */ value: string;
+  /** Called whenever user editing or formatting changes the script source. */ onChange: (value: string) => void;
+  /** Script phase controlling available APIs, diagnostics, and tests-only completions. */ phase: ApiClientScriptPhase;
+  /** Light or dark editor chrome. */ theme?: 'light' | 'dark';
+  /** Known environment/collection/effective variable names offered by IntelliSense. */ variableKeys?: ApiClientScriptVariableKeys;
 }
 
 /** Script editor for API Client pre-request and test phases. */

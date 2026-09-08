@@ -1,18 +1,20 @@
 export type ApiClientScriptPhase = 'pre-request' | 'tests';
 export type ApiClientScriptCompletionKind = 'property' | 'method' | 'function' | 'variable' | 'namespace';
 
+/** One completion item displayed by API Client script IntelliSense. */
 export interface ApiClientScriptCompletionItem {
-  label: string;
-  kind: ApiClientScriptCompletionKind;
-  signature?: string;
-  documentation: string;
-  testsOnly?: boolean;
+  /** Text inserted/displayed for the completion. */ label: string;
+  /** Semantic kind used to choose completion presentation. */ kind: ApiClientScriptCompletionKind;
+  /** Optional callable/property signature shown alongside documentation. */ signature?: string;
+  /** Human-readable explanation of the completion. */ documentation: string;
+  /** Restrict the item to post-response test scripts. */ testsOnly?: boolean;
 }
 
+/** Known variable names used for quoted-key completions in each script scope. */
 export interface ApiClientScriptVariableKeys {
-  environment?: string[];
-  collection?: string[];
-  variables?: string[];
+  /** Keys from the active environment. */ environment?: string[];
+  /** Keys from the current collection. */ collection?: string[];
+  /** Keys from the effective merged variable scope. */ variables?: string[];
 }
 
 const variableStoreMembers: ApiClientScriptCompletionItem[] = [
@@ -99,13 +101,25 @@ export const API_CLIENT_SCRIPT_COMPLETION_PATHS: Readonly<Record<string, readonl
   ],
 };
 
-/** Return member completions for a dotted `flex.*` path. */
+/**
+ * Return member completions for a dotted `flex.*` path.
+ * @param path Completion namespace/path such as `flex.request.headers`.
+ * @param phase Current script phase used to filter tests-only members.
+ * @returns Independent completion-item copies for the requested path.
+ */
 export function apiClientScriptMemberCompletions(path: string, phase: ApiClientScriptPhase): ApiClientScriptCompletionItem[] {
   return [...(API_CLIENT_SCRIPT_COMPLETION_PATHS[path] || [])]
     .filter((item) => phase === 'tests' || !item.testsOnly)
     .map((item) => ({ ...item }));
 }
 
+/**
+ * Complete known variable keys inside variable-store method arguments.
+ * @param scope Variable scope to inspect.
+ * @param prefix Current quoted-key prefix.
+ * @param keys Known variable names grouped by scope.
+ * @returns Alphabetized variable completion items matching the prefix.
+ */
 export function apiClientScriptVariableKeyCompletions(
   scope: keyof ApiClientScriptVariableKeys,
   prefix: string,
@@ -124,11 +138,11 @@ export function apiClientScriptVariableKeyCompletions(
     }));
 }
 
-
+/** Replacement range and completion candidates for one cursor position. */
 export interface ApiClientScriptCompletionContext {
-  from: number;
-  to: number;
-  items: ApiClientScriptCompletionItem[];
+  /** Inclusive start offset of the text replaced by the selected completion. */ from: number;
+  /** Exclusive end offset of the text replaced by the selected completion. */ to: number;
+  /** Candidate completions valid for the detected context. */ items: ApiClientScriptCompletionItem[];
 }
 
 const ROOT_SCRIPT_COMPLETIONS: ApiClientScriptCompletionItem[] = [
@@ -164,7 +178,15 @@ function memberCompletionContext(textBeforeCursor: string): { path: string; pref
   return { path: match[1], prefix: match[2] || '' };
 }
 
-/** Return script completions at a cursor position, or `null` when no completion applies. */
+/**
+ * Return script completions at a cursor position, or `null` when no completion applies.
+ * @param source Complete script source text.
+ * @param position Cursor offset within `source`; out-of-range values are clamped.
+ * @param phase Current pre-request/test phase.
+ * @param variableKeys Known variable names for key completions.
+ * @param explicit Whether completion was explicitly invoked, allowing root suggestions without a typed prefix.
+ * @returns Replacement range and candidates, or `null` when the context has no suggestions.
+ */
 export function apiClientScriptCompletionsAtPosition(
   source: string,
   position: number,

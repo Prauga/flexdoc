@@ -43,6 +43,20 @@ describe('runtime intelligence', () => {
     });
   });
 
+  it('retains duplicate Express registration evidence without double-counting wire-equivalent routes', () => {
+    const discovery = discoverExpressRoutes({
+      router: {
+        stack: [
+          { route: { path: '/pets/:id', methods: { get: true } } },
+          { route: { path: '/pets/:petId', methods: { get: true } } },
+        ],
+      },
+    });
+
+    expect(discovery.routes).toEqual([{ method: 'GET', path: '/pets/{id}' }]);
+    expect(discovery.duplicateRoutes).toEqual([{ method: 'GET', path: '/pets/{id}', count: 2 }]);
+  });
+
   it('discovers Fastify route trees after ready and suppresses implicit HEAD siblings', async () => {
     const app = {
       version: '5.12.1',
@@ -116,11 +130,27 @@ describe('runtime intelligence', () => {
     expect(snapshot.summary).toEqual({ documented: 2, runtime: 2, matched: 1, runtimeOnly: 1, documentedOnly: 1 });
     expect(snapshot.runtimeOnly).toEqual([{ method: 'POST', path: '/internal/reindex' }]);
     expect(snapshot.documentedOnly).toEqual([{ method: 'GET', path: '/pets/{petId}' }]);
+    expect(snapshot.validation.summary).toEqual({ total: 2, errors: 1, warnings: 1, info: 0 });
     expect(snapshot.serverOrigin).toBe('https://api.example.com');
     expect(snapshot.server).toEqual({ localPort: 8443 });
     expect(snapshot.environment).toEqual({ name: 'production' });
     expect(snapshot.frameworkVersion).toBe('5.12.1');
     expect(snapshot.runtime).toEqual({ name: 'node', version: 'v22.22.3', platform: 'linux', arch: 'x64' });
+  });
+
+  it('feeds duplicate host registrations into contract validation', () => {
+    const snapshot = buildRuntimeIntelligenceSnapshot({
+      spec: { openapi: '3.1.0', paths: { '/pets/{petId}': { get: {} } } },
+      discovery: {
+        framework: 'express',
+        complete: true,
+        routes: [{ method: 'GET', path: '/pets/{id}' }],
+        duplicateRoutes: [{ method: 'GET', path: '/pets/{id}', count: 2 }],
+      },
+    });
+
+    expect(snapshot.summary).toEqual({ documented: 1, runtime: 1, matched: 1, runtimeOnly: 0, documentedOnly: 0 });
+    expect(snapshot.validation.findings).toEqual([expect.objectContaining({ code: 'runtime.duplicate-operation' })]);
   });
 
   it('marks discovery partial when a mounted Express router prefix cannot be recovered safely', () => {

@@ -21,7 +21,12 @@ function serializeForScript(value: unknown): string {
   return JSON.stringify(value).replace(/</g, '\\u003c').replace(/>/g, '\\u003e').replace(/&/g, '\\u0026').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 }
 
-/** Produce the small, language-neutral host page used by server-side adapters. */
+/**
+ * Produce the small, language-neutral host page used by server-side adapters.
+ * @param spec Inline OpenAPI document embedded into the page, or `null` when the browser should load `options.specUrl`.
+ * @param options Renderer options plus server-internal asset/spec/public host metadata used to bootstrap the canonical renderer.
+ * @returns Complete HTML document that loads the packaged renderer and serializes only browser-safe options.
+ */
 export function generateFlexDocHTML(spec: OpenAPISpec | null, options: RenderOptions = {}): string {
   const {
     title,

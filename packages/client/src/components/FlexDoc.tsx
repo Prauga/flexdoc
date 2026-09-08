@@ -35,6 +35,8 @@ export interface FlexDocProps {
   spec: OpenAPISpec;
   /** Root theme for the documentation chrome. */
   theme?: 'light' | 'dark';
+  /** Let FlexDoc own/persist viewer theme overrides. When false, the `theme` prop remains authoritative and theme controls are hidden. */
+  manageTheme?: boolean;
   /** Inline styles applied to the renderer root element. */
   customStyles?: React.CSSProperties;
   /** Renderer configuration such as Try It, theme tokens, and runtime intelligence. */
@@ -137,6 +139,7 @@ function Logo({ logo, onHome }: { logo: string | LogoOptions; onHome: () => void
 export const FlexDoc: React.FC<FlexDocProps> = ({
   spec,
   theme = 'light',
+  manageTheme = true,
   customStyles = {},
   options = {},
 }: FlexDocProps) => {
@@ -179,7 +182,7 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
   const viewerPreferences = viewerPreferenceState.key === preferenceKey
     ? viewerPreferenceState.preferences
     : readFlexDocViewerPreferences(preferenceKey);
-  const effectiveThemeChoice: FlexDocViewerTheme = viewerPreferences.theme || theme;
+  const effectiveThemeChoice: FlexDocViewerTheme = manageTheme ? viewerPreferences.theme || theme : theme;
   const effectiveTheme: 'light' | 'dark' = effectiveThemeChoice === 'high-contrast' ? 'dark' : effectiveThemeChoice;
   const viewerExpand = viewerPreferences.expand;
   const expandedTags = viewerPreferences.expandedTags ?? ['default'];
@@ -329,6 +332,7 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
     setViewerPreferencesFromStorage();
   };
   const handleViewerThemeChange = (nextTheme?: FlexDocViewerTheme) => {
+    if (!manageTheme) return;
     writeFlexDocViewerThemePreference(preferenceKey, nextTheme);
     setViewerPreferencesFromStorage();
   };
@@ -530,6 +534,7 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
         open={settingsOpen}
         theme={effectiveTheme}
         hostTheme={theme}
+        manageTheme={manageTheme}
         viewerTheme={viewerPreferences.theme}
         viewerExpand={viewerExpand}
         effectiveExpandedSections={defaultExpandedSections}

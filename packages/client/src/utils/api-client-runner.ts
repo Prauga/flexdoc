@@ -14,52 +14,54 @@ import {
 } from './api-client-workspace';
 import type { ApiClientFolder, ApiClientSavedRequest, ApiClientWorkspaceState } from './api-client-workspace';
 
+/** Result for one saved request executed by a collection/folder run. */
 export interface ApiClientCollectionRunItem {
-  requestId: string;
-  requestName: string;
-  collectionId: string;
-  folderId?: string;
-  passed: boolean;
-  cancelled: boolean;
-  historyEntryId?: string;
-  outcome: ApiClientExecutionOutcome;
+  /** Id of the saved workspace request that was executed. */ requestId: string;
+  /** Display name of the saved request at run time. */ requestName: string;
+  /** Collection containing the request. */ collectionId: string;
+  /** Folder containing the request, when applicable. */ folderId?: string;
+  /** Whether transport/scripts/tests completed without failure. */ passed: boolean;
+  /** Whether the item was cancelled by the run abort signal. */ cancelled: boolean;
+  /** History entry created for the request when an execution result was recorded. */ historyEntryId?: string;
+  /** Complete programmatic execution outcome for the request. */ outcome: ApiClientExecutionOutcome;
 }
 
 /** Result of executing every request in a collection or folder scope. */
 export interface ApiClientCollectionRunResult {
-  runId: string;
-  runName: string;
-  collectionId: string;
-  folderId?: string;
-  total: number;
-  completed: number;
-  passed: number;
-  failed: number;
-  cancelled: number;
-  stopped: boolean;
-  items: ApiClientCollectionRunItem[];
-  workspace: ApiClientWorkspaceState;
+  /** Stable identifier for this run. */ runId: string;
+  /** Display name for this run. */ runName: string;
+  /** Collection that was executed. */ collectionId: string;
+  /** Optional folder scope limiting the run. */ folderId?: string;
+  /** Number of saved requests selected for the run. */ total: number;
+  /** Number of items that produced a run item before execution stopped. */ completed: number;
+  /** Number of successful run items. */ passed: number;
+  /** Number of failed, non-cancelled run items. */ failed: number;
+  /** Number of cancelled run items. */ cancelled: number;
+  /** Whether the run stopped before naturally exhausting all selected requests. */ stopped: boolean;
+  /** Per-request run results in execution order. */ items: ApiClientCollectionRunItem[];
+  /** Workspace state after history/script-variable mutations from the run. */ workspace: ApiClientWorkspaceState;
 }
 
+/** Options controlling collection/folder execution. */
 export interface RunApiClientCollectionOptions {
-  workspace: ApiClientWorkspaceState;
-  collectionId: string;
-  folderId?: string;
-  runId?: string;
-  runName?: string;
-  credentials?: RequestCredentials;
-  requestInterceptor?: ExecuteApiClientRequestOptions['requestInterceptor'];
-  hostExecution?: ExecuteApiClientRequestOptions['hostExecution'];
-  externalVariables?: HttpVariables;
-  externalEnvironmentVariables?: HttpVariables;
-  stopOnFailure?: boolean;
-  signal?: AbortSignal;
-  fetcher?: typeof globalThis.fetch;
-  now?: () => number;
-  onRequestStart?: (request: ApiClientSavedRequest, index: number, total: number) => void;
-  onRequestComplete?: (item: ApiClientCollectionRunItem, index: number, total: number) => void;
-  onCollectionChanges?: (changes: ApiClientScriptCollectionChange[]) => void;
-  onEnvironmentChanges?: (changes: ApiClientScriptEnvironmentChange[]) => void;
+  /** Workspace containing the collection, folders, saved requests, environment, and history. */ workspace: ApiClientWorkspaceState;
+  /** Collection to execute. */ collectionId: string;
+  /** Optional folder subtree to execute instead of the full collection. */ folderId?: string;
+  /** Explicit run id; generated automatically when omitted. */ runId?: string;
+  /** Explicit display name; derived from collection/folder names when omitted. */ runName?: string;
+  /** Browser Fetch credentials mode used by direct executions. */ credentials?: RequestCredentials;
+  /** Hook that may rewrite direct-browser request URL/init before transport. */ requestInterceptor?: ExecuteApiClientRequestOptions['requestInterceptor'];
+  /** API-host execution endpoint/capabilities. */ hostExecution?: ExecuteApiClientRequestOptions['hostExecution'];
+  /** External variables merged into request/script resolution. */ externalVariables?: HttpVariables;
+  /** External environment variables merged before active workspace environment values. */ externalEnvironmentVariables?: HttpVariables;
+  /** Stop after the first failed item instead of continuing through the scope. */ stopOnFailure?: boolean;
+  /** Abort signal used to stop the run and cancel the active transport. */ signal?: AbortSignal;
+  /** Fetch implementation forwarded to each request execution. */ fetcher?: typeof globalThis.fetch;
+  /** Clock forwarded to each request execution for response timing. */ now?: () => number;
+  /** Called immediately before each saved request begins. */ onRequestStart?: (request: ApiClientSavedRequest, index: number, total: number) => void;
+  /** Called after each saved request produces a run item. */ onRequestComplete?: (item: ApiClientCollectionRunItem, index: number, total: number) => void;
+  /** Called with collection-variable changes emitted by request scripts. */ onCollectionChanges?: (changes: ApiClientScriptCollectionChange[]) => void;
+  /** Called with environment-variable changes emitted by request scripts. */ onEnvironmentChanges?: (changes: ApiClientScriptEnvironmentChange[]) => void;
 }
 
 function folderScope(workspace: ApiClientWorkspaceState, collectionId: string, folderId?: string): Set<string> | null {
@@ -81,7 +83,13 @@ function folderScope(workspace: ApiClientWorkspaceState, collectionId: string, f
   return scoped;
 }
 
-/** Saved requests included in a collection or folder run. */
+/**
+ * Return saved requests included in a collection or folder run.
+ * @param workspace Workspace containing saved requests/folder hierarchy.
+ * @param collectionId Collection to inspect.
+ * @param folderId Optional folder root; descendants are included recursively.
+ * @returns Saved requests in workspace order matching the requested scope.
+ */
 export function apiClientCollectionRunRequests(
   workspace: ApiClientWorkspaceState,
   collectionId: string,
@@ -108,7 +116,13 @@ function folderPath(folders: ApiClientFolder[], folderId: string): string {
   return names.join(' / ');
 }
 
-/** Default display name for a collection or folder run. */
+/**
+ * Return the default display name for a collection or folder run.
+ * @param workspace Workspace containing collection/folder names.
+ * @param collectionId Collection being run.
+ * @param folderId Optional folder scope.
+ * @returns Human-readable collection or collection/folder path.
+ */
 export function apiClientCollectionRunName(
   workspace: ApiClientWorkspaceState,
   collectionId: string,
@@ -126,7 +140,11 @@ function outcomePassed(outcome: ApiClientExecutionOutcome): boolean {
     && outcome.scriptTests.every((test) => test.passed);
 }
 
-/** Execute saved requests in a collection or folder, recording history for each item. */
+/**
+ * Execute saved requests in a collection or folder, recording history for each item.
+ * @param options Workspace scope, execution settings, transport overrides, and progress callbacks.
+ * @returns Aggregate run result plus the workspace state after run-side mutations.
+ */
 export async function runApiClientCollection(options: RunApiClientCollectionOptions): Promise<ApiClientCollectionRunResult> {
   const requests = apiClientCollectionRunRequests(options.workspace, options.collectionId, options.folderId);
   const runId = options.runId || createApiClientId('run');

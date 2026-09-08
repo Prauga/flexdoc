@@ -1,6 +1,23 @@
-import type { FlexDocRuntimeIntelligenceSnapshot, FlexDocRuntimeRoute } from '../types/options';
+import type {
+  FlexDocContractValidationCode,
+  FlexDocContractValidationFinding,
+  FlexDocContractValidationResult,
+  FlexDocContractValidationSeverity,
+  FlexDocContractValidationStatus,
+  FlexDocRuntimeIntelligenceSnapshot,
+  FlexDocRuntimeRoute,
+} from '../types/options';
 
 const INVALID_SNAPSHOT_MESSAGE = 'Runtime intelligence returned an invalid snapshot.';
+
+const VALIDATION_CODES = new Set<FlexDocContractValidationCode>([
+  'runtime.operation-undocumented',
+  'runtime.operation-unobserved',
+  'runtime.method-mismatch',
+  'runtime.duplicate-operation',
+]);
+const VALIDATION_SEVERITIES = new Set<FlexDocContractValidationSeverity>(['error', 'warning', 'info']);
+const VALIDATION_STATUSES = new Set<FlexDocContractValidationStatus>(['pass', 'warn', 'fail', 'partial']);
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -25,6 +42,16 @@ function optionalString(record: UnknownRecord, key: string): string | undefined 
   return value;
 }
 
+function optionalStringOrStrings(record: UnknownRecord, key: string): string | string[] | undefined {
+  const value = record[key];
+  if (value === undefined) return undefined;
+  if (typeof value === 'string' && value.trim() !== '') return value;
+  if (Array.isArray(value) && value.length > 0 && value.every((entry) => typeof entry === 'string' && entry.trim() !== '')) {
+    return [...value];
+  }
+  invalidSnapshot();
+}
+
 function count(record: UnknownRecord, key: string): number {
   const value = record[key];
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) invalidSnapshot();
@@ -41,6 +68,70 @@ function runtimeRoutes(value: unknown): FlexDocRuntimeRoute[] {
   return value.map(runtimeRoute);
 }
 
+function validationFinding(value: unknown): FlexDocContractValidationFinding {
+  if (!isRecord(value) || !isRecord(value.location)) invalidSnapshot();
+  const code = requiredString(value, 'code') as FlexDocContractValidationCode;
+  const severity = requiredString(value, 'severity') as FlexDocContractValidationSeverity;
+  if (!VALIDATION_CODES.has(code) || !VALIDATION_SEVERITIES.has(severity) || value.location.kind !== 'operation') invalidSnapshot();
+
+  const finding: FlexDocContractValidationFinding = {
+    id: requiredString(value, 'id'),
+    code,
+    severity,
+    location: {
+      kind: 'operation',
+      path: requiredString(value.location, 'path'),
+    },
+    message: requiredString(value, 'message'),
+  };
+  const method = optionalString(value.location, 'method');
+  if (method) finding.location.method = method;
+  const expected = optionalStringOrStrings(value, 'expected');
+  if (expected !== undefined) finding.expected = expected;
+  const observed = optionalStringOrStrings(value, 'observed');
+  if (observed !== undefined) finding.observed = observed;
+  return finding;
+}
+
+function contractValidation(value: unknown): FlexDocContractValidationResult {
+  if (!isRecord(value) || !isRecord(value.summary) || !Array.isArray(value.findings) || typeof value.complete !== 'boolean') invalidSnapshot();
+  const status = requiredString(value, 'status') as FlexDocContractValidationStatus;
+  if (!VALIDATION_STATUSES.has(status)) invalidSnapshot();
+
+  const findings = value.findings.map(validationFinding);
+  const summary = {
+    total: count(value.summary, 'total'),
+    errors: count(value.summary, 'errors'),
+    warnings: count(value.summary, 'warnings'),
+    info: count(value.summary, 'info'),
+  };
+  const observedSummary = {
+    total: findings.length,
+    errors: findings.filter((finding) => finding.severity === 'error').length,
+    warnings: findings.filter((finding) => finding.severity === 'warning').length,
+    info: findings.filter((finding) => finding.severity === 'info').length,
+  };
+  if (JSON.stringify(summary) !== JSON.stringify(observedSummary)) invalidSnapshot();
+
+  const expectedStatus: FlexDocContractValidationStatus = summary.errors > 0
+    ? 'fail'
+    : summary.warnings > 0
+      ? 'warn'
+      : !value.complete
+        ? 'partial'
+        : 'pass';
+  if (status !== expectedStatus) invalidSnapshot();
+
+  return { status, complete: value.complete, findings, summary };
+}
+
+/**
+ * Parse one Runtime Intelligence snapshot returned by a backend integration.
+ *
+ * Compatible 3.0/native route snapshots may omit `validation`. When `validation`
+ * exists, its codes, severities, summary counts, completeness, and aggregate status
+ * are integrity-checked using the same rules as the FlexDoc CLI consumer.
+ */
 export function parseRuntimeIntelligenceSnapshot(value: unknown): FlexDocRuntimeIntelligenceSnapshot {
   if (!isRecord(value)) invalidSnapshot();
   if (!isRecord(value.runtime) || !isRecord(value.summary)) invalidSnapshot();
@@ -86,6 +177,8 @@ export function parseRuntimeIntelligenceSnapshot(value: unknown): FlexDocRuntime
     if (!isRecord(value.environment)) invalidSnapshot();
     snapshot.environment = { name: requiredString(value.environment, 'name') };
   }
+
+  if (value.validation !== undefined) snapshot.validation = contractValidation(value.validation);
 
   return snapshot;
 }

@@ -1,16 +1,32 @@
 import type { OpenAPISpec, PathItem, Reference } from '../types/openapi';
 import { OpenAPIParser as CoreOpenAPIParser } from '../../../../core/dist/openapi-parser.js';
 
-/** OpenAPI parsing and local reference resolution helpers. */
+/** OpenAPI parsing and local reference resolution helpers used by the React renderer. */
 export class OpenAPIParser {
+  /**
+   * Parse and minimally validate an OpenAPI JSON/YAML string or object.
+   * @param input OpenAPI source text or already-parsed object.
+   * @returns Parsed OpenAPI document.
+   */
   static async parseSpec(input: string | object): Promise<OpenAPISpec> {
     return CoreOpenAPIParser.parseSpec(input) as Promise<OpenAPISpec>;
   }
 
+  /**
+   * Return HTTP methods present on one path item.
+   * @param pathItem OpenAPI path item to inspect.
+   * @returns Lowercase HTTP methods in FlexDoc's canonical display order.
+   */
   static getHttpMethods(pathItem: PathItem): string[] {
     return CoreOpenAPIParser.getHttpMethods(pathItem);
   }
 
+  /**
+   * Return renderer utility classes for an HTTP method badge.
+   * @param method HTTP method, case-insensitive.
+   * @param theme Light or dark renderer theme.
+   * @returns Tailwind utility-class string used by method badges.
+   */
   static getMethodColor(method: string, theme?: 'light' | 'dark'): string {
     const lightColors: { [key: string]: string } = {
       get: 'text-blue-600 bg-blue-50 border-blue-200', post: 'text-green-600 bg-green-50 border-green-200',
@@ -29,10 +45,34 @@ export class OpenAPIParser {
     return colors[method.toLowerCase()] || defaultColor;
   }
 
+  /**
+   * Decode one RFC 6901 JSON Pointer path token.
+   * @param token Encoded pointer token.
+   * @returns Decoded object-key token.
+   */
   static decodePointerToken(token: string): string { return CoreOpenAPIParser.decodePointerToken(token); }
+
+  /**
+   * Encode one object key for use as an RFC 6901 JSON Pointer token.
+   * @param token Raw object-key token.
+   * @returns Escaped pointer token.
+   */
   static encodePointerToken(token: string): string { return CoreOpenAPIParser.encodePointerToken(token); }
+
+  /**
+   * Resolve a synchronous local OpenAPI reference.
+   * @param spec Root document containing the referenced value.
+   * @param ref Local `#/...` JSON Pointer reference.
+   * @returns Referenced value cast to the requested generic type.
+   */
   static resolveReference<T = unknown>(spec: OpenAPISpec | Record<string, unknown>, ref: string): T {
     return CoreOpenAPIParser.resolveReference(spec, ref) as T;
   }
+
+  /**
+   * Test whether a value is an OpenAPI Reference Object.
+   * @param obj Value to inspect.
+   * @returns `true` when the value contains a string `$ref` field.
+   */
   static isReference(obj: unknown): obj is Reference { return CoreOpenAPIParser.isReference(obj); }
 }

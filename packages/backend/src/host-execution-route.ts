@@ -13,12 +13,14 @@ import type { HostExecutionState, ParsedHostExecutionEnvelope, HostExecutionUplo
 const MAX_EXECUTION_REQUEST_BYTES = 32 * 1024 * 1024;
 
 type HeaderValue = string | string[] | undefined;
+/** Case-insensitive HTTP-header source accepted by host-execution route helpers. */
 export type HostExecutionHeaderSource = Record<string, HeaderValue>;
 
+/** Framework-neutral HTTP response envelope returned by host-execution route helpers. */
 export interface HostExecutionRouteResult {
-  status: number;
-  headers: Record<string, string>;
-  body: string;
+  /** HTTP status code to send to the documentation browser. */ status: number;
+  /** Response headers to send to the documentation browser. */ headers: Record<string, string>;
+  /** JSON response body text. */ body: string;
 }
 
 function headerValue(headers: HostExecutionHeaderSource, name: string): string | undefined {
@@ -30,11 +32,19 @@ function headerValue(headers: HostExecutionHeaderSource, name: string): string |
   return undefined;
 }
 
-export function hostExecutionRequestOrigin(input: {
-  headers: HostExecutionHeaderSource;
-  protocol?: string;
-  url?: string;
-}): string | undefined {
+/** Input used to infer the documentation origin from framework request metadata. */
+export interface HostExecutionRequestOriginInput {
+  /** Incoming request headers containing the Host header fallback. */ headers: HostExecutionHeaderSource;
+  /** Framework-reported protocol, with or without a trailing colon. */ protocol?: string;
+  /** Absolute request URL when the framework exposes one. */ url?: string;
+}
+
+/**
+ * Infer the documentation request's HTTP(S) origin.
+ * @param input Absolute request URL or protocol/Host metadata.
+ * @returns Normalized origin, or `undefined` when the request metadata is insufficient/invalid.
+ */
+export function hostExecutionRequestOrigin(input: HostExecutionRequestOriginInput): string | undefined {
   if (input.url) {
     try {
       const parsed = new URL(input.url);
@@ -86,7 +96,13 @@ function partContentType(headers: string): string | undefined {
   return line ? line.slice(line.indexOf(':') + 1).trim() : undefined;
 }
 
-/** Parse a host-execution request body from JSON or multipart form data. */
+/**
+ * Parse a host-execution request body from JSON or multipart form data.
+ * @param contentType Incoming Content-Type header.
+ * @param incoming Framework-parsed object, string, Uint8Array, or Buffer body.
+ * @returns Validated execution envelope with uploaded multipart files attached by form-row index.
+ * @throws `HostExecutionBadRequestError` for invalid media types, malformed JSON/multipart data, or missing descriptors.
+ */
 export function parseHostExecutionRequestBody(contentType: string | undefined, incoming: unknown): ParsedHostExecutionEnvelope {
   const mediaType = (contentType || '').split(';', 1)[0].trim().toLowerCase();
   if (mediaType === 'application/json') {
@@ -139,6 +155,12 @@ export function parseHostExecutionRequestBody(contentType: string | undefined, i
   return descriptor;
 }
 
+/**
+ * Read an incoming Node request body with FlexDoc's host-execution size limit.
+ * @param request Node `IncomingMessage` stream.
+ * @returns Concatenated request body bytes.
+ * @throws `HostExecutionBadRequestError` when the body exceeds 32 MiB.
+ */
 export async function readNodeRequestBody(request: IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let size = 0;
@@ -174,14 +196,21 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'API host execution failed.';
 }
 
-/** Handle one host-execution POST route and return an HTTP response envelope. */
-export async function runHostExecutionRoute(input: {
-  state: HostExecutionState;
-  spec: unknown;
-  headers: HostExecutionHeaderSource;
-  body: unknown;
-  docsOrigin?: string;
-}): Promise<HostExecutionRouteResult> {
+/** Input accepted by the framework-neutral host-execution POST route helper. */
+export interface RunHostExecutionRouteInput {
+  /** Shared server-side host-execution state. */ state: HostExecutionState;
+  /** OpenAPI document used to derive default allowed target origins. */ spec: unknown;
+  /** Incoming request headers. */ headers: HostExecutionHeaderSource;
+  /** Framework-parsed or raw incoming request body. */ body: unknown;
+  /** Documentation-host origin used to resolve relative OpenAPI server URLs. */ docsOrigin?: string;
+}
+
+/**
+ * Handle one host-execution POST route and return an HTTP response envelope.
+ * @param input Host state, spec, incoming headers/body, and optional documentation origin.
+ * @returns JSON route response. Known execution errors are translated to 400/403; upstream failures become 502.
+ */
+export async function runHostExecutionRoute(input: RunHostExecutionRouteInput): Promise<HostExecutionRouteResult> {
   if (headerValue(input.headers, 'X-FlexDoc-Execute') !== '1') return response(403, { error: 'Missing X-FlexDoc-Execute header.' });
   let session: { sessionId: string; setCookie?: string } = { sessionId: '' };
   try {
@@ -198,12 +227,19 @@ export async function runHostExecutionRoute(input: {
   }
 }
 
-/** Handle host cookie-jar read and clear routes for API-host execution. */
-export function runHostCookiesRoute(input: {
-  state: HostExecutionState;
-  headers: HostExecutionHeaderSource;
-  clear?: boolean;
-}): HostExecutionRouteResult {
+/** Input accepted by the host cookie-jar read/clear route helper. */
+export interface RunHostCookiesRouteInput {
+  /** Shared server-side host-execution state. */ state: HostExecutionState;
+  /** Incoming request headers carrying the FlexDoc session cookie and execution marker. */ headers: HostExecutionHeaderSource;
+  /** Clear the session jar before returning its contents. */ clear?: boolean;
+}
+
+/**
+ * Handle host cookie-jar read and clear routes for API-host execution.
+ * @param input Host state, incoming headers, and optional clear flag.
+ * @returns JSON route response containing the session's public cookie list.
+ */
+export function runHostCookiesRoute(input: RunHostCookiesRouteInput): HostExecutionRouteResult {
   if (headerValue(input.headers, 'X-FlexDoc-Execute') !== '1') return response(403, { error: 'Missing X-FlexDoc-Execute header.' });
   const session = ensureHostExecutionSession(input.state, headerValue(input.headers, 'Cookie'));
   if (input.clear) clearCookiesForSession(input.state, session.sessionId);

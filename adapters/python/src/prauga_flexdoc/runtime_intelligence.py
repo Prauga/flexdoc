@@ -9,6 +9,15 @@ _HTTP_METHODS = {"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD", "TR
 
 
 def normalize_runtime_path(value: str) -> str:
+    """Normalize a framework route path for Runtime Intelligence comparison.
+
+    Args:
+        value: Framework/OpenAPI path string, optionally containing converter syntax.
+
+    Returns:
+        Canonical leading-slash path with duplicate/trailing slashes removed and
+        FastAPI-style ``{name:converter}`` parameters reduced to ``{name}``.
+    """
     path = value.strip()
     if not path.startswith("/"):
         path = "/" + path
@@ -42,6 +51,16 @@ def _excluded(path: str, exclude_prefix: str | None, excluded_paths: set[str]) -
 
 
 def discover_fastapi_routes(app, exclude_prefix: str | None = None) -> dict:
+    """Discover HTTP routes registered on a FastAPI/Starlette application.
+
+    Args:
+        app: FastAPI/Starlette application exposing a ``routes`` collection.
+        exclude_prefix: Optional FlexDoc mount prefix to exclude from discovery.
+
+    Returns:
+        Discovery metadata containing framework/version, normalized route list,
+        and a ``complete`` flag indicating whether every route shape was understood.
+    """
     source = getattr(app, "routes", None)
     if not isinstance(source, (list, tuple)):
         return {"framework": "fastapi", **_framework_version(), "routes": [], "complete": False}
@@ -100,6 +119,14 @@ def discover_fastapi_routes(app, exclude_prefix: str | None = None) -> dict:
 
 
 def documented_openapi_routes(spec) -> list[dict[str, str]]:
+    """Extract normalized HTTP operations from an OpenAPI document.
+
+    Args:
+        spec: Parsed OpenAPI mapping.
+
+    Returns:
+        Unique sorted ``{"method", "path"}`` entries for recognized HTTP methods.
+    """
     routes: list[dict[str, str]] = []
     paths = spec.get("paths", {}) if isinstance(spec, dict) else {}
     if not isinstance(paths, dict):
@@ -115,6 +142,11 @@ def documented_openapi_routes(spec) -> list[dict[str, str]]:
 
 
 def python_runtime_metadata() -> dict[str, str]:
+    """Return safe Python runtime metadata exposed by Runtime Intelligence.
+
+    Returns:
+        Runtime name/version plus platform and machine architecture identifiers.
+    """
     return {
         "name": "python",
         "version": platform.python_version(),
@@ -124,6 +156,14 @@ def python_runtime_metadata() -> dict[str, str]:
 
 
 def server_origin_from_asgi_scope(scope) -> str | None:
+    """Infer the current HTTP(S) server origin from an ASGI scope.
+
+    Args:
+        scope: ASGI HTTP scope containing scheme, headers, and/or server tuple.
+
+    Returns:
+        ``scheme://host[:port]`` or ``None`` when a valid origin cannot be inferred.
+    """
     scheme = str(scope.get("scheme") or "http").lower()
     if scheme not in {"http", "https"}:
         return None
@@ -148,6 +188,14 @@ def server_origin_from_asgi_scope(scope) -> str | None:
 
 
 def server_port_from_asgi_scope(scope) -> int | None:
+    """Return a valid local listener port from an ASGI scope.
+
+    Args:
+        scope: ASGI HTTP scope containing the optional ``server`` tuple.
+
+    Returns:
+        Integer port in the range 1..65535, or ``None`` when unavailable/invalid.
+    """
     server = scope.get("server")
     if not isinstance(server, (tuple, list)) or len(server) < 2:
         return None
@@ -156,6 +204,17 @@ def server_port_from_asgi_scope(scope) -> int | None:
 
 
 def build_fastapi_runtime_snapshot(app, scope, exclude_prefix: str | None = None) -> dict:
+    """Build a Runtime Intelligence route-presence snapshot for FastAPI.
+
+    Args:
+        app: FastAPI application whose generated OpenAPI document and live routes are compared.
+        scope: Current ASGI HTTP scope used to infer server origin/listener metadata.
+        exclude_prefix: Optional FlexDoc mount prefix excluded from runtime route discovery.
+
+    Returns:
+        Renderer-contract snapshot containing discovered/documented routes, drift sets,
+        completeness metadata, runtime/server metadata, and summary counts.
+    """
     spec = app.openapi()
     discovery = discover_fastapi_routes(app, exclude_prefix)
     documented = documented_openapi_routes(spec)

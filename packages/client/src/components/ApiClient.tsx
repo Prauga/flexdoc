@@ -17,38 +17,40 @@ import type { FlexDocHostExecutionPublicOptions, FlexDocMessages } from '../type
 import type { Server } from '../types/openapi';
 
 export type { ApiClientExecutionResult } from '../utils/api-client-execution';
+/** Request-configuration tab ids supported by the low-level API Client editor. */
 export type ApiClientRequestTab = 'params' | 'headers' | 'authorization' | 'body' | 'scripts';
+/** Script-phase tab ids supported by the API Client script editor. */
 export type ApiClientScriptTab = 'pre-request' | 'tests';
 
+/** Props for the low-level API request editor/executor without workspace persistence. */
 export interface ApiClientProps {
-  /** Initial request draft shown in the editor. */
-  initialRequest?: Partial<HttpRequestDraft>;
-  initialScripts?: Partial<ApiClientRequestScripts>;
-  initialRequestTab?: ApiClientRequestTab;
-  initialScriptTab?: ApiClientScriptTab;
-  theme?: 'light' | 'dark';
-  density?: 'basic' | 'advanced';
-  messages?: FlexDocMessages;
-  credentials?: RequestCredentials;
-  requestInterceptor?: (request: RequestInit & { url: string }) => RequestInit & { url: string } | Promise<RequestInit & { url: string }>;
-  onRequestChange?: (request: BuiltRequest) => void;
-  onDraftChange?: (draft: HttpRequestDraft) => void;
-  onScriptsChange?: (scripts: ApiClientRequestScripts) => void;
-  onRequestTabChange?: (tab: ApiClientRequestTab) => void;
-  onScriptTabChange?: (tab: ApiClientScriptTab) => void;
-  onExecutionStart?: () => void;
-  onExecutionComplete?: (result: ApiClientExecutionResult) => void;
-  resolveAuth?: (auth: HttpAuth | undefined) => HttpAuth;
-  variables?: HttpVariables;
-  collectionVariables?: HttpVariables;
-  externalVariables?: HttpVariables;
-  environmentVariables?: HttpVariables;
-  onCollectionChanges?: (changes: ApiClientScriptCollectionChange[]) => void;
-  onEnvironmentChanges?: (changes: ApiClientScriptEnvironmentChange[]) => void;
-  serverOptions?: Server[];
-  initialServerUrl?: string;
-  onServerUrlChange?: (serverUrl: string) => void;
-  hostExecution?: FlexDocHostExecutionPublicOptions;
+  /** Initial request draft shown in the editor. */ initialRequest?: Partial<HttpRequestDraft>;
+  /** Initial pre-request/test scripts shown in the script editor. */ initialScripts?: Partial<ApiClientRequestScripts>;
+  /** Request-configuration tab selected on first render. */ initialRequestTab?: ApiClientRequestTab;
+  /** Script-phase tab selected on first render; inferred from populated scripts when omitted. */ initialScriptTab?: ApiClientScriptTab;
+  /** Light or dark API Client chrome. */ theme?: 'light' | 'dark';
+  /** `basic` hides advanced scripting/host-auth controls; `advanced` exposes the full client surface. */ density?: 'basic' | 'advanced';
+  /** Renderer-owned chrome translations reused by API Client controls and status messages. */ messages?: FlexDocMessages;
+  /** Browser Fetch credentials mode used for direct request execution. */ credentials?: RequestCredentials;
+  /** Hook that may rewrite URL or Fetch init immediately before direct browser execution. */ requestInterceptor?: (request: RequestInit & { url: string }) => RequestInit & { url: string } | Promise<RequestInit & { url: string }>;
+  /** Called whenever the current draft can be built into a canonical transport request, and immediately before direct execution. */ onRequestChange?: (request: BuiltRequest) => void;
+  /** Called with an independent clone whenever editable request state changes. */ onDraftChange?: (draft: HttpRequestDraft) => void;
+  /** Called with an independent script snapshot whenever pre-request/test source changes. */ onScriptsChange?: (scripts: ApiClientRequestScripts) => void;
+  /** Called after the active request-configuration tab changes. */ onRequestTabChange?: (tab: ApiClientRequestTab) => void;
+  /** Called after the active script-phase tab changes. */ onScriptTabChange?: (tab: ApiClientScriptTab) => void;
+  /** Called immediately before execution state is reset and transport begins. */ onExecutionStart?: () => void;
+  /** Called when an execution produces a history-ready result, including failed transport attempts recorded by the execution engine. */ onExecutionComplete?: (result: ApiClientExecutionResult) => void;
+  /** Resolve inherited collection/folder authentication before preview/request construction. */ resolveAuth?: (auth: HttpAuth | undefined) => HttpAuth;
+  /** Effective merged variables used to resolve `{{name}}` placeholders. */ variables?: HttpVariables;
+  /** Collection-scoped variables exposed to request scripts. */ collectionVariables?: HttpVariables;
+  /** External/host-supplied variables exposed to request scripts. */ externalVariables?: HttpVariables;
+  /** Active environment variables exposed to request scripts. */ environmentVariables?: HttpVariables;
+  /** Called with collection-variable mutations emitted by scripts. */ onCollectionChanges?: (changes: ApiClientScriptCollectionChange[]) => void;
+  /** Called with environment-variable mutations emitted by scripts. */ onEnvironmentChanges?: (changes: ApiClientScriptEnvironmentChange[]) => void;
+  /** OpenAPI server definitions offered by the server selector. */ serverOptions?: Server[];
+  /** Initial effective/custom server URL used to rewrite the request base URL. */ initialServerUrl?: string;
+  /** Called whenever the effective server URL changes. */ onServerUrlChange?: (serverUrl: string) => void;
+  /** Public API-host execution endpoint/capabilities used for browser-incompatible auth, cookies, certificates, and unusual bodies. */ hostExecution?: FlexDocHostExecutionPublicOptions;
 }
 
 const emptyPair = (): HttpKeyValue => ({ key: '', value: '', enabled: true });

@@ -3,9 +3,9 @@ import fs from 'node:fs';
 const input = process.argv[2] || 'performance-results.json';
 const results = JSON.parse(fs.readFileSync(input, 'utf8'));
 
-// FlexDoc 3.0 baseline: Runtime Intelligence + the completed API Client surface,
-// including the CodeMirror editor engine. These ceilings sit only a few percent
-// above the measured release-candidate payload so future growth stays explicit.
+// FlexDoc 3.1 baseline: Runtime Intelligence Contract Validation + the completed
+// API Client surface, including the CodeMirror editor engine. These ceilings sit
+// only a few percent above measured payloads so future growth stays explicit.
 const budgets = {
   javascript: {
     rawBytes: 840 * 1024,
@@ -13,7 +13,7 @@ const budgets = {
     brotliBytes: 220 * 1024,
   },
   css: {
-    rawBytes: 42 * 1024,
+    rawBytes: 43 * 1024,
     gzipBytes: 8.5 * 1024,
     brotliBytes: 7.2 * 1024,
   },

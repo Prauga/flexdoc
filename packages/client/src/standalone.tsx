@@ -7,18 +7,24 @@ import { FlexDocRendererOptions } from './types/options';
 import { bundleExternalReferences, DocumentLoader } from './utils/openapi-resolver';
 import './styles.css';
 
+/** Renderer options accepted by the standalone browser mount API. */
 export type StandaloneFlexDocOptions = FlexDocRendererOptions;
+/** API Client workspace props accepted by the standalone browser mount API. */
 export type StandaloneApiClientConfig = ApiClientWorkspaceProps;
 
+/** Configuration for mounting the standalone documentation renderer. */
 export interface StandaloneFlexDocConfig {
+  /** Parsed OpenAPI document to render. */
   spec: OpenAPISpec;
+  /** Renderer options applied to the mounted documentation. */
   options?: StandaloneFlexDocOptions;
-  /** Absolute URI used to resolve relative external $refs. */
+  /** Absolute URI used to resolve relative external `$ref` values before async mounting. */
   baseUri?: string;
   /** Optional loader for external reference documents. */
   documentLoader?: DocumentLoader;
 }
 
+/** Renderer-host compatibility contract implemented by this standalone bundle. */
 export const FLEXDOC_CONTRACT_VERSION = '1' as const;
 const roots = new WeakMap<Element, Root>();
 
@@ -26,6 +32,12 @@ function cloneSpec(spec: OpenAPISpec): OpenAPISpec {
   return JSON.parse(JSON.stringify(spec)) as OpenAPISpec;
 }
 
+/**
+ * Clone and apply renderer metadata/tag-group overrides to an OpenAPI document.
+ * @param source Source OpenAPI document; the input object is never mutated.
+ * @param options Renderer options containing optional metadata/tag-group overrides.
+ * @returns Prepared OpenAPI document passed to the React renderer.
+ */
 export function prepareSpec(source: OpenAPISpec, options: StandaloneFlexDocOptions = {}): OpenAPISpec {
   const spec = cloneSpec(source);
   if (options.title) spec.info.title = options.title;
@@ -73,11 +85,23 @@ function renderFlexDoc(element: Element, source: OpenAPISpec, options: Standalon
   return () => { if (roots.get(element) === root) roots.delete(element); root.unmount(); };
 }
 
+/**
+ * Mount FlexDoc synchronously into a DOM element using an already self-contained spec.
+ * @param element DOM element that owns the React root.
+ * @param config OpenAPI document and renderer options.
+ * @returns Cleanup function that unmounts the React root.
+ */
 export function mountFlexDoc(element: Element, config: StandaloneFlexDocConfig): () => void {
   const options = { contractVersion: FLEXDOC_CONTRACT_VERSION, ...(config.options || {}) } as StandaloneFlexDocOptions;
   return renderFlexDoc(element, config.spec, options);
 }
 
+/**
+ * Mount the full API Client workspace into a DOM element.
+ * @param element DOM element that owns the React root.
+ * @param config API Client workspace props.
+ * @returns Cleanup function that unmounts the React root.
+ */
 export function mountApiClient(element: Element, config: StandaloneApiClientConfig = {}): () => void {
   const existingRoot = roots.get(element);
   if (existingRoot) existingRoot.unmount();
@@ -87,6 +111,12 @@ export function mountApiClient(element: Element, config: StandaloneApiClientConf
   return () => { if (roots.get(element) === root) roots.delete(element); root.unmount(); };
 }
 
+/**
+ * Bundle external OpenAPI references, then mount FlexDoc into a DOM element.
+ * @param element DOM element that owns the React root.
+ * @param config OpenAPI document, optional base URI/loader, and renderer options.
+ * @returns Promise resolving to a cleanup function that unmounts the React root.
+ */
 export async function mountFlexDocAsync(element: Element, config: StandaloneFlexDocConfig): Promise<() => void> {
   const options = { contractVersion: FLEXDOC_CONTRACT_VERSION, ...(config.options || {}) } as StandaloneFlexDocOptions;
   const spec = config.baseUri
@@ -97,12 +127,13 @@ export async function mountFlexDocAsync(element: Element, config: StandaloneFlex
 
 declare global {
   interface Window {
+    /** Global standalone mount API exposed by `flexdoc.standalone.js`. */
     FlexDocStandalone?: {
-      mount: typeof mountFlexDoc;
-      mountAsync: typeof mountFlexDocAsync;
-      mountApiClient: typeof mountApiClient;
-      prepareSpec: typeof prepareSpec;
-      contractVersion: typeof FLEXDOC_CONTRACT_VERSION;
+      /** Mount documentation synchronously from a self-contained spec. */ mount: typeof mountFlexDoc;
+      /** Bundle external references then mount documentation. */ mountAsync: typeof mountFlexDocAsync;
+      /** Mount the full API Client workspace. */ mountApiClient: typeof mountApiClient;
+      /** Clone and apply renderer metadata/tag-group options to a spec. */ prepareSpec: typeof prepareSpec;
+      /** Renderer-host compatibility contract version. */ contractVersion: typeof FLEXDOC_CONTRACT_VERSION;
     };
   }
 }

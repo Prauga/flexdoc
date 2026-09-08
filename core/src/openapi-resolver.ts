@@ -1,9 +1,17 @@
 import type { OpenAPISpec } from './types/openapi.js';
 import { OpenAPIParser } from './openapi-parser.js';
 
+/** Loader used by external-reference bundling to fetch and parse one document URI. */
 export type DocumentLoader = (uri: string) => Promise<unknown>;
+
 /** Options for bundling external `$ref` documents into a single spec. */
-export interface BundleOptions { baseUri: string; load?: DocumentLoader; }
+export interface BundleOptions {
+  /** Absolute base URI used to resolve relative external references in the root document. */
+  baseUri: string;
+  /** Optional document loader. Defaults to `fetch` plus JSON/YAML parsing. */
+  load?: DocumentLoader;
+}
+
 /** Extension key used when external documents are inlined during bundling. */
 export const EXTERNAL_DOCUMENTS_KEY = 'x-flexdoc-external-documents';
 
@@ -35,7 +43,12 @@ function externalPointer(documentUri: string, pointer: string): string {
 
 function clone<T>(value: T): T { return JSON.parse(JSON.stringify(value)); }
 
-/** Bundle external OpenAPI references into one self-contained document. */
+/**
+ * Bundle external OpenAPI references into one self-contained document.
+ * @param spec Root OpenAPI document to clone and rewrite.
+ * @param options Base URI and optional loader used for external documents.
+ * @returns Cloned document whose external references point into the embedded extension registry.
+ */
 export async function bundleExternalReferences(spec: OpenAPISpec, options: BundleOptions): Promise<OpenAPISpec> {
   const load = options.load || defaultLoader;
   const rootUri = new URL(options.baseUri).toString().replace(/#.*$/, '');
