@@ -25,6 +25,22 @@ setupExpressFlexDoc(app, '/docs', {
 
 `FlexDocModuleOptions` accepts `path`, either `spec` or `specUrl`, and `options`.
 
+### Theme ownership in React
+
+`FlexDoc` and `ApiClientWorkspace` both use the same `manageTheme` convention. It defaults to `true`, allowing the component to persist a viewer-selected theme and use that preference ahead of the supplied `theme` prop.
+
+Set `manageTheme={false}` when the embedding application owns theme state:
+
+```tsx
+<FlexDoc
+  spec={openApiDocument}
+  theme={appTheme}
+  manageTheme={false}
+/>
+```
+
+In externally managed mode, `theme` remains authoritative and the viewer-theme selector is hidden. Other viewer preferences, including expansion settings, continue to work. FlexDoc uses this externally managed mode for its embedded `ApiClientWorkspace` so the outer documentation renderer is the single theme owner.
+
 ## Metadata and chrome
 
 Renderer options include:

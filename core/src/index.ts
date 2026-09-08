@@ -14,6 +14,31 @@ export type { NormalizedOperation } from './openapi-normalizer.js';
 export { buildRequest, initialRequestValues, operationFor, parametersFor } from './request-builder.js';
 export type { BuiltRequest, RequestValue, RequestValues } from './request-builder.js';
 export { buildHttpRequest, httpHostExecutionRequirements, inferHttpBodyMode, requestDraftFromBuiltRequest, resolveHttpRequestDraftVariables } from './http-client.js';
-export type { HttpAuth, HttpAwsV4Auth, HttpBinaryBody, HttpBodyMode, HttpDigestAuth, HttpFormDataEntry, HttpGraphqlBody, HttpHawkAuth, HttpHostExecutionCapability, HttpHostExecutionSelection, HttpKeyValue, HttpNtlmAuth, HttpOAuth1Auth, HttpRequestBuildOptions, HttpRequestDraft, HttpVariables } from './http-client.js';
+export type {
+  HttpApiKeyAuth,
+  HttpAuth,
+  HttpAwsV4Auth,
+  HttpBasicAuth,
+  HttpBearerAuth,
+  HttpBinaryBody,
+  HttpBodyMode,
+  HttpBuiltRequest,
+  HttpDigestAuth,
+  HttpFormDataEntry,
+  HttpGraphqlBody,
+  HttpHawkAuth,
+  HttpHostExecutionCapability,
+  HttpHostExecutionSelection,
+  HttpInheritedAuth,
+  HttpKeyValue,
+  HttpNoAuth,
+  HttpNtlmAuth,
+  HttpOAuth1Auth,
+  HttpOAuth2Auth,
+  HttpOAuth2GrantType,
+  HttpRequestBuildOptions,
+  HttpRequestDraft,
+  HttpVariables,
+} from './http-client.js';
 export { generateCodeSample, languageLabel } from './code-samples.js';
 export type { CodeSampleLanguage } from './code-samples.js';

@@ -7,7 +7,43 @@
  */
 export { FlexDocModule } from './flexdoc.module';
 export { FlexDocService } from './flexdoc.service';
-export { FlexDocOptions, FlexDocModuleOptions, FlexDocHostExecutionOptions, FlexDocHostExecutionPublicOptions, FlexDocHostExecutionCapability, FlexDocRuntimeIntelligenceOptions, FlexDocRuntimeIntelligencePublicOptions } from './interfaces';
+export type {
+  ExpandOption,
+  ExpandPreset,
+  ExpandSection,
+  FlexDocCodeSampleLanguage,
+  FlexDocCodeSampleOptions,
+  FlexDocDocumentationAuthOptions,
+  FlexDocFooterLink,
+  FlexDocFooterOptions,
+  FlexDocHostExecutionCapability,
+  FlexDocHostExecutionCertificate,
+  FlexDocHostExecutionCertificateChoice,
+  FlexDocHostExecutionOptions,
+  FlexDocHostExecutionPublicOptions,
+  FlexDocHostExecutionRequest,
+  FlexDocModuleOptions,
+  FlexDocOptions,
+  FlexDocRuntimeIntelligenceOptions,
+  FlexDocRuntimeIntelligencePublicOptions,
+  FlexDocTagGroup,
+  FlexDocTryItOptions,
+  LogoOptions,
+  LogoPaddingOptions,
+  MethodColors,
+  ThemeBorderColors,
+  ThemeCodeTypography,
+  ThemeColorVariants,
+  ThemeColors,
+  ThemeConfig,
+  ThemeGrayColors,
+  ThemeHeadingTypography,
+  ThemeMethodColor,
+  ThemeSidebar,
+  ThemeSidebarGroupItems,
+  ThemeTextColors,
+  ThemeTypography,
+} from './interfaces';
 export { setupFlexDoc } from './setup';
 export { setupExpressFlexDoc, setupFastifyFlexDoc, setupFastifySwaggerFlexDoc, setupNestFlexDoc } from './framework-adapters';
 export type { ExpressLikeApplication, FastifyLikeApplication, FastifyLikeReply, FastifyLikeRequest, NestLikeApplication } from './framework-adapters';
