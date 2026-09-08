@@ -16,7 +16,7 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - **Rust:** Axum, Actix Web
 - **Elixir:** Plug, Phoenix
 
-The backend-coverage program shipped in 2.3.0 and the coordinated 2.x line culminated in published **2.9.9**. Stable **3.0.0** added backend-native Runtime Intelligence and the completed renderer/API Client product-quality gate. The current 3.1 source milestone adds a narrow operation-level Contract Validation slice on Node Express/Fastify/Hono/NestJS, with the renderer and CLI consuming the same backend-produced findings. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the exact milestone boundary and deferred work.
+The backend-coverage program shipped in 2.3.0 and the coordinated 2.x line culminated in published **2.9.9**. Stable **3.0.0** added backend-native Runtime Intelligence and the completed renderer/API Client product-quality gate. This source tree is prepared for stable **3.1.0**, adding a narrow operation-level Contract Validation slice on Node Express/Fastify/Hono/NestJS, with the renderer and CLI consuming the same backend-produced findings. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the exact milestone boundary and deferred work.
 
 ## CLI
 
@@ -34,21 +34,21 @@ npx @prauga/flexdoc-cli validate http://127.0.0.1:3000/docs/__flexdoc/runtime
 
 | Ecosystem | Package | Source version |
 | --- | --- | ---: |
-| npm | `@prauga/flexdoc-client` | `3.0.0` |
-| npm | `@prauga/flexdoc-backend` | `3.0.0` |
+| npm | `@prauga/flexdoc-client` | `3.1.0` |
+| npm | `@prauga/flexdoc-backend` | `3.1.0` |
 | npm | `@prauga/flexdoc-core` | `0.5.0` |
-| npm | `@prauga/flexdoc-cli` | `0.5.0` |
-| NuGet | `Prauga.FlexDoc.AspNetCore` | `0.5.0` |
-| Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.8.0` |
-| Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.8.0` |
-| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.8.0` |
-| PyPI | `prauga-flexdoc` | `0.7.0` |
-| Composer | `prauga/flexdoc` | `0.4.2` |
-| RubyGems | `prauga-flexdoc` | `0.4.2` |
-| crates.io | `prauga-flexdoc-axum` | `0.5.2` |
-| crates.io | `prauga-flexdoc-actix` | `0.4.2` |
-| Hex | `prauga_flexdoc` | `0.4.2` |
-| Go | `github.com/prauga/flexdoc/adapters/go` | `0.5.2` |
+| npm | `@prauga/flexdoc-cli` | `0.6.0` |
+| NuGet | `Prauga.FlexDoc.AspNetCore` | `0.5.1` |
+| Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.8.1` |
+| Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.8.1` |
+| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.8.1` |
+| PyPI | `prauga-flexdoc` | `0.7.1` |
+| Composer | `prauga/flexdoc` | `0.4.3` |
+| RubyGems | `prauga-flexdoc` | `0.4.3` |
+| crates.io | `prauga-flexdoc-axum` | `0.5.3` |
+| crates.io | `prauga-flexdoc-actix` | `0.4.3` |
+| Hex | `prauga_flexdoc` | `0.4.3` |
+| Go | `github.com/prauga/flexdoc/adapters/go` | `0.5.3` |
 
 Ecosystem package versions are intentionally independent. Renderer contract v1 is the cross-language compatibility boundary.
 
