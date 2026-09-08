@@ -12,4 +12,4 @@ mvn spring-boot:run
 
 Open `http://localhost:8080/docs`.
 
-The starter remains pinned through `<flexdoc.version>0.7.1</flexdoc.version>` until the coordinated 3.0 release versioning pass. CI installs the Java adapter family built from the same commit before building this example.
+The starter remains pinned through `<flexdoc.version>0.8.0</flexdoc.version>` until the coordinated 3.0 release versioning pass. CI installs the Java adapter family built from the same commit before building this example.

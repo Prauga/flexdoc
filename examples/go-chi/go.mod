@@ -4,5 +4,5 @@ go 1.25
 
 require (
 	github.com/go-chi/chi/v5 v5.3.2
-	github.com/prauga/flexdoc/adapters/go v0.5.1
+	github.com/prauga/flexdoc/adapters/go v0.5.2
 )
