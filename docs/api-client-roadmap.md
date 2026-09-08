@@ -2,7 +2,7 @@
 
 FlexDoc 2.3.0 was the last coordinated product release before the API Client workspace grew through several focused development milestones. Those milestone numbers described source-development slices; they were not separate published FlexDoc package releases. The coordinated product line moved directly from published **2.3.0** to published **2.8.0** after the 2.8 source definition of done was satisfied.
 
-The current published coordinated product line is **2.9.9**. This source tree is prepared for stable **3.0.0**, combining the backend-native Runtime Intelligence foundation with the completed renderer/API Client UI product-quality gate.
+The current published coordinated product line is **3.0.0**. This source tree is prepared for stable **3.1.0**, adding backend-produced operation-level Contract Validation on the Node Runtime Intelligence integrations plus renderer and CLI consumption of the same structured findings.
 
 Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and `@prauga/flexdoc-backend` carry the coordinated FlexDoc product version because they own and distribute the canonical renderer. Native adapters receive their own semantic-version increment when they package a new renderer, rather than being renamed to the product version.
 
@@ -19,8 +19,8 @@ Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and 
 | **2.9** | shared request executor, collection/folder runner product UI, scripting IntelliSense, grouped run history, and full request-history inspector | shipped |
 | **2.9.5** | REST workspace parity hardening plus capability-gated Node API-host execution for browser-impossible request features | shipped |
 | **2.9.9** | measured performance baseline, production delivery hardening, host-page caching/revalidation, and regression budgets before Runtime Intelligence | shipped |
-| **3.0.0** | Runtime Intelligence plus renderer/API Client product-quality completion | release prepared |
-| **3.1** | operation-level backend Contract Validation plus renderer/CLI consumption | in progress |
+| **3.0.0** | Runtime Intelligence plus renderer/API Client product-quality completion | shipped |
+| **3.1.0** | operation-level backend Contract Validation plus renderer/CLI consumption | release prepared |
 
 Viewer expansion defaults/settings and renderer-option parity landed before the 2.8 release and are included in the 2.8 product surface.
 
@@ -76,7 +76,7 @@ The 2.9 source release candidate is complete with the following satisfied:
 - [x] future-version example manifests and the deterministic future-tag Go checksum represent the release-candidate source tree without pretending registry artifacts already exist
 - [x] the canonical standalone renderer is rebuilt and synchronized across committed adapter assets, with parity checks passing before the release candidate is proposed
 
-2.9.0, 2.9.5, and 2.9.9 are published. 3.0.0 is now prepared as the stable Runtime Intelligence and UI/product-quality release.
+2.9.0, 2.9.5, 2.9.9, and 3.0.0 are published. 3.1.0 is now prepared as the stable backend-native Contract Validation release.
 
 ## 2.8.0 definition of done
 
@@ -155,7 +155,7 @@ See [`runtime-intelligence.md`](./runtime-intelligence.md) for framework-specifi
 
 ## 3.1 Contract Validation
 
-The current 3.1 slice deliberately keeps the backend-native moat narrow and truthful. Node Express, Fastify, Hono, and NestJS integrations produce one structured `validation` object that the renderer and CLI both consume. FastAPI, ASP.NET Core, and Spring keep their compatible route-presence Runtime Intelligence snapshots but do not yet produce `validation`.
+The 3.1 slice deliberately keeps the backend-native moat narrow and truthful. Node Express, Fastify, Hono, and NestJS integrations produce one structured `validation` object that the renderer and CLI both consume. FastAPI, ASP.NET Core, and Spring keep their compatible route-presence Runtime Intelligence snapshots but do not yet produce `validation`.
 
 Implemented in this slice:
 
@@ -173,6 +173,6 @@ This boundary keeps the differentiation test intact: the valuable evidence comes
 
 ## Release interpretation
 
-Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product line moved through published **2.8.0**, **2.9.0**, **2.9.5**, and **2.9.9**. FlexDoc **3.0.0** is the next stable coordinated release and carries the Runtime Intelligence foundation plus the completed renderer/API Client product-quality gate.
+Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product line moved through published **2.8.0**, **2.9.0**, **2.9.5**, **2.9.9**, and **3.0.0**. FlexDoc **3.1.0** is the next stable coordinated release and carries the backend-produced Contract Validation slice plus the matching renderer and CLI consumers.
 
 For native adapters, each package remains on its independently versioned semantic-release line while carrying the current coordinated renderer. `@prauga/flexdoc-core` remains independently versioned unless the framework-neutral engine itself changes. The CLI also remains independently versioned and consumes the coordinated client line.
