@@ -2,113 +2,119 @@ import type { HttpAuth, HttpBinaryBody, HttpFormDataEntry, HttpKeyValue, HttpReq
 import { cloneApiClientScripts } from './api-client-scripting';
 import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from './api-client-scripting';
 
+/** One named value stored in an API Client environment or collection variable list. */
 export interface ApiClientEnvironmentVariable {
-  id: string;
-  key: string;
-  value: string;
-  enabled?: boolean;
+  /** Stable workspace-local variable id. */ id: string;
+  /** Placeholder key referenced as `{{key}}`. */ key: string;
+  /** String value substituted during request/script resolution. */ value: string;
+  /** Whether the variable participates in resolution. Defaults to enabled. */ enabled?: boolean;
 }
 
 /** Collection metadata and variables for one API Client workspace collection. */
 export interface ApiClientCollection {
-  id: string;
-  name: string;
-  auth: HttpAuth;
-  variables: ApiClientEnvironmentVariable[];
-  createdAt: string;
-  updatedAt: string;
+  /** Stable workspace-local collection id. */ id: string;
+  /** User-visible collection name. */ name: string;
+  /** Authentication inherited by descendant folders/requests that use `inherit`. */ auth: HttpAuth;
+  /** Collection-scoped variables available to requests/scripts. */ variables: ApiClientEnvironmentVariable[];
+  /** ISO timestamp when the collection was created. */ createdAt: string;
+  /** ISO timestamp when the collection was last modified. */ updatedAt: string;
 }
 
+/** Nested folder inside one API Client collection. */
 export interface ApiClientFolder {
-  id: string;
-  collectionId: string;
-  parentFolderId?: string;
-  name: string;
-  auth: HttpAuth;
-  createdAt: string;
-  updatedAt: string;
+  /** Stable workspace-local folder id. */ id: string;
+  /** Owning collection id. */ collectionId: string;
+  /** Parent folder id for nested folders. */ parentFolderId?: string;
+  /** User-visible folder name. */ name: string;
+  /** Authentication inherited by descendant requests/folders when they use `inherit`. */ auth: HttpAuth;
+  /** ISO timestamp when the folder was created. */ createdAt: string;
+  /** ISO timestamp when the folder was last modified. */ updatedAt: string;
 }
 
+/** Persisted request stored in an API Client collection/folder. */
 export interface ApiClientSavedRequest {
-  id: string;
-  collectionId: string;
-  folderId?: string;
-  name: string;
-  request: HttpRequestDraft;
-  scripts?: ApiClientRequestScripts;
-  createdAt: string;
-  updatedAt: string;
+  /** Stable workspace-local request id. */ id: string;
+  /** Owning collection id. */ collectionId: string;
+  /** Containing folder id when the request is nested. */ folderId?: string;
+  /** User-visible request name. */ name: string;
+  /** Editable request draft persisted by the workspace. */ request: HttpRequestDraft;
+  /** Optional pre-request/test scripts persisted with the request. */ scripts?: ApiClientRequestScripts;
+  /** ISO timestamp when the saved request was created. */ createdAt: string;
+  /** ISO timestamp when the saved request was last modified. */ updatedAt: string;
 }
 
+/** Named API Client environment containing variable values. */
 export interface ApiClientEnvironment {
-  id: string;
-  name: string;
-  variables: ApiClientEnvironmentVariable[];
-  createdAt: string;
-  updatedAt: string;
+  /** Stable workspace-local environment id. */ id: string;
+  /** User-visible environment name. */ name: string;
+  /** Variables belonging to the environment. */ variables: ApiClientEnvironmentVariable[];
+  /** ISO timestamp when the environment was created. */ createdAt: string;
+  /** ISO timestamp when the environment was last modified. */ updatedAt: string;
 }
 
+/** Persisted execution-history record for one request. */
 export interface ApiClientHistoryEntry {
-  id: string;
-  collectionId?: string;
-  folderId?: string;
-  request: HttpRequestDraft;
-  scripts?: ApiClientRequestScripts;
-  executedMethod: string;
-  resolvedUrl: string;
-  status?: number;
-  statusText?: string;
-  responseTime?: number;
-  responseHeaders?: Array<[string, string]>;
-  responseBody?: string;
-  responseBodyTruncated?: boolean;
-  runId?: string;
-  runName?: string;
-  runIndex?: number;
-  runTotal?: number;
-  runPassed?: boolean;
-  runCancelled?: boolean;
-  error?: string;
-  scriptTests?: ApiClientScriptTestResult[];
-  scriptLogs?: string[];
-  scriptError?: string;
-  createdAt: string;
+  /** Stable history-entry id. */ id: string;
+  /** Collection associated with the request when known. */ collectionId?: string;
+  /** Folder associated with the request when known. */ folderId?: string;
+  /** Request snapshot captured before execution. */ request: HttpRequestDraft;
+  /** Script snapshot captured for the execution. */ scripts?: ApiClientRequestScripts;
+  /** HTTP method actually executed. */ executedMethod: string;
+  /** Fully resolved URL actually executed. */ resolvedUrl: string;
+  /** HTTP response status when available. */ status?: number;
+  /** HTTP response status text when available. */ statusText?: string;
+  /** Measured response time in milliseconds. */ responseTime?: number;
+  /** Ordered response headers retained in history. */ responseHeaders?: Array<[string, string]>;
+  /** Response body retained up to the workspace history size cap. */ responseBody?: string;
+  /** Whether the stored response body was truncated to the history size cap. */ responseBodyTruncated?: boolean;
+  /** Collection-run id when the entry was produced by a runner. */ runId?: string;
+  /** Collection-run display name. */ runName?: string;
+  /** One-based request index within the run. */ runIndex?: number;
+  /** Total selected request count for the run. */ runTotal?: number;
+  /** Whether this run item passed transport/scripts/tests. */ runPassed?: boolean;
+  /** Whether this run item was cancelled. */ runCancelled?: boolean;
+  /** Transport/build error, if execution failed. */ error?: string;
+  /** Test assertion results produced by the test script. */ scriptTests?: ApiClientScriptTestResult[];
+  /** Captured script console output. */ scriptLogs?: string[];
+  /** Top-level pre-request/test script error. */ scriptError?: string;
+  /** ISO timestamp when the history entry was recorded. */ createdAt: string;
 }
 
+/** History-entry input accepted by `addApiClientHistoryEntry`; id/timestamp are generated internally. */
 export interface ApiClientHistoryInput {
-  collectionId?: string;
-  folderId?: string;
-  request: HttpRequestDraft;
-  scripts?: ApiClientRequestScripts;
-  executedMethod: string;
-  resolvedUrl: string;
-  status?: number;
-  statusText?: string;
-  responseTime?: number;
-  responseHeaders?: Array<[string, string]>;
-  responseBody?: string;
-  responseBodyTruncated?: boolean;
-  runId?: string;
-  runName?: string;
-  runIndex?: number;
-  runTotal?: number;
-  runPassed?: boolean;
-  runCancelled?: boolean;
-  error?: string;
-  scriptTests?: ApiClientScriptTestResult[];
-  scriptLogs?: string[];
-  scriptError?: string;
+  /** Collection associated with the request when known. */ collectionId?: string;
+  /** Folder associated with the request when known. */ folderId?: string;
+  /** Request snapshot to record. */ request: HttpRequestDraft;
+  /** Script snapshot to record. */ scripts?: ApiClientRequestScripts;
+  /** HTTP method actually executed. */ executedMethod: string;
+  /** Fully resolved URL actually executed. */ resolvedUrl: string;
+  /** HTTP response status when available. */ status?: number;
+  /** HTTP response status text when available. */ statusText?: string;
+  /** Measured response time in milliseconds. */ responseTime?: number;
+  /** Ordered response headers to retain. */ responseHeaders?: Array<[string, string]>;
+  /** Response body to retain subject to the history size cap. */ responseBody?: string;
+  /** Explicitly mark the supplied response body as already truncated. */ responseBodyTruncated?: boolean;
+  /** Collection-run id when produced by a runner. */ runId?: string;
+  /** Collection-run display name. */ runName?: string;
+  /** One-based request index within the run. */ runIndex?: number;
+  /** Total selected request count for the run. */ runTotal?: number;
+  /** Whether this run item passed transport/scripts/tests. */ runPassed?: boolean;
+  /** Whether this run item was cancelled. */ runCancelled?: boolean;
+  /** Transport/build error, if execution failed. */ error?: string;
+  /** Test assertion results to retain. */ scriptTests?: ApiClientScriptTestResult[];
+  /** Captured script console output to retain. */ scriptLogs?: string[];
+  /** Top-level pre-request/test script error. */ scriptError?: string;
 }
 
 /** In-memory API Client workspace state persisted to IndexedDB by default. */
 export interface ApiClientWorkspaceState {
-  version: 6;
-  collections: ApiClientCollection[];
-  folders: ApiClientFolder[];
-  requests: ApiClientSavedRequest[];
-  environments: ApiClientEnvironment[];
-  activeEnvironmentId?: string;
-  history: ApiClientHistoryEntry[];
+  /** Workspace schema version used for migration/normalization. */ version: 6;
+  /** Top-level request collections. */ collections: ApiClientCollection[];
+  /** Nested folders belonging to collections. */ folders: ApiClientFolder[];
+  /** Saved requests belonging to collections/folders. */ requests: ApiClientSavedRequest[];
+  /** Named variable environments. */ environments: ApiClientEnvironment[];
+  /** Currently active environment id, when one is selected. */ activeEnvironmentId?: string;
+  /** Most-recent-first execution history, capped by the workspace implementation. */ history: ApiClientHistoryEntry[];
 }
 
 const DATABASE_NAME = 'flexdoc-api-client';
@@ -398,17 +404,33 @@ function variableMap(values: ApiClientEnvironmentVariable[]): Record<string, str
   return variables;
 }
 
+/**
+ * Create a workspace-local id with a readable prefix.
+ * @param prefix Entity prefix such as `collection`, `request`, or `history`.
+ * @returns Prefix plus a UUID when available, otherwise a timestamp/random fallback.
+ */
 export function createApiClientId(prefix: string): string {
   const uuid = globalThis.crypto?.randomUUID?.();
   return uuid ? `${prefix}-${uuid}` : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * Create the default IndexedDB workspace key for a documentation host/title pair.
+ * @param title API/documentation title used to scope persistence.
+ * @param host Host name used to scope persistence.
+ * @returns Deterministic encoded workspace persistence key.
+ */
 export function createDefaultApiClientPersistenceKey(title?: string, host?: string): string {
   const scopedHost = host?.trim() || 'unknown-host';
   const scopedTitle = title?.trim() || 'untitled';
   return `flexdoc:${encodeURIComponent(scopedHost)}:${encodeURIComponent(scopedTitle)}`;
 }
 
+/**
+ * Deep-clone editable request state while removing non-persistable browser `File` objects.
+ * @param request Request draft to clone.
+ * @returns Independent request draft safe to store in workspace state/history.
+ */
 export function cloneRequestDraft(request: HttpRequestDraft): HttpRequestDraft {
   const auth = request.auth
     ? request.auth.type === 'oauth2'
@@ -428,6 +450,7 @@ export function cloneRequestDraft(request: HttpRequestDraft): HttpRequestDraft {
   };
 }
 
+/** Create an empty version-6 workspace containing the default collection. */
 export function createDefaultApiClientWorkspace(): ApiClientWorkspaceState {
   const timestamp = now();
   return {
@@ -440,6 +463,11 @@ export function createDefaultApiClientWorkspace(): ApiClientWorkspaceState {
   };
 }
 
+/**
+ * Validate/migrate unknown persisted workspace data into the current schema.
+ * @param value Unknown IndexedDB/imported workspace value.
+ * @returns Normalized version-6 workspace, or a default workspace when the value is invalid.
+ */
 export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceState {
   if (!isRecord(value) || ![1, 2, 3, 4, 5, 6].includes(value.version as number)) return createDefaultApiClientWorkspace();
 
@@ -498,6 +526,12 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
   };
 }
 
+/**
+ * Prepend one execution to history while cloning inputs and enforcing response/history caps.
+ * @param workspace Workspace to update.
+ * @param input History payload without generated id/timestamp.
+ * @returns New workspace state with the history entry at the front.
+ */
 export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, input: ApiClientHistoryInput): ApiClientWorkspaceState {
   const responseBody = input.responseBody === undefined ? undefined : input.responseBody.slice(0, HISTORY_RESPONSE_BODY_LIMIT);
   const responseBodyTruncated = input.responseBodyTruncated === true || (input.responseBody?.length || 0) > HISTORY_RESPONSE_BODY_LIMIT;
@@ -529,7 +563,14 @@ export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, inp
   return { ...workspace, history: [entry, ...workspace.history].slice(0, HISTORY_LIMIT) };
 }
 
-
+/**
+ * Resolve request/folder/collection authentication inheritance.
+ * @param workspace Workspace containing the auth hierarchy.
+ * @param collectionId Owning collection id.
+ * @param folderId Starting folder id when the request is nested.
+ * @param requestAuth Request-level auth, defaulting to `none`.
+ * @returns First non-`inherit` auth walking request → folder ancestors → collection, or `none`.
+ */
 export function resolveApiClientAuth(
   workspace: ApiClientWorkspaceState,
   collectionId?: string,
@@ -552,17 +593,24 @@ export function resolveApiClientAuth(
   return { type: 'none' };
 }
 
+/** Return enabled variables for one collection as a simple key/value map. */
 export function apiClientCollectionVariables(workspace: ApiClientWorkspaceState, collectionId?: string): Record<string, string> {
   const collection = workspace.collections.find((candidate) => candidate.id === collectionId);
   return variableMap(collection?.variables || []);
 }
 
+/** Return enabled variables for the active environment as a simple key/value map. */
 export function activeApiClientEnvironmentVariables(workspace: ApiClientWorkspaceState): Record<string, string> {
   const environment = workspace.environments.find((candidate) => candidate.id === workspace.activeEnvironmentId);
   return variableMap(environment?.variables || []);
 }
 
-
+/**
+ * Apply script-emitted variable mutations to the active environment.
+ * @param workspace Workspace to update.
+ * @param changes Ordered set/unset mutations emitted by scripts.
+ * @returns Original workspace when no effective change occurs, otherwise updated state.
+ */
 export function applyApiClientEnvironmentChanges(
   workspace: ApiClientWorkspaceState,
   changes: ApiClientScriptEnvironmentChange[],
@@ -605,6 +653,13 @@ export function applyApiClientEnvironmentChanges(
   return { ...workspace, environments };
 }
 
+/**
+ * Apply script-emitted variable mutations to one collection.
+ * @param workspace Workspace to update.
+ * @param collectionId Collection receiving the mutations.
+ * @param changes Ordered set/unset mutations emitted by scripts.
+ * @returns Original workspace when no effective change occurs, otherwise updated state.
+ */
 export function applyApiClientCollectionChanges(
   workspace: ApiClientWorkspaceState,
   collectionId: string | undefined,
@@ -648,6 +703,7 @@ export function applyApiClientCollectionChanges(
   return { ...workspace, collections };
 }
 
+/** Remove an environment and clear it as active when selected. */
 export function deleteApiClientEnvironment(workspace: ApiClientWorkspaceState, environmentId: string): ApiClientWorkspaceState {
   return {
     ...workspace,
@@ -656,6 +712,7 @@ export function deleteApiClientEnvironment(workspace: ApiClientWorkspaceState, e
   };
 }
 
+/** Remove a folder while reparenting direct child folders/requests to the deleted folder's parent. */
 export function deleteApiClientFolder(workspace: ApiClientWorkspaceState, folderId: string): ApiClientWorkspaceState {
   const folder = workspace.folders.find((candidate) => candidate.id === folderId);
   if (!folder) return workspace;
@@ -673,6 +730,7 @@ export function deleteApiClientFolder(workspace: ApiClientWorkspaceState, folder
   };
 }
 
+/** Remove a collection and all of its folders/requests, creating a default collection when it was the last one. */
 export function deleteApiClientCollection(workspace: ApiClientWorkspaceState, collectionId: string): ApiClientWorkspaceState {
   const remainingCollections = workspace.collections.filter((collection) => collection.id !== collectionId);
   if (remainingCollections.length === 0) {
@@ -705,6 +763,11 @@ function openDatabase(): Promise<IDBDatabase | null> {
   });
 }
 
+/**
+ * Load and normalize one persisted workspace from IndexedDB.
+ * @param key Workspace persistence key.
+ * @returns Stored normalized workspace, or a default workspace when storage/data is unavailable.
+ */
 export async function loadApiClientWorkspace(key: string): Promise<ApiClientWorkspaceState> {
   const database = await openDatabase();
   if (!database) return createDefaultApiClientWorkspace();
@@ -720,6 +783,11 @@ export async function loadApiClientWorkspace(key: string): Promise<ApiClientWork
   }
 }
 
+/**
+ * Persist a workspace under one IndexedDB key.
+ * @param key Workspace persistence key.
+ * @param workspace Version-6 workspace state to store.
+ */
 export async function saveApiClientWorkspace(key: string, workspace: ApiClientWorkspaceState): Promise<void> {
   const database = await openDatabase();
   if (!database) return;
