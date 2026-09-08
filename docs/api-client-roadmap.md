@@ -2,7 +2,7 @@
 
 FlexDoc 2.3.0 was the last coordinated product release before the API Client workspace grew through several focused development milestones. Those milestone numbers described source-development slices; they were not separate published FlexDoc package releases. The coordinated product line moved directly from published **2.3.0** to published **2.8.0** after the 2.8 source definition of done was satisfied.
 
-The current published coordinated product line is **3.1.0**. This source tree completes the **3.2** headless Runner milestone, taking the canonical API Client request/script/collection model into CLI/CI execution while reusing the existing advertised host-execution contract rather than introducing a second request or auth engine.
+The current published coordinated product line is **3.1.0**. This release-preparation tree advances **3.2.0** for the headless Runner, taking the canonical API Client request/script/collection model into CLI/CI execution while reusing the existing advertised host-execution contract rather than introducing a second request or auth engine.
 
 Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and `@prauga/flexdoc-backend` carry the coordinated FlexDoc product version because they own and distribute the canonical renderer. Native adapters receive their own semantic-version increment when they package a new renderer, rather than being renamed to the product version.
 
@@ -21,7 +21,7 @@ Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and 
 | **2.9.9** | measured performance baseline, production delivery hardening, host-page caching/revalidation, and regression budgets before Runtime Intelligence | shipped |
 | **3.0.0** | Runtime Intelligence plus renderer/API Client product-quality completion | shipped |
 | **3.1.0** | operation-level backend Contract Validation plus renderer/CLI consumption | shipped |
-| **3.2** | portable headless execution of canonical API Client request/folder/collection scopes with CI reports | complete in source |
+| **3.2** | portable headless execution of canonical API Client request/folder/collection scopes with CI reports | release prepared |
 
 Viewer expansion defaults/settings and renderer-option parity landed before the 2.8 release and are included in the 2.8 product surface.
 
@@ -77,7 +77,7 @@ The 2.9 source release candidate is complete with the following satisfied:
 - [x] future-version example manifests and the deterministic future-tag Go checksum represent the release-candidate source tree without pretending registry artifacts already exist
 - [x] the canonical standalone renderer is rebuilt and synchronized across committed adapter assets, with parity checks passing before the release candidate is proposed
 
-2.9.0, 2.9.5, 2.9.9, 3.0.0, and 3.1.0 are published. 3.2 is complete in source as the portable headless Runner milestone.
+2.9.0, 2.9.5, 2.9.9, 3.0.0, and 3.1.0 are published. 3.2.0 is release-prepared as the portable headless Runner milestone.
 
 ## 2.8.0 definition of done
 
@@ -184,6 +184,6 @@ The product filter remains: **Could Scalar implement this without being installe
 
 ## Release interpretation
 
-Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product line moved through published **2.8.0**, **2.9.0**, **2.9.5**, **2.9.9**, **3.0.0**, and **3.1.0**. The 3.2 source milestone builds on that published Contract Validation line with portable headless execution; coordinated package versions advance separately during release preparation.
+Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product line moved through published **2.8.0**, **2.9.0**, **2.9.5**, **2.9.9**, **3.0.0**, and **3.1.0**. The 3.2 source milestone builds on that published Contract Validation line with portable headless execution; this release-preparation PR advances the coordinated client/backend line to 3.2.0, the CLI to 0.7.0, and renderer-consuming native packages on their independent patch lines.
 
 For native adapters, each package remains on its independently versioned semantic-release line while carrying the current coordinated renderer. `@prauga/flexdoc-core` remains independently versioned unless the framework-neutral engine itself changes. The CLI also remains independently versioned and consumes the coordinated client line.
