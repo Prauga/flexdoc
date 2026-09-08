@@ -8,6 +8,11 @@ export interface FlexDocRuntimeRoute {
   /** Normalized route path/template, using `{name}` path parameters. */ path: string;
 }
 
+/** One wire-equivalent runtime operation registered more than once. */
+export interface FlexDocRuntimeDuplicateRoute extends FlexDocRuntimeRoute {
+  /** Number of matching registrations observed in the host framework. */ count: number;
+}
+
 /** Runtime process metadata included in Runtime Intelligence snapshots. */
 export interface FlexDocRuntimeMetadata {
   /** Runtime identifier. Node backend integrations report `node`. */ name: 'node';
@@ -31,6 +36,7 @@ export interface FlexDocRuntimeDiscovery {
   /** Framework identifier, such as `express`, `fastify`, or `hono`. */ framework: string;
   /** Framework version when the host exposes it. */ frameworkVersion?: string;
   /** Normalized routes observed from the running application. */ routes: FlexDocRuntimeRoute[];
+  /** Wire-equivalent runtime operations registered more than once, when observed. */ duplicateRoutes?: FlexDocRuntimeDuplicateRoute[];
   /** Whether the adapter believes route discovery covered the complete application route set. */ complete: boolean;
 }
 
@@ -100,8 +106,25 @@ function contractRouteKey(route: FlexDocRuntimeRoute): string {
 
 function uniqueSorted(routes: FlexDocRuntimeRoute[]): FlexDocRuntimeRoute[] {
   const byKey = new Map<string, FlexDocRuntimeRoute>();
-  for (const route of routes) byKey.set(routeKey(route), route);
+  for (const route of routes) {
+    const key = contractRouteKey(route);
+    if (!byKey.has(key)) byKey.set(key, route);
+  }
   return [...byKey.values()].sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
+}
+
+function duplicateRuntimeRoutes(routes: FlexDocRuntimeRoute[]): FlexDocRuntimeDuplicateRoute[] {
+  const registrations = new Map<string, { route: FlexDocRuntimeRoute; count: number }>();
+  for (const route of routes) {
+    const key = contractRouteKey(route);
+    const current = registrations.get(key);
+    if (current) current.count += 1;
+    else registrations.set(key, { route, count: 1 });
+  }
+  return [...registrations.values()]
+    .filter(({ count }) => count > 1)
+    .map(({ route, count }) => ({ ...route, count }))
+    .sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
 }
 
 function isExcludedRoute(path: string, excludePrefix?: string): boolean {
@@ -177,7 +200,13 @@ export function discoverExpressRoutes(app: any, excludePrefix?: string): FlexDoc
   };
 
   visit(stack);
-  return { framework: 'express', routes: uniqueSorted(routes), complete };
+  const duplicates = duplicateRuntimeRoutes(routes);
+  return {
+    framework: 'express',
+    routes: uniqueSorted(routes),
+    ...(duplicates.length ? { duplicateRoutes: duplicates } : {}),
+    complete,
+  };
 }
 
 /**
@@ -224,10 +253,13 @@ export async function discoverFastifyRoutes(app: any, excludePrefix?: string): P
       }
     }
 
+    const explicitRoutes = withoutImplicitHeadRoutes(routes);
+    const duplicates = duplicateRuntimeRoutes(explicitRoutes);
     return {
       framework: 'fastify',
       ...(frameworkVersion ? { frameworkVersion } : {}),
-      routes: uniqueSorted(withoutImplicitHeadRoutes(routes)),
+      routes: uniqueSorted(explicitRoutes),
+      ...(duplicates.length ? { duplicateRoutes: duplicates } : {}),
       complete,
     };
   } catch {
@@ -258,7 +290,13 @@ export function discoverHonoRoutes(app: any, excludePrefix?: string): FlexDocRun
     else complete = false;
   }
 
-  return { framework: 'hono', routes: uniqueSorted(routes), complete };
+  const duplicates = duplicateRuntimeRoutes(routes);
+  return {
+    framework: 'hono',
+    routes: uniqueSorted(routes),
+    ...(duplicates.length ? { duplicateRoutes: duplicates } : {}),
+    complete,
+  };
 }
 
 /**
@@ -305,6 +343,7 @@ export function buildRuntimeIntelligenceSnapshot(input: FlexDocRuntimeIntelligen
   const validation = validateRuntimeContract({
     documentedRoutes: documented,
     runtimeRoutes,
+    duplicateRuntimeRoutes: input.discovery.duplicateRoutes,
     discoveryComplete: input.discovery.complete,
   });
 

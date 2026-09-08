@@ -5,12 +5,19 @@ export type FlexDocContractValidationSeverity = 'error' | 'warning' | 'info';
 export type FlexDocContractValidationCode =
   | 'runtime.operation-undocumented'
   | 'runtime.operation-unobserved'
-  | 'runtime.method-mismatch';
+  | 'runtime.method-mismatch'
+  | 'runtime.duplicate-operation';
 
 /** Normalized HTTP operation identity used by contract validation. */
 export interface FlexDocContractRoute {
   /** Uppercase HTTP method. */ method: string;
   /** Normalized route path/template. */ path: string;
+}
+
+/** One runtime operation registered more than once by the host framework. */
+export interface FlexDocContractDuplicateRuntimeRoute extends FlexDocContractRoute {
+  /** Number of runtime registrations observed for this wire-equivalent operation. */
+  count: number;
 }
 
 /** Location in the API contract associated with a validation finding. */
@@ -54,6 +61,7 @@ export interface FlexDocContractValidationResult {
 export interface ValidateRuntimeContractOptions {
   /** Normalized operations extracted from the OpenAPI document. */ documentedRoutes: FlexDocContractRoute[];
   /** Normalized operations discovered from the running backend. */ runtimeRoutes: FlexDocContractRoute[];
+  /** Runtime operations that were registered more than once by the host framework. */ duplicateRuntimeRoutes?: FlexDocContractDuplicateRuntimeRoute[];
   /** Whether route discovery is believed to cover the complete running application. */ discoveryComplete: boolean;
 }
 
@@ -89,6 +97,7 @@ function representativePath(routes: FlexDocContractRoute[], shape: string): stri
  *
  * Path-parameter names are intentionally ignored for route identity because framework-local
  * names such as `:id` and OpenAPI names such as `{petId}` describe the same wire path shape.
+ * Duplicate runtime registrations remain distinct host observations and are surfaced separately.
  *
  * @param options Documented/runtime normalized routes plus route-discovery completeness.
  * @returns Structured validation findings and aggregate status for UI or automation.
@@ -97,6 +106,19 @@ export function validateRuntimeContract(options: ValidateRuntimeContractOptions)
   const documentedKeys = new Set(options.documentedRoutes.map(exactShapeKey));
   const runtimeKeys = new Set(options.runtimeRoutes.map(exactShapeKey));
   const findings: FlexDocContractValidationFinding[] = [];
+
+  for (const duplicate of options.duplicateRuntimeRoutes || []) {
+    const method = duplicate.method.toUpperCase();
+    findings.push({
+      id: findingId('runtime.duplicate-operation', duplicate.path, method),
+      code: 'runtime.duplicate-operation',
+      severity: 'warning',
+      location: { kind: 'operation', method, path: duplicate.path },
+      message: `Runtime registers ${method} ${duplicate.path} ${duplicate.count} times. Multiple host registrations can shadow or chain handlers behind one documented operation.`,
+      expected: 'One runtime registration for this HTTP operation',
+      observed: `${duplicate.count} runtime registrations`,
+    });
+  }
 
   const documentedMethods = groupedMethods(options.documentedRoutes);
   const runtimeMethods = groupedMethods(options.runtimeRoutes);
