@@ -117,7 +117,7 @@ The interceptor runs on the API host and is appropriate for backend-known header
 
 ## Product boundary
 
-2.9.5 is the first controlled backend-execution slice, focused on capabilities that are impossible or unreliable in a browser. It does not turn every adapter into a proxy and it does not move the API Client state model onto the server. The broader backend-native roadmap still includes headless runner execution, internal/VPC workflows across adapters, runtime-derived environments, and service-aware execution context.
+2.9.5 is the first controlled backend-execution slice, focused on capabilities that are impossible or unreliable in a browser. It does not turn every adapter into a proxy and it does not move the API Client state model onto the server. FlexDoc 3.2 reuses this same advertised execution contract from the headless CLI; see [Headless Runner](./headless-runner.md). The broader backend-native roadmap continues with native execute implementations, internal/VPC workflows across adapters, runtime-derived environments, and service-aware execution context.
 
 The architectural test remains:
 

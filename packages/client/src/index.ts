@@ -79,6 +79,18 @@ export { createOpenApiApiClientSession } from './utils/openapi-api-client-sessio
 export type { OpenApiApiClientSession } from './utils/openapi-api-client-session';
 export { buildHttpRequest, inferHttpBodyMode, requestDraftFromBuiltRequest, resolveHttpRequestDraftVariables } from './utils/http-client';
 export { executeApiClientRequest } from './utils/api-client-execution';
+export {
+  API_CLIENT_RUNNER_ARTIFACT_KIND,
+  API_CLIENT_RUNNER_ARTIFACT_VERSION,
+  exportApiClientRunnerArtifact,
+  parseApiClientRunnerArtifact,
+  serializeApiClientRunnerArtifact,
+} from './utils/api-client-runner-artifact';
+export type {
+  ApiClientRunnerArtifact,
+  ApiClientRunnerArtifactScope,
+  ExportApiClientRunnerArtifactOptions,
+} from './utils/api-client-runner-artifact';
 export { apiClientCollectionRunName, apiClientCollectionRunRequests, runApiClientCollection } from './utils/api-client-runner';
 export type { ApiClientCollectionRunItem, ApiClientCollectionRunResult, RunApiClientCollectionOptions } from './utils/api-client-runner';
 export type { ApiClientExecutionOutcome, ApiClientExecutionResponse, ExecuteApiClientRequestOptions } from './utils/api-client-execution';
