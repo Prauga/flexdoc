@@ -51,7 +51,14 @@ class FlexDocConfig:
 
 @dataclass(frozen=True)
 class FlexDocResponse:
-    """HTTP response produced by :class:`FlexDocHost` route matching."""
+    """HTTP response produced by :class:`FlexDocHost` route matching.
+
+    Attributes:
+        status: HTTP status code returned by the host route.
+        content_type: Content-Type header value for the response body.
+        body: Raw response body bytes.
+        cache_control: Optional Cache-Control header value.
+    """
 
     status: int
     content_type: str
@@ -88,7 +95,14 @@ class FlexDocHost:
         self.renderer_version = digest.hexdigest()[:16]
 
     def route(self, request_path: str) -> FlexDocResponse:
-        """Match a request path and return the docs shell, renderer asset, or 404."""
+        """Match one request path against the FlexDoc documentation subtree.
+
+        Args:
+            request_path: Absolute request path to match, without query-string handling.
+
+        Returns:
+            A docs-shell, renderer-asset, or ``404`` response envelope.
+        """
         if request_path in (self.path, self.path + "/"):
             return FlexDocResponse(200, "text/html; charset=utf-8", self.html().encode(), "no-cache")
         if request_path == self.path + "/__flexdoc/renderer.js":
@@ -113,6 +127,11 @@ class FlexDocHost:
         return files("prauga_flexdoc").joinpath("_assets", name).read_bytes()
 
     def html(self) -> str:
+        """Render the standalone FlexDoc bootstrap page for this host.
+
+        Returns:
+            HTML that loads the configured OpenAPI document and bundled canonical renderer.
+        """
         try_it: dict[str, object] = {"enabled": self.config.try_it_enabled}
         if self.config.try_it_default_server is not None:
             try_it["defaultServer"] = self.config.try_it_default_server

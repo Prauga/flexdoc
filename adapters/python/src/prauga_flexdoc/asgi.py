@@ -39,6 +39,13 @@ class FlexDocASGI:
         self.renderer_version = self.host.renderer_version
 
     async def __call__(self, scope, receive, send):
+        """Serve one ASGI connection/request.
+
+        Args:
+            scope: ASGI connection scope. Non-HTTP scopes are ignored.
+            receive: ASGI receive callable. FlexDoc currently serves GET-only/static responses and does not consume request bodies.
+            send: ASGI send callable used for response start/body events.
+        """
         if scope.get("type") != "http":
             return
 

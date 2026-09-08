@@ -25,6 +25,22 @@ setupExpressFlexDoc(app, '/docs', {
 
 `FlexDocModuleOptions` accepts `path`, either `spec` or `specUrl`, and `options`.
 
+### Theme ownership in React
+
+`FlexDoc` and `ApiClientWorkspace` both use the same `manageTheme` convention. It defaults to `true`, allowing the component to persist a viewer-selected theme and use that preference ahead of the supplied `theme` prop.
+
+Set `manageTheme={false}` when the embedding application owns theme state:
+
+```tsx
+<FlexDoc
+  spec={openApiDocument}
+  theme={appTheme}
+  manageTheme={false}
+/>
+```
+
+In externally managed mode, `theme` remains authoritative and the viewer-theme selector is hidden. Other viewer preferences, including expansion settings, continue to work. FlexDoc uses this externally managed mode for its embedded `ApiClientWorkspace` so the outer documentation renderer is the single theme owner.
+
 ## Metadata and chrome
 
 Renderer options include:
@@ -133,7 +149,7 @@ options: {
 
 It supports requests requiring the host cookie jar, configured client certificates, Digest, Hawk, OAuth 1.0, or AWS Signature V4. The renderer receives only public capability metadata, certificate IDs/names, and endpoint paths. See [API-host execution](./host-execution.md).
 
-## Runtime Intelligence
+## Runtime Intelligence and Contract Validation
 
 Runtime Intelligence is also explicit opt-in:
 
@@ -143,7 +159,11 @@ options: {
 }
 ```
 
-Supported hosts expose `GET <docsPath>/__flexdoc/runtime` beneath the same documentation authentication boundary. The renderer compares observed routes with the OpenAPI document and reports whether discovery is complete or partial. See [Runtime Intelligence](./runtime-intelligence.md).
+Supported hosts expose `GET <docsPath>/__flexdoc/runtime`. Node Express, Fastify, Hono, and NestJS integrations additionally emit the 3.1 `validation` object with the four operation-level finding codes (`runtime.operation-undocumented`, `runtime.operation-unobserved`, `runtime.method-mismatch`, and `runtime.duplicate-operation`) and derived `pass`/`warn`/`fail`/`partial` status. FastAPI, ASP.NET Core, and Spring keep the compatible route-presence snapshot in this cut but do not yet emit `validation`.
+
+The renderer and `@prauga/flexdoc-cli` consume the same backend result. `flexdoc validate <runtime-url>` defaults to exit `1` only for backend `fail`; `--fail-on warning` or `--fail-on info` opt into stricter CI. Protected endpoints can be called with repeatable `--header`, `--bearer`, or `--basic` authentication options.
+
+Wire-equivalent route identity ignores framework-local path-parameter names, and incomplete discovery downgrades absence findings instead of making false authoritative claims. Schema/request/response validation, live-traffic breaking-drift policy, request rejection, generic OpenAPI linting, the headless Runner, and native host execution are outside this 3.1 cut. See [Runtime Intelligence](./runtime-intelligence.md).
 
 ## Native adapter mappings
 

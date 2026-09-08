@@ -12,58 +12,62 @@ import type { BuiltRequest } from './request-builder';
 
 /** Result of one API Client execution, including scripts, tests, and transport details. */
 export interface ApiClientExecutionResult {
-  request: HttpRequestDraft;
-  scripts: ApiClientRequestScripts;
-  executedMethod: string;
-  resolvedUrl: string;
-  status?: number;
-  statusText?: string;
-  responseTime?: number;
-  responseHeaders?: Array<[string, string]>;
-  responseBody?: string;
-  error?: string;
-  scriptTests?: ApiClientScriptTestResult[];
-  scriptLogs?: string[];
-  scriptError?: string;
+  /** Original editable request recorded in history for this execution. */ request: HttpRequestDraft;
+  /** Pre-request/test scripts associated with the execution. */ scripts: ApiClientRequestScripts;
+  /** HTTP method actually sent after scripts and variable resolution. */ executedMethod: string;
+  /** Absolute URL actually sent after scripts, variables, and interceptors. */ resolvedUrl: string;
+  /** HTTP status code when a response was received. */ status?: number;
+  /** HTTP status text when a response was received. */ statusText?: string;
+  /** Measured request/response duration in milliseconds. */ responseTime?: number;
+  /** Ordered response header entries. */ responseHeaders?: Array<[string, string]>;
+  /** Response body text retained by the execution result. */ responseBody?: string;
+  /** Transport/build error when execution failed. */ error?: string;
+  /** Test assertions produced by the post-response script. */ scriptTests?: ApiClientScriptTestResult[];
+  /** Console/log output emitted by request scripts. */ scriptLogs?: string[];
+  /** Pre-request or test script error, prefixed with its phase. */ scriptError?: string;
 }
 
+/** Normalized HTTP response returned by browser or API-host execution. */
 export interface ApiClientExecutionResponse {
-  status: number;
-  statusText: string;
-  headers: Array<[string, string]>;
-  body: string;
-  responseTime: number;
+  /** HTTP status code. */ status: number;
+  /** HTTP status text. */ statusText: string;
+  /** Ordered response headers. */ headers: Array<[string, string]>;
+  /** Response body decoded as text. */ body: string;
+  /** Measured round-trip duration in milliseconds. */ responseTime: number;
+  /** Safe cookie metadata returned by API-host execution when available. */
   cookies?: Array<{ name: string; value: string; domain?: string; path?: string; httpOnly?: boolean }>;
 }
 
+/** Complete programmatic outcome of `executeApiClientRequest`. */
 export interface ApiClientExecutionOutcome {
-  result?: ApiClientExecutionResult;
-  response?: ApiClientExecutionResponse;
-  error?: string;
-  scriptError?: string;
-  scriptTests: ApiClientScriptTestResult[];
-  scriptLogs: string[];
-  curlCommand?: string;
+  /** History-ready execution result when a request was attempted or a host requirement failed. */ result?: ApiClientExecutionResult;
+  /** Normalized HTTP response when transport completed successfully. */ response?: ApiClientExecutionResponse;
+  /** Transport/build error preventing a successful response. */ error?: string;
+  /** Script-phase error, separate from transport errors. */ scriptError?: string;
+  /** Test assertions collected from the test script. */ scriptTests: ApiClientScriptTestResult[];
+  /** Script log output collected across pre-request and test phases. */ scriptLogs: string[];
+  /** Reproducible cURL command for direct-browser string-body executions when available. */ curlCommand?: string;
 }
 
 /** Options for `executeApiClientRequest`. */
 export interface ExecuteApiClientRequestOptions {
-  request: HttpRequestDraft;
-  scripts?: Partial<ApiClientRequestScripts>;
-  credentials?: RequestCredentials;
+  /** Editable request draft to execute. */ request: HttpRequestDraft;
+  /** Optional pre-request and test scripts. */ scripts?: Partial<ApiClientRequestScripts>;
+  /** Browser Fetch credentials mode used for direct execution. */ credentials?: RequestCredentials;
+  /** Hook that may rewrite URL or Fetch init immediately before direct browser execution. */
   requestInterceptor?: (request: RequestInit & { url: string }) => RequestInit & { url: string } | Promise<RequestInit & { url: string }>;
-  resolveAuth?: (auth: HttpAuth | undefined) => HttpAuth;
-  variables?: HttpVariables;
-  collectionVariables?: HttpVariables;
-  externalVariables?: HttpVariables;
-  environmentVariables?: HttpVariables;
-  hostExecution?: FlexDocHostExecutionPublicOptions;
-  onRequestBuilt?: (request: BuiltRequest) => void;
-  onCollectionChanges?: (changes: ApiClientScriptCollectionChange[]) => void;
-  onEnvironmentChanges?: (changes: ApiClientScriptEnvironmentChange[]) => void;
-  fetcher?: typeof globalThis.fetch;
-  now?: () => number;
-  signal?: AbortSignal;
+  /** Resolve inherited collection/folder authentication before request construction. */ resolveAuth?: (auth: HttpAuth | undefined) => HttpAuth;
+  /** Combined variables available to request placeholders and scripts. */ variables?: HttpVariables;
+  /** Collection-scoped variables available to scripts. */ collectionVariables?: HttpVariables;
+  /** External/host-supplied variables available to scripts. */ externalVariables?: HttpVariables;
+  /** Active environment variables available to scripts. */ environmentVariables?: HttpVariables;
+  /** Public API-host execution endpoint/capabilities advertised by the docs host. */ hostExecution?: FlexDocHostExecutionPublicOptions;
+  /** Called after a direct-browser request is built and before the interceptor executes. */ onRequestBuilt?: (request: BuiltRequest) => void;
+  /** Called with collection-variable mutations emitted by scripts. */ onCollectionChanges?: (changes: ApiClientScriptCollectionChange[]) => void;
+  /** Called with environment-variable mutations emitted by scripts. */ onEnvironmentChanges?: (changes: ApiClientScriptEnvironmentChange[]) => void;
+  /** Fetch implementation used for browser or host-endpoint transport. Defaults to `globalThis.fetch`. */ fetcher?: typeof globalThis.fetch;
+  /** Clock used for response timing. Defaults to `Date.now`. */ now?: () => number;
+  /** Abort signal used to cancel the transport request. */ signal?: AbortSignal;
 }
 
 function cloneDraft(draft: HttpRequestDraft): HttpRequestDraft {
@@ -112,7 +116,7 @@ function curlCommandForTransport(url: string, init: RequestInit): string | undef
   const parts = [`curl -X ${method} ${JSON.stringify(url)}`];
   for (const [name, value] of curlHeaderEntries(init.headers)) parts.push(`  -H ${JSON.stringify(`${name}: ${value}`)}`);
   if (typeof init.body === 'string' && init.body.length > 0) parts.push(`  --data-raw ${JSON.stringify(init.body)}`);
-  return parts.join(' \\n');
+  return parts.join(' \\\n');
 }
 
 function hostUnavailableMessage(missing: string[], hostExecution: FlexDocHostExecutionPublicOptions | undefined): string {
@@ -161,7 +165,11 @@ async function hostExecutionBody(draft: HttpRequestDraft): Promise<{ body: BodyI
   };
 }
 
-/** Execute one API Client request, including pre-request scripts and post-response tests. */
+/**
+ * Execute one API Client request, including pre-request scripts and post-response tests.
+ * @param options Request, script, variable, transport, host-execution, and callback configuration.
+ * @returns Execution outcome containing transport data, script results, and a history-ready result when applicable.
+ */
 export async function executeApiClientRequest(options: ExecuteApiClientRequestOptions): Promise<ApiClientExecutionOutcome> {
   const historyRequest = cloneDraft(options.request);
   const scripts = cloneApiClientScripts(options.scripts);

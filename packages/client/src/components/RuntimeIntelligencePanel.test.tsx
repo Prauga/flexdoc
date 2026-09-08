@@ -13,6 +13,31 @@ const snapshot = {
   runtimeOnly: [{ method: 'POST', path: '/internal/reindex' }],
   documentedOnly: [{ method: 'GET', path: '/missing' }],
   summary: { documented: 2, runtime: 2, matched: 1, runtimeOnly: 1, documentedOnly: 1 },
+  validation: {
+    status: 'fail' as const,
+    complete: true,
+    findings: [
+      {
+        id: 'runtime.operation-unobserved:GET:/missing',
+        code: 'runtime.operation-unobserved' as const,
+        severity: 'error' as const,
+        location: { kind: 'operation' as const, method: 'GET', path: '/missing' },
+        message: 'OpenAPI documents GET /missing, but the running backend does not expose that operation.',
+        expected: 'Operation is exposed by the running backend',
+        observed: 'No matching runtime operation exists',
+      },
+      {
+        id: 'runtime.operation-undocumented:POST:/internal/reindex',
+        code: 'runtime.operation-undocumented' as const,
+        severity: 'warning' as const,
+        location: { kind: 'operation' as const, method: 'POST', path: '/internal/reindex' },
+        message: 'Runtime implements POST /internal/reindex, but OpenAPI does not document that operation.',
+        expected: 'Operation is represented in OpenAPI',
+        observed: 'Operation exists only in the running backend',
+      },
+    ],
+    summary: { total: 2, errors: 1, warnings: 1, info: 0 },
+  },
 };
 
 describe('RuntimeIntelligencePanel', () => {
@@ -20,16 +45,68 @@ describe('RuntimeIntelligencePanel', () => {
     document.body.style.overflow = '';
   });
 
-  it('shows runtime metadata, safe environment context, and route drift', () => {
+  it('shows runtime metadata and structured 3.1 contract findings', () => {
     render(<RuntimeIntelligencePanel open theme='light' loading={false} onClose={() => undefined} snapshot={snapshot} />);
-    expect(screen.getByText('/internal/reindex')).toBeInTheDocument();
-    expect(screen.getByText('/missing')).toBeInTheDocument();
+    expect(screen.getByText('FAIL · 2 findings')).toBeInTheDocument();
+    expect(screen.getByText('1 errors · 1 warnings · 0 info')).toBeInTheDocument();
+    expect(screen.getByText('runtime.operation-unobserved')).toBeInTheDocument();
+    expect(screen.getByText('runtime.operation-undocumented')).toBeInTheDocument();
+    expect(screen.getByText('Expected: Operation is exposed by the running backend')).toBeInTheDocument();
+    expect(screen.getByText('Observed: No matching runtime operation exists')).toBeInTheDocument();
     expect(screen.getByText('1 / 2')).toBeInTheDocument();
     expect(screen.getByText('node v22.22.3')).toBeInTheDocument();
     expect(screen.getByText('linux · x64')).toBeInTheDocument();
     expect(screen.getByText('https://api.example.com')).toBeInTheDocument();
     expect(screen.getByText('Backend listener port 8443')).toBeInTheDocument();
     expect(screen.getByText('production')).toBeInTheDocument();
+  });
+
+  it('opens documented findings but never treats undocumented runtime routes as spec operations', () => {
+    const select = jest.fn();
+    const close = jest.fn();
+    render(<RuntimeIntelligencePanel open theme='light' loading={false} onClose={close} onEndpointSelect={select} snapshot={snapshot} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open documented operation GET /missing' }));
+    expect(select).toHaveBeenCalledWith('/missing', 'GET');
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /POST \/internal\/reindex/ })).not.toBeInTheDocument();
+  });
+
+  it('opens method-mismatch findings using an expected documented HTTP method', () => {
+    const select = jest.fn();
+    const close = jest.fn();
+    const methodMismatchSnapshot = {
+      ...snapshot,
+      validation: {
+        status: 'fail' as const,
+        complete: true,
+        findings: [{
+          id: 'runtime.method-mismatch:/pets/{}',
+          code: 'runtime.method-mismatch' as const,
+          severity: 'error' as const,
+          location: { kind: 'operation' as const, method: 'POST', path: '/pets/{petId}' },
+          message: 'Runtime route /pets/{petId} is registered for different HTTP methods than OpenAPI documents.',
+          expected: ['POST'],
+          observed: ['GET'],
+        }],
+        summary: { total: 1, errors: 1, warnings: 0, info: 0 },
+      },
+    };
+
+    render(<RuntimeIntelligencePanel open theme='light' loading={false} onClose={close} onEndpointSelect={select} snapshot={methodMismatchSnapshot} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open documented operation POST /pets/{petId}' }));
+    expect(select).toHaveBeenCalledWith('/pets/{petId}', 'POST');
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to 3.0 route drift without calling the snapshot live contract validation', () => {
+    render(<RuntimeIntelligencePanel open theme='light' loading={false} onClose={() => undefined} snapshot={{ ...snapshot, validation: undefined }} />);
+    expect(screen.getByText('/internal/reindex')).toBeInTheDocument();
+    expect(screen.getByText('/missing')).toBeInTheDocument();
+    expect(screen.getByText('Implemented but undocumented')).toBeInTheDocument();
+    expect(screen.getByText('Documented but not observed')).toBeInTheDocument();
+    expect(screen.getByText('Live route presence and backend context from the service hosting this documentation.')).toBeInTheDocument();
+    expect(screen.queryByText(/Live contract validation/)).not.toBeInTheDocument();
   });
 
   it('closes on Escape, traps focus, and locks body scroll', async () => {
@@ -52,7 +129,7 @@ describe('RuntimeIntelligencePanel', () => {
     const { rerender } = render(<RuntimeIntelligencePanel open theme='dark' loading={false} error='Unavailable' onClose={() => undefined} />);
     expect(screen.getByRole('alert')).toHaveClass('bg-red-950/50', 'text-red-200');
 
-    rerender(<RuntimeIntelligencePanel open theme='dark' loading={false} onClose={() => undefined} snapshot={{ ...snapshot, discoveryComplete: false }} />);
+    rerender(<RuntimeIntelligencePanel open theme='dark' loading={false} onClose={() => undefined} snapshot={{ ...snapshot, validation: undefined, discoveryComplete: false }} />);
     expect(screen.getByText(/Route discovery is partial/)).toHaveClass('bg-amber-950/50', 'text-amber-200');
   });
 });

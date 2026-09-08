@@ -26,12 +26,32 @@ public record FlexDocConfig(
     boolean tryItHostExecution,
     /** Framework identifier exposed to Runtime Intelligence, or {@code null} when disabled. */
     String runtimeIntelligenceFramework) {
-  /** Creates configuration with the original public fields; later renderer settings remain unset. */
+  /**
+   * Creates configuration with the original public fields; later renderer settings remain unset.
+   *
+   * @param path route where FlexDoc is mounted
+   * @param specUrl OpenAPI JSON URL loaded by the browser
+   * @param title browser and renderer title
+   * @param theme initial theme: system, light, or dark
+   * @param tryItEnabled whether Try It and the API Client handoff are enabled
+   */
   public FlexDocConfig(String path, String specUrl, String title, String theme, boolean tryItEnabled) {
     this(path, specUrl, title, theme, tryItEnabled, null, null, null, null, false, null);
   }
 
-  /** Creates configuration with renderer expansion and Try It settings; host execution and Runtime Intelligence remain unset. */
+  /**
+   * Creates configuration with renderer expansion and Try It settings; host execution and Runtime Intelligence remain unset.
+   *
+   * @param path route where FlexDoc is mounted
+   * @param specUrl OpenAPI JSON URL loaded by the browser
+   * @param title browser and renderer title
+   * @param theme initial theme: system, light, or dark
+   * @param tryItEnabled whether Try It and the API Client handoff are enabled
+   * @param expand renderer expansion preset or explicit section list
+   * @param tryItDefaultServer default Try It server URL
+   * @param tryItCredentials fetch credentials mode
+   * @param tryItApiClientPersistenceKey API Client persistence key, or {@code false}
+   */
   public FlexDocConfig(
       String path,
       String specUrl,
@@ -45,7 +65,20 @@ public record FlexDocConfig(
     this(path, specUrl, title, theme, tryItEnabled, expand, tryItDefaultServer, tryItCredentials, tryItApiClientPersistenceKey, false, null);
   }
 
-  /** Creates configuration with host-execution advertisement enabled; Runtime Intelligence remains disabled. */
+  /**
+   * Creates configuration with host-execution advertisement enabled; Runtime Intelligence remains disabled.
+   *
+   * @param path route where FlexDoc is mounted
+   * @param specUrl OpenAPI JSON URL loaded by the browser
+   * @param title browser and renderer title
+   * @param theme initial theme: system, light, or dark
+   * @param tryItEnabled whether Try It and the API Client handoff are enabled
+   * @param expand renderer expansion preset or explicit section list
+   * @param tryItDefaultServer default Try It server URL
+   * @param tryItCredentials fetch credentials mode
+   * @param tryItApiClientPersistenceKey API Client persistence key, or {@code false}
+   * @param tryItHostExecution whether to advertise host-execution protocol metadata
+   */
   public FlexDocConfig(
       String path,
       String specUrl,
@@ -124,6 +157,9 @@ public record FlexDocConfig(
     private Object tryItApiClientPersistenceKey;
     private boolean tryItHostExecution;
     private String runtimeIntelligenceFramework;
+
+    /** Creates a builder initialized with FlexDoc defaults. */
+    public Builder() {}
 
     /** Sets the route where FlexDoc is mounted. */
     public Builder path(String value) { path = value; return this; }

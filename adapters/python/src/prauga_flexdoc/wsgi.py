@@ -22,6 +22,15 @@ class FlexDocWSGI:
         self.renderer_version = self.host.renderer_version
 
     def __call__(self, environ, start_response):
+        """Serve one WSGI request.
+
+        Args:
+            environ: WSGI environment mapping containing ``PATH_INFO``.
+            start_response: WSGI callback used to send status and response headers.
+
+        Returns:
+            Single-chunk iterable containing the response body bytes.
+        """
         response = self.host.route(environ.get("PATH_INFO", ""))
         phrase = HTTPStatus(response.status).phrase
         headers = [

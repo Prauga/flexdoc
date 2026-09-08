@@ -28,18 +28,32 @@ import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import { readApiClientUiPreferences, writeApiClientUiPreferences } from '../utils/api-client-ui-preferences';
 import type { ApiClientWorkspaceState } from '../utils/api-client-workspace';
 
-export interface ApiClientWorkspaceChromeState { environments: Array<{ id: string; name: string }>; activeEnvironmentId?: string; hasUnsavedRequest: boolean; }
-export interface ApiClientWorkspaceHandoff { id: number; request: HttpRequestDraft; scripts?: ApiClientRequestScripts; requestTab?: ApiClientRequestTab; scriptTab?: ApiClientScriptTab; serverUrl?: string; }
+/** Minimal workspace state exposed to surrounding page chrome. */
+export interface ApiClientWorkspaceChromeState {
+  /** Environment ids/names available to external environment selectors. */ environments: Array<{ id: string; name: string }>;
+  /** Currently active environment id when one is selected. */ activeEnvironmentId?: string;
+  /** Whether the current editor request/scripts differ from every saved request in the workspace. */ hasUnsavedRequest: boolean;
+}
+
+/** One external request handoff that replaces the current API Client editor state. */
+export interface ApiClientWorkspaceHandoff {
+  /** Monotonic/unique handoff id used by callers to force a new handoff even when request contents are identical. */ id: number;
+  /** Editable request draft to load into the workspace editor. */ request: HttpRequestDraft;
+  /** Optional pre-request/test scripts to load with the request. */ scripts?: ApiClientRequestScripts;
+  /** Request-configuration tab to select after the handoff. */ requestTab?: ApiClientRequestTab;
+  /** Script-phase tab to select after the handoff. */ scriptTab?: ApiClientScriptTab;
+  /** Effective server URL to preserve in the editor server controls. */ serverUrl?: string;
+}
+
 /** Props for the full API development workspace with collections, environments, and history. */
 export interface ApiClientWorkspaceProps extends ApiClientProps {
-  /** IndexedDB persistence key. Use `false` to disable persistence. */
-  persistenceKey?: string | false;
-  pageMode?: boolean;
-  manageTheme?: boolean;
-  handoff?: ApiClientWorkspaceHandoff;
-  activeEnvironmentId?: string | null;
-  onActiveEnvironmentIdChange?: (environmentId?: string) => void;
-  onChromeStateChange?: (state: ApiClientWorkspaceChromeState) => void;
+  /** IndexedDB/UI-preference persistence key. Use `false` to disable persistence. */ persistenceKey?: string | false;
+  /** Render as an edge-to-edge application page instead of rounded embedded panels. */ pageMode?: boolean;
+  /** Let the workspace own/persist its light/dark theme toggle. When false, the inherited `theme` prop remains authoritative. */ manageTheme?: boolean;
+  /** External request/session handoff loaded into the editor when the handoff object changes. */ handoff?: ApiClientWorkspaceHandoff;
+  /** Controlled active environment id. Pass `null` to clear the active environment; omit to keep environment selection internal. */ activeEnvironmentId?: string | null;
+  /** Called when the user changes the active environment from workspace chrome. */ onActiveEnvironmentIdChange?: (environmentId?: string) => void;
+  /** Called when environment choices, active environment, or unsaved-request status change. */ onChromeStateChange?: (state: ApiClientWorkspaceChromeState) => void;
 }
 
 function withWorkspaceDefaults(initialRequest?: Partial<HttpRequestDraft>): HttpRequestDraft {
@@ -217,7 +231,6 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   const handleRequestChange = (request: BuiltRequest) => {
     onRequestChange?.(request);
   };
-
   const handleDraftChange = (request: HttpRequestDraft) => {
     setCurrentRequest(cloneRequestDraft(request));
     onDraftChange?.(cloneRequestDraft(request));
