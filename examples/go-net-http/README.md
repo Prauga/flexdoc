@@ -8,4 +8,4 @@ go run .
 
 Open `http://localhost:3000/docs`.
 
-The example is pinned to published `github.com/prauga/flexdoc/adapters/go v0.5.2` and resolves through the public Go module infrastructure. Repository CI may substitute the adapter from `../../adapters/go` when validating local source changes.
+The example is pinned to published `github.com/prauga/flexdoc/adapters/go v0.5.3` and resolves through the public Go module infrastructure. Repository CI may substitute the adapter from `../../adapters/go` when validating local source changes.

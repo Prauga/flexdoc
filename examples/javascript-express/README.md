@@ -13,4 +13,4 @@ npm start
 
 Open `http://localhost:3000/docs`.
 
-The FlexDoc dependency remains pinned to `3.0.0`, the last published release, during 3.0 release preparation. Repository CI replaces it with the backend package built from the current commit; the post-publish lock-refresh change will advance the registry pin.
+The FlexDoc dependency remains pinned to `3.1.0`, the last published release, during 3.0 release preparation. Repository CI replaces it with the backend package built from the current commit; the post-publish lock-refresh change will advance the registry pin.

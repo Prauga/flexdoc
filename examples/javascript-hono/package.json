@@ -5,7 +5,7 @@
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "dependencies": {
-    "@prauga/flexdoc-backend": "3.0.0",
+    "@prauga/flexdoc-backend": "3.1.0",
     "hono": "^4.13.5"
   }
 }
