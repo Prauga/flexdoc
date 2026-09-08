@@ -51,7 +51,7 @@ setupExpressFlexDoc(app, '/docs', {
 app.listen(3000);
 ```
 
-Runtime Intelligence is explicit opt-in. If documentation-route authentication is configured, the runtime endpoint is protected by the same boundary.
+Runtime Intelligence is explicit opt-in. If documentation-route authentication is configured, the runtime endpoint is protected by the same boundary. Node Express/Fastify/Hono/NestJS integrations also emit the 3.1 operation-level Contract Validation result consumed by the renderer and CLI.
 
 ## NestJS
 
@@ -79,14 +79,21 @@ await app.listen(3000);
 
 Use `setupFastifyFlexDoc` or `setupHonoFlexDoc` with the same path, document source, and renderer options as the Express helper. `setupFastifySwaggerFlexDoc` takes the same path and renderer options, but derives its document from `@fastify/swagger` and does not accept `spec` or `specUrl`.
 
-## Static output
+## CLI: build, serve, and validate
 
 ```bash
 npx @prauga/flexdoc-cli serve openapi.yaml --watch
 npx @prauga/flexdoc-cli build openapi.yaml --out ./public
+npx @prauga/flexdoc-cli validate http://127.0.0.1:3000/docs/__flexdoc/runtime
 ```
 
-Static output bundles external references and the version-matched renderer; it requires no FlexDoc service or runtime CDN.
+`build` and `serve` bundle external references and the version-matched renderer; static output requires no FlexDoc service or runtime CDN.
+
+`validate` consumes the Node backend's structured 3.1 validation result. It does not execute requests or collections and is not the future headless Runner. Use `--json` for machine-readable output. Protected Runtime Intelligence endpoints can use repeatable `--header <name:value>`, `--bearer <token>`, or `--basic <user:password>`.
+
+The default CI policy exits `1` only when the backend status is `fail` (or the endpoint/payload is invalid). Use `--fail-on warning` to fail for errors or warnings, or `--fail-on info` to fail on any finding.
+
+FastAPI, ASP.NET Core, and Spring continue to provide route-level Runtime Intelligence in this 3.1 cut but do not yet emit the structured `validation` object required by `flexdoc validate`.
 
 ## Other ecosystems
 
