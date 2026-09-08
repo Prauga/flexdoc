@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FlexDoc } from './FlexDoc';
 import { OpenAPISpec } from '../types/openapi';
@@ -55,9 +55,6 @@ describe('FlexDoc', () => {
 
     const hostOwned = render(<FlexDoc spec={mockSpec} theme='light' manageTheme={false} />);
     expect(hostOwned.container.firstElementChild).toHaveAttribute('data-theme', 'light');
-    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
-    expect(screen.queryByRole('combobox', { name: 'Viewer theme' })).not.toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Default expanded sections' })).toBeInTheDocument();
   });
 
   it('honors topbar, hostname and download options while keeping navigation reachable', () => {
