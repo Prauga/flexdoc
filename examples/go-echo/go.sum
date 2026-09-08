@@ -4,8 +4,8 @@ github.com/labstack/echo/v5 v5.3.1 h1:75maCxkQVGualckLc/5s/ihgpH1a1Dc6AuGWNVNs6b
 github.com/labstack/echo/v5 v5.3.1/go.mod h1:4iEGNQiPPZnkfYpNR/L6fINd3NLiGWUD5+eBotFALas=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/prauga/flexdoc/adapters/go v0.5.2 h1:DsmP8by+fJKhKP+MBcGQjAu1hgvLTdmnIq3v3SGl2+w=
-github.com/prauga/flexdoc/adapters/go v0.5.2/go.mod h1:tMdyVXq3OY5uhengBClaE9XC0/fD/BuMIx2GUcDMi9k=
+github.com/prauga/flexdoc/adapters/go v0.5.3 h1:Z6w1vd6i5VtxsXMQBdZyC2iaMsa22904emQZrbOMRqw=
+github.com/prauga/flexdoc/adapters/go v0.5.3/go.mod h1:tMdyVXq3OY5uhengBClaE9XC0/fD/BuMIx2GUcDMi9k=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 golang.org/x/net v0.57.0 h1:K5+3DljvIuDG9/Jv9rvyMywYNFCQ9RSUY6OOTTkT+tE=

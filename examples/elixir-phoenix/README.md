@@ -1,6 +1,6 @@
 # Phoenix + FlexDoc
 
-Add `{:prauga_flexdoc, "0.4.2"}` and forward your docs route to the packaged Plug:
+Add `{:prauga_flexdoc, "0.4.3"}` and forward your docs route to the packaged Plug:
 
 ```elixir
 scope "/" do

@@ -11,4 +11,4 @@ python app.py
 
 Open `http://127.0.0.1:8001/docs`.
 
-`prauga-flexdoc` is pinned to `0.7.0`. CI installs the wheel built from the same commit before exercising this example.
+`prauga-flexdoc` is pinned to `0.7.1`. CI installs the wheel built from the same commit before exercising this example.

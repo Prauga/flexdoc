@@ -2,4 +2,4 @@ module example.com/flexdoc-go-example
 
 go 1.23
 
-require github.com/prauga/flexdoc/adapters/go v0.5.2
+require github.com/prauga/flexdoc/adapters/go v0.5.3

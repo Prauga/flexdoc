@@ -1,6 +1,6 @@
 # FlexDoc ASP.NET Core 3.0 example
 
-Minimal ASP.NET Core application using `Prauga.FlexDoc.AspNetCore` `0.5.0` and the FlexDoc 3.0 Runtime Intelligence surface.
+Minimal ASP.NET Core application using `Prauga.FlexDoc.AspNetCore` `0.5.1` and the FlexDoc 3.0 Runtime Intelligence surface.
 
 ```bash
 dotnet run --project examples/dotnet-aspnetcore/Prauga.FlexDoc.AspNetCore.Example.csproj

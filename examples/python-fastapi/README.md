@@ -14,4 +14,4 @@ uvicorn app:app --reload
 
 Open `http://127.0.0.1:8000/docs`.
 
-`prauga-flexdoc` is pinned to `0.7.0` until the coordinated 3.0 release versioning pass. Repository CI installs the wheel built from the current commit when validating source changes.
+`prauga-flexdoc` is pinned to `0.7.1` until the coordinated 3.0 release versioning pass. Repository CI installs the wheel built from the current commit when validating source changes.
