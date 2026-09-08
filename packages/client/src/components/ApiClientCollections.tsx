@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FolderPlus, Library, Play, Plus, Save, Trash2 } from 'lucide-react';
+import { Download, FolderPlus, Library, Play, Plus, Save, Trash2 } from 'lucide-react';
 import type { HttpAuth, HttpRequestDraft } from '../utils/http-client';
 import type { FlexDocHostExecutionPublicOptions } from '../types/options';
 import { ApiClientAuthEditor } from './ApiClientAuthEditor';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import type { ApiClientRequestScripts } from '../utils/api-client-scripting';
+import { exportApiClientRunnerArtifact, serializeApiClientRunnerArtifact } from '../utils/api-client-runner-artifact';
+import type { ApiClientRunnerArtifactScope } from '../utils/api-client-runner-artifact';
 import {
   cloneRequestDraft,
   createApiClientId,
@@ -34,6 +36,11 @@ function timestamp(): string {
   return new Date().toISOString();
 }
 
+function runnerArtifactFilename(name: string): string {
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'runner';
+  return `${slug}.flexdoc.json`;
+}
+
 export const ApiClientCollections: React.FC<Props> = ({
   request,
   scripts,
@@ -53,6 +60,7 @@ export const ApiClientCollections: React.FC<Props> = ({
   const [folderName, setFolderName] = useState('');
   const [requestName, setRequestName] = useState('');
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null);
+  const [runnerExportError, setRunnerExportError] = useState('');
 
   const selectedCollection = workspace.collections.find((collection) => collection.id === selectedCollectionId) || workspace.collections[0];
   const collectionFolders = useMemo(
@@ -107,6 +115,22 @@ export const ApiClientCollections: React.FC<Props> = ({
     onSelectedCollectionChange?.(selectedCollection?.id);
   }, [onSelectedCollectionChange, selectedCollection?.id]);
 
+  const exportRunnerArtifact = (scope: ApiClientRunnerArtifactScope, name: string) => {
+    try {
+      const artifact = exportApiClientRunnerArtifact(workspace, scope);
+      const blob = new Blob([serializeApiClientRunnerArtifact(artifact)], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = runnerArtifactFilename(name);
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+      setRunnerExportError('');
+    } catch (error) {
+      setRunnerExportError(error instanceof Error ? error.message : String(error));
+    }
+  };
+
   const addCollection = () => {
     const name = collectionName.trim();
     if (!name) return;
@@ -121,8 +145,6 @@ export const ApiClientCollections: React.FC<Props> = ({
     setCollectionName('');
     setActiveRequestId(null);
   };
-
-
 
   const updateCollectionAuth = (auth: HttpAuth) => {
     if (!selectedCollection) return;
@@ -286,6 +308,9 @@ export const ApiClientCollections: React.FC<Props> = ({
         <span className='mr-2 font-mono text-xs font-semibold text-blue-600'>{saved.request.method.toUpperCase()}</span>
         <span className='truncate'>{saved.name}</span>
       </button>
+      <button type='button' className='rounded-md p-2 opacity-70 hover:opacity-100' aria-label={`Export saved request ${saved.name} for Runner`} onClick={() => exportRunnerArtifact({ type: 'request', collectionId: saved.collectionId, requestId: saved.id }, saved.name)}>
+        <Download className='h-4 w-4' />
+      </button>
       <button type='button' className='rounded-md p-2 opacity-70 hover:opacity-100' aria-label={`Delete saved request ${saved.name}`} onClick={() => removeRequest(saved.id)}>
         <Trash2 className='h-4 w-4' />
       </button>
@@ -310,6 +335,7 @@ export const ApiClientCollections: React.FC<Props> = ({
           {folder.name}
         </button>
         <button type='button' disabled={apiClientCollectionRunRequests(workspace, folder.collectionId, folder.id).length === 0} aria-label={`Run folder ${path}`} className='rounded-md p-2 opacity-70 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30' onClick={() => onRunFolder?.(folder.collectionId, folder.id)}><Play className='h-4 w-4' /></button>
+        <button type='button' disabled={apiClientCollectionRunRequests(workspace, folder.collectionId, folder.id).length === 0} aria-label={`Export folder ${path} for Runner`} className='rounded-md p-2 opacity-70 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30' onClick={() => exportRunnerArtifact({ type: 'folder', collectionId: folder.collectionId, folderId: folder.id }, path)}><Download className='h-4 w-4' /></button>
         <button type='button' aria-label={`Delete folder ${path}`} className='rounded-md p-2 opacity-70 hover:opacity-100' onClick={() => removeFolder(folder.id)}><Trash2 className='h-4 w-4' /></button>
       </div>
       {children.map((child) => renderFolderSelector(child, depth + 1, nextSeen))}
@@ -361,9 +387,13 @@ export const ApiClientCollections: React.FC<Props> = ({
           {collection.name}
         </button>
         <button type='button' disabled={apiClientCollectionRunRequests(workspace, collection.id).length === 0} aria-label={`Run collection ${collection.name}`} className='rounded-md p-2 opacity-70 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30' onClick={() => onRunCollection?.(collection.id)}><Play className='h-4 w-4' /></button>
+        <button type='button' disabled={apiClientCollectionRunRequests(workspace, collection.id).length === 0} aria-label={`Export collection ${collection.name} for Runner`} className='rounded-md p-2 opacity-70 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-30' onClick={() => exportRunnerArtifact({ type: 'collection', collectionId: collection.id }, collection.name)}><Download className='h-4 w-4' /></button>
         {workspace.collections.length > 1 && <button type='button' aria-label={`Delete collection ${collection.name}`} className='rounded-md p-2 opacity-70 hover:opacity-100' onClick={() => removeCollection(collection.id)}><Trash2 className='h-4 w-4' /></button>}
       </div>)}
     </div>
+
+    <p className={`text-xs ${mutedClass}`}>Runner exports can include saved authentication, collection variables, and the active environment. Treat downloaded <code>.flexdoc.json</code> files as sensitive configuration.</p>
+    {runnerExportError && <p role='alert' className='text-xs text-red-600'>{runnerExportError}</p>}
 
     {selectedCollection && <>
 
@@ -401,7 +431,6 @@ export const ApiClientCollections: React.FC<Props> = ({
         <button type='button' aria-label='Select collection root' className={`w-full rounded-md px-2 py-2 text-left text-sm ${selectedFolderId === '' ? 'bg-blue-500/10' : ''}`} onClick={() => onSelectedFolderChange?.('')}>Unfiled / collection root</button>
         {rootFolders.map((folder) => renderFolderSelector(folder, 0))}
       </div>
-
 
       {selectedFolder && <div className='space-y-2 border-t pt-3'>
         <div className='text-xs font-semibold uppercase tracking-wide'>Folder authorization — {selectedFolderPath}</div>

@@ -2,7 +2,7 @@
 
 FlexDoc 2.3.0 was the last coordinated product release before the API Client workspace grew through several focused development milestones. Those milestone numbers described source-development slices; they were not separate published FlexDoc package releases. The coordinated product line moved directly from published **2.3.0** to published **2.8.0** after the 2.8 source definition of done was satisfied.
 
-The current published coordinated product line is **3.0.0**. This source tree is prepared for stable **3.1.0**, adding backend-produced operation-level Contract Validation on the Node Runtime Intelligence integrations plus renderer and CLI consumption of the same structured findings.
+The current published coordinated product line is **3.1.0**. This source tree completes the **3.2** headless Runner milestone, taking the canonical API Client request/script/collection model into CLI/CI execution while reusing the existing advertised host-execution contract rather than introducing a second request or auth engine.
 
 Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and `@prauga/flexdoc-backend` carry the coordinated FlexDoc product version because they own and distribute the canonical renderer. Native adapters receive their own semantic-version increment when they package a new renderer, rather than being renamed to the product version.
 
@@ -20,7 +20,8 @@ Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and 
 | **2.9.5** | REST workspace parity hardening plus capability-gated Node API-host execution for browser-impossible request features | shipped |
 | **2.9.9** | measured performance baseline, production delivery hardening, host-page caching/revalidation, and regression budgets before Runtime Intelligence | shipped |
 | **3.0.0** | Runtime Intelligence plus renderer/API Client product-quality completion | shipped |
-| **3.1.0** | operation-level backend Contract Validation plus renderer/CLI consumption | release prepared |
+| **3.1.0** | operation-level backend Contract Validation plus renderer/CLI consumption | shipped |
+| **3.2** | portable headless execution of canonical API Client request/folder/collection scopes with CI reports | complete in source |
 
 Viewer expansion defaults/settings and renderer-option parity landed before the 2.8 release and are included in the 2.8 product surface.
 
@@ -76,7 +77,7 @@ The 2.9 source release candidate is complete with the following satisfied:
 - [x] future-version example manifests and the deterministic future-tag Go checksum represent the release-candidate source tree without pretending registry artifacts already exist
 - [x] the canonical standalone renderer is rebuilt and synchronized across committed adapter assets, with parity checks passing before the release candidate is proposed
 
-2.9.0, 2.9.5, 2.9.9, and 3.0.0 are published. 3.1.0 is now prepared as the stable backend-native Contract Validation release.
+2.9.0, 2.9.5, 2.9.9, 3.0.0, and 3.1.0 are published. 3.2 is complete in source as the portable headless Runner milestone.
 
 ## 2.8.0 definition of done
 
@@ -171,8 +172,18 @@ Explicitly **not** in this 3.1 cut: schema/request/response validation, live-tra
 
 This boundary keeps the differentiation test intact: the valuable evidence comes from FlexDoc being installed inside the backend, while later milestones can deepen validation without pretending that generic document-only linting is the moat.
 
+## 3.2 FlexDoc Runner
+
+3.2 takes the canonical API Client model outside the browser without creating a second request engine. Portable `flexdoc-runner` v1 artifacts preserve request/folder/collection scope, auth ancestry, collection variables, scripts, saved order, and the selected environment while excluding History and rejecting ambiguous or non-portable artifact state.
+
+`flexdoc run <artifact>` delegates to the same `runApiClientCollection` / `executeApiClientRequest` path used by the workspace. Ordinary requests use direct Node fetch; capability-gated requests can reuse the existing same-origin FlexDoc host-execution advertisement with docs-host credentials isolated from target API authentication. Machine-readable `flexdoc-run-report` v1 output records aggregate outcome and per-request executor/status/timing/test/error evidence, with canonical stop-on-failure and cancellation semantics.
+
+3.2 deliberately does not add another `__flexdoc/execute` protocol, native host execution, private/VPC policy expansion, host-side secret storage, iteration datasets, concurrency, or Newman compatibility. Those backend execution expansions remain 3.3 work. See [`headless-runner.md`](./headless-runner.md) for the complete artifact, execution, security, report, and definition-of-done contract.
+
+The product filter remains: **Could Scalar implement this without being installed inside the backend?** Headless orchestration is useful portable infrastructure; FlexDoc-specific differentiation comes from reusing the controlled execution capability already available because FlexDoc is installed inside the service.
+
 ## Release interpretation
 
-Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product line moved through published **2.8.0**, **2.9.0**, **2.9.5**, **2.9.9**, and **3.0.0**. FlexDoc **3.1.0** is the next stable coordinated release and carries the backend-produced Contract Validation slice plus the matching renderer and CLI consumers.
+Do not retroactively publish artificial 2.4.0, 2.5.0, 2.6.0, or 2.7.0 releases just to fill the numeric gap. They are recorded here as development milestones. The coordinated JavaScript product line moved through published **2.8.0**, **2.9.0**, **2.9.5**, **2.9.9**, **3.0.0**, and **3.1.0**. The 3.2 source milestone builds on that published Contract Validation line with portable headless execution; coordinated package versions advance separately during release preparation.
 
 For native adapters, each package remains on its independently versioned semantic-release line while carrying the current coordinated renderer. `@prauga/flexdoc-core` remains independently versioned unless the framework-neutral engine itself changes. The CLI also remains independently versioned and consumes the coordinated client line.

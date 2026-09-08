@@ -16,19 +16,24 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - **Rust:** Axum, Actix Web
 - **Elixir:** Plug, Phoenix
 
-The backend-coverage program shipped in 2.3.0 and the coordinated 2.x line culminated in published **2.9.9**. Stable **3.0.0** added backend-native Runtime Intelligence and the completed renderer/API Client product-quality gate. This source tree is prepared for stable **3.1.0**, adding a narrow operation-level Contract Validation slice on Node Express/Fastify/Hono/NestJS, with the renderer and CLI consuming the same backend-produced findings. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the exact milestone boundary and deferred work.
+The backend-coverage program shipped in 2.3.0 and the coordinated 2.x line culminated in published **2.9.9**. Stable **3.0.0** added backend-native Runtime Intelligence, and published **3.1.0** added operation-level Contract Validation on Node Express/Fastify/Hono/NestJS with matching renderer and CLI consumption. The current source milestone is **3.2**, taking the canonical API Client request/script/collection model into headless CLI/CI execution while reusing the existing advertised host-execution contract. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the exact milestone boundary and deferred work.
 
 ## CLI
 
-`@prauga/flexdoc-cli` is the first-class command-line surface for static docs and 3.1 Contract Validation:
+`@prauga/flexdoc-cli` is the first-class command-line surface for static docs and 3.1 Contract Validation. The 3.2 source tree additionally adds portable headless API Client execution through `flexdoc run`:
 
 ```bash
 npx @prauga/flexdoc-cli serve openapi.yaml --watch
 npx @prauga/flexdoc-cli build openapi.yaml --out ./public
 npx @prauga/flexdoc-cli validate http://127.0.0.1:3000/docs/__flexdoc/runtime
+
+# 3.2 source milestone; package version advances during release preparation
+node tools/flexdoc-cli/bin/flexdoc.js run ./pets.flexdoc.json --json
 ```
 
 `validate` consumes the installed Node backend's structured 3.1 validation result rather than reimplementing contract comparison. It supports JSON output, custom headers, bearer/basic authentication for protected Runtime Intelligence endpoints, and opt-in stricter CI failure policies such as `--fail-on warning`. By default it exits `1` only when the backend reports `fail` (or the endpoint/payload cannot be consumed).
+
+`run` consumes a versioned artifact exported from the canonical API Client workspace and delegates to the same collection/request executor and `flex.*` script/test runtime. Ordinary requests execute directly from Node; capability-gated requests can reuse the existing same-origin host-execution advertisement. See [`docs/headless-runner.md`](./docs/headless-runner.md) for the 3.2 artifact, security, reporting, and cancellation contract.
 
 ## Package family
 
