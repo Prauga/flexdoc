@@ -12,27 +12,31 @@ import type {
 
 type UnknownRecord = Record<string, unknown>;
 
+/** Non-fatal compatibility issue discovered while importing Postman JSON. */
 export interface ApiClientImportWarning {
-  code: string;
-  path: string;
-  message: string;
+  /** Stable warning code suitable for programmatic grouping/filtering. */ code: string;
+  /** Postman document path associated with the warning. */ path: string;
+  /** Human-readable explanation of what was skipped, translated, or requires review. */ message: string;
 }
 
+/** API Client workspace objects produced from one Postman collection. */
 export interface PostmanCollectionImportResult {
-  collection: ApiClientCollection;
-  folders: ApiClientFolder[];
-  requests: ApiClientSavedRequest[];
-  warnings: ApiClientImportWarning[];
+  /** Imported top-level API Client collection. */ collection: ApiClientCollection;
+  /** Imported folder hierarchy belonging to the collection. */ folders: ApiClientFolder[];
+  /** Imported saved requests belonging to the collection/folders. */ requests: ApiClientSavedRequest[];
+  /** Compatibility warnings collected during import. */ warnings: ApiClientImportWarning[];
 }
 
+/** API Client environment object produced from one Postman environment export. */
 export interface PostmanEnvironmentImportResult {
-  environment: ApiClientEnvironment;
-  warnings: ApiClientImportWarning[];
+  /** Imported API Client environment. */ environment: ApiClientEnvironment;
+  /** Compatibility warnings collected during import. */ warnings: ApiClientImportWarning[];
 }
 
+/** Discriminated result returned when FlexDoc auto-detects a Postman document kind. */
 export type PostmanDocumentImportResult =
-  | { kind: 'collection'; result: PostmanCollectionImportResult }
-  | { kind: 'environment'; result: PostmanEnvironmentImportResult };
+  | { /** Imported document kind. */ kind: 'collection'; /** Collection import payload. */ result: PostmanCollectionImportResult }
+  | { /** Imported document kind. */ kind: 'environment'; /** Environment import payload. */ result: PostmanEnvironmentImportResult };
 
 interface ScriptBundle {
   preRequest: string[];
@@ -550,7 +554,12 @@ function importItems(options: {
   });
 }
 
-/** Import a Postman collection into API Client workspace structures. */
+/**
+ * Import a Postman collection into API Client workspace structures.
+ * @param value Parsed Postman collection JSON, preferably schema v2.1.
+ * @returns Collection, folders, saved requests, translated scripts/auth/body state, and compatibility warnings.
+ * @throws When the JSON does not have a valid Postman collection shape or collection name.
+ */
 export function importPostmanCollection(value: unknown): PostmanCollectionImportResult {
   if (!isRecord(value) || !isRecord(value.info) || !Array.isArray(value.item)) {
     throw new Error('This JSON is not a Postman collection. Expected info and item fields.');
@@ -589,7 +598,12 @@ export function importPostmanCollection(value: unknown): PostmanCollectionImport
   return { collection, folders, requests, warnings };
 }
 
-/** Import a Postman environment into API Client workspace structures. */
+/**
+ * Import a Postman environment into API Client workspace structures.
+ * @param value Parsed Postman environment JSON.
+ * @returns Imported environment plus compatibility warnings.
+ * @throws When the JSON is not an environment export or declares a non-environment variable scope.
+ */
 export function importPostmanEnvironment(value: unknown): PostmanEnvironmentImportResult {
   if (!isRecord(value) || !Array.isArray(value.values) || typeof value.name !== 'string') {
     throw new Error('This JSON is not a Postman environment. Expected name and values fields.');
@@ -610,7 +624,12 @@ export function importPostmanEnvironment(value: unknown): PostmanEnvironmentImpo
   };
 }
 
-/** Detect and import either a Postman collection or environment document. */
+/**
+ * Detect and import either a Postman collection or environment document.
+ * @param value Parsed Postman JSON document.
+ * @returns Discriminated collection/environment import result.
+ * @throws When the document matches neither supported Postman shape.
+ */
 export function importPostmanDocument(value: unknown): PostmanDocumentImportResult {
   if (isRecord(value) && isRecord(value.info) && Array.isArray(value.item)) {
     return { kind: 'collection', result: importPostmanCollection(value) };
@@ -629,7 +648,12 @@ function hasPristineDefaultCollection(workspace: ApiClientWorkspaceState): boole
     && collection.variables.length === 0;
 }
 
-/** Merge an imported Postman collection into an existing workspace state. */
+/**
+ * Merge an imported Postman collection into an existing workspace state.
+ * @param workspace Existing API Client workspace.
+ * @param imported Collection import result to append.
+ * @returns New workspace containing the imported collection/folders/requests; a pristine default collection is replaced rather than retained.
+ */
 export function mergePostmanCollectionImport(
   workspace: ApiClientWorkspaceState,
   imported: PostmanCollectionImportResult,
@@ -643,7 +667,12 @@ export function mergePostmanCollectionImport(
   };
 }
 
-/** Merge an imported Postman environment into an existing workspace state. */
+/**
+ * Merge an imported Postman environment into an existing workspace state.
+ * @param workspace Existing API Client workspace.
+ * @param imported Environment import result to append.
+ * @returns New workspace containing the environment; it becomes active only when no environment was already selected.
+ */
 export function mergePostmanEnvironmentImport(
   workspace: ApiClientWorkspaceState,
   imported: PostmanEnvironmentImportResult,
