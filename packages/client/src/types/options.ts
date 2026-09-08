@@ -175,6 +175,10 @@ export interface FlexDocMessages {
   /** Empty-state copy when all documented routes are observed. */ everyDocumentedRouteObserved?: string;
   /** Status text shown when runtime and documented routes align. */ runtimeAligned?: string;
   /** Action text for opening a runtime route's documentation when available. */ openRuntimeRoute?: string;
+  /** Heading for structured runtime-vs-OpenAPI contract findings. */ contractValidation?: string;
+  /** Status text shown when 3.1 contract validation has no findings. */ contractValidationPass?: string;
+  /** Label preceding expected contract state in a finding. */ validationExpected?: string;
+  /** Label preceding observed runtime state in a finding. */ validationObserved?: string;
   /** Advisory heading for HTTP methods with unusual request bodies. */ unusualBodyAdvisory?: string;
   /** Copy explaining that API-host execution can preserve an unusual body. */ unusualBodyHostExecution?: string;
   /** Copy warning that browser transport may reject an unusual body. */ unusualBodyBrowserWarning?: string;
@@ -240,6 +244,53 @@ export interface FlexDocRuntimeIntelligenceSummary {
   /** Number of OpenAPI operations not observed at runtime. */ documentedOnly: number;
 }
 
+/** Severity assigned to one 3.1 runtime-vs-contract validation finding. */
+export type FlexDocContractValidationSeverity = 'error' | 'warning' | 'info';
+
+/** Stable machine-readable 3.1 runtime validation codes. */
+export type FlexDocContractValidationCode =
+  | 'runtime.operation-undocumented'
+  | 'runtime.operation-unobserved'
+  | 'runtime.method-mismatch'
+  | 'runtime.duplicate-operation';
+
+/** Operation location associated with one contract-validation finding. */
+export interface FlexDocContractValidationLocation {
+  /** Validation target category. */ kind: 'operation';
+  /** Normalized OpenAPI/runtime path template. */ path: string;
+  /** HTTP method when the finding targets one operation. */ method?: string;
+}
+
+/** One actionable mismatch between the OpenAPI contract and running backend. */
+export interface FlexDocContractValidationFinding {
+  /** Deterministic finding identifier. */ id: string;
+  /** Machine-readable validation code. */ code: FlexDocContractValidationCode;
+  /** Finding severity. */ severity: FlexDocContractValidationSeverity;
+  /** Operation associated with the mismatch. */ location: FlexDocContractValidationLocation;
+  /** Human-readable explanation. */ message: string;
+  /** Concise expected contract/runtime state. */ expected?: string | string[];
+  /** Concise state observed in the running backend. */ observed?: string | string[];
+}
+
+/** Aggregate finding counts for one runtime contract-validation pass. */
+export interface FlexDocContractValidationSummary {
+  /** Total findings. */ total: number;
+  /** Error findings. */ errors: number;
+  /** Warning findings. */ warnings: number;
+  /** Informational findings. */ info: number;
+}
+
+/** Overall outcome of one runtime contract-validation pass. */
+export type FlexDocContractValidationStatus = 'pass' | 'warn' | 'fail' | 'partial';
+
+/** Structured 3.1 runtime-vs-OpenAPI validation result. */
+export interface FlexDocContractValidationResult {
+  /** Overall result derived from findings and discovery completeness. */ status: FlexDocContractValidationStatus;
+  /** Whether route discovery was complete enough to make absence claims authoritative. */ complete: boolean;
+  /** Deterministically ordered actionable findings. */ findings: FlexDocContractValidationFinding[];
+  /** Aggregate finding counts. */ summary: FlexDocContractValidationSummary;
+}
+
 /** Snapshot comparing documented OpenAPI routes with routes discovered at runtime. */
 export interface FlexDocRuntimeIntelligenceSnapshot {
   /** Framework identifier used by the adapter. */ framework: string;
@@ -253,6 +304,7 @@ export interface FlexDocRuntimeIntelligenceSnapshot {
   /** Runtime routes that do not have a matching OpenAPI operation. */ runtimeOnly: FlexDocRuntimeRoute[];
   /** OpenAPI operations that were not observed in the runtime route set. */ documentedOnly: FlexDocRuntimeRoute[];
   /** Aggregate route counts for quick status rendering. */ summary: FlexDocRuntimeIntelligenceSummary;
+  /** Structured 3.1 validation when emitted by the backend; omitted by compatible 3.0/native snapshots. */ validation?: FlexDocContractValidationResult;
 }
 
 /** Public runtime-intelligence endpoint metadata exposed to the renderer. */
