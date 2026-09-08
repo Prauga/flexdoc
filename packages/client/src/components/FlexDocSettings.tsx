@@ -7,6 +7,7 @@ interface FlexDocSettingsProps {
   open: boolean;
   theme: 'light' | 'dark';
   hostTheme: 'light' | 'dark';
+  manageTheme: boolean;
   viewerTheme?: FlexDocViewerTheme;
   viewerExpand?: ExpandOption;
   effectiveExpandedSections: ExpandSection[];
@@ -40,6 +41,7 @@ export const FlexDocSettings: React.FC<FlexDocSettingsProps> = ({
   open,
   theme,
   hostTheme,
+  manageTheme,
   viewerTheme,
   viewerExpand,
   effectiveExpandedSections,
@@ -114,7 +116,7 @@ export const FlexDocSettings: React.FC<FlexDocSettingsProps> = ({
         <button type='button' aria-label='Close settings' className='inline-flex h-11 w-11 items-center justify-center rounded-md' onClick={onClose}><X className='h-5 w-5' /></button>
       </div>
       <div className='flex-1 space-y-6 overflow-y-auto p-4'>
-        <section aria-labelledby='appearance-settings-heading'>
+        {manageTheme && <section aria-labelledby='appearance-settings-heading'>
           <h2 id='appearance-settings-heading' className='mb-1 text-sm font-semibold'>{messages?.viewerTheme || 'Appearance'}</h2>
           <p className='mb-3 text-xs opacity-65'>Override the documentation host theme on this device.</p>
           <select
@@ -128,7 +130,7 @@ export const FlexDocSettings: React.FC<FlexDocSettingsProps> = ({
             <option value='dark'>{messages?.darkTheme || 'Dark'}</option>
             <option value='high-contrast'>{messages?.highContrast || 'High contrast'}</option>
           </select>
-        </section>
+        </section>}
 
         <section aria-labelledby='expansion-settings-heading'>
           <h2 id='expansion-settings-heading' className='mb-1 text-sm font-semibold'>Default expanded sections</h2>

@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FlexDoc } from './FlexDoc';
 import { OpenAPISpec } from '../types/openapi';
+import { createFlexDocViewerPreferencesKey, writeFlexDocViewerThemePreference } from '../utils/renderer-preferences';
 
 jest.mock('./Sidebar', () => ({ Sidebar: () => <div data-testid='sidebar-mock'>Sidebar Mock</div> }));
 jest.mock('./EndpointDetail', () => ({ EndpointDetail: () => <div data-testid='endpoint-detail-mock'>EndpointDetail Mock</div> }));
@@ -20,6 +21,7 @@ const mockSpec: OpenAPISpec = {
 describe('FlexDoc', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/');
+    window.localStorage.clear();
     document.body.style.overflow = '';
   });
 
@@ -42,6 +44,19 @@ describe('FlexDoc', () => {
     const { container } = render(<FlexDoc spec={mockSpec} theme='dark' customStyles={{ maxWidth: '1200px' }} />);
     expect(screen.getByText('Test API')).toBeInTheDocument();
     expect(container.firstElementChild).toHaveStyle({ maxWidth: '1200px' });
+  });
+
+  it('uses the same controlled theme ownership pattern as ApiClientWorkspace', () => {
+    const preferenceKey = createFlexDocViewerPreferencesKey(mockSpec.info.title, window.location.host);
+    writeFlexDocViewerThemePreference(preferenceKey, 'dark');
+    const { container, rerender } = render(<FlexDoc spec={mockSpec} theme='light' />);
+    expect(container.firstElementChild).toHaveAttribute('data-theme', 'dark');
+
+    rerender(<FlexDoc spec={mockSpec} theme='light' manageTheme={false} />);
+    expect(container.firstElementChild).toHaveAttribute('data-theme', 'light');
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
+    expect(screen.queryByRole('combobox', { name: 'Viewer theme' })).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Default expanded sections' })).toBeInTheDocument();
   });
 
   it('honors topbar, hostname and download options while keeping navigation reachable', () => {
