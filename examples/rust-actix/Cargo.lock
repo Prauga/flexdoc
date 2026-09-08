@@ -905,9 +905,9 @@ checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 
 [[package]]
 name = "prauga-flexdoc-actix"
-version = "0.4.2"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e01eee0972e23724d9e2254e2b8134c3cefdfeb1d04194e795e8f6246a595cc"
+checksum = "75b2094d5748f3122e749fff94fd0f4da241b8cf46ef95c69ff31b7ce2fa2047"
 dependencies = [
  "actix-web",
  "serde_json",
