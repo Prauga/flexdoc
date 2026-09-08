@@ -46,6 +46,7 @@ describe('parseRuntimeIntelligenceSnapshot', () => {
     { ...snapshot, discoveryComplete: 'yes' },
     { ...snapshot, server: { localPort: -1 } },
     { ...snapshot, validation: { status: 'warn', complete: true, findings: [], summary: { total: 1, errors: 0, warnings: 1, info: 0 } } },
+    { ...snapshot, validation: { status: 'warn', complete: true, findings: [], summary: { total: 0, errors: 0, warnings: 0, info: 0 } } },
     { ...snapshot, validation: { status: 'unknown', complete: true, findings: [], summary: { total: 0, errors: 0, warnings: 0, info: 0 } } },
   ])('rejects malformed payload %#', (value) => {
     expect(() => parseRuntimeIntelligenceSnapshot(value)).toThrow('Runtime intelligence returned an invalid snapshot.');
