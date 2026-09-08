@@ -52,6 +52,7 @@ export { createHostExecutionState, executeHostRequest, publicHostExecutionOption
 export { parseHostExecutionRequestBody, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 export { validateRuntimeContract } from './contract-validation';
 export type {
+  FlexDocContractDuplicateRuntimeRoute,
   FlexDocContractRoute,
   FlexDocContractValidationCode,
   FlexDocContractValidationFinding,
@@ -63,5 +64,5 @@ export type {
   ValidateRuntimeContractOptions,
 } from './contract-validation';
 export { buildRuntimeIntelligenceSnapshot, discoverExpressRoutes, discoverFastifyRoutes, discoverHonoRoutes, documentedOpenApiRoutes, nodeRuntimeMetadata, normalizeRuntimePath } from './runtime-intelligence';
-export type { FlexDocRuntimeDiscovery, FlexDocRuntimeIntelligenceSnapshot, FlexDocRuntimeMetadata, FlexDocRuntimeRoute } from './runtime-intelligence';
+export type { FlexDocRuntimeDiscovery, FlexDocRuntimeDuplicateRoute, FlexDocRuntimeIntelligenceSnapshot, FlexDocRuntimeMetadata, FlexDocRuntimeRoute } from './runtime-intelligence';
 export type { HonoLikeApplication, HonoLikeContext } from './hono-adapter';

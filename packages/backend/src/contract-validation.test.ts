@@ -56,6 +56,25 @@ describe('runtime contract validation', () => {
     })]);
   });
 
+  it('reports duplicate host registrations that standalone OpenAPI tooling cannot observe', () => {
+    const result = validateRuntimeContract({
+      documentedRoutes: [{ method: 'GET', path: '/pets/{petId}' }],
+      runtimeRoutes: [{ method: 'GET', path: '/pets/{id}' }],
+      duplicateRuntimeRoutes: [{ method: 'GET', path: '/pets/{id}', count: 2 }],
+      discoveryComplete: true,
+    });
+
+    expect(result.status).toBe('warn');
+    expect(result.summary).toEqual({ total: 1, errors: 0, warnings: 1, info: 0 });
+    expect(result.findings[0]).toEqual(expect.objectContaining({
+      code: 'runtime.duplicate-operation',
+      severity: 'warning',
+      location: { kind: 'operation', method: 'GET', path: '/pets/{id}' },
+      expected: 'One runtime registration for this HTTP operation',
+      observed: '2 runtime registrations',
+    }));
+  });
+
   it('treats documented absence as an error only when discovery is complete', () => {
     const complete = validateRuntimeContract({
       documentedRoutes: [{ method: 'GET', path: '/pets/{petId}' }],
