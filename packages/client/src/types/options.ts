@@ -1,89 +1,111 @@
+/** Separate vertical/horizontal padding values for a renderer logo container. */
+export interface LogoPaddingOptions {
+  /** Vertical CSS padding. Numeric values are interpreted as pixels. */ vertical?: string | number;
+  /** Horizontal CSS padding. Numeric values are interpreted as pixels. */ horizontal?: string | number;
+}
+
 /** Logo shown in the documentation top bar. */
 export interface LogoOptions {
-  /** Image URL loaded for the logo. */
-  url: string;
-  /** Background color applied to the logo container. */
-  backgroundColor?: string;
-  /** CSS padding for the logo container, or separate vertical/horizontal values. */
-  padding?: string | { vertical?: string | number; horizontal?: string | number };
-  /** Maximum rendered logo height. Numeric values are interpreted as pixels. */
-  maxHeight?: string | number;
-  /** Maximum rendered logo width. Numeric values are interpreted as pixels. */
-  maxWidth?: string | number;
-  /** Alternative text used by the logo image. */
-  alt?: string;
-  /** Additional CSS class applied to the logo container. */
-  containerClass?: string;
-  /** Whether the logo behaves as a navigation control when a destination is available. */
-  clickable?: boolean;
+  /** Image URL loaded for the logo. */ url: string;
+  /** Background color applied to the logo container. */ backgroundColor?: string;
+  /** CSS padding for the logo container, or separate vertical/horizontal values. */ padding?: string | LogoPaddingOptions;
+  /** Maximum rendered logo height. Numeric values are interpreted as pixels. */ maxHeight?: string | number;
+  /** Maximum rendered logo width. Numeric values are interpreted as pixels. */ maxWidth?: string | number;
+  /** Alternative text used by the logo image. */ alt?: string;
+  /** Additional CSS class applied to the logo container. */ containerClass?: string;
+  /** Whether the logo behaves as a navigation control when a destination is available. */ clickable?: boolean;
+}
+
+/** Main/light/dark variants for one semantic renderer color. */
+export interface ThemeColorVariants {
+  /** Default color value. */ main?: string;
+  /** Lighter color variant. */ light?: string;
+  /** Darker color variant. */ dark?: string;
+}
+
+/** Renderer text-color tokens. */
+export interface ThemeTextColors {
+  /** Primary foreground text color. */ primary?: string;
+  /** Secondary/muted foreground text color. */ secondary?: string;
+}
+
+/** Neutral gray tokens used by renderer surfaces. */
+export interface ThemeGrayColors {
+  /** Very light neutral surface token. */ 50?: string;
+  /** Light neutral surface token. */ 100?: string;
+}
+
+/** Theme-aware renderer border colors. */
+export interface ThemeBorderColors {
+  /** Border color used by dark renderer surfaces. */ dark?: string;
+  /** Border color used by light renderer surfaces. */ light?: string;
+}
+
+/** Semantic renderer color-token overrides. */
+export interface ThemeColors {
+  /** Primary brand/accent color variants. */ primary?: ThemeColorVariants;
+  /** Success-state color variants. */ success?: ThemeColorVariants;
+  /** Error-state color variants. */ error?: ThemeColorVariants;
+  /** Primary and secondary text colors. */ text?: ThemeTextColors;
+  /** Neutral gray tokens used by light renderer surfaces. */ gray?: ThemeGrayColors;
+  /** Border colors for dark and light themes. */ border?: ThemeBorderColors;
+}
+
+/** Heading typography overrides. */
+export interface ThemeHeadingTypography {
+  /** Font family used by headings. */ fontFamily?: string;
+  /** CSS font-weight value used by headings. */ fontWeight?: string;
+}
+
+/** Code block/editor typography and surface overrides. */
+export interface ThemeCodeTypography {
+  /** Code font size. */ fontSize?: string;
+  /** Code font family. */ fontFamily?: string;
+  /** Code line height. */ lineHeight?: string;
+  /** Code foreground color. */ color?: string;
+  /** Code background color. */ backgroundColor?: string;
+  /** Whether long code lines soft-wrap. */ wrap?: boolean;
+}
+
+/** Typography tokens for renderer text, headings, and code. */
+export interface ThemeTypography {
+  /** Base renderer font size. */ fontSize?: string;
+  /** Base renderer line height. */ lineHeight?: string;
+  /** Base renderer font family. */ fontFamily?: string;
+  /** Heading-specific font overrides. */ headings?: ThemeHeadingTypography;
+  /** Code block/editor typography and wrapping overrides. */ code?: ThemeCodeTypography;
+}
+
+/** Styling applied to grouped navigation labels. */
+export interface ThemeSidebarGroupItems {
+  /** CSS `text-transform` value applied to group labels. */ textTransform?: string;
+}
+
+/** Sidebar-specific renderer theme tokens. */
+export interface ThemeSidebar {
+  /** Sidebar background in light mode. */ backgroundColor?: string;
+  /** Sidebar background in dark mode. */ backgroundColorDark?: string;
+  /** Sidebar text color in light mode. */ textColor?: string;
+  /** Sidebar text color in dark mode. */ textColorDark?: string;
+  /** Active sidebar item text color in light mode. */ activeTextColor?: string;
+  /** Active sidebar item text color in dark mode. */ activeTextColorDark?: string;
+  /** Sidebar border color in light mode. */ borderColor?: string;
+  /** Sidebar border color in dark mode. */ borderColorDark?: string;
+  /** Styling applied to grouped navigation labels. */ groupItems?: ThemeSidebarGroupItems;
+}
+
+/** Background/border colors for one HTTP-method badge. */
+export interface ThemeMethodColors {
+  /** Badge background color. */ bg?: string;
+  /** Badge border color. */ border?: string;
 }
 
 /** Theme tokens applied to renderer chrome and code blocks. */
 export interface ThemeConfig {
-  /** Color tokens for renderer chrome, text, borders, and status states. */
-  colors?: {
-    /** Primary brand/accent color variants. */
-    primary?: { main?: string; light?: string; dark?: string };
-    /** Success-state color variants. */
-    success?: { main?: string; light?: string; dark?: string };
-    /** Error-state color variants. */
-    error?: { main?: string; light?: string; dark?: string };
-    /** Primary and secondary text colors. */
-    text?: { primary?: string; secondary?: string };
-    /** Neutral gray tokens used by light renderer surfaces. */
-    gray?: { 50?: string; 100?: string };
-    /** Border colors for dark and light themes. */
-    border?: { dark?: string; light?: string };
-  };
-  /** Typography tokens for general text, headings, and code. */
-  typography?: {
-    /** Base renderer font size. */
-    fontSize?: string;
-    /** Base renderer line height. */
-    lineHeight?: string;
-    /** Base renderer font family. */
-    fontFamily?: string;
-    /** Heading-specific font overrides. */
-    headings?: { fontFamily?: string; fontWeight?: string };
-    /** Code block/editor typography and wrapping overrides. */
-    code?: {
-      /** Code font size. */
-      fontSize?: string;
-      /** Code font family. */
-      fontFamily?: string;
-      /** Code line height. */
-      lineHeight?: string;
-      /** Code foreground color. */
-      color?: string;
-      /** Code background color. */
-      backgroundColor?: string;
-      /** Whether long code lines soft-wrap. */
-      wrap?: boolean;
-    };
-  };
-  /** Sidebar-specific theme tokens. */
-  sidebar?: {
-    /** Sidebar background in light mode. */
-    backgroundColor?: string;
-    /** Sidebar background in dark mode. */
-    backgroundColorDark?: string;
-    /** Sidebar text color in light mode. */
-    textColor?: string;
-    /** Sidebar text color in dark mode. */
-    textColorDark?: string;
-    /** Active sidebar item text color in light mode. */
-    activeTextColor?: string;
-    /** Active sidebar item text color in dark mode. */
-    activeTextColorDark?: string;
-    /** Sidebar border color in light mode. */
-    borderColor?: string;
-    /** Sidebar border color in dark mode. */
-    borderColorDark?: string;
-    /** Styling applied to grouped navigation labels. */
-    groupItems?: { textTransform?: string };
-  };
-  /** Per-HTTP-method badge colors keyed by lowercase method name. */
-  methodColors?: Record<string, { bg?: string; border?: string }>;
+  /** Color tokens for renderer chrome, text, borders, and status states. */ colors?: ThemeColors;
+  /** Typography tokens for general text, headings, and code. */ typography?: ThemeTypography;
+  /** Sidebar-specific theme tokens. */ sidebar?: ThemeSidebar;
+  /** Per-HTTP-method badge colors keyed by lowercase method name. */ methodColors?: Record<string, ThemeMethodColors>;
 }
 
 /** Section identifiers used by expand presets and custom expand arrays. */
@@ -170,18 +192,19 @@ export interface FlexDocMessages {
 /** Capability flags advertised when API-host execution is enabled on the docs server. */
 export type FlexDocHostExecutionCapability = 'cookies' | 'clientCertificates' | 'digest' | 'hawk' | 'ntlm' | 'oauth1' | 'awsv4';
 
+/** Safe server-side certificate choice advertised to the browser. */
+export interface FlexDocHostExecutionCertificateChoice {
+  /** Stable server-side certificate identifier sent back when the user selects it. */ id: string;
+  /** Human-readable certificate name displayed by API Client. */ name: string;
+}
+
 /** Public host-execution metadata serialized to the browser renderer. */
 export interface FlexDocHostExecutionPublicOptions {
-  /** Whether the documentation host currently exposes an execution endpoint. */
-  available: boolean;
-  /** Same-origin endpoint that accepts FlexDoc host-execution requests. */
-  endpoint: string;
-  /** Transport/authentication capabilities implemented by the host. */
-  capabilities: FlexDocHostExecutionCapability[];
-  /** Safe certificate identifiers/names available for client-certificate selection; private key material is never serialized. */
-  clientCertificates?: Array<{ id: string; name: string }>;
-  /** Same-origin endpoint used to inspect or clear the host-side cookie jar. */
-  cookiesEndpoint?: string;
+  /** Whether the documentation host currently exposes an execution endpoint. */ available: boolean;
+  /** Same-origin endpoint that accepts FlexDoc host-execution requests. */ endpoint: string;
+  /** Transport/authentication capabilities implemented by the host. */ capabilities: FlexDocHostExecutionCapability[];
+  /** Safe certificate identifiers/names available for client-certificate selection; private key material is never serialized. */ clientCertificates?: FlexDocHostExecutionCertificateChoice[];
+  /** Same-origin endpoint used to inspect or clear the host-side cookie jar. */ cookiesEndpoint?: string;
 }
 
 /** One runtime route observed by a backend adapter. */
@@ -208,6 +231,15 @@ export interface FlexDocRuntimeEnvironmentMetadata {
   /** Environment name supplied by or inferred by the host integration. */ name: string;
 }
 
+/** Aggregate route counts in a Runtime Intelligence snapshot. */
+export interface FlexDocRuntimeIntelligenceSummary {
+  /** Number of HTTP operations present in the OpenAPI document. */ documented: number;
+  /** Number of routes discovered in the running backend. */ runtime: number;
+  /** Number of routes observed in both OpenAPI and the running backend. */ matched: number;
+  /** Number of runtime routes missing from OpenAPI. */ runtimeOnly: number;
+  /** Number of OpenAPI operations not observed at runtime. */ documentedOnly: number;
+}
+
 /** Snapshot comparing documented OpenAPI routes with routes discovered at runtime. */
 export interface FlexDocRuntimeIntelligenceSnapshot {
   /** Framework identifier used by the adapter. */ framework: string;
@@ -220,8 +252,7 @@ export interface FlexDocRuntimeIntelligenceSnapshot {
   /** All runtime routes observed by the adapter after FlexDoc routes are excluded. */ routes: FlexDocRuntimeRoute[];
   /** Runtime routes that do not have a matching OpenAPI operation. */ runtimeOnly: FlexDocRuntimeRoute[];
   /** OpenAPI operations that were not observed in the runtime route set. */ documentedOnly: FlexDocRuntimeRoute[];
-  /** Aggregate route counts for quick status rendering. */
-  summary: { documented: number; runtime: number; matched: number; runtimeOnly: number; documentedOnly: number };
+  /** Aggregate route counts for quick status rendering. */ summary: FlexDocRuntimeIntelligenceSummary;
 }
 
 /** Public runtime-intelligence endpoint metadata exposed to the renderer. */
@@ -231,6 +262,50 @@ export interface FlexDocRuntimeIntelligencePublicOptions {
   /** Framework identifier expected in snapshots from the endpoint. */ framework: string;
 }
 
+/** One explicit navigation tag group. */
+export interface FlexDocTagGroup {
+  /** Group name displayed in navigation. */ name: string;
+  /** Ordered OpenAPI tag names included in the group. */ tags: string[];
+}
+
+/** Request passed to a direct-browser Try It interceptor. */
+export interface FlexDocInterceptedRequest extends RequestInit {
+  /** Absolute URL that will be passed to Fetch after interception. */ url: string;
+}
+
+/** Try It and sibling API Client behavior. */
+export interface FlexDocTryItOptions {
+  /** Enable operation-level Try It controls. */ enabled?: boolean;
+  /** Default server URL selected for requests when OpenAPI offers multiple servers. */ defaultServer?: string;
+  /** Browser Fetch credentials mode used for direct requests. */ credentials?: RequestCredentials;
+  /** Hook invoked before direct browser execution; may rewrite URL or RequestInit fields. */
+  requestInterceptor?: (request: FlexDocInterceptedRequest) => Promise<FlexDocInterceptedRequest> | FlexDocInterceptedRequest;
+  /** IndexedDB workspace key used by the sibling API Client, or `false` to disable persistence. */ apiClientPersistenceKey?: string | false;
+  /** API-host execution endpoint and capability metadata. */ hostExecution?: FlexDocHostExecutionPublicOptions;
+}
+
+/** Language identifiers accepted by renderer code-sample configuration. */
+export type FlexDocCodeSampleLanguage = 'curl' | 'javascript' | 'python' | 'go' | 'java';
+
+/** Generated code-sample configuration. */
+export interface FlexDocCodeSampleOptions {
+  /** Enable generated request code samples. */ enabled?: boolean;
+  /** Ordered languages shown in code-sample tabs. */ languages?: FlexDocCodeSampleLanguage[];
+}
+
+/** One footer navigation link. */
+export interface FlexDocFooterLink {
+  /** Link text displayed in the footer. */ text: string;
+  /** Destination URL. */ url: string;
+  /** Optional icon identifier understood by the renderer. */ icon?: string;
+}
+
+/** Footer content rendered below documentation. */
+export interface FlexDocFooterOptions {
+  /** Copyright/legal text shown in the footer. */ copyright?: string;
+  /** Footer links displayed in their configured order. */ link?: FlexDocFooterLink[];
+}
+
 /** Renderer options passed to `FlexDoc` through the `options` prop. */
 export interface FlexDocRendererOptions {
   /** Renderer-host contract version. FlexDoc 3.x currently uses contract `1`. */ contractVersion?: '1';
@@ -238,7 +313,7 @@ export interface FlexDocRendererOptions {
   /** Primary API description overriding the OpenAPI description when supplied. */ description?: string;
   /** Alternate/secondary description supported by host integrations. */ altDescription?: string;
   /** Version text overriding the OpenAPI API version in renderer chrome. */ version?: string;
-  /** Explicit navigation tag groups and their ordered tag names. */ tagGroups?: Array<{ name: string; tags: string[] }>;
+  /** Explicit navigation tag groups and their ordered tag names. */ tagGroups?: FlexDocTagGroup[];
   /** Light/dark preset or custom renderer theme tokens. */ theme?: 'light' | 'dark' | ThemeConfig;
   /** BCP 47 locale applied to renderer-owned chrome and operation content. */ locale?: string;
   /** Host-provided renderer chrome translations. Omitted keys keep the built-in English copy. */ messages?: FlexDocMessages;
@@ -266,23 +341,7 @@ export interface FlexDocRendererOptions {
   /** Suppress renderer warning messages intended for authors. */ suppressWarnings?: boolean;
   /** Preferred zero-based payload sample index when multiple examples exist. */ payloadSampleIdx?: number;
   /** Runtime Intelligence endpoint metadata advertised by the backend host. */ runtimeIntelligence?: FlexDocRuntimeIntelligencePublicOptions;
-  /** Try It and sibling API Client behavior. */
-  tryIt?: {
-    /** Enable operation-level Try It controls. */ enabled?: boolean;
-    /** Default server URL selected for requests when OpenAPI offers multiple servers. */ defaultServer?: string;
-    /** Browser Fetch credentials mode used for direct requests. */ credentials?: RequestCredentials;
-    /** Hook invoked before direct browser execution; may rewrite URL or RequestInit fields. */ requestInterceptor?: (request: RequestInit & { url: string }) => Promise<RequestInit & { url: string }> | (RequestInit & { url: string });
-    /** IndexedDB workspace key used by the sibling API Client, or `false` to disable persistence. */ apiClientPersistenceKey?: string | false;
-    /** API-host execution endpoint and capability metadata. */ hostExecution?: FlexDocHostExecutionPublicOptions;
-  };
-  /** Generated code-sample configuration. */
-  codeSamples?: {
-    /** Enable generated request code samples. */ enabled?: boolean;
-    /** Ordered languages shown in code-sample tabs. */ languages?: Array<'curl' | 'javascript' | 'python' | 'go' | 'java'>;
-  };
-  /** Footer content rendered below documentation. */
-  footer?: {
-    /** Copyright/legal text shown in the footer. */ copyright?: string;
-    /** Footer links with optional icon identifiers. */ link?: Array<{ text: string; url: string; icon?: string }>;
-  };
+  /** Try It and sibling API Client behavior. */ tryIt?: FlexDocTryItOptions;
+  /** Generated code-sample configuration. */ codeSamples?: FlexDocCodeSampleOptions;
+  /** Footer content rendered below documentation. */ footer?: FlexDocFooterOptions;
 }

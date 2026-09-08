@@ -47,6 +47,37 @@ export interface HttpHostExecutionSelection {
   /** Use FlexDoc's server-side session cookie jar for the request. */ cookieJar?: 'session';
 }
 
+/** Explicitly disable authentication for one request. */
+export interface HttpNoAuth {
+  /** Authentication discriminator. */ type: 'none';
+}
+
+/** Inherit authentication from the containing collection/folder context. */
+export interface HttpInheritedAuth {
+  /** Authentication discriminator. */ type: 'inherit';
+}
+
+/** HTTP Bearer token authentication. */
+export interface HttpBearerAuth {
+  /** Authentication discriminator. */ type: 'bearer';
+  /** Bearer token sent in the Authorization header. */ token: string;
+}
+
+/** HTTP Basic authentication credentials. */
+export interface HttpBasicAuth {
+  /** Authentication discriminator. */ type: 'basic';
+  /** Basic-auth username. */ username: string;
+  /** Basic-auth password. */ password: string;
+}
+
+/** API-key authentication configuration. */
+export interface HttpApiKeyAuth {
+  /** Authentication discriminator. */ type: 'apiKey';
+  /** Header/query/cookie name used for the API key. */ key: string;
+  /** API-key value. */ value: string;
+  /** Request location where the API key is applied. */ in: 'header' | 'query' | 'cookie';
+}
+
 /** HTTP Digest authentication credentials. */
 export interface HttpDigestAuth {
   /** Authentication discriminator. */ type: 'digest';
@@ -115,12 +146,12 @@ export interface HttpOAuth2Auth {
 
 /** Authentication mode attached to an arbitrary API Client request. */
 export type HttpAuth =
-  | { type: 'none' }
-  | { type: 'inherit' }
-  | { type: 'bearer'; token: string }
+  | HttpNoAuth
+  | HttpInheritedAuth
+  | HttpBearerAuth
   | HttpOAuth2Auth
-  | { type: 'basic'; username: string; password: string }
-  | { type: 'apiKey'; key: string; value: string; in: 'header' | 'query' | 'cookie' }
+  | HttpBasicAuth
+  | HttpApiKeyAuth
   | HttpDigestAuth
   | HttpHawkAuth
   | HttpNtlmAuth

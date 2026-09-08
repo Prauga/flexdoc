@@ -25,9 +25,12 @@ import { FlexDoc } from '@prauga/flexdoc-client';
 `FlexDocProps` accepts:
 
 - `spec`: the parsed `OpenAPISpec`;
-- `theme`: the host default, `light` or `dark`;
+- `theme`: the host/default theme, `light` or `dark`;
+- `manageTheme`: whether FlexDoc owns and persists viewer theme overrides. It defaults to `true`; set it to `false` when the embedding application owns theme state, making `theme` authoritative and hiding only the viewer-theme selector;
 - `customStyles`: styles applied to the renderer root;
 - `options`: `FlexDocRendererOptions`, including theme, navigation, Try It, code-sample, localization, and Runtime Intelligence settings.
+
+With the default `manageTheme={true}`, a persisted viewer theme can override the `theme` prop. With `manageTheme={false}`, FlexDoc does not apply or write a viewer theme override, but other viewer preferences such as expansion settings remain available.
 
 ### `ApiClient` and `ApiClientWorkspace`
 
@@ -39,10 +42,10 @@ import { ApiClientWorkspace } from '@prauga/flexdoc-client';
 <ApiClientWorkspace
   persistenceKey="pets-api"
   initialRequest={{ method: 'GET', url: '{{baseUrl}}/pets' }}
-/>;
+/>
 ```
 
-Set `persistenceKey={false}` to disable IndexedDB persistence. Request credentials and scripts are stored as entered and are not encrypted.
+Set `persistenceKey={false}` to disable IndexedDB persistence. Request credentials and scripts are stored as entered and are not encrypted. `ApiClientWorkspace` follows the same theme-ownership convention as `FlexDoc`: `manageTheme` defaults to `true`, while `manageTheme={false}` leaves the supplied theme under host control. FlexDoc's embedded API Client uses externally managed theme mode so the surrounding documentation renderer remains the single owner.
 
 ### OpenAPI and request utilities
 

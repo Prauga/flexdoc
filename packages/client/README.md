@@ -23,6 +23,16 @@ function ApiDocumentation() {
 }
 ```
 
+### Theme ownership
+
+`FlexDoc` manages and persists viewer theme overrides by default. If your application owns theme state, set `manageTheme={false}` so the supplied `theme` remains authoritative and the viewer-theme selector is hidden. Other viewer preferences, such as default expansion settings, remain available.
+
+```jsx
+<FlexDoc spec={myOpenApiSpec} theme={appTheme} manageTheme={false} />
+```
+
+`ApiClientWorkspace` follows the same `manageTheme` convention. When API Client is opened from inside `FlexDoc`, the outer renderer owns theme state and the embedded workspace runs with external theme management.
+
 ### Standalone API Client
 
 `ApiClient` is the low-level request editor and executor. It can execute arbitrary HTTP requests without requiring an OpenAPI document and uses the same canonical request shape as FlexDoc's OpenAPI request builder and code-sample generator.
@@ -163,11 +173,12 @@ function ApiDocumentation() {
 
 ## Props
 
-| Prop           | Type                  | Default   | Description                                    |
-| -------------- | --------------------- | --------- | ---------------------------------------------- |
-| `spec`         | `OpenAPISpec`         | Required  | The OpenAPI specification object               |
-| `theme`        | `'light' \| 'dark'`   | `'light'` | The theme to use for the documentation         |
-| `customStyles` | `React.CSSProperties` | `{}`      | Custom CSS styles to apply to the root element |
+| Prop           | Type                  | Default   | Description                                                                                           |
+| -------------- | --------------------- | --------- | ----------------------------------------------------------------------------------------------------- |
+| `spec`         | `OpenAPISpec`         | Required  | The OpenAPI specification object                                                                      |
+| `theme`        | `'light' \| 'dark'`   | `'light'` | Host/default theme; persisted viewer theme can override it while `manageTheme` is enabled              |
+| `manageTheme`  | `boolean`             | `true`    | Let FlexDoc own/persist viewer theme overrides; set `false` when the embedding application owns theme |
+| `customStyles` | `React.CSSProperties` | `{}`      | Custom CSS styles to apply to the root element                                                        |
 
 ## Development
 

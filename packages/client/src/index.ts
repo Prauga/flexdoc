@@ -22,7 +22,45 @@ export { App as ApiDocsDemo } from './App';
 export type { AppProps } from './App';
 export type { OpenAPISpec } from './types/openapi';
 export type { FlexDocProps } from './components/FlexDoc';
-export type { ExpandOption, ExpandPreset, ExpandSection, FlexDocRendererOptions, ThemeConfig, LogoOptions, FlexDocRuntimeIntelligencePublicOptions, FlexDocRuntimeIntelligenceSnapshot, FlexDocRuntimeRoute } from './types/options';
+export type {
+  ExpandOption,
+  ExpandPreset,
+  ExpandSection,
+  FlexDocCodeSampleLanguage,
+  FlexDocCodeSampleOptions,
+  FlexDocFooterLink,
+  FlexDocFooterOptions,
+  FlexDocHostExecutionCapability,
+  FlexDocHostExecutionCertificateChoice,
+  FlexDocHostExecutionPublicOptions,
+  FlexDocInterceptedRequest,
+  FlexDocMessages,
+  FlexDocRendererOptions,
+  FlexDocRuntimeEnvironmentMetadata,
+  FlexDocRuntimeIntelligencePublicOptions,
+  FlexDocRuntimeIntelligenceSnapshot,
+  FlexDocRuntimeIntelligenceSummary,
+  FlexDocRuntimeMetadata,
+  FlexDocRuntimeRoute,
+  FlexDocRuntimeServerMetadata,
+  FlexDocTagGroup,
+  FlexDocTryItOptions,
+  FlexDocViewerTheme,
+  LogoOptions,
+  LogoPaddingOptions,
+  ThemeBorderColors,
+  ThemeCodeTypography,
+  ThemeColorVariants,
+  ThemeColors,
+  ThemeConfig,
+  ThemeGrayColors,
+  ThemeHeadingTypography,
+  ThemeMethodColors,
+  ThemeSidebar,
+  ThemeSidebarGroupItems,
+  ThemeTextColors,
+  ThemeTypography,
+} from './types/options';
 export { OpenAPIParser } from './utils/openapi-parser';
 export { bundleExternalReferences, EXTERNAL_DOCUMENTS_KEY } from './utils/openapi-resolver';
 export type { BundleOptions, DocumentLoader } from './utils/openapi-resolver';
@@ -37,7 +75,32 @@ export { executeApiClientRequest } from './utils/api-client-execution';
 export { apiClientCollectionRunName, apiClientCollectionRunRequests, runApiClientCollection } from './utils/api-client-runner';
 export type { ApiClientCollectionRunItem, ApiClientCollectionRunResult, RunApiClientCollectionOptions } from './utils/api-client-runner';
 export type { ApiClientExecutionOutcome, ApiClientExecutionResponse, ExecuteApiClientRequestOptions } from './utils/api-client-execution';
-export type { HttpAuth, HttpBinaryBody, HttpBodyMode, HttpFormDataEntry, HttpGraphqlBody, HttpKeyValue, HttpRequestBuildOptions, HttpRequestDraft, HttpVariables } from './utils/http-client';
+export type {
+  HttpApiKeyAuth,
+  HttpAuth,
+  HttpAwsV4Auth,
+  HttpBasicAuth,
+  HttpBearerAuth,
+  HttpBinaryBody,
+  HttpBodyMode,
+  HttpBuiltRequest,
+  HttpDigestAuth,
+  HttpFormDataEntry,
+  HttpGraphqlBody,
+  HttpHawkAuth,
+  HttpHostExecutionCapability,
+  HttpHostExecutionSelection,
+  HttpInheritedAuth,
+  HttpKeyValue,
+  HttpNoAuth,
+  HttpNtlmAuth,
+  HttpOAuth1Auth,
+  HttpOAuth2Auth,
+  HttpOAuth2GrantType,
+  HttpRequestBuildOptions,
+  HttpRequestDraft,
+  HttpVariables,
+} from './utils/http-client';
 export { cloneApiClientScripts, EMPTY_API_CLIENT_SCRIPTS, runApiClientScript } from './utils/api-client-scripting';
 export { API_CLIENT_SCRIPT_COMPLETION_PATHS, apiClientScriptCompletionsAtPosition, apiClientScriptMemberCompletions, apiClientScriptVariableKeyCompletions } from './utils/api-client-script-intellisense';
 export type { ApiClientScriptCompletionContext, ApiClientScriptCompletionItem, ApiClientScriptCompletionKind, ApiClientScriptPhase, ApiClientScriptVariableKeys } from './utils/api-client-script-intellisense';

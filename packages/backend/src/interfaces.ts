@@ -1,8 +1,14 @@
+/** Separate vertical/horizontal padding values for a renderer logo container. */
+export interface LogoPaddingOptions {
+  /** Vertical CSS padding. Numeric values are interpreted as pixels. */ vertical?: string | number;
+  /** Horizontal CSS padding. Numeric values are interpreted as pixels. */ horizontal?: string | number;
+}
+
 /** Logo customization options passed from backend hosts to the canonical renderer. */
 export interface LogoOptions {
   /** Image URL loaded for the documentation logo. */ url: string;
   /** Background color applied to the logo container. */ backgroundColor?: string;
-  /** CSS padding for the logo container, or separate vertical/horizontal values. */ padding?: string | { vertical?: string | number; horizontal?: string | number };
+  /** CSS padding for the logo container, or separate vertical/horizontal values. */ padding?: string | LogoPaddingOptions;
   /** Maximum rendered logo height. Numeric values are interpreted as pixels. */ maxHeight?: string | number;
   /** Maximum rendered logo width. Numeric values are interpreted as pixels. */ maxWidth?: string | number;
   /** Alternative text used by the logo image. */ alt?: string;
@@ -10,14 +16,55 @@ export interface LogoOptions {
   /** Whether the logo behaves as a navigation control when a destination is available. */ clickable?: boolean;
 }
 
+/** Main/light/dark variants for one semantic renderer color. */
+export interface ThemeColorVariants {
+  /** Default color value. */ main?: string;
+  /** Lighter color variant. */ light?: string;
+  /** Darker color variant. */ dark?: string;
+}
+
+/** Renderer text-color tokens. */
+export interface ThemeTextColors {
+  /** Primary foreground text color. */ primary?: string;
+  /** Secondary/muted foreground text color. */ secondary?: string;
+}
+
+/** Neutral gray tokens used by renderer surfaces. */
+export interface ThemeGrayColors {
+  /** Very light neutral surface token. */ 50?: string;
+  /** Light neutral surface token. */ 100?: string;
+}
+
+/** Theme-aware renderer border colors. */
+export interface ThemeBorderColors {
+  /** Border color used by dark renderer surfaces. */ dark?: string;
+  /** Border color used by light renderer surfaces. */ light?: string;
+}
+
 /** Renderer color-token overrides accepted by backend integrations. */
 export interface ThemeColors {
-  /** Primary brand/accent color variants. */ primary?: { main?: string; light?: string; dark?: string };
-  /** Success-state color variants. */ success?: { main?: string; light?: string; dark?: string };
-  /** Error-state color variants. */ error?: { main?: string; light?: string; dark?: string };
-  /** Primary and secondary text colors. */ text?: { primary?: string; secondary?: string };
-  /** Neutral gray tokens used by light renderer surfaces. */ gray?: { 50?: string; 100?: string };
-  /** Border colors for dark and light themes. */ border?: { dark?: string; light?: string };
+  /** Primary brand/accent color variants. */ primary?: ThemeColorVariants;
+  /** Success-state color variants. */ success?: ThemeColorVariants;
+  /** Error-state color variants. */ error?: ThemeColorVariants;
+  /** Primary and secondary text colors. */ text?: ThemeTextColors;
+  /** Neutral gray tokens used by light renderer surfaces. */ gray?: ThemeGrayColors;
+  /** Border colors for dark and light themes. */ border?: ThemeBorderColors;
+}
+
+/** Heading typography overrides. */
+export interface ThemeHeadingTypography {
+  /** Font family used by headings. */ fontFamily?: string;
+  /** CSS font-weight value used by headings. */ fontWeight?: string;
+}
+
+/** Code block/editor typography and surface overrides. */
+export interface ThemeCodeTypography {
+  /** Code font size. */ fontSize?: string;
+  /** Code font family. */ fontFamily?: string;
+  /** Code line height. */ lineHeight?: string;
+  /** Code foreground color. */ color?: string;
+  /** Code background color. */ backgroundColor?: string;
+  /** Whether long code lines soft-wrap. */ wrap?: boolean;
 }
 
 /** Renderer typography-token overrides accepted by backend integrations. */
@@ -25,8 +72,13 @@ export interface ThemeTypography {
   /** Base renderer font size. */ fontSize?: string;
   /** Base renderer line height. */ lineHeight?: string;
   /** Base renderer font family. */ fontFamily?: string;
-  /** Heading-specific font overrides. */ headings?: { fontFamily?: string; fontWeight?: string };
-  /** Code block/editor typography and wrapping overrides. */ code?: { fontSize?: string; fontFamily?: string; lineHeight?: string; color?: string; backgroundColor?: string; wrap?: boolean };
+  /** Heading-specific font overrides. */ headings?: ThemeHeadingTypography;
+  /** Code block/editor typography and wrapping overrides. */ code?: ThemeCodeTypography;
+}
+
+/** Styling applied to grouped navigation labels. */
+export interface ThemeSidebarGroupItems {
+  /** CSS `text-transform` value applied to group labels. */ textTransform?: string;
 }
 
 /** Renderer sidebar-token overrides accepted by backend integrations. */
@@ -39,18 +91,24 @@ export interface ThemeSidebar {
   /** Active sidebar text color in dark mode. */ activeTextColorDark?: string;
   /** Sidebar border color in light mode. */ borderColor?: string;
   /** Sidebar border color in dark mode. */ borderColorDark?: string;
-  /** Styling applied to grouped navigation labels. */ groupItems?: { textTransform?: string };
+  /** Styling applied to grouped navigation labels. */ groupItems?: ThemeSidebarGroupItems;
+}
+
+/** Background/border colors for one HTTP-method badge. */
+export interface ThemeMethodColor {
+  /** Badge background color. */ bg?: string;
+  /** Badge border color. */ border?: string;
 }
 
 /** HTTP method badge color overrides. */
 export interface MethodColors {
-  /** GET badge colors. */ get?: { bg?: string; border?: string };
-  /** POST badge colors. */ post?: { bg?: string; border?: string };
-  /** PUT badge colors. */ put?: { bg?: string; border?: string };
-  /** DELETE badge colors. */ delete?: { bg?: string; border?: string };
-  /** PATCH badge colors. */ patch?: { bg?: string; border?: string };
-  /** OPTIONS badge colors. */ options?: { bg?: string; border?: string };
-  /** HEAD badge colors. */ head?: { bg?: string; border?: string };
+  /** GET badge colors. */ get?: ThemeMethodColor;
+  /** POST badge colors. */ post?: ThemeMethodColor;
+  /** PUT badge colors. */ put?: ThemeMethodColor;
+  /** DELETE badge colors. */ delete?: ThemeMethodColor;
+  /** PATCH badge colors. */ patch?: ThemeMethodColor;
+  /** OPTIONS badge colors. */ options?: ThemeMethodColor;
+  /** HEAD badge colors. */ head?: ThemeMethodColor;
 }
 
 /** Custom renderer theme tokens serialized by backend hosts. */
@@ -80,6 +138,12 @@ export interface FlexDocHostExecutionCertificate {
   /** Optional passphrase for the private key. */ passphrase?: string;
 }
 
+/** Safe server-side certificate choice serialized to the renderer. */
+export interface FlexDocHostExecutionCertificateChoice {
+  /** Stable certificate identifier sent back when selected. */ id: string;
+  /** Human-readable certificate name displayed in API Client. */ name: string;
+}
+
 /** Normalized outbound request supplied to a host-execution interceptor. */
 export interface FlexDocHostExecutionRequest {
   /** Uppercase HTTP method. */ method: string;
@@ -101,7 +165,7 @@ export interface FlexDocHostExecutionPublicOptions {
   /** Whether the host-execution endpoint is currently available. */ available: boolean;
   /** Same-origin endpoint accepting execution requests. */ endpoint: string;
   /** Capabilities implemented by the backend host. */ capabilities: FlexDocHostExecutionCapability[];
-  /** Safe certificate ids/names; certificate and key material are never serialized. */ clientCertificates?: Array<{ id: string; name: string }>;
+  /** Safe certificate ids/names; certificate and key material are never serialized. */ clientCertificates?: FlexDocHostExecutionCertificateChoice[];
   /** Same-origin endpoint used to inspect or clear the host-side cookie jar. */ cookiesEndpoint?: string;
 }
 
@@ -117,6 +181,49 @@ export interface FlexDocRuntimeIntelligencePublicOptions {
   /** Backend framework identifier expected in snapshots. */ framework: string;
 }
 
+/** One explicit navigation tag group. */
+export interface FlexDocTagGroup {
+  /** Group name displayed in navigation. */ name: string;
+  /** Ordered OpenAPI tag names included in the group. */ tags: string[];
+}
+
+/** Server-only authentication configuration protecting the FlexDoc route subtree. */
+export interface FlexDocDocumentationAuthOptions {
+  /** Authentication mode enforced on FlexDoc documentation/runtime/host routes. */ type: 'basic' | 'bearer';
+  /** Server-only secret used to validate or derive documentation credentials. */ secretKey: string;
+}
+
+/** Try It behavior configured by a backend integration. */
+export interface FlexDocTryItOptions {
+  /** Enable operation-level Try It controls. */ enabled?: boolean;
+  /** Default server URL selected for requests. */ defaultServer?: string;
+  /** Browser Fetch credentials mode used for direct requests. */ credentials?: 'omit' | 'same-origin' | 'include';
+  /** IndexedDB workspace key used by API Client, or `false` to disable persistence. */ apiClientPersistenceKey?: string | false;
+  /** Explicit opt-in for API-host execution. Server-only; secrets are never serialized. */ hostExecution?: boolean | FlexDocHostExecutionOptions;
+}
+
+/** Language identifiers accepted by renderer code-sample configuration. */
+export type FlexDocCodeSampleLanguage = 'curl' | 'javascript' | 'python' | 'go' | 'java';
+
+/** Generated code-sample configuration. */
+export interface FlexDocCodeSampleOptions {
+  /** Enable generated request code samples. */ enabled?: boolean;
+  /** Ordered languages shown in code-sample tabs. */ languages?: FlexDocCodeSampleLanguage[];
+}
+
+/** One footer navigation link. */
+export interface FlexDocFooterLink {
+  /** Link text displayed in the footer. */ text: string;
+  /** Destination URL. */ url: string;
+  /** Optional icon identifier understood by the renderer. */ icon?: string;
+}
+
+/** Footer content rendered below documentation. */
+export interface FlexDocFooterOptions {
+  /** Copyright/legal text shown in the footer. */ copyright?: string;
+  /** Footer links displayed in their configured order. */ link?: FlexDocFooterLink[];
+}
+
 /** Renderer and Try It options passed to backend integrations. */
 export interface FlexDocOptions {
   /** Renderer-host contract version. FlexDoc 3.x currently uses contract `1`. */ contractVersion?: '1';
@@ -124,7 +231,7 @@ export interface FlexDocOptions {
   /** Primary API description overriding the OpenAPI description when supplied. */ description?: string;
   /** Alternate/secondary description supported by renderer hosts. */ altDescription?: string;
   /** Version text overriding the OpenAPI API version in renderer chrome. */ version?: string;
-  /** Explicit navigation tag groups and their ordered tag names. */ tagGroups?: { name: string; tags: string[] }[];
+  /** Explicit navigation tag groups and their ordered tag names. */ tagGroups?: FlexDocTagGroup[];
   /** Light/dark preset or custom renderer theme tokens. */ theme?: 'light' | 'dark' | ThemeConfig;
   /** Raw CSS appended to renderer styling. */ customCss?: string;
   /** Raw JavaScript executed by the standalone renderer host. */ customJs?: string;
@@ -149,31 +256,11 @@ export interface FlexDocOptions {
   /** Scroll offset applied when navigating to anchored content. */ scrollYOffset?: number | string;
   /** Suppress renderer warning messages intended for authors. */ suppressWarnings?: boolean;
   /** Preferred zero-based payload sample index when multiple examples exist. */ payloadSampleIdx?: number;
-  /** Protect the documentation route itself. This is server-only and is never exposed to the renderer. */
-  auth?: {
-    /** Authentication mode enforced on FlexDoc documentation/runtime/host routes. */ type: 'basic' | 'bearer';
-    /** Server-only secret used to validate or derive documentation credentials. */ secretKey: string;
-  };
-  /** Explicit opt-in to expose backend runtime route topology and presence drift under the docs auth boundary. */
-  runtimeIntelligence?: boolean | FlexDocRuntimeIntelligenceOptions;
-  /** Try It and sibling API Client behavior. */
-  tryIt?: {
-    /** Enable operation-level Try It controls. */ enabled?: boolean;
-    /** Default server URL selected for requests. */ defaultServer?: string;
-    /** Browser Fetch credentials mode used for direct requests. */ credentials?: 'omit' | 'same-origin' | 'include';
-    /** IndexedDB workspace key used by API Client, or `false` to disable persistence. */ apiClientPersistenceKey?: string | false;
-    /** Explicit opt-in for API-host execution. Server-only; secrets are never serialized. */ hostExecution?: boolean | FlexDocHostExecutionOptions;
-  };
-  /** Generated code-sample configuration. */
-  codeSamples?: {
-    /** Enable generated request code samples. */ enabled?: boolean;
-    /** Ordered languages shown in code-sample tabs. */ languages?: Array<'curl' | 'javascript' | 'python' | 'go' | 'java'>;
-  };
-  /** Footer content rendered below documentation. */
-  footer?: {
-    /** Copyright/legal text shown in the footer. */ copyright?: string;
-    /** Footer links with optional icon identifiers. */ link?: Array<{ text: string; url: string; icon?: string }>;
-  };
+  /** Protect the documentation route itself. This is server-only and is never exposed to the renderer. */ auth?: FlexDocDocumentationAuthOptions;
+  /** Explicit opt-in to expose backend runtime route topology and presence drift under the docs auth boundary. */ runtimeIntelligence?: boolean | FlexDocRuntimeIntelligenceOptions;
+  /** Try It and sibling API Client behavior. */ tryIt?: FlexDocTryItOptions;
+  /** Generated code-sample configuration. */ codeSamples?: FlexDocCodeSampleOptions;
+  /** Footer content rendered below documentation. */ footer?: FlexDocFooterOptions;
 }
 
 /** Mount options for FlexDoc backend integrations. */
