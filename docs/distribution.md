@@ -24,7 +24,7 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 
 The table describes the versions encoded by the current source tree. A new source version is not considered published merely because it appears here; publication still requires its matching release workflow to complete successfully.
 
-Versions are intentionally independent across ecosystems. The coordinated JavaScript product line is prepared for stable `3.1.0`. Contract Validation changes the Node backend, canonical renderer, and CLI while the native adapters continue to carry their compatible Runtime Intelligence/renderer boundary; renderer-consuming native packages therefore receive independent patch increments so their packaged renderer matches the 3.1 source tree. `@prauga/flexdoc-core` remains `0.5.0` because this release does not change its framework-neutral engine contract. The renderer contract, not matching package numbers, remains the cross-ecosystem compatibility boundary.
+Versions are intentionally independent across ecosystems. The coordinated JavaScript product line is published at `3.1.0`. Contract Validation changed the Node backend, canonical renderer, and CLI while renderer-consuming native packages received independent patch increments so their packaged renderer matches the 3.1 line. The 3.2 source milestone adds the headless Runner without pretending those source changes are already a new published package version. `@prauga/flexdoc-core` remains `0.5.0` because the framework-neutral engine contract is unchanged. The renderer contract, not matching package numbers, remains the cross-ecosystem compatibility boundary.
 
 ## Self-contained adapter artifacts
 
@@ -63,7 +63,7 @@ Before the first publish, configure a NuGet.org Trusted Publishing policy for re
 
 ## Maven Central
 
-The FlexDoc Java family is prepared together at `0.8.1` for the 3.1 renderer release:
+The FlexDoc Java family is published together at `0.8.1` for the 3.1 renderer release:
 
 ```text
 com.prauga.flexdoc:flexdoc-jvm:0.8.1

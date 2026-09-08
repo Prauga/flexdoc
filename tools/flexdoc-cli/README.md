@@ -1,6 +1,6 @@
 # @prauga/flexdoc-cli
 
-The FlexDoc CLI builds and serves self-contained OpenAPI documentation and consumes backend-produced FlexDoc 3.1 Contract Validation in local or CI workflows.
+The FlexDoc CLI builds and serves self-contained OpenAPI documentation, consumes backend-produced FlexDoc Contract Validation, and runs portable API Client artifacts headlessly for local or CI workflows.
 
 ## Commands
 
@@ -42,7 +42,7 @@ A small `.flexdoc-generated` marker is also written so later FlexDoc builds can 
 npx @prauga/flexdoc-cli validate http://127.0.0.1:3000/docs/__flexdoc/runtime
 ```
 
-`validate` consumes the structured `validation` object produced by a Node FlexDoc 3.1 Runtime Intelligence endpoint. It does **not** reimplement contract comparison in the CLI; the installed backend remains authoritative.
+`validate` consumes the structured `validation` object produced by a FlexDoc Runtime Intelligence endpoint. It does **not** reimplement contract comparison in the CLI; the installed backend remains authoritative.
 
 Machine-readable output:
 
@@ -79,7 +79,99 @@ flexdoc validate "$FLEXDOC_RUNTIME_URL" --fail-on info
 
 Accepted values are `error`, `warning`, and `info`. `--fail-on error` is equivalent to the default policy.
 
-The current 3.1 validation-producing hosts are the Node backend integrations: Express, Fastify, Hono, and NestJS on its supported Express/Fastify adapters. FastAPI, ASP.NET Core, and Spring continue to emit compatible Runtime Intelligence route snapshots in this cut, but do not yet emit the 3.1 `validation` object; `flexdoc validate` intentionally fails rather than inventing a second validator for those snapshots.
+The current validation-producing hosts are the Node backend integrations: Express, Fastify, Hono, and NestJS on its supported Express/Fastify adapters. FastAPI, ASP.NET Core, and Spring continue to emit compatible Runtime Intelligence route snapshots but do not yet emit the operation-level `validation` object; `flexdoc validate` intentionally fails rather than inventing a second validator for those snapshots.
+
+### `run`
+
+Export a saved request, folder, or collection from the API Client workspace, then execute that artifact outside the browser:
+
+```bash
+flexdoc run ./pets.flexdoc.json
+```
+
+The artifact is not a second Runner-specific request model. It is a versioned, history-free snapshot of the canonical FlexDoc collection/folder/request/auth/script/environment entities. Request ordering therefore remains the same saved-request ordering used by the workspace Runner.
+
+Machine-readable CI output:
+
+```bash
+flexdoc run ./pets.flexdoc.json --json
+```
+
+Write the same JSON report to a file while keeping normal terminal output:
+
+```bash
+flexdoc run ./pets.flexdoc.json --report ./artifacts/flexdoc-run.json
+```
+
+Stop after the first runner failure:
+
+```bash
+flexdoc run ./pets.flexdoc.json --stop-on-failure
+```
+
+Runner pass/fail follows the existing API Client rules. A transport error, script error, or failed `flex.test(...)` assertion fails an item. HTTP status alone does not, so a request that intentionally expects a `404` can pass when its tests pass. A pre-request script failure does not execute transport and does not invent an HTTP result.
+
+#### Direct versus host execution
+
+Without `--host`, requests execute directly from the CLI using the same request builder and `flex.*` scripting runtime as the workspace:
+
+```bash
+flexdoc run ./pets.flexdoc.json
+```
+
+With `--host`, the CLI first reads the **existing** public host-execution advertisement from the FlexDoc documentation page:
+
+```bash
+flexdoc run ./pets.flexdoc.json \
+  --host https://api.example.com/docs
+```
+
+The CLI does not create another execute route or protocol. When a request already requires a host capability such as Digest/Hawk/OAuth 1/AWS SigV4/client-certificate/cookie-jar execution, the canonical executor sends the fully resolved draft to the advertised existing `__flexdoc/execute` endpoint. Ordinary requests remain direct; private/VPC force-host expansion is later backend-execution work rather than a hidden 3.2 behavior change.
+
+Scripts run in the CLI process in 3.2. Variable resolution, pre-request scripts, inherited auth, transport, response tests, collection/environment mutations, stop-on-failure, and cancellation therefore keep the same ordering as the workspace Runner. Moving script execution into a backend host would require a new host protocol capability and is not part of this command.
+
+#### Authenticating to protected FlexDoc hosts
+
+`run --host` reuses the same authentication story as `validate`:
+
+```bash
+flexdoc run ./pets.flexdoc.json \
+  --host "$FLEXDOC_DOCS_URL" \
+  --header "X-CI-Run:$GITHUB_RUN_ID" \
+  --bearer "$FLEXDOC_TOKEN"
+
+flexdoc run ./pets.flexdoc.json \
+  --host "$FLEXDOC_DOCS_URL" \
+  --basic "$FLEXDOC_BASIC_CREDENTIALS"
+```
+
+These credentials authenticate only the FlexDoc documentation page and its advertised execution endpoint. They are deliberately **not** copied onto direct target API requests. API authorization remains part of the exported canonical request/collection/folder/environment model.
+
+#### JSON report
+
+The report is intentionally smaller than persisted workspace history. It contains:
+
+- artifact/run identity and scope;
+- run start/end/duration and aggregate pass/fail/cancel counts;
+- request id/name and collection/folder identity;
+- actual executor (`direct`, `host`, or `null` when transport never ran);
+- HTTP status/status text and response timing when available;
+- `flex.test(...)` results;
+- transport and script errors.
+
+Response bodies and response headers are not copied into the machine report. The report is for CI outcome/evidence, not a second response-history store.
+
+Exit codes:
+
+```text
+0    run passed
+1    one or more items failed / run stopped on failure
+130  run was interrupted/cancelled
+```
+
+Portable artifacts currently reject in-memory multipart/binary `File` payloads rather than silently serializing unusable browser objects. Defining portable file payload encoding is separate from the request-model contract and must remain explicit.
+
+3.2 deliberately does **not** add CSV/JSON iteration data, concurrency, drag reordering, Newman compatibility, native execute implementations, private-network policy changes, or a second `__flexdoc/execute` endpoint.
 
 ## Inputs
 
@@ -91,6 +183,8 @@ The current 3.1 validation-producing hosts are the Node backend integrations: Ex
 External `$ref` documents are bundled into `openapi.json` during `build`/`serve`, including schema-only JSON/YAML files and nested external references. A deployed static export therefore does not need the original external spec files at runtime.
 
 `validate` accepts an absolute `http://` or `https://` Runtime Intelligence endpoint URL.
+
+`run` accepts a local FlexDoc Runner JSON artifact exported from the canonical API Client workspace.
 
 ## Options
 
@@ -121,6 +215,18 @@ External `$ref` documents are bundled into `openapi.json` during `build`/`serve`
 --bearer <token>           Send a Bearer Authorization header
 --basic <user:password>    Send HTTP Basic authorization
 --fail-on <level>          error | warning | info (default: error)
+```
+
+### `run`
+
+```text
+--host <docs-url>          Read the existing host-execution advertisement from this FlexDoc page
+--header <name:value>      Add a docs-host header; repeatable (requires --host)
+--bearer <token>           Bearer auth for docs/execute host (requires --host)
+--basic <user:password>    Basic auth for docs/execute host (requires --host)
+--stop-on-failure          Stop after the first failed request
+--json                     Print the machine-readable run report
+--report <file>            Write the JSON run report to a file
 ```
 
 ## Static deployment examples

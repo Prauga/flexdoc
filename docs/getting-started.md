@@ -79,19 +79,22 @@ await app.listen(3000);
 
 Use `setupFastifyFlexDoc` or `setupHonoFlexDoc` with the same path, document source, and renderer options as the Express helper. `setupFastifySwaggerFlexDoc` takes the same path and renderer options, but derives its document from `@fastify/swagger` and does not accept `spec` or `specUrl`.
 
-## CLI: build, serve, and validate
+## CLI: build, serve, validate, and run
 
 ```bash
 npx @prauga/flexdoc-cli serve openapi.yaml --watch
 npx @prauga/flexdoc-cli build openapi.yaml --out ./public
 npx @prauga/flexdoc-cli validate http://127.0.0.1:3000/docs/__flexdoc/runtime
+
+# 3.2 source milestone; package version advances during release preparation
+node tools/flexdoc-cli/bin/flexdoc.js run ./pets.flexdoc.json --json
 ```
 
 `build` and `serve` bundle external references and the version-matched renderer; static output requires no FlexDoc service or runtime CDN.
 
-`validate` consumes the Node backend's structured 3.1 validation result. It does not execute requests or collections and is not the future headless Runner. Use `--json` for machine-readable output. Protected Runtime Intelligence endpoints can use repeatable `--header <name:value>`, `--bearer <token>`, or `--basic <user:password>`.
+`validate` consumes the Node backend's structured 3.1 validation result and remains contract-only; it does not execute requests or collections. FlexDoc 3.2 adds `flexdoc run <artifact.flexdoc.json>` for portable request/folder/collection execution with the existing scripts, tests, environments, and host-execution contract. The Runner is complete in source on this milestone and remains a source command until 3.2 release preparation updates the published package line; see [Headless Runner](./headless-runner.md). Use `--json` for machine-readable output. Protected Runtime Intelligence/docs-host endpoints can use repeatable `--header <name:value>`, `--bearer <token>`, or `--basic <user:password>`.
 
-The default CI policy exits `1` only when the backend status is `fail` (or the endpoint/payload is invalid). Use `--fail-on warning` to fail for errors or warnings, or `--fail-on info` to fail on any finding.
+For `validate`, the default CI policy exits `1` only when the backend status is `fail` (or the endpoint/payload is invalid); use `--fail-on warning` or `--fail-on info` for stricter validation gates. `run` instead uses `0` when all selected items pass, `1` for failed runs, and `130` for interrupted/cancelled runs.
 
 FastAPI, ASP.NET Core, and Spring continue to provide route-level Runtime Intelligence in this 3.1 cut but do not yet emit the structured `validation` object required by `flexdoc validate`.
 
@@ -106,4 +109,5 @@ FlexDoc ships native packages for ASP.NET Core, JVM/Jakarta REST/Spring, Python 
 - [Theming](./theming.md)
 - [Runtime Intelligence](./runtime-intelligence.md)
 - [API-host execution](./host-execution.md)
+- [Headless Runner](./headless-runner.md)
 - [OpenAPI compatibility](./openapi-compatibility.md)
