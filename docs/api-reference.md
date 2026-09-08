@@ -1,6 +1,6 @@
 # FlexDoc public API reference
 
-This reference describes the supported entry points shipped by the FlexDoc 3.0 source tree. Package declarations and native source comments are the authoritative signature reference; configuration behavior is detailed in [Configuration](./configuration.md).
+This reference describes the supported entry points shipped by the FlexDoc 3.1 source tree. Package declarations and native source comments are the authoritative signature reference; configuration behavior is detailed in [Configuration](./configuration.md).
 
 ## Browser client
 
@@ -87,7 +87,7 @@ Supported setup entry points are:
 - `setupHonoFlexDoc`;
 - NestJS `FlexDocModule.forRoot(...)` and `FlexDocModule.forRootAsync(...)`.
 
-Runtime Intelligence helpers and host-execution primitives are exported for adapter authors. Applications should normally use the framework setup functions instead of calling those low-level primitives directly.
+Runtime Intelligence helpers, `validateRuntimeContract`, Contract Validation result/finding/status types, and host-execution primitives are exported for adapter authors. Applications should normally use the framework setup functions instead of calling those low-level primitives directly. Node Express, Fastify, Hono, and NestJS Runtime Intelligence snapshots produce the 3.1 `validation` object; duplicate-registration findings are a verified product claim for Express/Nest-on-Express and Hono, not Fastify in this cut.
 
 Documentation authentication is configured through `options.auth`. Host execution and Runtime Intelligence are separate, explicit opt-ins. Server-only secrets are not serialized into renderer options.
 
@@ -108,14 +108,19 @@ It does not render UI or perform network requests.
 
 ## CLI
 
-`@prauga/flexdoc-cli` exposes `flexdoc serve` and `flexdoc build`.
+`@prauga/flexdoc-cli` exposes `flexdoc build`, `flexdoc serve`, and the 3.1 `flexdoc validate` Contract Validation consumer.
 
 ```bash
 flexdoc serve openapi.yaml --watch
 flexdoc build openapi.yaml --out ./docs --base-path /reference/
+flexdoc validate http://127.0.0.1:3000/docs/__flexdoc/runtime
 ```
 
-Both commands accept local JSON/YAML documents or HTTP(S) URLs and bundle external references. Static output contains the version-matched canonical renderer and requires no runtime CDN.
+`build` and `serve` accept local JSON/YAML documents or HTTP(S) URLs and bundle external references. Static output contains the version-matched canonical renderer and requires no runtime CDN.
+
+`validate` requires a backend snapshot containing the 3.1 `validation` object and does not re-run validation client-side. It accepts `--json`, repeatable `--header <name:value>`, `--bearer <token>`, `--basic <user:password>`, and `--fail-on error|warning|info`. The default policy exits `1` only when backend status is `fail`; `--fail-on warning` and `--fail-on info` make CI stricter.
+
+The CLI and renderer both reject inconsistent validation status/summary/finding combinations. FastAPI, ASP.NET Core, and Spring snapshots do not yet contain `validation`, so the CLI intentionally rejects them rather than creating a second source of truth.
 
 ## Native adapters
 
@@ -133,7 +138,7 @@ Native packages expose one configuration type and one or more framework mount he
 - Elixir: `PraugaFlexDoc.Config` and `PraugaFlexDoc.Plug`;
 - Go: `Config`, `Handler`, `HandlerFromOpenAPI`, and `HandlerWithAssets`.
 
-Renderer contract v1 is the compatibility boundary between the canonical browser client and native hosts. Package version numbers remain independent across ecosystems.
+Renderer contract v1 is the compatibility boundary between the canonical browser client and native hosts. Package version numbers remain independent across ecosystems. FastAPI, ASP.NET Core, and Spring continue to expose 3.0-compatible Runtime Intelligence route snapshots in this 3.1 cut; structured Contract Validation production is currently a Node backend capability.
 
 ## Version and publication status
 

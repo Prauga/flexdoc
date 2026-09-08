@@ -20,6 +20,7 @@ Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and 
 | **2.9.5** | REST workspace parity hardening plus capability-gated Node API-host execution for browser-impossible request features | shipped |
 | **2.9.9** | measured performance baseline, production delivery hardening, host-page caching/revalidation, and regression budgets before Runtime Intelligence | shipped |
 | **3.0.0** | Runtime Intelligence plus renderer/API Client product-quality completion | release prepared |
+| **3.1** | operation-level backend Contract Validation plus renderer/CLI consumption | in progress |
 
 Viewer expansion defaults/settings and renderer-option parity landed before the 2.8 release and are included in the 2.8 product surface.
 
@@ -122,7 +123,7 @@ If the answer is yes, the feature may still be useful, but it does not receive t
 | Milestone | Direction | Core outcome |
 | --- | --- | --- |
 | **3.0 — Runtime Intelligence** | understand the running service | live route discovery and OpenAPI ↔ implementation drift across Node (Express/Fastify/NestJS/Hono), FastAPI, ASP.NET Core, and Spring MVC; safe runtime/server/environment context; Go framework packaging remains an explicit follow-on |
-| **3.1 — Contract Validation** | turn runtime knowledge into enforcement | spec-vs-implementation validation, undocumented/missing routes, method/path/schema mismatches, breaking drift, and CI/development feedback |
+| **3.1 — Contract Validation** | turn runtime knowledge into actionable contract feedback | backend-produced operation drift findings, derived statuses, renderer navigation, and CI consumption; schema/response and live-traffic breaking-drift policy remain later work |
 | **3.2 — FlexDoc Runner** | take the canonical API execution model headless | collection/folder execution outside the browser, CI execution, machine-readable reports, and the same request/script semantics as the embedded client |
 | **3.3 — Backend Execution Expansion** | expand execution from the service/network context | carry the 2.9.5 controlled Node executor across relevant adapters, deepen internal/VPC/private-endpoint workflows, remove remaining browser-only constraints, and reuse backend-known runtime/environment context safely |
 | **3.4 — Service Workbench** | evolve from API docs into a service workbench | runtime diagnostics, request/tracing context, framework-aware introspection, and deeper service debugging surfaces |
@@ -148,9 +149,27 @@ Implemented in this slice:
 
 Go framework discovery remains a deliberate follow-on. The existing Go adapter is neutral around `net/http`, while Gin, Chi, Echo, and Fiber expose different router-introspection APIs. Importing all four into the neutral module would change its dependency/toolchain contract; independently versioned nested modules create their own release/tag boundary. FlexDoc will define that package boundary explicitly instead of using reflection or advertising route inventory it cannot guarantee.
 
-3.0 discovery reports what the backend knows and basic route-presence drift. It does not reject requests or fail CI. Schema/response contract mismatches, breaking-drift policy, and enforcement remain 3.1 Contract Validation.
+3.0 discovery reports what the backend knows and basic route-presence drift. 3.1 builds on that foundation with a narrow backend-produced operation-level validation result and a renderer/CLI consumer.
 
-See [`runtime-intelligence.md`](./runtime-intelligence.md) for framework-specific discovery, security, safe-context, and completeness semantics.
+See [`runtime-intelligence.md`](./runtime-intelligence.md) for framework-specific discovery, security, safe-context, completeness semantics, and the 3.1 validation contract.
+
+## 3.1 Contract Validation
+
+The current 3.1 slice deliberately keeps the backend-native moat narrow and truthful. Node Express, Fastify, Hono, and NestJS integrations produce one structured `validation` object that the renderer and CLI both consume. FastAPI, ASP.NET Core, and Spring keep their compatible route-presence Runtime Intelligence snapshots but do not yet produce `validation`.
+
+Implemented in this slice:
+
+- four stable finding codes: `runtime.operation-undocumented`, `runtime.operation-unobserved`, `runtime.method-mismatch`, and `runtime.duplicate-operation`;
+- derived `pass`, `warn`, `fail`, and `partial` statuses with client/CLI integrity checks;
+- wire-equivalent route identity, so framework/OpenAPI parameter names such as `:id` and `{petId}` do not create false drift;
+- incomplete-discovery downgrades for absence claims;
+- duplicate-registration evidence as a verified claim for Express/Nest-on-Express and Hono. Fastify remains covered by the other route-level checks, but exact duplicate-registration detection is not claimed in this cut;
+- Runtime Intelligence finding UI with navigation only when a documented operation actually exists, including method mismatches via an expected documented method;
+- `flexdoc validate <runtime-url>` as a consumer of the backend result, including JSON output, arbitrary headers, bearer/basic auth, default fail-only behavior, and optional `--fail-on warning|info` CI policy.
+
+Explicitly **not** in this 3.1 cut: schema/request/response validation, live-traffic breaking-drift policy, request rejection, generic OpenAPI linting, the headless FlexDoc Runner, and native-adapter host execution. The CLI validation command is not the 3.2 Runner: it reads Contract Validation; it does not execute collections or requests.
+
+This boundary keeps the differentiation test intact: the valuable evidence comes from FlexDoc being installed inside the backend, while later milestones can deepen validation without pretending that generic document-only linting is the moat.
 
 ## Release interpretation
 
