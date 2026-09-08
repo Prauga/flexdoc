@@ -49,11 +49,12 @@ describe('FlexDoc', () => {
   it('uses the same controlled theme ownership pattern as ApiClientWorkspace', () => {
     const preferenceKey = createFlexDocViewerPreferencesKey(mockSpec.info.title, window.location.host);
     writeFlexDocViewerThemePreference(preferenceKey, 'dark');
-    const { container, rerender } = render(<FlexDoc spec={mockSpec} theme='light' />);
-    expect(container.firstElementChild).toHaveAttribute('data-theme', 'dark');
+    const viewerOwned = render(<FlexDoc spec={mockSpec} theme='light' />);
+    expect(viewerOwned.container.firstElementChild).toHaveAttribute('data-theme', 'dark');
+    viewerOwned.unmount();
 
-    rerender(<FlexDoc spec={mockSpec} theme='light' manageTheme={false} />);
-    expect(container.firstElementChild).toHaveAttribute('data-theme', 'light');
+    const hostOwned = render(<FlexDoc spec={mockSpec} theme='light' manageTheme={false} />);
+    expect(hostOwned.container.firstElementChild).toHaveAttribute('data-theme', 'light');
     fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
     expect(screen.queryByRole('combobox', { name: 'Viewer theme' })).not.toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Default expanded sections' })).toBeInTheDocument();
