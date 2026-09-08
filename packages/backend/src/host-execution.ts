@@ -24,47 +24,87 @@ type HostAuth =
   | { type: 'oauth1'; consumerKey?: string; consumerSecret?: string; token?: string; tokenSecret?: string; signatureMethod?: 'HMAC-SHA1' | 'HMAC-SHA256' | 'PLAINTEXT'; realm?: string }
   | { type: 'awsv4'; accessKey?: string; secretKey?: string; sessionToken?: string; region?: string; service?: string };
 
+/** One enabled/disabled key-value row in a host-execution request envelope. */
+export interface HostExecutionKeyValue {
+  /** Query/header/form field name. */ key?: string;
+  /** Query/header/form field value. */ value?: string;
+  /** Whether the row participates in request construction. Defaults to enabled. */ enabled?: boolean;
+}
+
+/** One multipart form-data row in a host-execution request envelope. */
+export interface HostExecutionFormDataEntry extends HostExecutionKeyValue {
+  /** Whether the form row contains text or an uploaded file part. */ type?: 'text' | 'file';
+  /** File name retained in the JSON descriptor for a file row. */ fileName?: string;
+  /** Content type applied to the uploaded file part. */ contentType?: string;
+}
+
+/** Binary-body metadata carried separately from the Base64 payload. */
+export interface HostExecutionBinaryBody {
+  /** Original/display file name. */ fileName?: string;
+  /** Content type used for the outbound binary request body. */ contentType?: string;
+}
+
+/** GraphQL request body represented by API Client. */
+export interface HostExecutionGraphqlBody {
+  /** GraphQL operation/query source. */ query?: string;
+  /** JSON text containing GraphQL variables. */ variables?: string;
+}
+
+/** Editable request descriptor accepted by the Node host-execution engine. */
 export interface HostExecutionRequestDraft {
-  method?: string;
-  url?: string;
-  query?: Array<{ key?: string; value?: string; enabled?: boolean }>;
-  headers?: Array<{ key?: string; value?: string; enabled?: boolean }>;
-  body?: string;
-  contentType?: string;
-  bodyMode?: 'none' | 'raw' | 'json' | 'urlencoded' | 'formdata' | 'binary' | 'graphql';
-  urlencoded?: Array<{ key?: string; value?: string; enabled?: boolean }>;
-  formData?: Array<{ key?: string; value?: string; enabled?: boolean; type?: 'text' | 'file'; fileName?: string; contentType?: string }>;
-  binary?: { fileName?: string; contentType?: string };
-  graphql?: { query?: string; variables?: string };
-  auth?: HostAuth;
+  /** HTTP method. Defaults to `GET` when omitted. */ method?: string;
+  /** Absolute target URL. Required for execution. */ url?: string;
+  /** Ordered query-string rows appended to the target URL. */ query?: HostExecutionKeyValue[];
+  /** Ordered request headers before safety filtering and auth application. */ headers?: HostExecutionKeyValue[];
+  /** Raw/JSON body text for text-oriented body modes. */ body?: string;
+  /** Explicit outbound Content-Type when applicable. */ contentType?: string;
+  /** Body serialization mode. Inferred from populated body fields when omitted. */ bodyMode?: 'none' | 'raw' | 'json' | 'urlencoded' | 'formdata' | 'binary' | 'graphql';
+  /** Form fields serialized as `application/x-www-form-urlencoded`. */ urlencoded?: HostExecutionKeyValue[];
+  /** Multipart/form-data descriptor rows. File bytes arrive separately in `formDataFiles`. */ formData?: HostExecutionFormDataEntry[];
+  /** Binary-body metadata; bytes arrive in `HostExecutionEnvelope.bodyBase64`. */ binary?: HostExecutionBinaryBody;
+  /** GraphQL query and variables. */ graphql?: HostExecutionGraphqlBody;
+  /** Authentication configuration supplied by API Client. */ auth?: HostAuth;
 }
 
+/** Top-level request envelope posted to the API-host execution endpoint. */
 export interface HostExecutionEnvelope {
-  request: HostExecutionRequestDraft;
-  certificateId?: string;
-  cookieJar?: 'session';
-  timeoutMs?: number;
-  bodyBase64?: string;
+  /** Editable request descriptor to normalize, authorize, and execute. */ request: HostExecutionRequestDraft;
+  /** Id of a server-side client certificate configured on the FlexDoc host. */ certificateId?: string;
+  /** Opt into the per-session server-side cookie jar. */ cookieJar?: 'session';
+  /** Request timeout in milliseconds; the engine clamps values to its safety bounds. */ timeoutMs?: number;
+  /** Base64-encoded binary body bytes used when `request.bodyMode` is `binary`. */ bodyBase64?: string;
 }
 
+/** Multipart file bytes parsed from a host-execution upload envelope. */
 export interface HostExecutionUploadedFile {
-  name: string;
-  contentType?: string;
-  data: Buffer;
+  /** File name used for multipart Content-Disposition. */ name: string;
+  /** Uploaded file content type when provided. */ contentType?: string;
+  /** Raw uploaded file bytes. */ data: Buffer;
 }
 
+/** Parsed host-execution envelope after multipart file extraction. */
 export interface ParsedHostExecutionEnvelope extends HostExecutionEnvelope {
-  formDataFiles?: Map<number, HostExecutionUploadedFile>;
+  /** Uploaded file parts keyed by the matching `request.formData` row index. */ formDataFiles?: Map<number, HostExecutionUploadedFile>;
 }
 
+/** Safe cookie metadata returned to API Client when the session jar is enabled. */
+export interface HostExecutionPublicCookie {
+  /** Cookie name. */ name: string;
+  /** Cookie value retained by the host jar. */ value: string;
+  /** Effective cookie domain. */ domain?: string;
+  /** Effective cookie path. */ path?: string;
+  /** Whether the cookie carries the HttpOnly attribute. */ httpOnly?: boolean;
+}
+
+/** Normalized response returned by the Node API-host execution engine. */
 export interface HostExecutionResponse {
-  status: number;
-  statusText: string;
-  headers: HeaderEntry[];
-  body: string;
-  responseTime: number;
-  cookies?: Array<{ name: string; value: string; domain?: string; path?: string; httpOnly?: boolean }>;
-  error?: string;
+  /** HTTP status code returned by the target server. */ status: number;
+  /** HTTP status text returned by the target server. */ statusText: string;
+  /** Ordered response headers, preserving duplicate names. */ headers: HeaderEntry[];
+  /** Response body decoded as UTF-8 text. */ body: string;
+  /** Measured duration in milliseconds for the final request attempt. */ responseTime: number;
+  /** Public cookie-jar snapshot when session cookies were requested. */ cookies?: HostExecutionPublicCookie[];
+  /** Optional error field supported by host-route response envelopes. */ error?: string;
 }
 
 interface CookieRecord {
@@ -78,17 +118,21 @@ interface CookieRecord {
   expiresAt?: number;
 }
 
+/** Error raised when a host-execution request violates SSRF/origin/redirect safety policy. */
 export class HostExecutionForbiddenError extends Error {}
+/** Error raised when a requested host-execution capability or protocol variant is not implemented. */
 export class HostExecutionUnsupportedError extends Error {}
+/** Error raised when the browser supplied an invalid host-execution request envelope. */
 export class HostExecutionBadRequestError extends Error {}
 
+/** Mutable server-side state shared by host-execution routes for one FlexDoc mount. */
 export interface HostExecutionState {
-  enabled: boolean;
-  options: FlexDocHostExecutionOptions;
-  capabilities: FlexDocHostExecutionCapability[];
-  certificates: Map<string, { id: string; name: string; cert: string; key: string; passphrase?: string }>;
-  sessionSecret: Buffer;
-  jars: Map<string, CookieRecord[]>;
+  /** Whether host execution is enabled for this mount. */ enabled: boolean;
+  /** Normalized server-only host-execution configuration. */ options: FlexDocHostExecutionOptions;
+  /** Capabilities advertised to the renderer by this Node host. */ capabilities: FlexDocHostExecutionCapability[];
+  /** Server-side client certificates keyed by their public selection id. */ certificates: Map<string, { id: string; name: string; cert: string; key: string; passphrase?: string }>;
+  /** Random secret used to authenticate the opaque FlexDoc session-cookie id. */ sessionSecret: Buffer;
+  /** Per-session cookie jars keyed by authenticated FlexDoc session id. */ jars: Map<string, CookieRecord[]>;
 }
 
 const HOP_BY_HOP = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade', 'host', 'content-length', 'set-cookie']);
@@ -98,7 +142,11 @@ const MAX_REDIRECTS = 5;
 const MAX_SESSION_JARS = 1000;
 const SESSION_COOKIE = '__flexdoc_session';
 
-/** Create host-execution state from Try It host-execution options. */
+/**
+ * Create host-execution state from Try It host-execution options.
+ * @param value Boolean shorthand or full server-only host-execution configuration.
+ * @returns Fresh state containing normalized options, advertised capabilities, certificate registry, session secret, and empty cookie jars.
+ */
 export function createHostExecutionState(value: boolean | FlexDocHostExecutionOptions | undefined): HostExecutionState {
   const enabled = value === true || (typeof value === 'object' && value !== null && value.enabled !== false);
   const options = typeof value === 'object' ? value : {};
@@ -116,7 +164,12 @@ export function createHostExecutionState(value: boolean | FlexDocHostExecutionOp
   };
 }
 
-/** Public host-execution metadata serialized to the browser renderer. */
+/**
+ * Build browser-safe host-execution metadata for the canonical renderer.
+ * @param state Server-side host-execution state.
+ * @param rendererBasePath FlexDoc internal asset/endpoint base path.
+ * @returns Public endpoint/capability metadata, or `undefined` when host execution is disabled.
+ */
 export function publicHostExecutionOptions(state: HostExecutionState, rendererBasePath: string): FlexDocHostExecutionPublicOptions | undefined {
   if (!state.enabled) return undefined;
   return {
@@ -155,7 +208,19 @@ function allocateSessionJar(state: HostExecutionState, id: string): void {
   state.jars.set(id, []);
 }
 
-export function ensureHostExecutionSession(state: HostExecutionState, cookieHeader?: string): { sessionId: string; setCookie?: string } {
+/** Result of resolving or creating a signed FlexDoc host-execution session. */
+export interface HostExecutionSession {
+  /** Opaque server-side cookie-jar id. */ sessionId: string;
+  /** Set-Cookie header value emitted when a new session id is allocated. */ setCookie?: string;
+}
+
+/**
+ * Validate an incoming FlexDoc session cookie or allocate a new host-execution session.
+ * @param state Host-execution state containing the session secret and cookie jars.
+ * @param cookieHeader Raw incoming `Cookie` header.
+ * @returns Existing/new session id plus a Set-Cookie value when a new session was created.
+ */
+export function ensureHostExecutionSession(state: HostExecutionState, cookieHeader?: string): HostExecutionSession {
   const raw = parseCookieHeader(cookieHeader).get(SESSION_COOKIE);
   if (raw) {
     const separator = raw.lastIndexOf('.');
@@ -191,6 +256,12 @@ function domainMatches(hostname: string, cookie: CookieRecord): boolean {
   return cookie.hostOnly ? host === domain : host === domain || host.endsWith(`.${domain}`);
 }
 
+/**
+ * Validate a Set-Cookie Domain attribute against the response hostname and public-suffix rules.
+ * @param responseHostname Hostname that returned the cookie.
+ * @param candidateDomain Domain attribute proposed by the cookie.
+ * @returns `true` when the candidate is a valid parent/equal domain and not a public suffix/link-local/IP domain.
+ */
 export function isCookieDomainAllowed(responseHostname: string, candidateDomain: string): boolean {
   const responseHost = responseHostname.toLowerCase().replace(/^\[|\]$/g, '');
   const domain = candidateDomain.toLowerCase().replace(/^\./, '');
@@ -255,12 +326,23 @@ function storeSetCookies(state: HostExecutionState, sessionId: string, url: URL,
   state.jars.set(sessionId, jar);
 }
 
+/**
+ * Return the non-secret cookie-jar snapshot exposed to API Client.
+ * @param state Host-execution state containing cookie jars.
+ * @param sessionId Session whose jar should be inspected.
+ * @returns Unexpired cookie metadata/value records.
+ */
 export function publicCookiesForSession(state: HostExecutionState, sessionId: string): HostExecutionResponse['cookies'] {
   const jar = cleanExpired(state.jars.get(sessionId) || []);
   state.jars.set(sessionId, jar);
   return jar.map((cookie) => ({ name: cookie.name, value: cookie.value, domain: cookie.domain, path: cookie.path, httpOnly: cookie.httpOnly }));
 }
 
+/**
+ * Remove every cookie from one host-execution session jar.
+ * @param state Host-execution state containing cookie jars.
+ * @param sessionId Session jar to clear.
+ */
 export function clearCookiesForSession(state: HostExecutionState, sessionId: string): void {
   state.jars.set(sessionId, []);
 }
@@ -302,6 +384,13 @@ function normalizedOrigin(value: string, base?: string): string | undefined {
   } catch { return undefined; }
 }
 
+/**
+ * Compute target origins permitted for API-host execution.
+ * @param state Host-execution state containing optional explicit `allowedOrigins`.
+ * @param spec OpenAPI document whose server URLs form the default allowlist when no explicit origins are configured.
+ * @param docsOrigin Documentation-host origin used to resolve relative OpenAPI server URLs.
+ * @returns Set of normalized HTTP(S) origins allowed by host-execution policy.
+ */
 export function allowedHostExecutionOrigins(state: HostExecutionState, spec: any, docsOrigin?: string): Set<string> {
   const configured = state.options.allowedOrigins?.filter(Boolean);
   const result = new Set<string>();
@@ -333,6 +422,12 @@ function isMetadataAddress(hostname: string): boolean {
   return value === 'fe80::a9fe:a9fe' || value.startsWith('fe80:');
 }
 
+/**
+ * Enforce host-execution URL scheme, credential, metadata-endpoint, and origin restrictions.
+ * @param url Target URL to validate.
+ * @param allowedOrigins Normalized allowlist produced by `allowedHostExecutionOrigins`.
+ * @throws `HostExecutionForbiddenError` when the target violates host-execution policy.
+ */
 export function assertHostExecutionUrlAllowed(url: URL, allowedOrigins: Set<string>): void {
   if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new HostExecutionForbiddenError(`Host execution only allows HTTP(S) URLs.`);
   if (url.username || url.password) throw new HostExecutionForbiddenError('Host execution URLs cannot contain embedded credentials.');
@@ -340,6 +435,11 @@ export function assertHostExecutionUrlAllowed(url: URL, allowedOrigins: Set<stri
   if (!allowedOrigins.has(url.origin)) throw new HostExecutionForbiddenError(`Origin ${url.origin} is not allowed for host execution.`);
 }
 
+/**
+ * Reject DNS answers that resolve to blocked link-local/cloud metadata addresses.
+ * @param address Resolved IPv4/IPv6 address returned by DNS lookup.
+ * @throws `HostExecutionForbiddenError` for blocked metadata/link-local targets.
+ */
 export function assertHostExecutionResolvedAddressAllowed(address: string): void {
   if (isMetadataAddress(address)) throw new HostExecutionForbiddenError('Host execution blocks DNS resolutions to link-local and cloud metadata endpoints.');
 }
@@ -747,11 +847,27 @@ async function sendPrepared(
   }
 }
 
-/** Execute one API-host request on behalf of the browser renderer. */
+/** Context required to execute one already-parsed host-execution envelope. */
+export interface HostExecutionRequestContext {
+  /** OpenAPI document used to derive the default target-origin allowlist. */ spec: any;
+  /** Authenticated FlexDoc host-execution session id used for cookie-jar state. */ sessionId: string;
+  /** Documentation-host origin used to resolve relative OpenAPI server URLs. */ docsOrigin?: string;
+}
+
+/**
+ * Execute one API-host request on behalf of the browser renderer.
+ * @param state Shared host-execution state for the FlexDoc mount.
+ * @param envelope Parsed request envelope containing request/body/certificate/cookie selections.
+ * @param context OpenAPI, session, and documentation-origin context.
+ * @returns Normalized target response with timing and optional cookie-jar metadata.
+ * @throws `HostExecutionUnsupportedError` when host execution is disabled or a requested auth variant is unsupported.
+ * @throws `HostExecutionBadRequestError` for invalid request/body/certificate input.
+ * @throws `HostExecutionForbiddenError` when safety/origin/redirect policy blocks execution.
+ */
 export async function executeHostRequest(
   state: HostExecutionState,
   envelope: ParsedHostExecutionEnvelope,
-  context: { spec: any; sessionId: string; docsOrigin?: string },
+  context: HostExecutionRequestContext,
 ): Promise<HostExecutionResponse> {
   if (!state.enabled) throw new HostExecutionUnsupportedError('Host execution is disabled on this documentation server.');
   return sendPrepared(state, envelope, context.spec, context.sessionId, context.docsOrigin);
