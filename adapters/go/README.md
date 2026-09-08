@@ -1,6 +1,6 @@
 # Prauga FlexDoc Go adapter
 
-`github.com/prauga/flexdoc/adapters/go` `0.5.2` provides a self-contained `net/http` integration for FlexDoc. It packages the canonical browser renderer; OpenAPI rendering is not reimplemented in Go.
+`github.com/prauga/flexdoc/adapters/go` `0.5.3` provides a self-contained `net/http` integration for FlexDoc. It packages the canonical browser renderer; OpenAPI rendering is not reimplemented in Go.
 
 With an existing OpenAPI endpoint:
 

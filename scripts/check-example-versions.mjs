@@ -39,17 +39,17 @@ for (const [name, version] of Object.entries({dotnetVersion, pythonVersion, phpV
 // exist. Standalone examples must remain installable from the last published
 // versions until the post-publish lock-refresh PR.
 const published = {
-  client: '2.9.9',
-  backend: '2.9.9',
-  dotnet: '0.4.1',
-  java: '0.7.1',
-  python: '0.6.1',
-  php: '0.4.1',
-  ruby: '0.4.1',
-  rustAxum: '0.5.1',
-  rustActix: '0.4.1',
-  go: '0.5.1',
-  elixir: '0.4.1',
+  client: '3.0.0',
+  backend: '3.0.0',
+  dotnet: '0.5.0',
+  java: '0.8.0',
+  python: '0.7.0',
+  php: '0.4.2',
+  ruby: '0.4.2',
+  rustAxum: '0.5.2',
+  rustActix: '0.4.2',
+  go: '0.5.2',
+  elixir: '0.4.2',
 };
 
 for (const path of [
