@@ -10,8 +10,14 @@ module Prauga
     class Host
       IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
 
+      # @!attribute [r] config
+      #   @return [Config] validated renderer and route configuration for this host
+      # @!attribute [r] fingerprint
+      #   @return [String] stable renderer-asset fingerprint used for cache-busting URLs
       attr_reader :config, :fingerprint
 
+      # Create a host and load its canonical renderer assets.
+      #
       # @param config [Config] renderer and route settings
       # @param assets_dir [String, nil] optional directory overriding bundled renderer assets
       def initialize(config = Config.new, assets_dir: nil)

@@ -22,10 +22,20 @@ defmodule PraugaFlexDoc.Plug do
   @fingerprint :crypto.hash(:sha256, @javascript <> <<0>> <> @css) |> binary_part(0, 8) |> Base.encode16(case: :lower)
 
   @impl Plug
-  @doc "Initialize the plug from FlexDoc keyword options."
+  @doc """
+  Initializes the plug from FlexDoc keyword options.
+
+  Returns a validated `PraugaFlexDoc.Config` used by `call/2`.
+  """
   def init(opts), do: Config.new(opts)
 
   @impl Plug
+  @doc """
+  Serves the documentation shell and renderer assets for one Plug connection.
+
+  Requests outside the configured FlexDoc subtree receive a `404` response. The
+  returned connection is sent/complete for all matched and unmatched paths.
+  """
   def call(conn, %Config{} = config) do
     case conn.request_path do
       path when path == config.path or path == config.path <> "/" -> docs(conn, config)

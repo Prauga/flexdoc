@@ -11,7 +11,12 @@ use Prauga\FlexDoc\FlexDocResponse;
 /** Registers FlexDoc routes on a Laravel router. */
 final class LaravelFlexDoc
 {
-    /** Register the docs shell and renderer asset routes for the given host. */
+    /**
+     * Register the docs shell and renderer asset routes for the given host.
+     *
+     * @param object $router Laravel-compatible router exposing `get`.
+     * @param FlexDocHost $host Configured FlexDoc host backing the routes.
+     */
     public static function register(object $router, FlexDocHost $host): void
     {
         $base = ltrim($host->config()->path, '/');

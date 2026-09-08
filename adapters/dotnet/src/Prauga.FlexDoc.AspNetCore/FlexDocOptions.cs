@@ -3,6 +3,9 @@ namespace Prauga.FlexDoc.AspNetCore;
 /// <summary>Configuration for the self-hosted FlexDoc ASP.NET Core endpoint.</summary>
 public sealed class FlexDocOptions
 {
+    /// <summary>Creates options initialized with FlexDoc's ASP.NET Core defaults.</summary>
+    public FlexDocOptions() { }
+
     /// <summary>Route where FlexDoc is mounted.</summary>
     public string Path { get; set; } = "/docs";
 

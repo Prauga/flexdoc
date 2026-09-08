@@ -14,7 +14,12 @@ public class FlexDocController {
   private final FlexDocProperties properties;
   private final FlexDocHost host;
 
-  /** Creates the controller from bound properties and the configured host. */
+  /**
+   * Creates the MVC transport for a configured FlexDoc host.
+   *
+   * @param properties bound Spring Boot FlexDoc properties
+   * @param host configured framework-neutral FlexDoc host
+   */
   public FlexDocController(FlexDocProperties properties, FlexDocHost host) {
     this.properties = properties;
     this.host = host;
