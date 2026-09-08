@@ -86,13 +86,13 @@ npx @prauga/flexdoc-cli serve openapi.yaml --watch
 npx @prauga/flexdoc-cli build openapi.yaml --out ./public
 npx @prauga/flexdoc-cli validate http://127.0.0.1:3000/docs/__flexdoc/runtime
 
-# 3.2 source milestone; package version advances during release preparation
+# 3.2.0 release candidate; use the repository CLI until cli/v0.7.0 is published
 node tools/flexdoc-cli/bin/flexdoc.js run ./pets.flexdoc.json --json
 ```
 
 `build` and `serve` bundle external references and the version-matched renderer; static output requires no FlexDoc service or runtime CDN.
 
-`validate` consumes the Node backend's structured 3.1 validation result and remains contract-only; it does not execute requests or collections. FlexDoc 3.2 adds `flexdoc run <artifact.flexdoc.json>` for portable request/folder/collection execution with the existing scripts, tests, environments, and host-execution contract. The Runner is complete in source on this milestone and remains a source command until 3.2 release preparation updates the published package line; see [Headless Runner](./headless-runner.md). Use `--json` for machine-readable output. Protected Runtime Intelligence/docs-host endpoints can use repeatable `--header <name:value>`, `--bearer <token>`, or `--basic <user:password>`.
+`validate` consumes the Node backend's structured 3.1 validation result and remains contract-only; it does not execute requests or collections. FlexDoc 3.2 adds `flexdoc run <artifact.flexdoc.json>` for portable request/folder/collection execution with the existing scripts, tests, environments, and host-execution contract. The Runner is release-prepared in this source tree and remains a repository command until the 3.2 client and CLI artifacts are actually published; see [Headless Runner](./headless-runner.md). Use `--json` for machine-readable output. Protected Runtime Intelligence/docs-host endpoints can use repeatable `--header <name:value>`, `--bearer <token>`, or `--basic <user:password>`.
 
 For `validate`, the default CI policy exits `1` only when the backend status is `fail` (or the endpoint/payload is invalid); use `--fail-on warning` or `--fail-on info` for stricter validation gates. `run` instead uses `0` when all selected items pass, `1` for failed runs, and `130` for interrupted/cancelled runs.
 
