@@ -1,6 +1,6 @@
 # Prauga FlexDoc for Ruby
 
-`prauga-flexdoc` `0.4.3` provides one framework-neutral Ruby 3.2+ host for the canonical FlexDoc renderer, plus thin Rack and Rails integrations.
+`prauga-flexdoc` `0.4.4` provides one framework-neutral Ruby 3.2+ host for the canonical FlexDoc renderer, plus thin Rack and Rails integrations.
 
 ## Rack
 
