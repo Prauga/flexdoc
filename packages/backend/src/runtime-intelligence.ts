@@ -1,60 +1,75 @@
 import type { FlexDocRuntimeIntelligenceOptions } from './interfaces';
 
+/** One normalized HTTP route observed from OpenAPI or the running backend. */
 export interface FlexDocRuntimeRoute {
-  method: string;
-  path: string;
+  /** Uppercase HTTP method. */ method: string;
+  /** Normalized route path/template, using `{name}` path parameters. */ path: string;
 }
 
+/** Runtime process metadata included in Runtime Intelligence snapshots. */
 export interface FlexDocRuntimeMetadata {
-  name: 'node';
-  version: string;
-  platform: string;
-  arch: string;
+  /** Runtime identifier. Node backend integrations report `node`. */ name: 'node';
+  /** Runtime version string, including the Node.js `v` prefix. */ version: string;
+  /** Operating-system platform reported by Node.js. */ platform: string;
+  /** Process architecture reported by Node.js. */ arch: string;
 }
 
+/** Backend listener metadata safe to expose in Runtime Intelligence. */
 export interface FlexDocRuntimeServerMetadata {
-  localPort?: number;
+  /** Local TCP listener port when the adapter can determine it from the incoming request. */ localPort?: number;
 }
 
+/** Safe environment metadata exposed by Runtime Intelligence. */
 export interface FlexDocRuntimeEnvironmentMetadata {
-  name: string;
+  /** Environment name supplied by the host; Node adapters default to `NODE_ENV` when present. */ name: string;
 }
 
+/** Framework-specific route discovery result before comparison with OpenAPI. */
 export interface FlexDocRuntimeDiscovery {
-  framework: string;
-  frameworkVersion?: string;
-  routes: FlexDocRuntimeRoute[];
-  complete: boolean;
+  /** Framework identifier, such as `express`, `fastify`, or `hono`. */ framework: string;
+  /** Framework version when the host exposes it. */ frameworkVersion?: string;
+  /** Normalized routes observed from the running application. */ routes: FlexDocRuntimeRoute[];
+  /** Whether the adapter believes route discovery covered the complete application route set. */ complete: boolean;
 }
 
 /** Snapshot comparing documented OpenAPI routes with routes discovered at runtime. */
 export interface FlexDocRuntimeIntelligenceSnapshot {
-  framework: string;
-  frameworkVersion?: string;
-  runtime: FlexDocRuntimeMetadata;
-  serverOrigin?: string;
-  server?: FlexDocRuntimeServerMetadata;
-  environment?: FlexDocRuntimeEnvironmentMetadata;
-  discoveryComplete: boolean;
-  routes: FlexDocRuntimeRoute[];
-  runtimeOnly: FlexDocRuntimeRoute[];
-  documentedOnly: FlexDocRuntimeRoute[];
+  /** Framework identifier reported by route discovery. */ framework: string;
+  /** Framework version when the integration can detect it. */ frameworkVersion?: string;
+  /** Runtime/process metadata for the documentation host. */ runtime: FlexDocRuntimeMetadata;
+  /** Origin inferred for the backend handling the documentation request. */ serverOrigin?: string;
+  /** Listener metadata observed from the backend request/socket. */ server?: FlexDocRuntimeServerMetadata;
+  /** Safe environment metadata associated with the running backend. */ environment?: FlexDocRuntimeEnvironmentMetadata;
+  /** Whether runtime route discovery is believed to be complete. */ discoveryComplete: boolean;
+  /** All normalized runtime routes after FlexDoc-owned paths are excluded. */ routes: FlexDocRuntimeRoute[];
+  /** Runtime routes that do not have a matching OpenAPI operation. */ runtimeOnly: FlexDocRuntimeRoute[];
+  /** OpenAPI operations that were not observed in the runtime route set. */ documentedOnly: FlexDocRuntimeRoute[];
+  /** Aggregate route counts used by the Runtime Intelligence UI and automation. */
   summary: {
-    documented: number;
-    runtime: number;
-    matched: number;
-    runtimeOnly: number;
-    documentedOnly: number;
+    /** Number of documented OpenAPI operations. */ documented: number;
+    /** Number of runtime routes observed. */ runtime: number;
+    /** Number of exact method/path matches between runtime and OpenAPI. */ matched: number;
+    /** Number of runtime-only routes. */ runtimeOnly: number;
+    /** Number of documented-only routes. */ documentedOnly: number;
   };
 }
 
 const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD', 'TRACE']);
 
+/**
+ * Test whether Runtime Intelligence was explicitly enabled for a backend mount.
+ * @param value Boolean shorthand or Runtime Intelligence options.
+ * @returns `true` only for `true` or an options object with `enabled: true`.
+ */
 export function runtimeIntelligenceEnabled(value: boolean | FlexDocRuntimeIntelligenceOptions | undefined): boolean {
   return value === true || (typeof value === 'object' && value?.enabled === true);
 }
 
-/** Normalize a route path for runtime-intelligence comparisons. */
+/**
+ * Normalize a framework route path for Runtime Intelligence comparisons.
+ * @param value Framework route path or template.
+ * @returns Leading-slash path with Express-style parameters converted to `{name}`, duplicate slashes removed, and trailing slash normalized.
+ */
 export function normalizeRuntimePath(value: string): string {
   let path = value.trim();
   if (!path.startsWith('/')) path = `/${path}`;
@@ -91,7 +106,10 @@ function withoutImplicitHeadRoutes(routes: FlexDocRuntimeRoute[]): FlexDocRuntim
   return routes.filter((route) => route.method !== 'HEAD' || !keys.has(`GET ${route.path}`));
 }
 
-/** Return Node.js runtime metadata for runtime-intelligence snapshots. */
+/**
+ * Return Node.js runtime metadata for Runtime Intelligence snapshots.
+ * @returns Current Node version, platform, and architecture.
+ */
 export function nodeRuntimeMetadata(): FlexDocRuntimeMetadata {
   return {
     name: 'node',
@@ -101,12 +119,21 @@ export function nodeRuntimeMetadata(): FlexDocRuntimeMetadata {
   };
 }
 
+/**
+ * Read safe environment metadata from the Node.js host.
+ * @returns `{ name: NODE_ENV }` when `NODE_ENV` is non-empty, otherwise `undefined`.
+ */
 export function nodeEnvironmentMetadata(): FlexDocRuntimeEnvironmentMetadata | undefined {
   const name = process.env.NODE_ENV?.trim();
   return name ? { name } : undefined;
 }
 
-/** Discover routes from an Express application. */
+/**
+ * Discover normalized HTTP routes from an Express application router stack.
+ * @param app Express application or router-like object exposing `router.stack`/`_router.stack`.
+ * @param excludePrefix Optional documentation mount prefix excluded from discovery.
+ * @returns Framework discovery result; `complete` is false when unsupported/nested route shapes prevent exhaustive discovery.
+ */
 export function discoverExpressRoutes(app: any, excludePrefix?: string): FlexDocRuntimeDiscovery {
   const router = app?.router || app?._router;
   const stack = Array.isArray(router?.stack) ? router.stack : null;
@@ -144,7 +171,12 @@ export function discoverExpressRoutes(app: any, excludePrefix?: string): FlexDoc
   return { framework: 'express', routes: uniqueSorted(routes), complete };
 }
 
-/** Discover routes from a Fastify application. */
+/**
+ * Discover normalized HTTP routes from Fastify's printable route tree.
+ * @param app Fastify application exposing `printRoutes`, and optionally `ready`/`version`.
+ * @param excludePrefix Optional documentation mount prefix excluded from discovery.
+ * @returns Promise resolving to framework discovery metadata. Parse/runtime failures are represented as `complete: false`, not thrown.
+ */
 export async function discoverFastifyRoutes(app: any, excludePrefix?: string): Promise<FlexDocRuntimeDiscovery> {
   const frameworkVersion = typeof app?.version === 'string' ? app.version : undefined;
   if (typeof app?.printRoutes !== 'function') {
@@ -194,7 +226,12 @@ export async function discoverFastifyRoutes(app: any, excludePrefix?: string): P
   }
 }
 
-/** Discover routes from a Hono application. */
+/**
+ * Discover normalized HTTP routes from Hono's registered route list.
+ * @param app Hono application exposing a `routes` array.
+ * @param excludePrefix Optional documentation mount prefix excluded from discovery.
+ * @returns Framework discovery result. Wildcard/ALL routes mark discovery incomplete because they cannot map to a single HTTP operation.
+ */
 export function discoverHonoRoutes(app: any, excludePrefix?: string): FlexDocRuntimeDiscovery {
   const source = Array.isArray(app?.routes) ? app.routes : null;
   if (!source) return { framework: 'hono', routes: [], complete: false };
@@ -215,7 +252,11 @@ export function discoverHonoRoutes(app: any, excludePrefix?: string): FlexDocRun
   return { framework: 'hono', routes: uniqueSorted(routes), complete };
 }
 
-/** Extract documented HTTP routes from an OpenAPI document. */
+/**
+ * Extract normalized documented HTTP routes from an OpenAPI document.
+ * @param spec OpenAPI-like object containing a `paths` map.
+ * @returns Unique, sorted method/path signatures recognized as HTTP operations.
+ */
 export function documentedOpenApiRoutes(spec: any): FlexDocRuntimeRoute[] {
   const routes: FlexDocRuntimeRoute[] = [];
   for (const [path, pathItem] of Object.entries(spec?.paths || {})) {
@@ -228,15 +269,22 @@ export function documentedOpenApiRoutes(spec: any): FlexDocRuntimeRoute[] {
   return uniqueSorted(routes);
 }
 
-/** Build a runtime-intelligence snapshot from discovery results and the OpenAPI spec. */
-export function buildRuntimeIntelligenceSnapshot(input: {
-  spec: any;
-  discovery: FlexDocRuntimeDiscovery;
-  serverOrigin?: string;
-  server?: FlexDocRuntimeServerMetadata;
-  environment?: FlexDocRuntimeEnvironmentMetadata;
-  runtime?: FlexDocRuntimeMetadata;
-}): FlexDocRuntimeIntelligenceSnapshot {
+/** Options used to build a Runtime Intelligence snapshot from one discovery pass. */
+export interface FlexDocRuntimeIntelligenceSnapshotInput {
+  /** OpenAPI document compared with discovered routes. */ spec: any;
+  /** Framework route-discovery result. */ discovery: FlexDocRuntimeDiscovery;
+  /** Backend origin inferred from the incoming documentation request. */ serverOrigin?: string;
+  /** Safe backend listener metadata. */ server?: FlexDocRuntimeServerMetadata;
+  /** Explicit environment metadata; Node's `NODE_ENV` fallback is used when omitted. */ environment?: FlexDocRuntimeEnvironmentMetadata;
+  /** Explicit runtime metadata; current Node process metadata is used when omitted. */ runtime?: FlexDocRuntimeMetadata;
+}
+
+/**
+ * Build a Runtime Intelligence snapshot from discovery results and the OpenAPI spec.
+ * @param input OpenAPI document, discovery result, and optional host metadata.
+ * @returns Deterministic route-presence comparison plus safe runtime metadata.
+ */
+export function buildRuntimeIntelligenceSnapshot(input: FlexDocRuntimeIntelligenceSnapshotInput): FlexDocRuntimeIntelligenceSnapshot {
   const documented = documentedOpenApiRoutes(input.spec);
   const runtimeRoutes = uniqueSorted(input.discovery.routes);
   const documentedKeys = new Set(documented.map(routeKey));
