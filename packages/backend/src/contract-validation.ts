@@ -24,7 +24,7 @@ export interface FlexDocContractDuplicateRuntimeRoute extends FlexDocContractRou
 export interface FlexDocContractValidationLocation {
   /** Validation target category. 3.1 starts with operation-level runtime checks. */ kind: 'operation';
   /** Normalized OpenAPI/runtime path template. */ path: string;
-  /** HTTP method when the finding applies to one specific operation. */ method?: string;
+  /** HTTP method for the documented operation when one can be targeted directly. */ method?: string;
 }
 
 /** One actionable mismatch between the OpenAPI contract and the running backend. */
@@ -135,7 +135,7 @@ export function validateRuntimeContract(options: ValidateRuntimeContractOptions)
       id: findingId('runtime.method-mismatch', path),
       code: 'runtime.method-mismatch',
       severity: options.discoveryComplete ? 'error' : 'warning',
-      location: { kind: 'operation', path },
+      location: { kind: 'operation', method: expectedMethods[0], path },
       message: `Runtime route ${path} is registered for different HTTP methods than OpenAPI documents.`,
       expected: expectedMethods,
       observed: observedMethods,

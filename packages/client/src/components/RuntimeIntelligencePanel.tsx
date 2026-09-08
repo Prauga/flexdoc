@@ -89,7 +89,7 @@ export const RuntimeIntelligencePanel: React.FC<Props> = ({ open, theme, loading
       className={`absolute inset-y-0 right-0 w-[min(92vw,32rem)] overflow-y-auto border-l p-5 shadow-2xl ${surface}`}
     >
       <div className='mb-5 flex items-start justify-between gap-4'>
-        <div><div id='runtime-intelligence-heading' className='flex items-center gap-2 text-lg font-semibold'><Activity className='h-5 w-5' />{messages?.runtimeIntelligence || 'Runtime intelligence'}</div><p className={`mt-1 text-sm ${muted}`}>{messages?.runtimeIntelligenceDescription || 'Live contract validation from the backend hosting this documentation.'}</p></div>
+        <div><div id='runtime-intelligence-heading' className='flex items-center gap-2 text-lg font-semibold'><Activity className='h-5 w-5' />{messages?.runtimeIntelligence || 'Runtime intelligence'}</div><p className={`mt-1 text-sm ${muted}`}>{messages?.runtimeIntelligenceDescription || 'Live route presence and backend context from the service hosting this documentation.'}</p></div>
         <button ref={closeButtonRef} className='inline-flex h-10 w-10 items-center justify-center rounded-md border' aria-label={messages?.closeRuntimeIntelligencePanel || 'Close runtime intelligence panel'} onClick={onClose}><X className='h-4 w-4' /></button>
       </div>
       {loading && <p className={muted}>{messages?.inspectingRuntimeRoutes || 'Inspecting runtime routes…'}</p>}
@@ -139,7 +139,8 @@ function ValidationFindings({ result, theme, messages, onSelect }: { result: Fle
   const muted = dark ? 'text-gray-400' : 'text-gray-600';
   const heading = messages?.contractValidation || 'Contract validation';
   return <section><h3 className='mb-2 font-semibold'>{heading} <span className={muted}>({result.findings.length})</span></h3>{result.findings.length ? <div className='space-y-2'>{result.findings.map((finding) => {
-    const canSelect = Boolean(onSelect && finding.code === 'runtime.operation-unobserved' && finding.location.method);
+    const documentedFinding = finding.code === 'runtime.operation-unobserved' || finding.code === 'runtime.method-mismatch';
+    const canSelect = Boolean(onSelect && documentedFinding && finding.location.method);
     const content = <>
       <div className='flex gap-2 text-sm'><span className='w-14 shrink-0 font-semibold'>{finding.severity.toUpperCase()}</span><code className='break-all'>{finding.code}</code></div>
       <div className={`mt-1 text-xs ${muted}`}>{finding.message}</div>
@@ -148,7 +149,7 @@ function ValidationFindings({ result, theme, messages, onSelect }: { result: Fle
         {finding.observed !== undefined && <div>{messages?.validationObserved || 'Observed'}: {validationValue(finding.observed)}</div>}
       </div>}
     </>;
-    return canSelect ? <button type='button' key={finding.id} aria-label={`${messages?.openRuntimeRoute || 'Open runtime route'} ${finding.location.method} ${finding.location.path}`} className='w-full rounded border p-2 text-left' onClick={() => onSelect?.(finding)}>{content}</button> : <div key={finding.id} className='rounded border p-2'>{content}</div>;
+    return canSelect ? <button type='button' key={finding.id} aria-label={`${messages?.openRuntimeRoute || 'Open documented operation'} ${finding.location.method} ${finding.location.path}`} className='w-full rounded border p-2 text-left' onClick={() => onSelect?.(finding)}>{content}</button> : <div key={finding.id} className='rounded border p-2'>{content}</div>;
   })}</div> : <p className={`text-sm ${muted}`}>{messages?.contractValidationPass || 'No contract mismatches detected.'}</p>}</section>;
 }
 

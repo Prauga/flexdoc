@@ -113,9 +113,25 @@ function contractValidation(value: unknown): FlexDocContractValidationResult {
   };
   if (JSON.stringify(summary) !== JSON.stringify(observedSummary)) invalidSnapshot();
 
+  const expectedStatus: FlexDocContractValidationStatus = summary.errors > 0
+    ? 'fail'
+    : summary.warnings > 0
+      ? 'warn'
+      : !value.complete
+        ? 'partial'
+        : 'pass';
+  if (status !== expectedStatus) invalidSnapshot();
+
   return { status, complete: value.complete, findings, summary };
 }
 
+/**
+ * Parse one Runtime Intelligence snapshot returned by a backend integration.
+ *
+ * Compatible 3.0/native route snapshots may omit `validation`. When `validation`
+ * exists, its codes, severities, summary counts, completeness, and aggregate status
+ * are integrity-checked using the same rules as the FlexDoc CLI consumer.
+ */
 export function parseRuntimeIntelligenceSnapshot(value: unknown): FlexDocRuntimeIntelligenceSnapshot {
   if (!isRecord(value)) invalidSnapshot();
   if (!isRecord(value.runtime) || !isRecord(value.summary)) invalidSnapshot();

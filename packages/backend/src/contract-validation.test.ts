@@ -20,7 +20,7 @@ describe('runtime contract validation', () => {
     });
   });
 
-  it('reports a single actionable method mismatch instead of duplicate presence findings', () => {
+  it('reports one navigable method mismatch instead of duplicate presence findings', () => {
     const result = validateRuntimeContract({
       documentedRoutes: [{ method: 'POST', path: '/pets/{petId}' }],
       runtimeRoutes: [{ method: 'GET', path: '/pets/{id}' }],
@@ -32,10 +32,28 @@ describe('runtime contract validation', () => {
     expect(result.findings).toEqual([expect.objectContaining({
       code: 'runtime.method-mismatch',
       severity: 'error',
-      location: { kind: 'operation', path: '/pets/{petId}' },
+      location: { kind: 'operation', method: 'POST', path: '/pets/{petId}' },
       expected: ['POST'],
       observed: ['GET'],
     })]);
+  });
+
+  it('uses a deterministic expected method when a path documents multiple methods', () => {
+    const result = validateRuntimeContract({
+      documentedRoutes: [
+        { method: 'POST', path: '/pets/{petId}' },
+        { method: 'GET', path: '/pets/{petId}' },
+      ],
+      runtimeRoutes: [{ method: 'DELETE', path: '/pets/{id}' }],
+      discoveryComplete: true,
+    });
+
+    expect(result.findings[0]).toEqual(expect.objectContaining({
+      code: 'runtime.method-mismatch',
+      location: { kind: 'operation', method: 'GET', path: '/pets/{petId}' },
+      expected: ['GET', 'POST'],
+      observed: ['DELETE'],
+    }));
   });
 
   it('reports undocumented runtime operations as warnings', () => {

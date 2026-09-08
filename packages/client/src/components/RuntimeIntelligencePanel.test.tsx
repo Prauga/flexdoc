@@ -61,21 +61,52 @@ describe('RuntimeIntelligencePanel', () => {
     expect(screen.getByText('production')).toBeInTheDocument();
   });
 
-  it('opens a documented operation directly from an actionable validation finding', () => {
+  it('opens documented findings but never treats undocumented runtime routes as spec operations', () => {
     const select = jest.fn();
     const close = jest.fn();
     render(<RuntimeIntelligencePanel open theme='light' loading={false} onClose={close} onEndpointSelect={select} snapshot={snapshot} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Open runtime route GET /missing' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open documented operation GET /missing' }));
     expect(select).toHaveBeenCalledWith('/missing', 'GET');
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /POST \/internal\/reindex/ })).not.toBeInTheDocument();
+  });
+
+  it('opens method-mismatch findings using an expected documented HTTP method', () => {
+    const select = jest.fn();
+    const close = jest.fn();
+    const methodMismatchSnapshot = {
+      ...snapshot,
+      validation: {
+        status: 'fail' as const,
+        complete: true,
+        findings: [{
+          id: 'runtime.method-mismatch:/pets/{}',
+          code: 'runtime.method-mismatch' as const,
+          severity: 'error' as const,
+          location: { kind: 'operation' as const, method: 'POST', path: '/pets/{petId}' },
+          message: 'Runtime route /pets/{petId} is registered for different HTTP methods than OpenAPI documents.',
+          expected: ['POST'],
+          observed: ['GET'],
+        }],
+        summary: { total: 1, errors: 1, warnings: 0, info: 0 },
+      },
+    };
+
+    render(<RuntimeIntelligencePanel open theme='light' loading={false} onClose={close} onEndpointSelect={select} snapshot={methodMismatchSnapshot} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open documented operation POST /pets/{petId}' }));
+    expect(select).toHaveBeenCalledWith('/pets/{petId}', 'POST');
     expect(close).toHaveBeenCalledTimes(1);
   });
 
-  it('falls back to 3.0 route drift when structured validation is absent', () => {
+  it('falls back to 3.0 route drift without calling the snapshot live contract validation', () => {
     render(<RuntimeIntelligencePanel open theme='light' loading={false} onClose={() => undefined} snapshot={{ ...snapshot, validation: undefined }} />);
     expect(screen.getByText('/internal/reindex')).toBeInTheDocument();
     expect(screen.getByText('/missing')).toBeInTheDocument();
     expect(screen.getByText('Implemented but undocumented')).toBeInTheDocument();
     expect(screen.getByText('Documented but not observed')).toBeInTheDocument();
+    expect(screen.getByText('Live route presence and backend context from the service hosting this documentation.')).toBeInTheDocument();
+    expect(screen.queryByText(/Live contract validation/)).not.toBeInTheDocument();
   });
 
   it('closes on Escape, traps focus, and locks body scroll', async () => {
