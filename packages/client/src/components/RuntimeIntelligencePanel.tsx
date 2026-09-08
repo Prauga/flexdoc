@@ -1,6 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { Activity, AlertTriangle, CheckCircle2, X } from 'lucide-react';
-import type { FlexDocMessages, FlexDocRuntimeIntelligenceSnapshot } from '../types/options';
+import type {
+  FlexDocContractValidationFinding,
+  FlexDocContractValidationResult,
+  FlexDocMessages,
+  FlexDocRuntimeIntelligenceSnapshot,
+} from '../types/options';
 
 interface Props {
   open: boolean;
@@ -84,7 +89,7 @@ export const RuntimeIntelligencePanel: React.FC<Props> = ({ open, theme, loading
       className={`absolute inset-y-0 right-0 w-[min(92vw,32rem)] overflow-y-auto border-l p-5 shadow-2xl ${surface}`}
     >
       <div className='mb-5 flex items-start justify-between gap-4'>
-        <div><div id='runtime-intelligence-heading' className='flex items-center gap-2 text-lg font-semibold'><Activity className='h-5 w-5' />{messages?.runtimeIntelligence || 'Runtime intelligence'}</div><p className={`mt-1 text-sm ${muted}`}>{messages?.runtimeIntelligenceDescription || 'Live route presence from the backend hosting this documentation.'}</p></div>
+        <div><div id='runtime-intelligence-heading' className='flex items-center gap-2 text-lg font-semibold'><Activity className='h-5 w-5' />{messages?.runtimeIntelligence || 'Runtime intelligence'}</div><p className={`mt-1 text-sm ${muted}`}>{messages?.runtimeIntelligenceDescription || 'Live contract validation from the backend hosting this documentation.'}</p></div>
         <button ref={closeButtonRef} className='inline-flex h-10 w-10 items-center justify-center rounded-md border' aria-label={messages?.closeRuntimeIntelligencePanel || 'Close runtime intelligence panel'} onClick={onClose}><X className='h-4 w-4' /></button>
       </div>
       {loading && <p className={muted}>{messages?.inspectingRuntimeRoutes || 'Inspecting runtime routes…'}</p>}
@@ -94,27 +99,62 @@ export const RuntimeIntelligencePanel: React.FC<Props> = ({ open, theme, loading
           <div className='rounded-lg border p-3'><div className={muted}>{messages?.framework || 'Framework'}</div><div className='font-semibold'>{snapshot.framework}{snapshot.frameworkVersion ? ` ${snapshot.frameworkVersion}` : ''}</div></div>
           <div className='rounded-lg border p-3'><div className={muted}>{messages?.matched || 'Matched'}</div><div className='font-semibold'>{snapshot.summary.matched} / {snapshot.summary.documented}</div></div>
           <div className='col-span-2 rounded-lg border p-3'><div className={muted}>{messages?.runtime || 'Runtime'}</div><div className='font-semibold'>{snapshot.runtime.name} {snapshot.runtime.version}</div><div className={`mt-1 text-xs ${muted}`}>{snapshot.runtime.platform} · {snapshot.runtime.arch}</div></div>
+          {snapshot.validation && <div className='col-span-2 rounded-lg border p-3'><div className={muted}>{messages?.contractValidation || 'Contract validation'}</div><div className='font-semibold'>{snapshot.validation.status.toUpperCase()} · {snapshot.validation.summary.total} {snapshot.validation.summary.total === 1 ? 'finding' : 'findings'}</div><div className={`mt-1 text-xs ${muted}`}>{snapshot.validation.summary.errors} errors · {snapshot.validation.summary.warnings} warnings · {snapshot.validation.summary.info} info</div></div>}
           {(snapshot.serverOrigin || snapshot.server?.localPort) && <div className='col-span-2 rounded-lg border p-3'><div className={muted}>{messages?.runtimeServer || 'Runtime server'}</div>{snapshot.serverOrigin && <code className='block break-all text-xs'>{snapshot.serverOrigin}</code>}{snapshot.server?.localPort && <div className={`mt-1 text-xs ${muted}`}>{messages?.backendListenerPort || 'Backend listener port'} {snapshot.server.localPort}</div>}</div>}
           {snapshot.environment?.name && <div className='col-span-2 rounded-lg border p-3'><div className={muted}>{messages?.environment || 'Environment'}</div><div className='font-semibold'>{snapshot.environment.name}</div></div>}
         </div>
         {!snapshot.discoveryComplete && <div className={`flex gap-2 rounded-lg border p-3 text-sm ${warningClasses}`}><AlertTriangle className='mt-0.5 h-4 w-4 shrink-0' />{messages?.routeDiscoveryPartial || 'Route discovery is partial; documented routes not observed at runtime may be false positives.'}</div>}
-        <RouteList title={messages?.implementedButUndocumented || 'Implemented but undocumented'} routes={snapshot.runtimeOnly} empty={messages?.noUndocumentedRuntimeRoutes || 'No undocumented runtime routes discovered.'} theme={theme} warning openLabel={messages?.openRuntimeRoute || 'Open runtime route'} />
-        <RouteList
-          title={messages?.documentedButNotObserved || 'Documented but not observed'}
-          routes={snapshot.documentedOnly}
-          empty={messages?.everyDocumentedRouteObserved || 'Every documented route was observed.'}
+        {snapshot.validation ? <ValidationFindings
+          result={snapshot.validation}
           theme={theme}
-          openLabel={messages?.openRuntimeRoute || 'Open runtime route'}
-          onSelect={onEndpointSelect ? (route) => {
-            onEndpointSelect(route.path, route.method);
+          messages={messages}
+          onSelect={onEndpointSelect ? (finding) => {
+            if (!finding.location.method) return;
+            onEndpointSelect(finding.location.path, finding.location.method);
             onClose();
           } : undefined}
-        />
-        {snapshot.summary.runtimeOnly === 0 && snapshot.summary.documentedOnly === 0 && snapshot.discoveryComplete && <div className={`flex items-center gap-2 text-sm ${successClasses}`}><CheckCircle2 className='h-4 w-4' />{messages?.runtimeAligned || 'Runtime routes and OpenAPI paths are aligned.'}</div>}
+        /> : <>
+          <RouteList title={messages?.implementedButUndocumented || 'Implemented but undocumented'} routes={snapshot.runtimeOnly} empty={messages?.noUndocumentedRuntimeRoutes || 'No undocumented runtime routes discovered.'} theme={theme} warning openLabel={messages?.openRuntimeRoute || 'Open runtime route'} />
+          <RouteList
+            title={messages?.documentedButNotObserved || 'Documented but not observed'}
+            routes={snapshot.documentedOnly}
+            empty={messages?.everyDocumentedRouteObserved || 'Every documented route was observed.'}
+            theme={theme}
+            openLabel={messages?.openRuntimeRoute || 'Open runtime route'}
+            onSelect={onEndpointSelect ? (route) => {
+              onEndpointSelect(route.path, route.method);
+              onClose();
+            } : undefined}
+          />
+        </>}
+        {snapshot.validation?.status === 'pass' && <div className={`flex items-center gap-2 text-sm ${successClasses}`}><CheckCircle2 className='h-4 w-4' />{messages?.contractValidationPass || 'The running backend matches the OpenAPI contract for all validated checks.'}</div>}
+        {!snapshot.validation && snapshot.summary.runtimeOnly === 0 && snapshot.summary.documentedOnly === 0 && snapshot.discoveryComplete && <div className={`flex items-center gap-2 text-sm ${successClasses}`}><CheckCircle2 className='h-4 w-4' />{messages?.runtimeAligned || 'Runtime routes and OpenAPI paths are aligned.'}</div>}
       </div>}
     </section>
   </div>;
 };
+
+function ValidationFindings({ result, theme, messages, onSelect }: { result: FlexDocContractValidationResult; theme: 'light'|'dark'; messages?: FlexDocMessages; onSelect?: (finding: FlexDocContractValidationFinding) => void }) {
+  const dark = theme === 'dark';
+  const muted = dark ? 'text-gray-400' : 'text-gray-600';
+  const heading = messages?.contractValidation || 'Contract validation';
+  return <section><h3 className='mb-2 font-semibold'>{heading} <span className={muted}>({result.findings.length})</span></h3>{result.findings.length ? <div className='space-y-2'>{result.findings.map((finding) => {
+    const canSelect = Boolean(onSelect && finding.code === 'runtime.operation-unobserved' && finding.location.method);
+    const content = <>
+      <div className='flex gap-2 text-sm'><span className='w-14 shrink-0 font-semibold'>{finding.severity.toUpperCase()}</span><code className='break-all'>{finding.code}</code></div>
+      <div className={`mt-1 text-xs ${muted}`}>{finding.message}</div>
+      {(finding.expected !== undefined || finding.observed !== undefined) && <div className={`mt-1 text-xs ${muted}`}>
+        {finding.expected !== undefined && <div>{messages?.validationExpected || 'Expected'}: {validationValue(finding.expected)}</div>}
+        {finding.observed !== undefined && <div>{messages?.validationObserved || 'Observed'}: {validationValue(finding.observed)}</div>}
+      </div>}
+    </>;
+    return canSelect ? <button type='button' key={finding.id} aria-label={`${messages?.openRuntimeRoute || 'Open runtime route'} ${finding.location.method} ${finding.location.path}`} className='w-full rounded border p-2 text-left' onClick={() => onSelect?.(finding)}>{content}</button> : <div key={finding.id} className='rounded border p-2'>{content}</div>;
+  })}</div> : <p className={`text-sm ${muted}`}>{messages?.contractValidationPass || 'No contract mismatches detected.'}</p>}</section>;
+}
+
+function validationValue(value: string | string[]): string {
+  return Array.isArray(value) ? value.join(', ') : value;
+}
 
 function RouteList({ title, routes, empty, theme, warning = false, onSelect, openLabel = 'Open runtime route' }: { title: string; routes: Array<{method:string;path:string}>; empty: string; theme: 'light'|'dark'; warning?: boolean; onSelect?: (route: { method: string; path: string }) => void; openLabel?: string }) {
   const dark = theme === 'dark';
