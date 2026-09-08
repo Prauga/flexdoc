@@ -50,6 +50,18 @@ export type { ExpressLikeApplication, FastifyLikeApplication, FastifyLikeReply, 
 export { setupHonoFlexDoc } from './hono-adapter';
 export { createHostExecutionState, executeHostRequest, publicHostExecutionOptions } from './host-execution';
 export { parseHostExecutionRequestBody, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
+export { validateRuntimeContract } from './contract-validation';
+export type {
+  FlexDocContractRoute,
+  FlexDocContractValidationCode,
+  FlexDocContractValidationFinding,
+  FlexDocContractValidationLocation,
+  FlexDocContractValidationResult,
+  FlexDocContractValidationSeverity,
+  FlexDocContractValidationStatus,
+  FlexDocContractValidationSummary,
+  ValidateRuntimeContractOptions,
+} from './contract-validation';
 export { buildRuntimeIntelligenceSnapshot, discoverExpressRoutes, discoverFastifyRoutes, discoverHonoRoutes, documentedOpenApiRoutes, nodeRuntimeMetadata, normalizeRuntimePath } from './runtime-intelligence';
 export type { FlexDocRuntimeDiscovery, FlexDocRuntimeIntelligenceSnapshot, FlexDocRuntimeMetadata, FlexDocRuntimeRoute } from './runtime-intelligence';
 export type { HonoLikeApplication, HonoLikeContext } from './hono-adapter';

@@ -1,4 +1,6 @@
 import type { FlexDocRuntimeIntelligenceOptions } from './interfaces';
+import { validateRuntimeContract } from './contract-validation';
+import type { FlexDocContractValidationResult } from './contract-validation';
 
 /** One normalized HTTP route observed from OpenAPI or the running backend. */
 export interface FlexDocRuntimeRoute {
@@ -32,6 +34,15 @@ export interface FlexDocRuntimeDiscovery {
   /** Whether the adapter believes route discovery covered the complete application route set. */ complete: boolean;
 }
 
+/** Aggregate route counts in a Runtime Intelligence snapshot. */
+export interface FlexDocRuntimeIntelligenceSummary {
+  /** Number of documented OpenAPI operations. */ documented: number;
+  /** Number of runtime routes observed. */ runtime: number;
+  /** Number of wire-equivalent method/path matches between runtime and OpenAPI. */ matched: number;
+  /** Number of runtime-only routes. */ runtimeOnly: number;
+  /** Number of documented-only routes. */ documentedOnly: number;
+}
+
 /** Snapshot comparing documented OpenAPI routes with routes discovered at runtime. */
 export interface FlexDocRuntimeIntelligenceSnapshot {
   /** Framework identifier reported by route discovery. */ framework: string;
@@ -42,16 +53,10 @@ export interface FlexDocRuntimeIntelligenceSnapshot {
   /** Safe environment metadata associated with the running backend. */ environment?: FlexDocRuntimeEnvironmentMetadata;
   /** Whether runtime route discovery is believed to be complete. */ discoveryComplete: boolean;
   /** All normalized runtime routes after FlexDoc-owned paths are excluded. */ routes: FlexDocRuntimeRoute[];
-  /** Runtime routes that do not have a matching OpenAPI operation. */ runtimeOnly: FlexDocRuntimeRoute[];
-  /** OpenAPI operations that were not observed in the runtime route set. */ documentedOnly: FlexDocRuntimeRoute[];
-  /** Aggregate route counts used by the Runtime Intelligence UI and automation. */
-  summary: {
-    /** Number of documented OpenAPI operations. */ documented: number;
-    /** Number of runtime routes observed. */ runtime: number;
-    /** Number of exact method/path matches between runtime and OpenAPI. */ matched: number;
-    /** Number of runtime-only routes. */ runtimeOnly: number;
-    /** Number of documented-only routes. */ documentedOnly: number;
-  };
+  /** Runtime routes that do not have a wire-equivalent matching OpenAPI operation. */ runtimeOnly: FlexDocRuntimeRoute[];
+  /** OpenAPI operations that were not observed as wire-equivalent runtime routes. */ documentedOnly: FlexDocRuntimeRoute[];
+  /** Aggregate route counts used by the Runtime Intelligence UI and automation. */ summary: FlexDocRuntimeIntelligenceSummary;
+  /** Structured 3.1 runtime-vs-OpenAPI contract validation result. */ validation: FlexDocContractValidationResult;
 }
 
 const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD', 'TRACE']);
@@ -87,6 +92,10 @@ function normalizedRoute(method: string, path: string): FlexDocRuntimeRoute | nu
 
 function routeKey(route: FlexDocRuntimeRoute): string {
   return `${route.method} ${route.path}`;
+}
+
+function contractRouteKey(route: FlexDocRuntimeRoute): string {
+  return `${route.method} ${route.path.replace(/\{[^/{}]+\}/g, '{}')}`;
 }
 
 function uniqueSorted(routes: FlexDocRuntimeRoute[]): FlexDocRuntimeRoute[] {
@@ -282,17 +291,22 @@ export interface FlexDocRuntimeIntelligenceSnapshotInput {
 /**
  * Build a Runtime Intelligence snapshot from discovery results and the OpenAPI spec.
  * @param input OpenAPI document, discovery result, and optional host metadata.
- * @returns Deterministic route-presence comparison plus safe runtime metadata.
+ * @returns Deterministic route-presence comparison, structured contract validation, and safe runtime metadata.
  */
 export function buildRuntimeIntelligenceSnapshot(input: FlexDocRuntimeIntelligenceSnapshotInput): FlexDocRuntimeIntelligenceSnapshot {
   const documented = documentedOpenApiRoutes(input.spec);
   const runtimeRoutes = uniqueSorted(input.discovery.routes);
-  const documentedKeys = new Set(documented.map(routeKey));
-  const runtimeKeys = new Set(runtimeRoutes.map(routeKey));
-  const matched = runtimeRoutes.filter((route) => documentedKeys.has(routeKey(route))).length;
-  const runtimeOnly = runtimeRoutes.filter((route) => !documentedKeys.has(routeKey(route)));
-  const documentedOnly = documented.filter((route) => !runtimeKeys.has(routeKey(route)));
+  const documentedKeys = new Set(documented.map(contractRouteKey));
+  const runtimeKeys = new Set(runtimeRoutes.map(contractRouteKey));
+  const matched = runtimeRoutes.filter((route) => documentedKeys.has(contractRouteKey(route))).length;
+  const runtimeOnly = runtimeRoutes.filter((route) => !documentedKeys.has(contractRouteKey(route)));
+  const documentedOnly = documented.filter((route) => !runtimeKeys.has(contractRouteKey(route)));
   const environment = input.environment || nodeEnvironmentMetadata();
+  const validation = validateRuntimeContract({
+    documentedRoutes: documented,
+    runtimeRoutes,
+    discoveryComplete: input.discovery.complete,
+  });
 
   return {
     framework: input.discovery.framework,
@@ -312,5 +326,6 @@ export function buildRuntimeIntelligenceSnapshot(input: FlexDocRuntimeIntelligen
       runtimeOnly: runtimeOnly.length,
       documentedOnly: documentedOnly.length,
     },
+    validation,
   };
 }
