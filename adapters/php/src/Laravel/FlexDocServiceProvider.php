@@ -14,6 +14,7 @@ use Prauga\FlexDoc\FlexDocHost;
  */
 final class FlexDocServiceProvider extends ServiceProvider
 {
+    /** Register the FlexDoc configuration source and singleton host binding. */
     public function register(): void
     {
         $this->mergeConfigFrom(dirname(__DIR__, 2) . '/config/flexdoc.php', 'flexdoc');
@@ -22,9 +23,11 @@ final class FlexDocServiceProvider extends ServiceProvider
         });
     }
 
-    /** Build a {@see FlexDocHost} from Laravel configuration values.
+    /**
+     * Build a {@see FlexDocHost} from Laravel configuration values.
      *
      * @param array<string, mixed> $config Laravel `flexdoc` config values.
+     * @return FlexDocHost Validated host configured from Laravel settings.
      */
     public static function hostFromConfig(array $config): FlexDocHost
     {
@@ -57,6 +60,11 @@ final class FlexDocServiceProvider extends ServiceProvider
         ));
     }
 
+    /**
+     * Register FlexDoc documentation and renderer routes on Laravel's router.
+     *
+     * @param Router $router Laravel router receiving the FlexDoc routes.
+     */
     public function boot(Router $router): void
     {
         LaravelFlexDoc::register($router, $this->app->make(FlexDocHost::class));

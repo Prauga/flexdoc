@@ -13,6 +13,12 @@ final class FlexDocHost
     private string $css;
     private string $fingerprint;
 
+    /**
+     * Create a FlexDoc host and load its canonical renderer assets.
+     *
+     * @param FlexDocConfig $config Renderer and route configuration for the host.
+     * @param string|null $assetsDir Optional asset directory override for development/testing.
+     */
     public function __construct(
         private readonly FlexDocConfig $config = new FlexDocConfig(),
         ?string $assetsDir = null,
@@ -23,10 +29,15 @@ final class FlexDocHost
         $this->fingerprint = substr(hash('sha256', $this->javascript . "\0" . $this->css), 0, 16);
     }
 
-    /** Return the configured {@see FlexDocConfig}. */
+    /** @return FlexDocConfig Configured host settings. */
     public function config(): FlexDocConfig { return $this->config; }
 
-    /** Match a request path and return the docs shell, renderer asset, or 404 response. */
+    /**
+     * Match a request path and return the docs shell, renderer asset, or 404 response.
+     *
+     * @param string $path Absolute request path to match.
+     * @return FlexDocResponse Framework-neutral response envelope.
+     */
     public function responseForPath(string $path): FlexDocResponse
     {
         if ($path === $this->config->path || $path === $this->config->path . '/') return $this->documentation();
@@ -35,7 +46,7 @@ final class FlexDocHost
         return new FlexDocResponse(404, 'text/plain; charset=utf-8', 'Not Found');
     }
 
-    /** Build the HTML docs shell response. */
+    /** @return FlexDocResponse No-cache HTML documentation shell. */
     public function documentation(): FlexDocResponse
     {
         $tryIt = ['enabled' => $this->config->tryItEnabled];
@@ -67,13 +78,13 @@ final class FlexDocHost
         return new FlexDocResponse(200, 'text/html; charset=utf-8', $html, 'no-cache');
     }
 
-    /** Return the packaged renderer JavaScript asset. */
+    /** @return FlexDocResponse Immutable packaged renderer JavaScript asset. */
     public function rendererJavaScript(): FlexDocResponse
     {
         return new FlexDocResponse(200, 'application/javascript; charset=utf-8', $this->javascript, 'public, max-age=31536000, immutable');
     }
 
-    /** Return the packaged renderer CSS asset. */
+    /** @return FlexDocResponse Immutable packaged renderer CSS asset. */
     public function rendererCss(): FlexDocResponse
     {
         return new FlexDocResponse(200, 'text/css; charset=utf-8', $this->css, 'public, max-age=31536000, immutable');

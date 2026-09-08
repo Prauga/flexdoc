@@ -3,6 +3,15 @@
 module Prauga
   module FlexDoc
     # HTTP response produced by {Host}.
+    #
+    # @!attribute [r] status
+    #   @return [Integer] HTTP status code
+    # @!attribute [r] content_type
+    #   @return [String] response Content-Type value
+    # @!attribute [r] body
+    #   @return [String] response body
+    # @!attribute [r] cache_control
+    #   @return [String, nil] optional Cache-Control value
     Response = Data.define(:status, :content_type, :body, :cache_control) do
       # @return [Hash{String => String}] Rack-compatible response headers.
       def headers
