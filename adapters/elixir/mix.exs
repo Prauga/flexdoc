@@ -17,7 +17,7 @@ defmodule PraugaFlexDoc.MixProject do
     ]
   end
 
-  def application, do: [extra_applications: [:logger, :crypto]]
+  def application, do: [extra_applications: [:logger, :crypto, :inets, :ssl]]
 
   defp deps do
     [
