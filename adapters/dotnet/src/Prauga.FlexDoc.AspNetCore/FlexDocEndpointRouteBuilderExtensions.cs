@@ -52,6 +52,8 @@ public static class FlexDocEndpointRouteBuilderExtensions
             context,
             static () => RendererAssets.CssText,
             "text/css; charset=utf-8"));
+        if (options.TryItHostExecution && options.HostExecution is not null)
+            group.MapPost("/__flexdoc/execute", options.HostExecution.HandleHttpAsync);
         if (runtimeDocument is JsonElement document)
             group.MapGet("/__flexdoc/runtime", context => WriteRuntime(
                 context,
@@ -146,12 +148,15 @@ public static class FlexDocEndpointRouteBuilderExtensions
         if (options.TryItApiClientPersistenceKey is not null)
             tryIt["apiClientPersistenceKey"] = options.TryItApiClientPersistenceKey;
         if (options.TryItHostExecution)
+        {
+            var available = options.HostExecution is not null;
             tryIt["hostExecution"] = new Dictionary<string, object?>
             {
-                ["available"] = false,
+                ["available"] = available,
                 ["endpoint"] = path + "/__flexdoc/execute",
-                ["capabilities"] = Array.Empty<string>(),
+                ["capabilities"] = available ? options.HostExecution!.Capabilities : Array.Empty<string>(),
             };
+        }
 
         var rendererOptions = new Dictionary<string, object?>
         {
