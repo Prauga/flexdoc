@@ -40,6 +40,28 @@ The four renderer settings (`expand`, Try It default server/credentials, and API
 
 The renderer assets are served locally at `/docs/__flexdoc/*`, so the integration has no runtime CDN dependency.
 
+## Native host execution (3.3 source)
+
+Spring is the first JVM transport to implement FlexDoc's existing API-host execution envelope. It is opt-in and requires an explicit exact-origin allowlist:
+
+```yaml
+flexdoc:
+  try-it-host-execution: true
+  try-it-host-execution-allowed-origins:
+    - https://api.example.com
+    - https://staging-api.example.com
+```
+
+When enabled, the docs page advertises `hostExecution.available: true` and Spring registers `POST <docsPath>/__flexdoc/execute`. The route requires `X-FlexDoc-Execute: 1`, strips unsafe browser/request headers, accepts only HTTP(S), rejects cross-origin redirects, revalidates each target against the exact-origin allowlist, rejects literal/link-local/cloud-metadata targets plus dangerous DNS preflight resolutions, clamps execution timeouts, limits incoming execute envelopes to 32 MiB, and streams responses through a 10 MiB bound.
+
+The Spring transport consumes the same canonical execute protocol as Node and the 3.2 Runner: JSON descriptors, Base64 binary bodies, and multipart requests containing the `descriptor` plus indexed `formData[n]` browser file parts. Multipart files are reassembled into the canonical request draft and the JVM executor generates the outbound multipart body and boundary.
+
+This first native slice intentionally advertises an empty host-only capability list. It supports ordinary canonical HTTP execution, including query/header/body modes plus None, Basic, Bearer, OAuth 2.0 access-token, and header/query API-key authentication. Cookie jars, client certificates, Digest, Hawk, NTLM, OAuth 1.0, and AWS Sig V4 remain unavailable and are rejected rather than advertised. Other Java transports (JAX-RS, Vert.x, and Ktor) continue to advertise `available: false` until they own a real execute binding.
+
+Java 17 `HttpClient` does not expose the selected socket address to the executor, so the Spring implementation cannot provide the Node executor's stronger connection-time DNS pinning. It resolves and rejects dangerous addresses before each request/redirect, but deployments should keep the exact-origin allowlist narrow and avoid attacker-controlled hostnames.
+
+Application middleware still protects the docs subtree and therefore the execute route. The exact-origin list is an execution boundary, not an authentication mechanism.
+
 ## Classpath or programmatic specs
 
 To embed a checked-in specification instead of using a URL:

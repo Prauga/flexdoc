@@ -31,6 +31,10 @@ public class FlexDocProperties {
   private String tryItCredentials = "";
   /** API Client persistence key, or {@code false} to disable IndexedDB workspace persistence. */
   private Object tryItApiClientPersistenceKey;
+  /** Enables the Spring-owned native host execution endpoint. */
+  private boolean tryItHostExecution;
+  /** Exact HTTP(S) origins the native host executor may target. */
+  private List<String> tryItHostExecutionAllowedOrigins = List.of();
   /** Enables live Spring route discovery and OpenAPI presence drift reporting. */
   private boolean runtimeIntelligence;
 
@@ -106,6 +110,20 @@ public class FlexDocProperties {
   /** @param tryItApiClientPersistenceKey the API Client persistence key, or {@code false} to disable persistence */
   public void setTryItApiClientPersistenceKey(Object tryItApiClientPersistenceKey) { this.tryItApiClientPersistenceKey = tryItApiClientPersistenceKey; }
 
+  /** @return whether native Spring host execution is enabled */
+  public boolean isTryItHostExecution() { return tryItHostExecution; }
+
+  /** @param tryItHostExecution whether to register and advertise the native Spring executor */
+  public void setTryItHostExecution(boolean tryItHostExecution) { this.tryItHostExecution = tryItHostExecution; }
+
+  /** @return exact target origins permitted for native host execution */
+  public List<String> getTryItHostExecutionAllowedOrigins() { return tryItHostExecutionAllowedOrigins; }
+
+  /** @param allowedOrigins exact HTTP(S) origins permitted for native host execution */
+  public void setTryItHostExecutionAllowedOrigins(List<String> allowedOrigins) {
+    this.tryItHostExecutionAllowedOrigins = allowedOrigins == null ? List.of() : List.copyOf(allowedOrigins);
+  }
+
   /** @return whether Runtime Intelligence is enabled */
   public boolean isRuntimeIntelligence() { return runtimeIntelligence; }
 
@@ -120,7 +138,8 @@ public class FlexDocProperties {
         .theme(theme)
         .tryItEnabled(tryItEnabled)
         .tryItDefaultServer(tryItDefaultServer)
-        .tryItCredentials(tryItCredentials);
+        .tryItCredentials(tryItCredentials)
+        .tryItHostExecution(tryItHostExecution);
 
     if (runtimeIntelligence) builder.runtimeIntelligenceFramework("spring");
     if (expandSections != null && !expandSections.isEmpty()) builder.expandSections(expandSections);

@@ -10,7 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
-/** Framework-neutral FlexDoc host that serves the documentation shell and canonical renderer assets. */
+/** Framework-neutral FlexDoc host that serves documentation, renderer assets, and optional host execution. */
 public final class FlexDocHost {
   private static final String JS_RESOURCE = "/META-INF/flexdoc/flexdoc.standalone.js";
   private static final String CSS_RESOURCE = "/META-INF/flexdoc/flexdoc.standalone.css";
@@ -18,6 +18,7 @@ public final class FlexDocHost {
 
   private final FlexDocConfig config;
   private final FlexDocSpecSupplier specSupplier;
+  private final FlexDocHostExecution hostExecution;
   private final byte[] javaScript;
   private final byte[] css;
   private final String fingerprint;
@@ -27,7 +28,7 @@ public final class FlexDocHost {
    *
    * @param config normalized host configuration
    */
-  public FlexDocHost(FlexDocConfig config) { this(config, null); }
+  public FlexDocHost(FlexDocConfig config) { this(config, null, null); }
 
   /**
    * Creates a host with an optional in-process serialized OpenAPI document supplier.
@@ -36,8 +37,24 @@ public final class FlexDocHost {
    * @param specSupplier optional supplier that overrides the configured spec URL
    */
   public FlexDocHost(FlexDocConfig config, FlexDocSpecSupplier specSupplier) {
+    this(config, specSupplier, null);
+  }
+
+  /**
+   * Creates a host with an optional OpenAPI supplier and native host executor.
+   *
+   * <p>The executor is server-only state. Renderer metadata advertises it only when
+   * {@link FlexDocConfig#tryItHostExecution()} is enabled. Supplying the protocol flag without
+   * a real executor continues to advertise {@code available:false}.</p>
+   *
+   * @param config normalized host configuration
+   * @param specSupplier optional supplier that overrides the configured spec URL
+   * @param hostExecution optional native host executor owned by the adapter transport
+   */
+  public FlexDocHost(FlexDocConfig config, FlexDocSpecSupplier specSupplier, FlexDocHostExecution hostExecution) {
     this.config = Objects.requireNonNull(config, "config");
     this.specSupplier = specSupplier;
+    this.hostExecution = hostExecution;
     this.javaScript = readResource(JS_RESOURCE);
     this.css = readResource(CSS_RESOURCE);
     this.fingerprint = fingerprint(javaScript, css);
@@ -45,6 +62,31 @@ public final class FlexDocHost {
 
   /** @return normalized host configuration */
   public FlexDocConfig config() { return config; }
+
+  /** @return whether this host owns a real native execute implementation */
+  public boolean hasHostExecution() { return hostExecution != null; }
+
+  /**
+   * Handles one canonical execute envelope through the configured native executor.
+   *
+   * @param executeMarker incoming X-FlexDoc-Execute header value
+   * @param envelope canonical JSON execution envelope
+   * @return route status and JSON-serializable response body
+   */
+  public FlexDocHostExecutionResult executeHostRequest(String executeMarker, Map<String, Object> envelope) {
+    return executeHostRequest(executeMarker, envelope, Map.of());
+  }
+
+  /** Handles one canonical execute envelope plus indexed browser-uploaded file parts. */
+  public FlexDocHostExecutionResult executeHostRequest(
+      String executeMarker,
+      Map<String, Object> envelope,
+      Map<Integer, FlexDocHostExecutionFile> files) {
+    if (hostExecution == null) {
+      return new FlexDocHostExecutionResult(400, Map.of("error", "Host execution is disabled on this documentation server."));
+    }
+    return hostExecution.handle(executeMarker, envelope, files);
+  }
 
   /**
    * Builds the no-cache HTML shell used by any JVM HTTP framework.
@@ -66,11 +108,11 @@ public final class FlexDocHost {
       tryIt.put("apiClientPersistenceKey", config.tryItApiClientPersistenceKey());
     }
     if (config.tryItHostExecution()) {
-      Map<String, Object> hostExecution = new LinkedHashMap<>();
-      hostExecution.put("available", false);
-      hostExecution.put("endpoint", config.path() + "/__flexdoc/execute");
-      hostExecution.put("capabilities", java.util.List.of());
-      tryIt.put("hostExecution", hostExecution);
+      Map<String, Object> hostExecutionOptions = new LinkedHashMap<>();
+      hostExecutionOptions.put("available", hostExecution != null);
+      hostExecutionOptions.put("endpoint", config.path() + "/__flexdoc/execute");
+      hostExecutionOptions.put("capabilities", hostExecution == null ? java.util.List.of() : hostExecution.capabilities());
+      tryIt.put("hostExecution", hostExecutionOptions);
     }
 
     Map<String, Object> rendererOptions = new LinkedHashMap<>();
