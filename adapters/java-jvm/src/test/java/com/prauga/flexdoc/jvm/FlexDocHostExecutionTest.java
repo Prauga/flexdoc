@@ -33,6 +33,34 @@ class FlexDocHostExecutionTest {
       exchange.sendResponseHeaders(302, -1);
       exchange.close();
     });
+    server.createContext("/slow-body", exchange -> {
+      exchange.sendResponseHeaders(200, 3);
+      try {
+        exchange.getResponseBody().write('a');
+        exchange.getResponseBody().flush();
+        try {
+          Thread.sleep(500);
+        } catch (InterruptedException error) {
+          Thread.currentThread().interrupt();
+        }
+        exchange.getResponseBody().write("bc".getBytes(StandardCharsets.UTF_8));
+      } catch (IOException ignored) {
+        // The client is expected to cancel the exchange when the full-response timeout fires.
+      } finally {
+        exchange.close();
+      }
+    });
+    server.createContext("/oversized", exchange -> {
+      exchange.sendResponseHeaders(200, 0);
+      byte[] chunk = new byte[1024 * 1024];
+      try {
+        for (int index = 0; index < 11; index++) exchange.getResponseBody().write(chunk);
+      } catch (IOException ignored) {
+        // The client is expected to cancel once the 10 MiB response bound is exceeded.
+      } finally {
+        exchange.close();
+      }
+    });
     server.start();
   }
 
@@ -149,6 +177,27 @@ class FlexDocHostExecutionTest {
 
     assertEquals(400, route.status());
     assertTrue(String.valueOf(route.body().get("error")).contains("needs an uploaded file part"));
+  }
+
+  @Test
+  void appliesTimeoutToEntireResponseBody() {
+    FlexDocHostExecution executor = new FlexDocHostExecution(List.of(origin));
+    FlexDocHostExecutionResult route = executor.handle("1", Map.of(
+        "timeoutMs", 150,
+        "request", Map.of("url", origin + "/slow-body")));
+
+    assertEquals(502, route.status());
+    assertTrue(String.valueOf(route.body().get("error")).contains("timed out"));
+  }
+
+  @Test
+  void boundsResponseBodiesWhileFullyConsumingThem() {
+    FlexDocHostExecution executor = new FlexDocHostExecution(List.of(origin));
+    FlexDocHostExecutionResult route = executor.handle(
+        "1", Map.of("request", Map.of("url", origin + "/oversized")));
+
+    assertEquals(502, route.status());
+    assertTrue(String.valueOf(route.body().get("error")).contains("10 MiB safety limit"));
   }
 
   @Test

@@ -2,7 +2,6 @@ package com.prauga.flexdoc.jvm;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.URI;
@@ -21,6 +20,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Framework-neutral Java 17 implementation of the existing FlexDoc host-execution envelope.
@@ -156,7 +159,9 @@ public final class FlexDocHostExecution {
       url = applyQueryAuth(rawAuth, url);
       assertAllowed(url);
       long started = System.nanoTime();
-      HttpResponse<InputStream> response;
+      ByteArrayOutputStream receivedBody = new ByteArrayOutputStream();
+      HttpResponse<Void> response;
+      CompletableFuture<HttpResponse<Void>> future;
       try {
         HttpRequest.Builder builder = HttpRequest.newBuilder(url).timeout(Duration.ofMillis(timeoutMs));
         for (Header header : headers) builder.header(header.name(), header.value());
@@ -164,12 +169,38 @@ public final class FlexDocHostExecution {
             ? HttpRequest.BodyPublishers.noBody()
             : HttpRequest.BodyPublishers.ofByteArray(body);
         builder.method(method, publisher);
-        response = client.send(builder.build(), HttpResponse.BodyHandlers.ofInputStream());
+        future = client.sendAsync(builder.build(), HttpResponse.BodyHandlers.ofByteArrayConsumer(chunk -> {
+          if (chunk.isEmpty()) return;
+          byte[] bytes = chunk.get();
+          if ((long) receivedBody.size() + bytes.length > MAX_RESPONSE_BYTES) {
+            throw new ResponseLimitExceeded();
+          }
+          receivedBody.writeBytes(bytes);
+        }));
+      } catch (IllegalArgumentException error) {
+        throw upstream("Host execution request failed: " + error.getMessage());
+      }
+      try {
+        response = future.get(timeoutMs, TimeUnit.MILLISECONDS);
+      } catch (TimeoutException error) {
+        future.cancel(true);
+        throw upstream("Host execution request timed out after " + timeoutMs + " ms.");
       } catch (InterruptedException error) {
+        future.cancel(true);
         Thread.currentThread().interrupt();
         throw upstream("Host execution was interrupted.");
-      } catch (IOException | IllegalArgumentException error) {
-        throw upstream("Host execution request failed: " + error.getMessage());
+      } catch (ExecutionException error) {
+        if (causedByResponseLimit(error)) {
+          throw upstream("Host execution response exceeded the 10 MiB safety limit.");
+        }
+        Throwable cause = error.getCause();
+        String message = cause == null || cause.getMessage() == null ? "unknown transport error" : cause.getMessage();
+        throw upstream("Host execution request failed: " + message);
+      } catch (RuntimeException error) {
+        if (causedByResponseLimit(error)) {
+          throw upstream("Host execution response exceeded the 10 MiB safety limit.");
+        }
+        throw error;
       }
       long elapsedMs = Math.max(0L, (System.nanoTime() - started) / 1_000_000L);
 
@@ -181,11 +212,9 @@ public final class FlexDocHostExecution {
         try { next = url.resolve(location); }
         catch (IllegalArgumentException error) { throw badRequest("Host execution received an invalid redirect URL."); }
         if (!origin(next).equals(origin(url))) {
-          closeQuietly(response.body());
           throw forbidden("Host execution does not follow cross-origin redirects.");
         }
         assertAllowed(next);
-        closeQuietly(response.body());
         if (status == 303) {
           method = "GET";
           body = null;
@@ -195,7 +224,7 @@ public final class FlexDocHostExecution {
         continue;
       }
 
-      byte[] responseBody = readBoundedBody(response.body());
+      byte[] responseBody = receivedBody.toByteArray();
       List<List<String>> responseHeaders = new ArrayList<>();
       response.headers().map().forEach((name, values) -> {
         for (String value : values) responseHeaders.add(List.of(name, value));
@@ -503,27 +532,11 @@ public final class FlexDocHostExecution {
     return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
   }
 
-  private static byte[] readBoundedBody(InputStream input) {
-    if (input == null) return new byte[0];
-    try (InputStream stream = input; ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-      byte[] buffer = new byte[8192];
-      int total = 0;
-      for (int read; (read = stream.read(buffer)) >= 0;) {
-        total += read;
-        if (total > MAX_RESPONSE_BYTES) throw upstream("Host execution response exceeded the 10 MiB safety limit.");
-        out.write(buffer, 0, read);
-      }
-      return out.toByteArray();
-    } catch (FlexDocHostExecutionException error) {
-      throw error;
-    } catch (IOException error) {
-      throw upstream("Host execution failed while reading the target response.");
+  private static boolean causedByResponseLimit(Throwable error) {
+    for (Throwable current = error; current != null; current = current.getCause()) {
+      if (current instanceof ResponseLimitExceeded) return true;
     }
-  }
-
-  private static void closeQuietly(InputStream input) {
-    if (input == null) return;
-    try { input.close(); } catch (IOException ignored) { }
+    return false;
   }
 
   private static String reasonPhrase(int status) {
@@ -600,6 +613,7 @@ public final class FlexDocHostExecution {
   private static FlexDocHostExecutionException forbidden(String message) { return new FlexDocHostExecutionException(403, message); }
   private static FlexDocHostExecutionException upstream(String message) { return new FlexDocHostExecutionException(502, message); }
 
+  private static final class ResponseLimitExceeded extends RuntimeException {}
   private record Header(String name, String value) {}
   private record Body(byte[] bytes, String contentType) {}
 }
