@@ -50,14 +50,19 @@ defmodule PraugaFlexDoc.Plug do
   end
 
   defp execute(conn, config) do
-    with {:ok, raw, conn} <- read_execution_body(conn, <<>>),
-         {:ok, envelope, files} <- decode_execution_envelope(raw, get_req_header(conn, "content-type") |> List.first()) do
-      marker = get_req_header(conn, "x-flexdoc-execute") |> List.first()
-      result = HostExecution.handle(config.host_execution, marker, envelope, files)
-      execution_json(conn, result.status, result.body)
+    marker = get_req_header(conn, "x-flexdoc-execute") |> List.first()
+
+    if marker != "1" do
+      execution_json(conn, 403, %{"error" => "Missing X-FlexDoc-Execute header."})
     else
-      {:error, message, conn} -> execution_json(conn, 400, %{"error" => message})
-      {:error, message} -> execution_json(conn, 400, %{"error" => message})
+      with {:ok, raw, conn} <- read_execution_body(conn, <<>>),
+           {:ok, envelope, files} <- decode_execution_envelope(raw, get_req_header(conn, "content-type") |> List.first()) do
+        result = HostExecution.handle(config.host_execution, marker, envelope, files)
+        execution_json(conn, result.status, result.body)
+      else
+        {:error, message, conn} -> execution_json(conn, 400, %{"error" => message})
+        {:error, message} -> execution_json(conn, 400, %{"error" => message})
+      end
     end
   end
 
