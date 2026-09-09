@@ -19,4 +19,5 @@ return [
         FILTER_VALIDATE_BOOLEAN,
         FILTER_NULL_ON_FAILURE,
     ) ?? false,
+    'host_execution_allowed_origins' => env('FLEXDOC_HOST_EXECUTION_ALLOWED_ORIGINS', ''),
 ];

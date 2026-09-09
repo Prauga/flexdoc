@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Prauga\FlexDoc;
 
 /**
- * Framework-neutral FlexDoc host serving the HTML shell and packaged renderer assets.
+ * Framework-neutral FlexDoc host serving the HTML shell, packaged assets, and optional native execute transport.
  */
 final class FlexDocHost
 {
@@ -32,18 +32,100 @@ final class FlexDocHost
     /** @return FlexDocConfig Configured host settings. */
     public function config(): FlexDocConfig { return $this->config; }
 
+    /** Whether this host can truthfully own the native execute route. */
+    public function executionAvailable(): bool
+    {
+        return $this->config->tryItHostExecution && $this->config->hostExecution instanceof HostExecution;
+    }
+
     /**
-     * Match a request path and return the docs shell, renderer asset, or 404 response.
-     *
-     * @param string $path Absolute request path to match.
-     * @return FlexDocResponse Framework-neutral response envelope.
+     * Match a GET request path and return the docs shell, renderer asset, or 404 response.
      */
     public function responseForPath(string $path): FlexDocResponse
     {
+        return $this->responseForRequest('GET', $path);
+    }
+
+    /**
+     * Match a framework-neutral request, including the optional native execute route.
+     *
+     * Multipart callers should pass parsed form fields and uploaded file parts. Files are keyed by
+     * canonical `formData` index and contain `filename`, `contentType`, and raw `data`.
+     *
+     * @param array<string, string> $headers Request headers.
+     * @param array<string, mixed> $formFields Parsed multipart form fields.
+     * @param array<int, array{filename?: string, contentType?: string, data: string}> $files Parsed canonical file parts.
+     */
+    public function responseForRequest(
+        string $method,
+        string $path,
+        array $headers = [],
+        string $body = '',
+        array $formFields = [],
+        array $files = [],
+    ): FlexDocResponse {
+        $executePath = $this->config->path . '/__flexdoc/execute';
+        if ($path === $executePath) {
+            if (strtoupper($method) !== 'POST' || !$this->executionAvailable()) {
+                return new FlexDocResponse(404, 'text/plain; charset=utf-8', 'Not Found');
+            }
+            return $this->executeRequest($headers, $body, $formFields, $files);
+        }
+
+        if (strtoupper($method) !== 'GET') return new FlexDocResponse(404, 'text/plain; charset=utf-8', 'Not Found');
         if ($path === $this->config->path || $path === $this->config->path . '/') return $this->documentation();
         if ($path === $this->config->path . '/__flexdoc/renderer.js') return $this->rendererJavaScript();
         if ($path === $this->config->path . '/__flexdoc/renderer.css') return $this->rendererCss();
         return new FlexDocResponse(404, 'text/plain; charset=utf-8', 'Not Found');
+    }
+
+    /**
+     * Consume the canonical JSON or framework-parsed multipart execute envelope.
+     *
+     * @param array<string, string> $headers Request headers.
+     * @param array<string, mixed> $formFields Parsed multipart form fields.
+     * @param array<int, array{filename?: string, contentType?: string, data: string}> $files Uploaded canonical file parts.
+     */
+    public function executeRequest(array $headers, string $body = '', array $formFields = [], array $files = []): FlexDocResponse
+    {
+        if (!$this->executionAvailable()) return new FlexDocResponse(404, 'text/plain; charset=utf-8', 'Not Found');
+
+        $marker = self::requestHeader($headers, 'x-flexdoc-execute');
+        if ($marker !== '1') return self::executionJson(403, ['error' => 'Missing X-FlexDoc-Execute header.']);
+
+        $contentType = self::requestHeader($headers, 'content-type');
+        if ($contentType === null) return self::executionJson(400, ['error' => 'Host execution requires application/json or multipart/form-data.']);
+        $mediaType = strtolower(trim(explode(';', $contentType, 2)[0]));
+
+        $totalBytes = strlen($body);
+        foreach ($formFields as $value) if (is_string($value)) $totalBytes += strlen($value);
+        foreach ($files as $file) if (is_array($file) && isset($file['data']) && is_string($file['data'])) $totalBytes += strlen($file['data']);
+        if ($totalBytes > HostExecution::MAX_REQUEST_BYTES) {
+            return self::executionJson(400, ['error' => 'Host execution request exceeded the 32 MiB safety limit.']);
+        }
+
+        try {
+            if ($mediaType === 'application/json') {
+                $envelope = self::decodeJsonObject($body, 'Host execution body must be valid UTF-8 JSON object.');
+                $files = [];
+            } elseif ($mediaType === 'multipart/form-data') {
+                $descriptor = $formFields['descriptor'] ?? null;
+                if (!is_string($descriptor)) {
+                    return self::executionJson(400, ['error' => 'Host execution multipart request requires a descriptor.']);
+                }
+                $envelope = self::decodeJsonObject($descriptor, 'Host execution multipart descriptor must be valid UTF-8 JSON object.');
+            } else {
+                return self::executionJson(400, ['error' => 'Host execution requires application/json or multipart/form-data.']);
+            }
+        } catch (\JsonException) {
+            $message = $mediaType === 'multipart/form-data'
+                ? 'Host execution multipart descriptor must be valid UTF-8 JSON object.'
+                : 'Host execution body must be valid UTF-8 JSON object.';
+            return self::executionJson(400, ['error' => $message]);
+        }
+
+        $result = $this->config->hostExecution->handle($marker, $envelope, $files);
+        return self::executionJson($result['status'], $result['body']);
     }
 
     /** @return FlexDocResponse No-cache HTML documentation shell. */
@@ -55,9 +137,9 @@ final class FlexDocHost
         if ($this->config->tryItApiClientPersistenceKey !== null) $tryIt['apiClientPersistenceKey'] = $this->config->tryItApiClientPersistenceKey;
         if ($this->config->tryItHostExecution) {
             $tryIt['hostExecution'] = [
-                'available' => false,
+                'available' => $this->executionAvailable(),
                 'endpoint' => $this->config->path . '/__flexdoc/execute',
-                'capabilities' => [],
+                'capabilities' => $this->executionAvailable() ? $this->config->hostExecution->capabilities() : [],
             ];
         }
 
@@ -100,5 +182,33 @@ final class FlexDocHost
     private static function safeJson(mixed $value): string
     {
         return json_encode($value, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    }
+
+    /** @param array<string, string> $headers */
+    private static function requestHeader(array $headers, string $name): ?string
+    {
+        foreach ($headers as $key => $value) if (strtolower($key) === strtolower($name)) return $value;
+        return null;
+    }
+
+    /** @return array<string, mixed> */
+    private static function decodeJsonObject(string $json, string $message): array
+    {
+        $object = json_decode($json, false, flags: JSON_THROW_ON_ERROR);
+        if (!is_object($object)) throw new \JsonException($message);
+        /** @var array<string, mixed> $decoded */
+        $decoded = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
+        return $decoded;
+    }
+
+    /** @param array<string, mixed> $payload */
+    private static function executionJson(int $status, array $payload): FlexDocResponse
+    {
+        return new FlexDocResponse(
+            $status,
+            'application/json; charset=utf-8',
+            json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            'no-store',
+        );
     }
 }
