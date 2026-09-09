@@ -85,7 +85,7 @@ defmodule PraugaFlexDoc.HostExecution do
 
     raw_url = string_value(draft["url"])
     if String.trim(raw_url) == "", do: fail(400, "Host execution requires an absolute request URL.")
-    target = parse_http_uri!(raw_url, "Host execution requires an absolute HTTP(S) request URL.")
+    target = parse_request_uri(raw_url)
     unless is_nil(target.userinfo), do: fail(403, "Host execution URLs cannot contain embedded credentials.")
     target = append_query(target, entries(draft["query"]))
 
@@ -167,16 +167,17 @@ defmodule PraugaFlexDoc.HostExecution do
   end
 
   defp perform_request(method, uri, headers, body, timeout_ms) do
+    has_entity = body != <<>> or method not in ["GET", "HEAD"]
+
     request_headers =
       headers
-      |> Enum.reject(fn {name, _} -> name == "content-type" end)
+      |> Enum.reject(fn {name, _} -> has_entity and name == "content-type" end)
       |> Enum.flat_map(fn {name, values} -> Enum.map(values, &{String.to_charlist(name), String.to_charlist(&1)}) end)
 
     url = uri |> URI.to_string() |> String.to_charlist()
-    method_atom = method |> String.downcase() |> String.to_existing_atom()
 
     request =
-      if body != <<>> or method not in ["GET", "HEAD"] do
+      if has_entity do
         content_type = headers |> Map.get("content-type", [""]) |> List.first() |> to_string() |> String.to_charlist()
         {url, request_headers, content_type, body}
       else
@@ -186,7 +187,7 @@ defmodule PraugaFlexDoc.HostExecution do
     http_options = [autoredirect: false, timeout: timeout_ms, connect_timeout: timeout_ms]
     options = [body_format: :binary]
 
-    case :httpc.request(method_atom, request, http_options, options) do
+    case :httpc.request(method_atom(method), request, http_options, options) do
       {:ok, {{_version, status, reason}, response_headers, response_body}} ->
         headers = Enum.map(response_headers, fn {name, value} -> {name |> to_string() |> String.downcase(), to_string(value)} end)
         {:ok, status, to_string(reason), headers, IO.iodata_to_binary(response_body)}
@@ -199,6 +200,14 @@ defmodule PraugaFlexDoc.HostExecution do
   rescue
     error -> {:error, Exception.message(error)}
   end
+
+  defp method_atom("GET"), do: :get
+  defp method_atom("HEAD"), do: :head
+  defp method_atom("POST"), do: :post
+  defp method_atom("PUT"), do: :put
+  defp method_atom("PATCH"), do: :patch
+  defp method_atom("DELETE"), do: :delete
+  defp method_atom("OPTIONS"), do: :options
 
   defp redirect_location(status, headers) when status in 300..399 do
     headers
@@ -264,6 +273,12 @@ defmodule PraugaFlexDoc.HostExecution do
   defp metadata_address?({169, 254, _, _}), do: true
   defp metadata_address?({first, _, _, _, _, _, _, _}), do: band(first, 0xFFC0) == 0xFE80
   defp metadata_address?(_), do: false
+
+  defp parse_request_uri(raw) do
+    parse_http_uri!(raw, "Host execution requires an absolute HTTP(S) request URL.")
+  rescue
+    ArgumentError -> fail(400, "Host execution requires an absolute HTTP(S) request URL.")
+  end
 
   defp parse_http_uri!(raw, message) do
     uri = URI.parse(raw)
@@ -460,7 +475,7 @@ defmodule PraugaFlexDoc.HostExecution do
   defp string_value(value) when is_atom(value), do: Atom.to_string(value)
   defp string_value(value), do: Jason.encode!(value)
 
-  defp integer_value(value, fallback) when is_integer(value), do: value
+  defp integer_value(value, _fallback) when is_integer(value), do: value
   defp integer_value(value, fallback) do
     case Integer.parse(string_value(value)) do
       {number, ""} -> number
