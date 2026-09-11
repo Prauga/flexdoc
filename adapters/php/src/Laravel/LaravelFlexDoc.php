@@ -12,24 +12,42 @@ use Prauga\FlexDoc\FlexDocResponse;
 /** Registers FlexDoc routes on a Laravel router. */
 final class LaravelFlexDoc
 {
-    /** Register docs, renderer assets, and the optional native execute route. */
-    public static function register(object $router, FlexDocHost $host): void
+    /**
+     * Register docs, renderer assets, and the optional native execute route.
+     *
+     * @param array<int, string>|string $middleware Authentication/authorization middleware applied to every FlexDoc route.
+     */
+    public static function register(object $router, FlexDocHost $host, array|string $middleware = []): void
     {
         $base = ltrim($host->config()->path, '/');
-        $router->get($base, static fn () => self::response($host->documentation()));
-        $router->get($base . '/__flexdoc/renderer.js', static fn () => self::response($host->rendererJavaScript()));
-        $router->get($base . '/__flexdoc/renderer.css', static fn () => self::response($host->rendererCss()));
+        self::protect($router->get($base, static fn () => self::response($host->documentation())), $middleware);
+        self::protect($router->get($base . '/__flexdoc/renderer.js', static fn () => self::response($host->rendererJavaScript())), $middleware);
+        self::protect($router->get($base . '/__flexdoc/renderer.css', static fn () => self::response($host->rendererCss())), $middleware);
 
         if ($host->executionAvailable()) {
-            $router->post($base . '/__flexdoc/execute', static function (Request $request) use ($host): IlluminateResponse {
-                return self::response($host->executeRequest(
-                    self::headers($request),
-                    $request->getContent(),
-                    $request->request->all(),
-                    self::files($request->allFiles()),
-                ));
-            });
+            self::protect(
+                $router->post($base . '/__flexdoc/execute', static function (Request $request) use ($host): IlluminateResponse {
+                    return self::response($host->executeRequest(
+                        self::headers($request),
+                        $request->getContent(),
+                        $request->request->all(),
+                        self::files($request->allFiles()),
+                    ));
+                }),
+                $middleware,
+            );
         }
+    }
+
+    /** @param array<int, string>|string $middleware */
+    private static function protect(object $route, array|string $middleware): void
+    {
+        $values = is_array($middleware) ? array_values(array_filter($middleware, static fn ($value): bool => is_string($value) && trim($value) !== '')) : trim($middleware);
+        if ($values === [] || $values === '') return;
+        if (!method_exists($route, 'middleware')) {
+            throw new \RuntimeException('Laravel FlexDoc route object does not support middleware.');
+        }
+        $route->middleware($values);
     }
 
     /** @return array<string, string> */
