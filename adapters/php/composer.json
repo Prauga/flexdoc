@@ -15,12 +15,13 @@
     "symfony/http-foundation": "^7.2"
   },
   "suggest": {
+    "ext-openssl": "Required for native HTTPS host execution",
     "illuminate/routing": "Required for the Laravel integration",
     "illuminate/support": "Required for Laravel service-provider auto-discovery",
     "symfony/http-foundation": "Required for the Symfony controller integration"
   },
   "autoload": {"psr-4": {"Prauga\\FlexDoc\\": "src/"}},
-  "scripts": {"test": "php tests/run.php"},
+  "scripts": {"test": "php tests/run.php && php tests/host_execution.php && php tests/host_execution_laravel_symfony.php"},
   "extra": {"laravel": {"providers": ["Prauga\\FlexDoc\\Laravel\\FlexDocServiceProvider"]}},
   "support": {
     "issues": "https://github.com/Prauga/flexdoc/issues",
