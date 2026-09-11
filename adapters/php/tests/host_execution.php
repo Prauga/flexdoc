@@ -36,8 +36,10 @@ function startHostExecutionServer(): array {
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 if ($path === '/health') { echo 'ok'; return; }
 if ($path === '/redirect') { header('Location: /echo'); http_response_code(302); return; }
+if ($path === '/cross-origin') { header('Location: ' . (string) ($_GET['to'] ?? '')); http_response_code(302); return; }
 if ($path === '/slow') { usleep(250000); header('Content-Type: text/plain'); echo 'late'; return; }
 if ($path === '/large') { header('Content-Type: text/plain'); echo str_repeat('x', 10 * 1024 * 1024 + 1); return; }
+if ($path === '/binary') { header('Content-Type: application/octet-stream'); echo "\xff\xfe"; return; }
 if (!str_starts_with($path, '/echo')) { http_response_code(404); echo 'missing'; return; }
 $headers = function_exists('getallheaders') ? getallheaders() : [];
 $normalized = [];
@@ -56,6 +58,7 @@ echo json_encode([
     'uri' => $_SERVER['REQUEST_URI'] ?? '',
     'method' => $_SERVER['REQUEST_METHOD'] ?? '',
     'headers' => $normalized,
+    'rawBody' => (string) file_get_contents('php://input'),
     'post' => $_POST,
     'upload' => $upload,
 ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
@@ -112,7 +115,8 @@ foreach ([
 }
 
 [$server, $origin] = startHostExecutionServer();
-$executor = new HostExecution([$origin]);
+[$secondServer, $secondOrigin] = startHostExecutionServer();
+$executor = new HostExecution([$origin, $secondOrigin]);
 
 $disabled = new FlexDocHost(new FlexDocConfig(path: '/docs', tryItHostExecution: true));
 $disabledOptions = hostJson((string) preg_replace('/^.*window\.__FLEXDOC_OPTIONS__=(.*?);<\/script>.*$/s', '$1', $disabled->documentation()->body));
@@ -136,10 +140,50 @@ $malformed = $executor->handle('1', ['request' => ['method' => 'GET', 'url' => '
 hostCheck($malformed['status'] === 400, 'malformed URL status');
 hostCheck(str_contains((string) ($malformed['body']['error'] ?? ''), 'absolute HTTP(S)'), 'malformed URL message');
 
+$blockedOrigin = (new HostExecution([$origin]))->handle('1', [
+    'request' => ['method' => 'GET', 'url' => $secondOrigin . '/echo'],
+]);
+hostCheck($blockedOrigin['status'] === 403, 'non-allowlisted origin must be rejected');
+hostCheck(str_contains((string) ($blockedOrigin['body']['error'] ?? ''), 'not allowed'), 'blocked-origin message');
+
 $metadata = (new HostExecution(['http://169.254.169.254']))->handle('1', [
     'request' => ['method' => 'GET', 'url' => 'http://169.254.169.254/latest/meta-data'],
 ]);
 hostCheck($metadata['status'] === 403, 'metadata destination must be blocked');
+
+$mappedMetadata = (new HostExecution(['http://[::ffff:169.254.169.254]']))->handle('1', [
+    'request' => ['method' => 'GET', 'url' => 'http://[::ffff:169.254.169.254]/latest/meta-data'],
+]);
+hostCheck($mappedMetadata['status'] === 403, 'IPv4-mapped metadata destination must be blocked');
+
+$crlfBearer = $executor->handle('1', [
+    'request' => [
+        'method' => 'GET',
+        'url' => $origin . '/echo',
+        'auth' => ['type' => 'bearer', 'token' => "safe\r\nX-Evil: yes"],
+    ],
+]);
+hostCheck($crlfBearer['status'] === 400, 'CRLF bearer token must be rejected');
+
+$unsafeApiKey = $executor->handle('1', [
+    'request' => [
+        'method' => 'GET',
+        'url' => $origin . '/echo',
+        'auth' => ['type' => 'apiKey', 'in' => 'header', 'key' => ' Host ', 'value' => 'evil.example'],
+    ],
+]);
+hostCheck($unsafeApiKey['status'] === 400, 'unsafe API-key header must be rejected');
+
+$crlfContentType = $executor->handle('1', [
+    'request' => [
+        'method' => 'POST',
+        'url' => $origin . '/echo',
+        'bodyMode' => 'raw',
+        'body' => 'payload',
+        'contentType' => "text/plain\r\nX-Evil: yes",
+    ],
+]);
+hostCheck($crlfContentType['status'] === 400, 'CRLF content type must be rejected');
 
 $encodedEnvelope = [
     'request' => [
@@ -163,6 +207,19 @@ hostCheck(!isset($echo['headers']['origin']), 'unsafe Origin forwarded');
 hostCheck(($echo['headers']['x-test'] ?? null) === 'kept', 'custom header missing');
 hostCheck(($echo['headers']['content-type'] ?? null) === 'application/custom', 'bodyless GET content-type lost');
 
+$emptyFormData = $executor->handle('1', [
+    'request' => [
+        'method' => 'POST',
+        'url' => $origin . '/echo',
+        'formData' => [],
+        'body' => '{"ok":true}',
+        'contentType' => 'application/json',
+    ],
+]);
+hostCheck($emptyFormData['status'] === 200, 'empty formData inference status');
+$emptyFormEcho = hostJson((string) $emptyFormData['body']['body']);
+hostCheck(($emptyFormEcho['rawBody'] ?? null) === '{"ok":true}', 'empty formData must not suppress JSON body');
+
 $redirectEnvelope = [
     'request' => [
         'method' => 'GET',
@@ -174,6 +231,14 @@ $redirect = $executor->handle('1', $redirectEnvelope);
 hostCheck($redirect['status'] === 200, 'redirect execution status');
 $redirectEcho = hostJson((string) $redirect['body']['body']);
 hostCheck(str_contains((string) $redirectEcho['uri'], 'token=secret'), 'query API key not reapplied after redirect');
+
+$crossOrigin = $executor->handle('1', [
+    'request' => [
+        'method' => 'GET',
+        'url' => $origin . '/cross-origin?to=' . rawurlencode($secondOrigin . '/echo'),
+    ],
+]);
+hostCheck($crossOrigin['status'] === 403, 'cross-origin redirect must be rejected even when both origins are allowlisted');
 
 $multipart = $executor->handle('1', [
     'request' => [
@@ -192,6 +257,11 @@ hostCheck(($multipartEcho['post']['note'] ?? null) === 'hello', 'multipart text 
 hostCheck(($multipartEcho['upload']['name'] ?? null) === 'payload.txt', 'multipart filename missing');
 hostCheck(($multipartEcho['upload']['body'] ?? null) === 'file-body', 'multipart file body missing');
 
+$binary = $executor->handle('1', ['request' => ['method' => 'GET', 'url' => $origin . '/binary']]);
+hostCheck($binary['status'] === 200, 'binary response status');
+hostCheck(!array_key_exists('bodyEncoding', $binary['body']), 'native response must not invent bodyEncoding extension');
+json_encode($binary['body'], JSON_THROW_ON_ERROR);
+
 $timeout = $executor->handle('1', [
     'timeoutMs' => 100,
     'request' => ['method' => 'GET', 'url' => $origin . '/slow'],
@@ -204,5 +274,6 @@ hostCheck($large['status'] === 502, 'response size limit status');
 hostCheck(str_contains((string) ($large['body']['error'] ?? ''), '10 MiB'), 'response size limit message');
 
 proc_terminate($server);
+proc_terminate($secondServer);
 
 echo "PHP native host-execution conformance passed.\n";
