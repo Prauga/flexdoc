@@ -2,7 +2,7 @@
 name = "prauga-flexdoc-actix"
 version = "0.4.4"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.84"
 description = "Self-hosted FlexDoc OpenAPI renderer integration for Actix Web"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/prauga/flexdoc"
