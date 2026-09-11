@@ -8,7 +8,7 @@ use serde_json::{json, Map, Value};
 use std::{
     collections::{HashMap, HashSet},
     fmt,
-    net::IpAddr,
+    net::{IpAddr, SocketAddr},
     str::FromStr,
     sync::Arc,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -41,7 +41,6 @@ pub struct HostExecutionResult {
 #[derive(Clone)]
 pub struct HostExecution {
     allowed_origins: Arc<HashSet<String>>,
-    client: reqwest::Client,
 }
 
 impl fmt::Debug for HostExecution {
@@ -115,13 +114,8 @@ impl HostExecution {
         if normalized.is_empty() {
             return Err("FlexDoc host execution requires at least one exact allowed origin".into());
         }
-        let client = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
-            .build()
-            .map_err(|error| format!("unable to create Rust host executor: {error}"))?;
         Ok(Self {
             allowed_origins: Arc::new(normalized),
-            client,
         })
     }
 
@@ -264,11 +258,22 @@ impl HostExecution {
             for redirect in 0..=MAX_REDIRECTS {
                 let mut request_url = current.clone();
                 apply_query_auth(raw_auth, &mut request_url)?;
-                self.assert_allowed(&request_url).await?;
+                let validated_addresses = self.assert_allowed(&request_url).await?;
 
                 let started = Instant::now();
-                let mut request = self
-                    .client
+                let host = request_url.host_str().unwrap_or_default();
+                let mut client_builder = reqwest::Client::builder()
+                    .redirect(reqwest::redirect::Policy::none())
+                    .no_proxy();
+                if host.parse::<IpAddr>().is_err() {
+                    client_builder = client_builder.resolve_to_addrs(host, &validated_addresses);
+                }
+                let client = client_builder.build().map_err(|error| {
+                    ExecutionError::upstream(format!(
+                        "Host execution request client failed: {error}"
+                    ))
+                })?;
+                let mut request = client
                     .request(method.clone(), request_url.clone())
                     .headers(headers.clone());
                 if !body.is_empty() || !matches!(method, Method::GET | Method::HEAD) {
@@ -355,7 +360,7 @@ impl HostExecution {
             })?
     }
 
-    async fn assert_allowed(&self, target: &Url) -> Result<(), ExecutionError> {
+    async fn assert_allowed(&self, target: &Url) -> Result<Vec<SocketAddr>, ExecutionError> {
         if !matches!(target.scheme(), "http" | "https") || target.host_str().is_none() {
             return Err(ExecutionError::forbidden(
                 "Host execution only allows HTTP(S) URLs.",
@@ -387,24 +392,24 @@ impl HostExecution {
                     "Host execution blocks link-local and cloud metadata endpoints.",
                 ));
             }
-            return Ok(());
+            return Ok(vec![SocketAddr::new(ip, port)]);
         }
         let resolved = lookup_host((host, port)).await.map_err(|_| {
             ExecutionError::upstream("Host execution could not resolve target hostname.")
         })?;
-        let mut found = false;
+        let mut addresses = Vec::new();
         for address in resolved {
-            found = true;
             if is_metadata_address(address.ip()) {
                 return Err(ExecutionError::forbidden("Host execution blocks DNS resolutions to link-local and cloud metadata endpoints."));
             }
+            addresses.push(address);
         }
-        if !found {
+        if addresses.is_empty() {
             return Err(ExecutionError::upstream(
                 "Host execution could not resolve target hostname.",
             ));
         }
-        Ok(())
+        Ok(addresses)
     }
 }
 
