@@ -2,7 +2,7 @@
 name = "prauga-flexdoc-actix"
 version = "0.4.4"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.84"
 description = "Self-hosted FlexDoc OpenAPI renderer integration for Actix Web"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/prauga/flexdoc"
@@ -14,7 +14,15 @@ include = ["src/**", "assets/**", "README.md", "LICENSE", "Cargo.toml"]
 
 [dependencies]
 actix-web = "4"
+base64 = "0.22"
+futures-util = "0.3"
+multer = "3"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 serde_json = "1"
+tokio = { version = "1", features = ["net", "time"] }
+url = "2"
 
 [dev-dependencies]
 actix-rt = "2"
+axum = "0.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time"] }
