@@ -29,6 +29,9 @@ module Prauga
       private
 
       def execute(env)
+        marker = env["HTTP_X_FLEXDOC_EXECUTE"]
+        return execution_error(403, "Missing X-FlexDoc-Execute header.") unless marker == "1"
+
         raw = read_bounded(env)
         content_type = env.fetch("CONTENT_TYPE", "")
         envelope, files = if content_type.split(";", 2).first.to_s.strip.casecmp("application/json").zero?
@@ -39,7 +42,7 @@ module Prauga
                             return execution_error(400, "Host execution requires application/json or multipart/form-data.")
                           end
         result = @host.host_execution.handle(
-          marker: env["HTTP_X_FLEXDOC_EXECUTE"],
+          marker: marker,
           envelope:,
           files:
         )
