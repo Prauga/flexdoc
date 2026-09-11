@@ -565,6 +565,11 @@ fn build_multipart(
             } else {
                 file.content_type.clone()
             };
+            if content_type.contains(['\r', '\n']) {
+                return Err(ExecutionError::bad_request(
+                    "Host execution multipart Content-Type is invalid.",
+                ));
+            }
             out.extend_from_slice(format!("Content-Disposition: form-data; name=\"{}\"; filename=\"{}\"\r\nContent-Type: {}\r\n\r\n", quote_multipart(&key), quote_multipart(&filename), content_type).as_bytes());
             out.extend_from_slice(&file.data);
             out.extend_from_slice(b"\r\n");
@@ -591,16 +596,27 @@ fn infer_body_mode(draft: &Map<String, Value>) -> String {
     if !explicit.trim().is_empty() {
         return explicit;
     }
-    if draft.get("binary").is_some() {
+    if draft
+        .get("binary")
+        .and_then(Value::as_object)
+        .is_some_and(|binary| !string_value(binary.get("fileName")).trim().is_empty())
+    {
         return "binary".into();
     }
-    if draft.get("formData").is_some() {
+    if entries(draft.get("formData")).next().is_some() {
         return "formdata".into();
     }
-    if draft.get("urlencoded").is_some() {
+    if entries(draft.get("urlencoded")).next().is_some() {
         return "urlencoded".into();
     }
-    if draft.get("graphql").is_some() {
+    if draft
+        .get("graphql")
+        .and_then(Value::as_object)
+        .is_some_and(|graph| {
+            !string_value(graph.get("query")).is_empty()
+                || !string_value(graph.get("variables")).is_empty()
+        })
+    {
         return "graphql".into();
     }
     let body = string_value(draft.get("body"));
@@ -617,6 +633,26 @@ fn infer_body_mode(draft: &Map<String, Value>) -> String {
     }
 }
 
+fn unsafe_header_name(normalized: &str) -> bool {
+    matches!(
+        normalized,
+        "connection"
+            | "keep-alive"
+            | "proxy-authenticate"
+            | "proxy-authorization"
+            | "te"
+            | "trailer"
+            | "transfer-encoding"
+            | "upgrade"
+            | "host"
+            | "content-length"
+            | "set-cookie"
+            | "origin"
+            | "referer"
+    ) || normalized.starts_with("proxy-")
+        || normalized.starts_with("sec-")
+}
+
 fn sanitize_headers<'a>(
     values: impl Iterator<Item = &'a Map<String, Value>>,
 ) -> Result<HeaderMap, ExecutionError> {
@@ -625,33 +661,17 @@ fn sanitize_headers<'a>(
         if !entry_enabled(entry) {
             continue;
         }
-        let name = string_value(entry.get("key"));
-        if name.trim().is_empty() {
+        let raw_name = string_value(entry.get("key"));
+        let name = raw_name.trim();
+        if name.is_empty() {
             continue;
         }
         let normalized = name.to_ascii_lowercase();
-        if matches!(
-            normalized.as_str(),
-            "connection"
-                | "keep-alive"
-                | "proxy-authenticate"
-                | "proxy-authorization"
-                | "te"
-                | "trailer"
-                | "transfer-encoding"
-                | "upgrade"
-                | "host"
-                | "content-length"
-                | "set-cookie"
-                | "origin"
-                | "referer"
-        ) || normalized.starts_with("proxy-")
-            || normalized.starts_with("sec-")
-        {
+        if unsafe_header_name(&normalized) {
             continue;
         }
-        let header_name = HeaderName::from_str(name.trim()).map_err(|_| {
-            ExecutionError::bad_request(format!("Invalid host execution request header: {name}"))
+        let header_name = HeaderName::from_str(name).map_err(|_| {
+            ExecutionError::bad_request(format!("Invalid host execution request header: {raw_name}"))
         })?;
         let value_text = string_value(entry.get("value"));
         let value = HeaderValue::from_str(&value_text).map_err(|_| {
@@ -696,13 +716,14 @@ fn apply_header_auth(raw: Option<&Value>, headers: &mut HeaderMap) -> Result<(),
         }
         "apiKey" => {
             let key = string_value(auth.get("key"));
-            if key.trim().is_empty() {
+            let key = key.trim();
+            if key.is_empty() {
                 return Err(ExecutionError::bad_request(
                     "API key authentication requires a key name.",
                 ));
             }
             match string_value_default(auth.get("in"), "header").as_str() {
-                "header" => insert_header(headers, &key, &string_value(auth.get("value"))),
+                "header" => insert_header(headers, key, &string_value(auth.get("value"))),
                 "query" => Ok(()),
                 "cookie" => Err(ExecutionError::bad_request(
                     "Cookie authentication is not implemented by the Rust host executor.",
@@ -718,9 +739,16 @@ fn apply_header_auth(raw: Option<&Value>, headers: &mut HeaderMap) -> Result<(),
     }
 }
 
-fn insert_header(headers: &mut HeaderMap, name: &str, value: &str) -> Result<(), ExecutionError> {
+fn insert_header(headers: &mut HeaderMap, raw_name: &str, value: &str) -> Result<(), ExecutionError> {
+    let name = raw_name.trim();
+    let normalized = name.to_ascii_lowercase();
+    if unsafe_header_name(&normalized) {
+        return Err(ExecutionError::bad_request(format!(
+            "Unsafe host execution request header: {name}"
+        )));
+    }
     let name = HeaderName::from_str(name).map_err(|_| {
-        ExecutionError::bad_request(format!("Invalid host execution request header: {name}"))
+        ExecutionError::bad_request(format!("Invalid host execution request header: {raw_name}"))
     })?;
     let value = HeaderValue::from_str(value).map_err(|_| {
         ExecutionError::bad_request(format!("Invalid host execution request header: {name}"))
@@ -809,7 +837,12 @@ fn is_metadata_host(host: &str) -> bool {
 fn is_metadata_address(ip: IpAddr) -> bool {
     match ip {
         IpAddr::V4(ip) => ip.is_link_local(),
-        IpAddr::V6(ip) => ip.is_unicast_link_local(),
+        IpAddr::V6(ip) => {
+            ip.is_unicast_link_local()
+                || ip
+                    .to_ipv4_mapped()
+                    .is_some_and(|mapped| mapped.is_link_local())
+        }
     }
 }
 
