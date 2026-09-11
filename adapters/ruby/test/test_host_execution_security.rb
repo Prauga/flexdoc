@@ -15,6 +15,15 @@ class FlexDocHostExecutionSecurityTest < Minitest::Test
     )
   end
 
+  def post_json(host, request)
+    Rack::MockRequest.new(Prauga::FlexDoc::RackApp.new(host)).post(
+      "/docs/__flexdoc/execute",
+      "CONTENT_TYPE" => "application/json",
+      "HTTP_X_FLEXDOC_EXECUTE" => "1",
+      input: JSON.generate("request" => request)
+    )
+  end
+
   def test_missing_marker_is_rejected_before_malformed_body_is_parsed
     app = Prauga::FlexDoc::RackApp.new(host_for("https://api.example.test"))
     response = Rack::MockRequest.new(app).post(
@@ -26,6 +35,41 @@ class FlexDocHostExecutionSecurityTest < Minitest::Test
     assert_equal 403, response.status
     assert_equal "no-store", response["cache-control"]
     assert_equal "Missing X-FlexDoc-Execute header.", JSON.parse(response.body).fetch("error")
+  end
+
+  def test_rejects_non_allowlisted_origin_before_network_access
+    response = post_json(
+      host_for("https://api.example.test"),
+      { "url" => "https://other.example.test/private", "method" => "GET" }
+    )
+
+    assert_equal 403, response.status
+    assert_includes JSON.parse(response.body).fetch("error"), "not allowed"
+  end
+
+  def test_auth_api_key_cannot_restore_unsafe_transport_header
+    response = post_json(
+      host_for("https://api.example.test"),
+      {
+        "url" => "https://api.example.test/private",
+        "method" => "GET",
+        "auth" => { "type" => "apiKey", "in" => "header", "key" => " Host ", "value" => "evil.example" }
+      }
+    )
+
+    assert_equal 400, response.status
+    assert_includes JSON.parse(response.body).fetch("error"), "Unsafe host execution request header"
+  end
+
+  def test_blocks_ipv4_mapped_link_local_metadata_address
+    origin = "http://[::ffff:169.254.169.254]"
+    response = post_json(
+      host_for(origin),
+      { "url" => "#{origin}/latest/meta-data", "method" => "GET" }
+    )
+
+    assert_equal 403, response.status
+    assert_includes JSON.parse(response.body).fetch("error"), "metadata"
   end
 
   def test_dns_validation_pins_connection_and_ignores_environment_proxy
