@@ -56,8 +56,25 @@ final class FlexDocServiceProvider extends ServiceProvider
         ));
     }
 
+    /** @return array<int, string> */
+    public static function middlewareFromConfig(mixed $value): array
+    {
+        if (is_string($value)) {
+            return array_values(array_filter(
+                array_map('trim', preg_split('/\s*,\s*/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: []),
+                static fn (string $item): bool => $item !== '',
+            ));
+        }
+        if (!is_array($value)) return [];
+        return array_values(array_filter(
+            array_map(static fn ($item): string => is_string($item) ? trim($item) : '', $value),
+            static fn (string $item): bool => $item !== '',
+        ));
+    }
+
     public function boot(Router $router): void
     {
-        LaravelFlexDoc::register($router, $this->app->make(FlexDocHost::class));
+        $middleware = self::middlewareFromConfig($this->app['config']->get('flexdoc.middleware', []));
+        LaravelFlexDoc::register($router, $this->app->make(FlexDocHost::class), $middleware);
     }
 }
