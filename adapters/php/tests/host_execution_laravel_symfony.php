@@ -33,22 +33,39 @@ $with = FlexDocServiceProvider::hostFromConfig([
 ]);
 frameworkCheck($with->executionAvailable() === true, 'Laravel should construct executor from configured origins');
 frameworkCheck($with->config()->hostExecution instanceof HostExecution, 'Laravel executor type');
+frameworkCheck(
+    FlexDocServiceProvider::middlewareFromConfig('auth, verified') === ['auth', 'verified'],
+    'Laravel middleware string normalization',
+);
+frameworkCheck(
+    FlexDocServiceProvider::middlewareFromConfig(['auth', ' verified ', '', 42]) === ['auth', 'verified'],
+    'Laravel middleware array normalization',
+);
 
 $container = new Container();
 $container->instance(CallableDispatcherContract::class, new CallableDispatcher($container));
 $router = new Router(new Dispatcher($container), $container);
-LaravelFlexDoc::register($router, $with);
-$uris = array_map(static fn ($route) => [$route->uri(), $route->methods()], $router->getRoutes()->getRoutes());
-$executeRoutes = array_values(array_filter($uris, static fn (array $route): bool => $route[0] === 'docs/__flexdoc/execute'));
-frameworkCheck(count($executeRoutes) === 1, 'Laravel execute route registration');
-frameworkCheck(in_array('POST', $executeRoutes[0][1], true), 'Laravel execute route method');
+LaravelFlexDoc::register($router, $with, ['auth']);
+$routes = $router->getRoutes()->getRoutes();
+$executeRoute = null;
+$docsRoute = null;
+foreach ($routes as $route) {
+    if ($route->uri() === 'docs/__flexdoc/execute') $executeRoute = $route;
+    if ($route->uri() === 'docs' && in_array('GET', $route->methods(), true)) $docsRoute = $route;
+}
+frameworkCheck($executeRoute !== null, 'Laravel execute route registration');
+frameworkCheck(in_array('POST', $executeRoute->methods(), true), 'Laravel execute route method');
+frameworkCheck(in_array('auth', $executeRoute->gatherMiddleware(), true), 'Laravel execute route middleware');
+frameworkCheck($docsRoute !== null && in_array('auth', $docsRoute->gatherMiddleware(), true), 'Laravel docs route middleware');
 
 $routerWithout = new Router(new Dispatcher($container), $container);
-LaravelFlexDoc::register($routerWithout, $without);
+LaravelFlexDoc::register($routerWithout, $without, ['auth']);
 $withoutUris = array_map(static fn ($route) => $route->uri(), $routerWithout->getRoutes()->getRoutes());
 frameworkCheck(!in_array('docs/__flexdoc/execute', $withoutUris, true), 'Laravel disabled execute route must be absent');
 
-$missingMarker = $router->dispatch(IlluminateRequest::create(
+$unprotectedRouter = new Router(new Dispatcher($container), $container);
+LaravelFlexDoc::register($unprotectedRouter, $with);
+$missingMarker = $unprotectedRouter->dispatch(IlluminateRequest::create(
     '/docs/__flexdoc/execute',
     'POST',
     [],
