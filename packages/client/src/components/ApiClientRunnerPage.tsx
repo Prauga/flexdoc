@@ -103,6 +103,7 @@ export const ApiClientRunnerPage: React.FC<ApiClientRunnerPageProps> = ({
       credentials,
       requestInterceptor,
       hostExecution,
+      preferHostExecution: true,
       externalVariables,
       externalEnvironmentVariables,
       stopOnFailure,
