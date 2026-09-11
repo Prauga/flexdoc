@@ -47,7 +47,7 @@ The Rack transport then owns `POST /docs/__flexdoc/execute`. Without a real exec
 
 This first native slice supports the canonical JSON and multipart envelopes, Basic/Bearer/OAuth2-bearer and header/query API-key request auth, raw/JSON/binary/urlencoded/GraphQL/form-data bodies, same-origin redirect revalidation, unsafe-header stripping, a 32 MiB inbound envelope bound, a 10 MiB response bound, and a full-response deadline. Host-only cookies, client certificates, Digest/Hawk/NTLM/Kerberos, OAuth 1.0, AWS SigV4, host secrets, and runtime-derived environment are not advertised yet.
 
-The Ruby executor blocks link-local/cloud-metadata targets and preflights DNS results before connecting. Ruby's standard `Net::HTTP` API does not give this adapter the same connection-time DNS pinning used by the Go and ASP.NET Core implementations, so applications should treat the exact-origin allowlist as the primary network boundary. Private-network relaxation is not part of this slice.
+The Ruby executor blocks link-local/cloud-metadata targets and validates DNS results before connecting. It then pins `Net::HTTP` to one of the validated addresses with `ipaddr=` while retaining the original hostname for the HTTP `Host` header and TLS SNI/certificate verification. Environment proxy routing is disabled for native execution, so the validated destination cannot be bypassed through `http_proxy`/`HTTP_PROXY`. Private-network relaxation is not part of this slice.
 
 ## Rails
 
