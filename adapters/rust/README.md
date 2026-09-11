@@ -41,7 +41,7 @@ The Rust host consumes the same JSON or canonical multipart envelope as Node, JV
 
 This first Rust slice intentionally advertises an empty host-only capability list. Session cookie jars, client certificates, Digest, Hawk, NTLM/Negotiate, OAuth 1.0 and AWS Signature V4 remain unavailable until implemented natively.
 
-The executor rejects known cloud-metadata/link-local hostnames and performs DNS resolution before each outbound request, rejecting any link-local resolved address. `reqwest` does not expose a stable connection hook that lets this adapter pin the validated address while preserving normal HTTP/TLS hostname semantics, so this first Rust implementation has the same documented DNS-preflight/connection-time gap as the Java and Python transports. The Go and .NET transports provide stronger connection-time pinning. Do not treat the Rust preflight as a general private-network denylist: ordinary RFC1918/VPC addresses remain governed by the explicit exact-origin allowlist.
+The executor rejects known cloud-metadata/link-local hostnames and resolves every outbound hop before connection. Every resolved address is validated; reqwest system proxies are disabled; and hostname resolution for the actual request is overridden with the validated address set, while the original URL hostname remains intact for HTTP and TLS verification. This closes the DNS-preflight/connection-time resolution gap without weakening normal hostname semantics. Ordinary RFC1918/VPC addresses are not denied generically and remain governed by the explicit exact-origin allowlist.
 
 For code-first APIs using `utoipa`, pass the generated document directly:
 
