@@ -116,10 +116,10 @@ module Prauga
           (0..MAX_REDIRECTS).each do |redirect_count|
             request_uri = current.dup
             apply_query_auth!(auth, request_uri)
-            assert_allowed!(request_uri)
+            validated_ip = assert_allowed!(request_uri)
 
             started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-            response = perform_request(method, request_uri, headers, body, timeout_ms)
+            response = perform_request(method, request_uri, headers, body, timeout_ms, validated_ip)
             status = response[:status]
 
             if status.between?(300, 399) && response[:location]
@@ -155,7 +155,7 @@ module Prauga
         upstream("Host execution request failed: #{error.message}")
       end
 
-      def perform_request(method, uri, headers, body, timeout_ms)
+      def perform_request(method, uri, headers, body, timeout_ms, validated_ip)
         request = Net::HTTPGenericRequest.new(method, true, method != "HEAD", uri.request_uri, {})
         headers.each do |name, values|
           Array(values).each { |value| request.add_field(name, value) }
@@ -169,7 +169,11 @@ module Prauga
         location = nil
         seconds = timeout_ms / 1000.0
 
-        http = Net::HTTP.new(uri.host, uri.port)
+        # Disable environment proxies and pin the connection to the address validated above.
+        # Net::HTTP keeps +uri.host+ as the HTTP/TLS identity while +ipaddr+ controls the
+        # actual TCP destination, closing the DNS-preflight/connection-time lookup gap.
+        http = Net::HTTP.new(uri.host, uri.port, nil)
+        http.ipaddr = validated_ip
         http.use_ssl = uri.scheme == "https"
         http.open_timeout = seconds
         http.read_timeout = seconds
@@ -202,7 +206,7 @@ module Prauga
         forbidden("Host execution blocks link-local and cloud metadata endpoints.") if METADATA_HOSTS.include?(host)
         if ip_literal?(host)
           forbidden("Host execution blocks link-local and cloud metadata endpoints.") if metadata_ip?(host)
-          return
+          return host
         end
 
         addresses = Addrinfo.getaddrinfo(host, uri.port, nil, :STREAM)
@@ -210,6 +214,8 @@ module Prauga
         if addresses.any? { |address| metadata_ip?(address.ip_address) }
           forbidden("Host execution blocks DNS resolutions to link-local and cloud metadata endpoints.")
         end
+
+        addresses.first.ip_address
       rescue SocketError
         upstream("Host execution could not resolve target hostname.")
       end
@@ -235,7 +241,7 @@ module Prauga
           key = string_value(entry["key"])
           next if key.strip.empty?
 
-          URI.encode_www_form([[key, string_value(entry["value"])]] )
+          URI.encode_www_form([[key, string_value(entry["value"])]])
         end
         return if encoded.empty?
 
@@ -298,7 +304,7 @@ module Prauga
 
         key = string_value(auth["key"])
         bad_request("API key authentication requires a key name.") if key.strip.empty?
-        encoded = URI.encode_www_form([[key, string_value(auth["value"])]] )
+        encoded = URI.encode_www_form([[key, string_value(auth["value"])]])
         uri.query = [uri.query, encoded].compact.reject(&:empty?).join("&")
       end
 
