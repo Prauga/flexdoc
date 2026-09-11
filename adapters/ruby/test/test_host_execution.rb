@@ -202,7 +202,7 @@ class FlexDocHostExecutionTest < Minitest::Test
       )
       boundary = "----flexdoc-ruby-test"
       body = +"--#{boundary}\r\nContent-Disposition: form-data; name=\"descriptor\"\r\nContent-Type: application/json\r\n\r\n#{descriptor}\r\n"
-      body << "--#{boundary}\r\nContent-Disposition: form-data; name=\"formData[0]\"; filename=\"actual.txt\"\r\nContent-Type: text/plain\r\n\r\nfile-bytes\r\n--#{boundary}--\r\n"
+      body << "--#{boundary}\r\nContent-Disposition: form-data; name=\"formData[0]\"; filename=\"actual.txt\"\r\nContent-Type: text/plain\r\n\r\nfile-bytes\r\n\r\n--#{boundary}--\r\n"
       response = Rack::MockRequest.new(app_for(target.base)).post(
         "/docs/__flexdoc/execute",
         "CONTENT_TYPE" => "multipart/form-data; boundary=#{boundary}",
@@ -213,7 +213,7 @@ class FlexDocHostExecutionTest < Minitest::Test
       forwarded = inner_response(response)["body"]
       assert_includes forwarded, 'name="upload"'
       assert_includes forwarded, 'filename="actual.txt"'
-      assert_includes forwarded, "file-bytes"
+      assert_match(/file-bytes\r\n\r\n--/, forwarded)
       assert_includes forwarded, 'name="note"'
       assert_includes forwarded, "hello"
     end
