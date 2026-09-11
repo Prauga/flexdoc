@@ -183,7 +183,9 @@ module Prauga
             status = response.code.to_i
             message = response.message.to_s
             location = response["location"]
-            response_headers = response.each_header.map { |name, value| [name, value] }
+            response_headers = response.to_hash.flat_map do |name, values|
+              Array(values).map { |value| [name, value] }
+            end
             response.read_body do |chunk|
               if response_body.bytesize + chunk.bytesize > MAX_EXECUTION_RESPONSE_BYTES
                 upstream("Host execution response exceeded the 10 MiB safety limit.")
@@ -262,6 +264,18 @@ module Prauga
         end
       end
 
+      def set_header!(headers, raw_name, raw_value)
+        name = raw_name.to_s.strip
+        bad_request("Invalid host execution request header: #{raw_name}") if name.empty? || !name.match?(/\A[!#$%&'*+\-.^_`|~0-9A-Za-z]+\z/)
+        normalized = name.downcase
+        if UNSAFE_HEADERS.include?(normalized) || normalized.start_with?("proxy-", "sec-")
+          bad_request("Unsafe host execution request header: #{name}")
+        end
+        value = raw_value.to_s
+        bad_request("Invalid host execution request header: #{name}") if value.include?("\r") || value.include?("\n")
+        headers[normalized] = [value]
+      end
+
       def apply_header_auth!(raw, headers)
         auth = raw.is_a?(Hash) ? raw : {}
         case string_value(auth["type"])
@@ -269,23 +283,21 @@ module Prauga
           nil
         when "bearer"
           token = string_value(auth["token"])
-          headers["authorization"] = ["Bearer #{token}"] unless token.empty?
+          set_header!(headers, "authorization", "Bearer #{token}") unless token.empty?
         when "oauth2"
           token = string_value(auth["accessToken"])
-          headers["authorization"] = ["Bearer #{token}"] unless token.empty?
+          set_header!(headers, "authorization", "Bearer #{token}") unless token.empty?
         when "basic"
           credential = "#{string_value(auth["username"])}:#{string_value(auth["password"])}"
-          headers["authorization"] = ["Basic #{Base64.strict_encode64(credential)}"]
+          set_header!(headers, "authorization", "Basic #{Base64.strict_encode64(credential)}")
         when "apiKey"
-          key = string_value(auth["key"])
-          bad_request("API key authentication requires a key name.") if key.strip.empty?
+          key = string_value(auth["key"]).strip
+          bad_request("API key authentication requires a key name.") if key.empty?
           location = string_value(auth["in"])
           location = "header" if location.empty?
           case location
           when "header"
-            normalized = key.downcase
-            bad_request("Invalid host execution request header: #{key}") unless key.match?(/\A[!#$%&'*+\-.^_`|~0-9A-Za-z]+\z/)
-            headers[normalized] = [string_value(auth["value"])]
+            set_header!(headers, key, string_value(auth["value"]))
           when "query"
             nil
           when "cookie"
@@ -364,6 +376,7 @@ module Prauga
             bad_request("Host execution multipart file formData[#{index}] is missing.") unless file
             filename = non_empty(file.filename.to_s) || non_empty(string_value(entry["fileName"])) || "upload.bin"
             content_type = non_empty(file.content_type.to_s) || non_empty(string_value(entry["contentType"])) || "application/octet-stream"
+            bad_request("Host execution multipart Content-Type is invalid.") if content_type.include?("\r") || content_type.include?("\n")
             output << "--#{boundary}\r\n"
             output << "Content-Disposition: form-data; name=\"#{quote_multipart(key)}\"; filename=\"#{quote_multipart(filename)}\"\r\n"
             output << "Content-Type: #{content_type}\r\n\r\n"
@@ -381,10 +394,14 @@ module Prauga
       def infer_body_mode(draft)
         explicit = string_value(draft["bodyMode"])
         return explicit unless explicit.strip.empty?
-        return "binary" if draft.key?("binary")
-        return "formdata" if draft.key?("formData")
-        return "urlencoded" if draft.key?("urlencoded")
-        return "graphql" if draft.key?("graphql")
+        binary = draft["binary"]
+        return "binary" if binary.is_a?(Hash) && !string_value(binary["fileName"]).empty?
+        return "formdata" unless entries(draft["formData"]).empty?
+        return "urlencoded" unless entries(draft["urlencoded"]).empty?
+        graph = draft["graphql"]
+        if graph.is_a?(Hash) && (!string_value(graph["query"]).empty? || !string_value(graph["variables"]).empty?)
+          return "graphql"
+        end
         body = string_value(draft["body"])
         return "none" if body.empty?
 
@@ -410,7 +427,7 @@ module Prauga
 
       def integer_value(raw, fallback)
         Integer(raw || fallback)
-      rescue ArgumentError, TypeError
+      rescue ArgumentError, TypeError, RangeError
         fallback
       end
 
@@ -419,7 +436,7 @@ module Prauga
       end
 
       def quote_multipart(value)
-        value.to_s.gsub("\\", "\\\\").gsub('"', '\\"').delete("\r\n")
+        value.to_s.delete("\r\n").gsub("\\") { "\\\\" }.gsub('"') { '\\"' }
       end
 
       def ip_literal?(host)
@@ -431,7 +448,12 @@ module Prauga
 
       def metadata_ip?(value)
         ip = IPAddr.new(value)
-        LINK_LOCAL_V4.include?(ip) || LINK_LOCAL_V6.include?(ip)
+        return true if LINK_LOCAL_V4.include?(ip) || LINK_LOCAL_V6.include?(ip)
+        if ip.ipv6? && (ip.to_i >> 32) == 0xFFFF
+          mapped = IPAddr.new(ip.to_i & 0xFFFF_FFFF, Socket::AF_INET)
+          return true if LINK_LOCAL_V4.include?(mapped)
+        end
+        false
       rescue IPAddr::InvalidAddressError
         false
       end
