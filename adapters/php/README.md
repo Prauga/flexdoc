@@ -19,7 +19,7 @@ Map `responseForPath()` or the explicit response methods through your HTTP frame
 
 ## Native API-host execution (3.3)
 
-PHP can execute Try It requests from the API host without adding cURL or a third-party HTTP client. HTTPS execution requires PHP's OpenSSL extension, which is declared as a Composer platform requirement. Create a native executor with an explicit exact-origin allowlist and attach it to the renderer configuration:
+PHP can execute Try It requests from the API host without adding cURL or a third-party HTTP client. Native HTTPS execution requires PHP's OpenSSL extension; Composer lists `ext-openssl` as the dependency for that optional transport so renderer-only HTTP installations are not forced to enable it. Create a native executor with an explicit exact-origin allowlist and attach it to the renderer configuration:
 
 ```php
 use Prauga\FlexDoc\FlexDocConfig;
