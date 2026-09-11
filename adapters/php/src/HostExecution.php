@@ -18,6 +18,9 @@ final class HostExecution
     private const MIN_TIMEOUT_MS = 100;
     private const MAX_TIMEOUT_MS = 120_000;
     private const MAX_REDIRECTS = 5;
+    private const MAX_RESPONSE_HEADER_BYTES = 64 * 1024;
+    private const MAX_RESPONSE_HEADER_COUNT = 200;
+    private const MAX_RESPONSE_LINE_BYTES = 16 * 1024;
 
     /** @var array<string, true> */
     private array $allowedOrigins = [];
@@ -146,7 +149,7 @@ final class HostExecution
         [$body, $contentType] = self::prepareBody($draft, $envelope, $files, $mode);
         if ($mode === 'formdata') unset($headers['content-type']);
         if ($contentType !== null && !isset($headers['content-type'])) {
-            $headers['content-type'] = [$contentType];
+            self::setHeader($headers, 'content-type', $contentType);
         }
 
         $timeoutMs = self::integerValue($envelope['timeoutMs'] ?? null, self::DEFAULT_TIMEOUT_MS);
@@ -185,8 +188,12 @@ final class HostExecution
                 throw new HostExecutionException(403, 'Host execution exceeded the redirect safety limit.');
             }
 
-            $next = self::resolveRedirect($requestUrl, $location);
-            $nextParts = self::parseHttpUrl($next, 'Host execution received an invalid redirect URL.');
+            try {
+                $next = self::resolveRedirect($requestUrl, $location);
+                $nextParts = self::parseHttpUrl($next, 'Host execution received an invalid redirect URL.');
+            } catch (\InvalidArgumentException) {
+                throw new HostExecutionException(400, 'Host execution received an invalid redirect URL.');
+            }
             if (self::originOf($nextParts) !== self::originOf($target['parts'])) {
                 throw new HostExecutionException(403, 'Host execution does not follow cross-origin redirects.');
             }
@@ -210,16 +217,16 @@ final class HostExecution
             );
         }
 
-        $payload = $response['body'];
-        $snapshot = [
+        return [
             'status' => $response['status'],
-            'statusText' => $response['reason'],
-            'headers' => array_map(static fn (array $pair): array => [$pair[0], $pair[1]], $response['headers']),
-            'body' => self::validUtf8($payload) ? $payload : base64_encode($payload),
+            'statusText' => self::safeUtf8($response['reason']),
+            'headers' => array_map(
+                static fn (array $pair): array => [self::safeUtf8($pair[0]), self::safeUtf8($pair[1])],
+                $response['headers'],
+            ),
+            'body' => self::safeUtf8($response['body']),
             'responseTime' => max(self::monotonicMs() - $started, 0),
         ];
-        if (!self::validUtf8($payload)) $snapshot['bodyEncoding'] = 'base64';
-        return $snapshot;
     }
 
     /**
@@ -296,6 +303,10 @@ final class HostExecution
             if (isset($parts['query']) && $parts['query'] !== '') $requestTarget .= '?' . $parts['query'];
 
             $requestHeaders = $headers;
+            foreach ($requestHeaders as $name => $values) {
+                self::validateHeaderName($name, false);
+                foreach ($values as $value) self::validateHeaderValue($name, $value);
+            }
             $requestHeaders['host'] = [self::hostHeader($parts)];
             $requestHeaders['connection'] = ['close'];
             $hasEntity = $body !== '' || !in_array($method, ['GET', 'HEAD'], true);
@@ -317,9 +328,16 @@ final class HostExecution
             $reason = trim((string) ($match[2] ?? ''));
 
             $responseHeaders = [];
+            $headerBytes = 0;
+            $headerCount = 0;
             while (true) {
                 $line = self::readLine($socket, $deadline, $timeoutMs);
                 if ($line === "\r\n" || $line === "\n" || $line === '') break;
+                $headerBytes += strlen($line);
+                $headerCount++;
+                if ($headerBytes > self::MAX_RESPONSE_HEADER_BYTES || $headerCount > self::MAX_RESPONSE_HEADER_COUNT) {
+                    throw new HostExecutionException(502, 'Host execution response headers exceeded the safety limit.');
+                }
                 $colon = strpos($line, ':');
                 if ($colon === false) continue;
                 $name = strtolower(trim(substr($line, 0, $colon)));
@@ -350,9 +368,7 @@ final class HostExecution
         }
     }
 
-    /**
-     * @return array{parts: array<string, mixed>, addresses: list<string>}
-     */
+    /** @return array{parts: array<string, mixed>, addresses: list<string>} */
     private function assertAllowed(string $url): array
     {
         try {
@@ -411,15 +427,20 @@ final class HostExecution
     {
         $packed = @inet_pton(trim($address, '[]'));
         if ($packed === false) return false;
-        if (strlen($packed) === 4) {
-            $bytes = unpack('C4', $packed);
-            return ($bytes[1] ?? -1) === 169 && ($bytes[2] ?? -1) === 254;
+        if (strlen($packed) === 4) return self::isLinkLocalV4($packed);
+        if (strlen($packed) !== 16) return false;
+
+        if (substr($packed, 0, 12) === str_repeat("\0", 10) . "\xff\xff") {
+            return self::isLinkLocalV4(substr($packed, 12, 4));
         }
-        if (strlen($packed) === 16) {
-            $first = unpack('nfirst', substr($packed, 0, 2));
-            return (((int) ($first['first'] ?? 0)) & 0xffc0) === 0xfe80;
-        }
-        return false;
+        $first = unpack('nfirst', substr($packed, 0, 2));
+        return (((int) ($first['first'] ?? 0)) & 0xffc0) === 0xfe80;
+    }
+
+    private static function isLinkLocalV4(string $packed): bool
+    {
+        $bytes = unpack('C4', $packed);
+        return ($bytes[1] ?? -1) === 169 && ($bytes[2] ?? -1) === 254;
     }
 
     /**
@@ -435,14 +456,40 @@ final class HostExecution
             if ($name === '') continue;
             $normalized = strtolower($name);
             if (isset(self::UNSAFE_HEADERS[$normalized]) || str_starts_with($normalized, 'proxy-') || str_starts_with($normalized, 'sec-')) continue;
+            self::validateHeaderName($name, false);
             $value = self::stringValue($entry['value'] ?? null);
-            if (!preg_match("/^[!#$%&'*+\\-.^_`|~0-9A-Za-z]+$/", $name) || str_contains($value, "\r") || str_contains($value, "\n")) {
-                throw new HostExecutionException(400, "Invalid host execution request header: {$name}");
-            }
+            self::validateHeaderValue($name, $value);
             $headers[$normalized] ??= [];
             $headers[$normalized][] = $value;
         }
         return $headers;
+    }
+
+    /** @param array<string, list<string>> $headers */
+    private static function setHeader(array &$headers, string $rawName, string $value): void
+    {
+        $name = trim($rawName);
+        self::validateHeaderName($name, true);
+        self::validateHeaderValue($name, $value);
+        $headers[strtolower($name)] = [$value];
+    }
+
+    private static function validateHeaderName(string $name, bool $rejectUnsafe): void
+    {
+        if ($name === '' || !preg_match("/^[!#$%&'*+\\-.^_`|~0-9A-Za-z]+$/", $name)) {
+            throw new HostExecutionException(400, "Invalid host execution request header: {$name}");
+        }
+        $normalized = strtolower($name);
+        if ($rejectUnsafe && (isset(self::UNSAFE_HEADERS[$normalized]) || str_starts_with($normalized, 'proxy-') || str_starts_with($normalized, 'sec-'))) {
+            throw new HostExecutionException(400, "Unsafe host execution request header: {$name}");
+        }
+    }
+
+    private static function validateHeaderValue(string $name, string $value): void
+    {
+        if (str_contains($value, "\r") || str_contains($value, "\n")) {
+            throw new HostExecutionException(400, "Invalid host execution request header: {$name}");
+        }
     }
 
     /**
@@ -456,17 +503,17 @@ final class HostExecution
         if (in_array($type, ['', 'none', 'inherit'], true)) return $headers;
         if ($type === 'bearer') {
             $token = self::stringValue($auth['token'] ?? null);
-            if ($token !== '') $headers['authorization'] = ["Bearer {$token}"];
+            if ($token !== '') self::setHeader($headers, 'authorization', "Bearer {$token}");
             return $headers;
         }
         if ($type === 'oauth2') {
             $token = self::stringValue($auth['accessToken'] ?? null);
-            if ($token !== '') $headers['authorization'] = ["Bearer {$token}"];
+            if ($token !== '') self::setHeader($headers, 'authorization', "Bearer {$token}");
             return $headers;
         }
         if ($type === 'basic') {
             $credential = self::stringValue($auth['username'] ?? null) . ':' . self::stringValue($auth['password'] ?? null);
-            $headers['authorization'] = ['Basic ' . base64_encode($credential)];
+            self::setHeader($headers, 'authorization', 'Basic ' . base64_encode($credential));
             return $headers;
         }
         if ($type === 'apiKey') {
@@ -476,10 +523,7 @@ final class HostExecution
             if ($location === 'query') return $headers;
             if ($location === 'cookie') throw new HostExecutionException(400, 'Cookie authentication is not implemented by the PHP host executor.');
             if ($location !== 'header') throw new HostExecutionException(400, "Unsupported API key location: {$location}");
-            if (!preg_match("/^[!#$%&'*+\\-.^_`|~0-9A-Za-z]+$/", $key)) {
-                throw new HostExecutionException(400, "Invalid host execution request header: {$key}");
-            }
-            $headers[strtolower($key)] = [self::stringValue($auth['value'] ?? null)];
+            self::setHeader($headers, $key, self::stringValue($auth['value'] ?? null));
             return $headers;
         }
         throw new HostExecutionException(400, "Authentication type {$type} is not implemented by the PHP host executor.");
@@ -503,6 +547,7 @@ final class HostExecution
     private static function prepareBody(array $draft, array $envelope, array $files, string $mode): array
     {
         $explicitType = self::stringValue($draft['contentType'] ?? null);
+        if ($explicitType !== '') self::validateHeaderValue('content-type', $explicitType);
         return match ($mode) {
             'none' => ['', null],
             'raw' => [self::stringValue($draft['body'] ?? null), $explicitType !== '' ? $explicitType : null],
@@ -524,6 +569,7 @@ final class HostExecution
         if ($data === false) throw new HostExecutionException(400, 'Binary host execution bodyBase64 is invalid.');
         $binary = is_array($draft['binary'] ?? null) ? $draft['binary'] : [];
         $contentType = $explicitType ?: (self::stringValue($binary['contentType'] ?? null) ?: 'application/octet-stream');
+        self::validateHeaderValue('content-type', $contentType);
         return [$data, $contentType];
     }
 
@@ -581,6 +627,7 @@ final class HostExecution
                 }
                 $filename = self::stringValue($file['filename'] ?? null) ?: (self::stringValue($entry['fileName'] ?? null) ?: 'upload.bin');
                 $contentType = self::stringValue($file['contentType'] ?? null) ?: (self::stringValue($entry['contentType'] ?? null) ?: 'application/octet-stream');
+                self::validateHeaderValue('content-type', $contentType);
                 $body .= 'Content-Disposition: form-data; name="' . self::quoteMultipart($key) . '"; filename="' . self::quoteMultipart($filename) . "\"\r\n";
                 $body .= "Content-Type: {$contentType}\r\n\r\n";
                 $body .= (string) $file['data'] . "\r\n";
@@ -597,10 +644,12 @@ final class HostExecution
     {
         $explicit = trim(self::stringValue($draft['bodyMode'] ?? null));
         if ($explicit !== '') return $explicit;
-        if (array_key_exists('binary', $draft)) return 'binary';
-        if (array_key_exists('formData', $draft)) return 'formdata';
-        if (array_key_exists('urlencoded', $draft)) return 'urlencoded';
-        if (array_key_exists('graphql', $draft)) return 'graphql';
+        $binary = is_array($draft['binary'] ?? null) ? $draft['binary'] : [];
+        if (trim(self::stringValue($binary['fileName'] ?? null)) !== '') return 'binary';
+        if (self::entries($draft['formData'] ?? null) !== []) return 'formdata';
+        if (self::entries($draft['urlencoded'] ?? null) !== []) return 'urlencoded';
+        $graphql = is_array($draft['graphql'] ?? null) ? $draft['graphql'] : [];
+        if (self::stringValue($graphql['query'] ?? null) !== '' || self::stringValue($graphql['variables'] ?? null) !== '') return 'graphql';
         if (self::stringValue($draft['body'] ?? null) === '') return 'none';
         if (str_contains(strtolower(self::stringValue($draft['contentType'] ?? null)), 'json')) return 'json';
         return 'raw';
@@ -784,8 +833,11 @@ final class HostExecution
     private static function readLine($stream, int $deadline, int $timeoutMs): string
     {
         self::applyStreamDeadline($stream, $deadline, $timeoutMs);
-        $line = @fgets($stream);
+        $line = @fgets($stream, self::MAX_RESPONSE_LINE_BYTES + 2);
         if ($line === false) self::throwStreamFailure($stream, $deadline, $timeoutMs, 'Host execution response read failed.');
+        if (strlen($line) > self::MAX_RESPONSE_LINE_BYTES && !str_ends_with($line, "\n")) {
+            throw new HostExecutionException(502, 'Host execution response header line exceeded the safety limit.');
+        }
         return $line;
     }
 
@@ -837,7 +889,17 @@ final class HostExecution
             if ($sizeText === '' || !ctype_xdigit($sizeText)) throw new HostExecutionException(502, 'Host execution received an invalid chunked response.');
             $size = hexdec($sizeText);
             if ($size === 0) {
-                while (trim(self::readLine($stream, $deadline, $timeoutMs)) !== '') {}
+                $trailerBytes = 0;
+                $trailerCount = 0;
+                while (true) {
+                    $trailer = self::readLine($stream, $deadline, $timeoutMs);
+                    if ($trailer === "\r\n" || $trailer === "\n" || $trailer === '') break;
+                    $trailerBytes += strlen($trailer);
+                    $trailerCount++;
+                    if ($trailerBytes > self::MAX_RESPONSE_HEADER_BYTES || $trailerCount > self::MAX_RESPONSE_HEADER_COUNT) {
+                        throw new HostExecutionException(502, 'Host execution response trailers exceeded the safety limit.');
+                    }
+                }
                 break;
             }
             if (strlen($body) + $size > self::MAX_RESPONSE_BYTES) {
@@ -860,9 +922,12 @@ final class HostExecution
         throw new HostExecutionException(502, $fallback);
     }
 
-    private static function validUtf8(string $value): bool
+    private static function safeUtf8(string $value): string
     {
-        return preg_match('//u', $value) === 1;
+        if (preg_match('//u', $value) === 1) return $value;
+        $encoded = json_encode($value, JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+        $decoded = json_decode($encoded, true, flags: JSON_THROW_ON_ERROR);
+        return is_string($decoded) ? $decoded : '';
     }
 }
 
