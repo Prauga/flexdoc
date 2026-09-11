@@ -98,8 +98,10 @@ final class FlexDocHost
         $mediaType = strtolower(trim(explode(';', $contentType, 2)[0]));
 
         $totalBytes = strlen($body);
-        foreach ($formFields as $value) if (is_string($value)) $totalBytes += strlen($value);
-        foreach ($files as $file) if (is_array($file) && isset($file['data']) && is_string($file['data'])) $totalBytes += strlen($file['data']);
+        if ($mediaType === 'multipart/form-data' && $body === '') {
+            foreach ($formFields as $value) if (is_string($value)) $totalBytes += strlen($value);
+            foreach ($files as $file) if (is_array($file) && isset($file['data']) && is_string($file['data'])) $totalBytes += strlen($file['data']);
+        }
         if ($totalBytes > HostExecution::MAX_REQUEST_BYTES) {
             return self::executionJson(400, ['error' => 'Host execution request exceeded the 32 MiB safety limit.']);
         }
