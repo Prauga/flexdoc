@@ -4,7 +4,8 @@ defmodule PraugaFlexDoc.HostExecutionTest do
 
   import Plug.Conn, only: [get_resp_header: 2, put_req_header: 3]
 
-  alias PraugaFlexDoc.{HostExecution, Plug => FlexDocPlug}
+  alias PraugaFlexDoc.HostExecution
+  alias PraugaFlexDoc.Plug, as: FlexDocPlug
 
   @max_response_bytes 10 * 1024 * 1024
 
