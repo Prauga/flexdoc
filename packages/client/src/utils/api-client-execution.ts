@@ -222,7 +222,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
     resolvedUrl = executionDraft.url;
     const requirements = httpHostExecutionRequirements(executionDraft);
     const bodyNeedsHostTransport = ['GET', 'HEAD'].includes(executedMethod) && inferHttpBodyMode(executionDraft) !== 'none';
-    const shouldUseHost = requirements.length > 0 || (bodyNeedsHostTransport && options.hostExecution?.available === true);
+    const shouldUseHost = options.hostExecution?.available === true || requirements.length > 0 || bodyNeedsHostTransport;
     let apiResponse: ApiClientExecutionResponse;
 
     if (shouldUseHost) {
