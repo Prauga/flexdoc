@@ -38,7 +38,7 @@ if ($path === '/health') { echo 'ok'; return; }
 if ($path === '/redirect') { header('Location: /echo'); http_response_code(302); return; }
 if ($path === '/slow') { usleep(250000); header('Content-Type: text/plain'); echo 'late'; return; }
 if ($path === '/large') { header('Content-Type: text/plain'); echo str_repeat('x', 10 * 1024 * 1024 + 1); return; }
-if ($path !== '/echo') { http_response_code(404); echo 'missing'; return; }
+if (!str_starts_with($path, '/echo')) { http_response_code(404); echo 'missing'; return; }
 $headers = function_exists('getallheaders') ? getallheaders() : [];
 $normalized = [];
 foreach ($headers as $name => $value) $normalized[strtolower((string) $name)] = (string) $value;
@@ -144,7 +144,7 @@ hostCheck($metadata['status'] === 403, 'metadata destination must be blocked');
 $encodedEnvelope = [
     'request' => [
         'method' => 'GET',
-        'url' => $origin . '/echo/../echo?existing=a%2Fb',
+        'url' => $origin . '/echo%2Fpart?existing=a%2Fb',
         'query' => [['key' => 'next', 'value' => 'c d']],
         'headers' => [
             ['key' => 'Origin', 'value' => 'https://attacker.example'],
@@ -156,6 +156,7 @@ $encodedEnvelope = [
 $encoded = $executor->handle('1', $encodedEnvelope);
 hostCheck($encoded['status'] === 200, 'encoded URL execution status');
 $echo = hostJson((string) $encoded['body']['body']);
+hostCheck(str_contains((string) $echo['uri'], '/echo%2Fpart'), 'encoded path changed');
 hostCheck(str_contains((string) $echo['uri'], 'existing=a%2Fb'), 'existing encoded query changed');
 hostCheck(str_contains((string) $echo['uri'], 'next=c+d'), 'canonical query missing');
 hostCheck(!isset($echo['headers']['origin']), 'unsafe Origin forwarded');
