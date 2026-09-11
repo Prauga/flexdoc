@@ -90,7 +90,6 @@ module Prauga
           segment = segment.sub(/\r\n\z/n, "")
           header_blob, data = segment.split("\r\n\r\n".b, 2)
           raise EnvelopeError, "Host execution multipart body is invalid." unless data
-          data = data.sub(/\r\n\z/n, "")
 
           headers = header_blob.split("\r\n".b).each_with_object({}) do |line, result|
             name, value = line.split(":", 2)
