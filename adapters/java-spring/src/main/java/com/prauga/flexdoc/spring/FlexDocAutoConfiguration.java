@@ -2,6 +2,7 @@ package com.prauga.flexdoc.spring;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prauga.flexdoc.jvm.FlexDocHost;
+import com.prauga.flexdoc.jvm.FlexDocHostExecution;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -47,24 +48,39 @@ public class FlexDocAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean
   FlexDocHost flexDocHost(FlexDocProperties properties, ObjectProvider<FlexDocSpecProvider> provider, ObjectMapper objectMapper) {
+    FlexDocHostExecution execution = properties.isTryItHostExecution()
+        ? new FlexDocHostExecution(properties.getTryItHostExecutionAllowedOrigins())
+        : null;
     return new FlexDocHost(properties.toConfig(), () -> {
       FlexDocSpecProvider specProvider = provider.getIfAvailable();
       if (specProvider == null) return null;
       Object document = specProvider.getOpenApiDocument();
       return document == null ? null : objectMapper.writeValueAsString(document);
-    });
+    }, execution);
   }
 
   /**
    * Registers the MVC controller that serves documentation and renderer assets.
    *
    * @param properties bound FlexDoc configuration properties
-   * @param host configured FlexDoc host
+   * @param host configured framework-neutral FlexDoc host
    * @return FlexDoc MVC controller
    */
   @Bean
   FlexDocController flexDocController(FlexDocProperties properties, FlexDocHost host) {
     return new FlexDocController(properties, host);
+  }
+
+  /**
+   * Registers the native Spring host-execution route only when execution is enabled.
+   *
+   * @param host configured framework-neutral FlexDoc host owning the executor
+   * @return Spring MVC execute transport
+   */
+  @Bean
+  @ConditionalOnProperty(prefix = "flexdoc", name = "try-it-host-execution", havingValue = "true")
+  FlexDocHostExecutionController flexDocHostExecutionController(FlexDocHost host, ObjectMapper objectMapper) {
+    return new FlexDocHostExecutionController(host, objectMapper);
   }
 
   /**
