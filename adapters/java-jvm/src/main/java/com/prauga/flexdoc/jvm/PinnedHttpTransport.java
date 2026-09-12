@@ -52,11 +52,24 @@ final class PinnedHttpTransport {
 
     String expectedHost = normalizeHost(url.getHost());
     InetAddress[] pinnedAddresses = validatedAddresses.clone();
-    DnsResolver pinnedResolver = host -> {
-      if (!normalizeHost(host).equals(expectedHost)) {
-        throw new UnknownHostException("Unexpected host resolution attempt: " + host);
+    DnsResolver pinnedResolver = new DnsResolver() {
+      @Override
+      public InetAddress[] resolve(String host) throws UnknownHostException {
+        assertExpectedHost(host);
+        return pinnedAddresses.clone();
       }
-      return pinnedAddresses.clone();
+
+      @Override
+      public String resolveCanonicalHostname(String host) throws UnknownHostException {
+        assertExpectedHost(host);
+        return host;
+      }
+
+      private void assertExpectedHost(String host) throws UnknownHostException {
+        if (!normalizeHost(host).equals(expectedHost)) {
+          throw new UnknownHostException("Unexpected host resolution attempt: " + host);
+        }
+      }
     };
 
     Timeout timeout = Timeout.ofMilliseconds(Math.max(1L, timeoutMs));
