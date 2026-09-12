@@ -15,6 +15,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -167,6 +168,9 @@ func (e *HostExecution) Execute(envelope map[string]any, files map[int]HostExecu
 	if err != nil {
 		return nil, err
 	}
+	if err := validateContentType(prepared.contentType); err != nil {
+		return nil, err
+	}
 	if mode == "formdata" {
 		headers.Del("Content-Type")
 	}
@@ -295,6 +299,10 @@ func (e *HostExecution) executeWithRedirects(method string, target *url.URL, hea
 			if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 				return nil, upstream(fmt.Sprintf("Host execution request timed out after %d ms.", timeout.Milliseconds()))
 			}
+			var executionErr *hostExecutionError
+			if errors.As(err, &executionErr) {
+				return nil, executionErr
+			}
 			return nil, upstream("Host execution request failed: " + err.Error())
 		}
 
@@ -340,8 +348,13 @@ func (e *HostExecution) executeWithRedirects(method string, target *url.URL, hea
 		}
 
 		responseHeaders := make([][]string, 0)
-		for name, values := range response.Header {
-			for _, value := range values {
+		responseHeaderNames := make([]string, 0, len(response.Header))
+		for name := range response.Header {
+			responseHeaderNames = append(responseHeaderNames, name)
+		}
+		sort.Strings(responseHeaderNames)
+		for _, name := range responseHeaderNames {
+			for _, value := range response.Header.Values(name) {
 				responseHeaders = append(responseHeaders, []string{name, value})
 			}
 		}
@@ -579,6 +592,9 @@ func prepareRequestBody(draft, envelope map[string]any, files map[int]HostExecut
 				if contentType == "" {
 					contentType = "application/octet-stream"
 				}
+				if err := validateContentType(contentType); err != nil {
+					return preparedBody{}, err
+				}
 				headers := textproto.MIMEHeader{}
 				headers.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, quoteMultipart(key), quoteMultipart(filename)))
 				headers.Set("Content-Type", contentType)
@@ -639,13 +655,12 @@ func sanitizeHeaders(values []map[string]any) (http.Header, error) {
 		if name == "" {
 			continue
 		}
-		normalized := strings.ToLower(name)
-		if hopByHopHeaders[normalized] || strings.HasPrefix(normalized, "proxy-") || strings.HasPrefix(normalized, "sec-") || normalized == "origin" || normalized == "referer" {
+		if unsafeHeaderName(name) {
 			continue
 		}
 		value := stringValue(entry["value"])
-		if !headerNamePattern.MatchString(name) || strings.ContainsAny(value, "\r\n") {
-			return nil, badRequest("Invalid host execution request header: " + name)
+		if err := validateHeader(name, value); err != nil {
+			return nil, err
 		}
 		headers.Add(name, value)
 	}
@@ -662,18 +677,17 @@ func applyHeaderAuth(raw any, headers http.Header) error {
 		return nil
 	case "bearer":
 		if token := stringValue(auth["token"]); token != "" {
-			headers.Set("Authorization", "Bearer "+token)
+			return setValidatedHeader(headers, "Authorization", "Bearer "+token)
 		}
 		return nil
 	case "oauth2":
 		if token := stringValue(auth["accessToken"]); token != "" {
-			headers.Set("Authorization", "Bearer "+token)
+			return setValidatedHeader(headers, "Authorization", "Bearer "+token)
 		}
 		return nil
 	case "basic":
 		credential := stringValue(auth["username"]) + ":" + stringValue(auth["password"])
-		headers.Set("Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(credential)))
-		return nil
+		return setValidatedHeader(headers, "Authorization", "Basic "+base64.StdEncoding.EncodeToString([]byte(credential)))
 	case "apiKey":
 		key := strings.TrimSpace(stringValue(auth["key"]))
 		if key == "" {
@@ -681,11 +695,10 @@ func applyHeaderAuth(raw any, headers http.Header) error {
 		}
 		switch stringValueDefault(auth["in"], "header") {
 		case "header":
-			if !headerNamePattern.MatchString(key) {
-				return badRequest("Invalid host execution request header: " + key)
+			if unsafeHeaderName(key) {
+				return badRequest("Unsafe host execution request header: " + key)
 			}
-			headers.Set(key, stringValue(auth["value"]))
-			return nil
+			return setValidatedHeader(headers, key, stringValue(auth["value"]))
 		case "query":
 			return nil
 		case "cookie":
@@ -731,6 +744,42 @@ func appendQuery(target *url.URL, values []map[string]any) {
 	} else {
 		target.RawQuery += "&" + strings.Join(parts, "&")
 	}
+}
+
+func unsafeHeaderName(name string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(name))
+	return hopByHopHeaders[normalized] ||
+		strings.HasPrefix(normalized, "proxy-") ||
+		strings.HasPrefix(normalized, "sec-") ||
+		normalized == "origin" || normalized == "referer"
+}
+
+func validateHeader(name, value string) error {
+	if !headerNamePattern.MatchString(name) || strings.ContainsAny(value, "\r\n") {
+		return badRequest("Invalid host execution request header: " + name)
+	}
+	return nil
+}
+
+func setValidatedHeader(headers http.Header, name, value string) error {
+	if err := validateHeader(name, value); err != nil {
+		return err
+	}
+	headers.Set(name, value)
+	return nil
+}
+
+func validateContentType(value string) error {
+	if value == "" {
+		return nil
+	}
+	if strings.ContainsAny(value, "\r\n") {
+		return badRequest("Invalid host execution content type.")
+	}
+	if _, _, err := mime.ParseMediaType(value); err != nil {
+		return badRequest("Invalid host execution content type.")
+	}
+	return nil
 }
 
 func parseHTTPURL(raw string) (*url.URL, error) {
