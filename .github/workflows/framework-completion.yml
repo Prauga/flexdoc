@@ -125,6 +125,7 @@ jobs:
         run: |
           mix local.hex --force
           mix deps.get
+          git diff --exit-code -- mix.lock
           mix test
           mix hex.build
           mix docs
