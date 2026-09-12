@@ -52,6 +52,7 @@ export interface RunApiClientCollectionOptions {
   /** Browser Fetch credentials mode used by direct executions. */ credentials?: RequestCredentials;
   /** Hook that may rewrite direct-browser request URL/init before transport. */ requestInterceptor?: ExecuteApiClientRequestOptions['requestInterceptor'];
   /** API-host execution endpoint/capabilities. */ hostExecution?: ExecuteApiClientRequestOptions['hostExecution'];
+  /** Whether ordinary collection-run requests should prefer an available API host. Defaults to false. */ preferHostExecution?: boolean;
   /** External variables merged into request/script resolution. */ externalVariables?: HttpVariables;
   /** External environment variables merged before active workspace environment values. */ externalEnvironmentVariables?: HttpVariables;
   /** Stop after the first failed item instead of continuing through the scope. */ stopOnFailure?: boolean;
@@ -178,6 +179,7 @@ export async function runApiClientCollection(options: RunApiClientCollectionOpti
       credentials: options.credentials,
       requestInterceptor: options.requestInterceptor,
       hostExecution: options.hostExecution,
+      preferHostExecution: options.preferHostExecution === true,
       resolveAuth: (auth) => resolveApiClientAuth(
         workspace,
         savedRequest.collectionId,

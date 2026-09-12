@@ -62,6 +62,7 @@ export interface ExecuteApiClientRequestOptions {
   /** External/host-supplied variables available to scripts. */ externalVariables?: HttpVariables;
   /** Active environment variables available to scripts. */ environmentVariables?: HttpVariables;
   /** Public API-host execution endpoint/capabilities advertised by the docs host. */ hostExecution?: FlexDocHostExecutionPublicOptions;
+  /** Whether an available API host should also handle ordinary requests. Defaults to true when a host is supplied. */ preferHostExecution?: boolean;
   /** Called after a direct-browser request is built and before the interceptor executes. */ onRequestBuilt?: (request: BuiltRequest) => void;
   /** Called with collection-variable mutations emitted by scripts. */ onCollectionChanges?: (changes: ApiClientScriptCollectionChange[]) => void;
   /** Called with environment-variable mutations emitted by scripts. */ onEnvironmentChanges?: (changes: ApiClientScriptEnvironmentChange[]) => void;
@@ -222,7 +223,8 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
     resolvedUrl = executionDraft.url;
     const requirements = httpHostExecutionRequirements(executionDraft);
     const bodyNeedsHostTransport = ['GET', 'HEAD'].includes(executedMethod) && inferHttpBodyMode(executionDraft) !== 'none';
-    const shouldUseHost = requirements.length > 0 || (bodyNeedsHostTransport && options.hostExecution?.available === true);
+    const preferHostExecution = options.preferHostExecution !== false;
+    const shouldUseHost = (preferHostExecution && options.hostExecution?.available === true) || requirements.length > 0 || bodyNeedsHostTransport;
     let apiResponse: ApiClientExecutionResponse;
 
     if (shouldUseHost) {
