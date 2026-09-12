@@ -98,10 +98,13 @@ class FlexDocASGI:
         try:
             body = await _read_bounded_body(scope, receive)
             content_type = headers.get("content-type", "")
-            if content_type.lower().startswith("application/json"):
+            if "\r" in content_type or "\n" in content_type:
+                raise ValueError("Host execution Content-Type is invalid.")
+            media_type = content_type.split(";", 1)[0].strip().lower()
+            if media_type == "application/json":
                 envelope = _parse_json_envelope(body)
                 files: dict[int, FlexDocHostExecutionFile] = {}
-            elif content_type.lower().startswith("multipart/form-data"):
+            elif media_type == "multipart/form-data":
                 envelope, files = _parse_multipart_envelope(content_type, body)
             else:
                 raise ValueError("Host execution requires application/json or multipart/form-data.")
@@ -141,10 +144,13 @@ async def _read_bounded_body(scope, receive) -> bytes:
     declared = headers.get("content-length")
     if declared:
         try:
-            if int(declared) > MAX_EXECUTION_REQUEST_BYTES:
+            parsed = int(declared)
+            if parsed < 0:
+                raise ValueError("Host execution request Content-Length is invalid.")
+            if parsed > MAX_EXECUTION_REQUEST_BYTES:
                 raise ValueError("Host execution request exceeded the 32 MiB safety limit.")
         except ValueError as error:
-            if str(error).startswith("Host execution request exceeded"):
+            if str(error).startswith("Host execution request exceeded") or str(error).startswith("Host execution request Content-Length"):
                 raise
             raise ValueError("Host execution request Content-Length is invalid.") from error
 
@@ -180,6 +186,8 @@ def _parse_multipart_envelope(
     content_type: str,
     body: bytes,
 ) -> tuple[dict[str, object], dict[int, FlexDocHostExecutionFile]]:
+    if "\r" in content_type or "\n" in content_type:
+        raise ValueError("Host execution Content-Type is invalid.")
     try:
         message = BytesParser(policy=policy.default).parsebytes(
             b"Content-Type: " + content_type.encode("latin-1") + b"\r\nMIME-Version: 1.0\r\n\r\n" + body
