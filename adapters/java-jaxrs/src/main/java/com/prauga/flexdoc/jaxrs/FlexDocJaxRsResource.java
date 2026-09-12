@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prauga.flexdoc.jvm.FlexDocHost;
 import com.prauga.flexdoc.jvm.FlexDocHostExecutionFile;
+import com.prauga.flexdoc.jvm.FlexDocHostExecutionPolicy;
 import com.prauga.flexdoc.jvm.FlexDocHostExecutionResult;
 import com.prauga.flexdoc.jvm.FlexDocHttpResponse;
 import jakarta.inject.Inject;
@@ -79,7 +80,10 @@ public class FlexDocJaxRsResource {
     if (!"1".equals(executeMarker)) return executionResponse(host.executeHostRequest(executeMarker, Map.of()));
     try {
       byte[] bytes = readBounded(body, contentLength, MAX_EXECUTION_REQUEST_BYTES);
-      return executionResponse(host.executeHostRequest(executeMarker, parseEnvelope(bytes)));
+      Map<String, Object> envelope = parseEnvelope(bytes);
+      String policyError = FlexDocHostExecutionPolicy.validate(envelope);
+      if (policyError != null) return badRequest(policyError);
+      return executionResponse(host.executeHostRequest(executeMarker, envelope));
     } catch (BadEnvelope error) {
       return badRequest(error.getMessage());
     }
@@ -124,7 +128,10 @@ public class FlexDocJaxRsResource {
         files.put(index, new FlexDocHostExecutionFile(part.getFileName().orElse(null), mediaType, bytes));
       }
       if (descriptor == null) return badRequest("Host execution multipart request requires a descriptor.");
-      return executionResponse(host.executeHostRequest(executeMarker, parseEnvelope(descriptor), files));
+      Map<String, Object> envelope = parseEnvelope(descriptor);
+      String policyError = FlexDocHostExecutionPolicy.validate(envelope);
+      if (policyError != null) return badRequest(policyError);
+      return executionResponse(host.executeHostRequest(executeMarker, envelope, files));
     } catch (BadEnvelope error) {
       return badRequest(error.getMessage());
     }
