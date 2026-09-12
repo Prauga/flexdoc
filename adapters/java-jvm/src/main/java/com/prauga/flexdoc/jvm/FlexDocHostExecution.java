@@ -6,11 +6,7 @@ import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
@@ -20,10 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Framework-neutral Java 17 implementation of the existing FlexDoc host-execution envelope.
@@ -45,7 +38,6 @@ public final class FlexDocHostExecution {
   private static final long MAX_TIMEOUT_MS = 120_000L;
 
   private final Set<String> allowedOrigins;
-  private final HttpClient client;
 
   /**
    * Creates a JVM executor with an explicit exact-origin allowlist.
@@ -69,10 +61,6 @@ public final class FlexDocHostExecution {
       throw new IllegalArgumentException("FlexDoc host execution requires at least one exact allowed origin.");
     }
     this.allowedOrigins = Set.copyOf(normalized);
-    this.client = HttpClient.newBuilder()
-        .followRedirects(HttpClient.Redirect.NEVER)
-        .connectTimeout(Duration.ofSeconds(10))
-        .build();
   }
 
   /** @return host-only capabilities implemented by this native executor */
@@ -154,58 +142,34 @@ public final class FlexDocHostExecution {
     URI url = initialUrl;
     byte[] body = initialBody;
     List<Header> headers = new ArrayList<>(initialHeaders);
+    long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
 
     for (int redirect = 0; redirect <= MAX_REDIRECTS; redirect++) {
       url = applyQueryAuth(rawAuth, url);
-      assertAllowed(url);
+      long remainingMs = remainingMillis(deadlineNanos);
+      if (remainingMs <= 0) throw upstream("Host execution request timed out after " + timeoutMs + " ms.");
+
+      InetAddress[] validatedAddresses = resolveAllowedAddresses(url);
+      remainingMs = remainingMillis(deadlineNanos);
+      if (remainingMs <= 0) throw upstream("Host execution request timed out after " + timeoutMs + " ms.");
+
       long started = System.nanoTime();
-      ByteArrayOutputStream receivedBody = new ByteArrayOutputStream();
-      HttpResponse<Void> response;
-      CompletableFuture<HttpResponse<Void>> future;
+      PinnedHttpTransport.Response response;
       try {
-        HttpRequest.Builder builder = HttpRequest.newBuilder(url).timeout(Duration.ofMillis(timeoutMs));
-        for (Header header : headers) builder.header(header.name(), header.value());
-        HttpRequest.BodyPublisher publisher = body == null
-            ? HttpRequest.BodyPublishers.noBody()
-            : HttpRequest.BodyPublishers.ofByteArray(body);
-        builder.method(method, publisher);
-        future = client.sendAsync(builder.build(), HttpResponse.BodyHandlers.ofByteArrayConsumer(chunk -> {
-          if (chunk.isEmpty()) return;
-          byte[] bytes = chunk.get();
-          if ((long) receivedBody.size() + bytes.length > MAX_RESPONSE_BYTES) {
-            throw new ResponseLimitExceeded();
-          }
-          receivedBody.writeBytes(bytes);
-        }));
-      } catch (IllegalArgumentException error) {
-        throw upstream("Host execution request failed: " + error.getMessage());
-      }
-      try {
-        response = future.get(timeoutMs, TimeUnit.MILLISECONDS);
-      } catch (TimeoutException error) {
-        future.cancel(true);
+        response = PinnedHttpTransport.execute(
+            method, url, headers, body, validatedAddresses, remainingMs, MAX_RESPONSE_BYTES);
+      } catch (PinnedHttpTransport.DeadlineExceeded error) {
         throw upstream("Host execution request timed out after " + timeoutMs + " ms.");
-      } catch (InterruptedException error) {
-        future.cancel(true);
-        Thread.currentThread().interrupt();
-        throw upstream("Host execution was interrupted.");
-      } catch (ExecutionException error) {
-        if (causedByResponseLimit(error)) {
-          throw upstream("Host execution response exceeded the 10 MiB safety limit.");
-        }
-        Throwable cause = error.getCause();
-        String message = cause == null || cause.getMessage() == null ? "unknown transport error" : cause.getMessage();
+      } catch (PinnedHttpTransport.ResponseTooLarge error) {
+        throw upstream("Host execution response exceeded the 10 MiB safety limit.");
+      } catch (IOException error) {
+        String message = error.getMessage() == null ? "unknown transport error" : error.getMessage();
         throw upstream("Host execution request failed: " + message);
-      } catch (RuntimeException error) {
-        if (causedByResponseLimit(error)) {
-          throw upstream("Host execution response exceeded the 10 MiB safety limit.");
-        }
-        throw error;
       }
       long elapsedMs = Math.max(0L, (System.nanoTime() - started) / 1_000_000L);
 
-      int status = response.statusCode();
-      String location = response.headers().firstValue("location").orElse(null);
+      int status = response.status();
+      String location = firstResponseHeader(response.headers(), "location");
       if (isRedirect(status) && location != null) {
         if (redirect == MAX_REDIRECTS) throw forbidden("Host execution exceeded the redirect safety limit.");
         URI next;
@@ -214,7 +178,6 @@ public final class FlexDocHostExecution {
         if (!origin(next).equals(origin(url))) {
           throw forbidden("Host execution does not follow cross-origin redirects.");
         }
-        assertAllowed(next);
         if (status == 303) {
           method = "GET";
           body = null;
@@ -224,24 +187,18 @@ public final class FlexDocHostExecution {
         continue;
       }
 
-      byte[] responseBody = receivedBody.toByteArray();
-      List<List<String>> responseHeaders = new ArrayList<>();
-      response.headers().map().forEach((name, values) -> {
-        for (String value : values) responseHeaders.add(List.of(name, value));
-      });
-
       Map<String, Object> out = new LinkedHashMap<>();
       out.put("status", status);
-      out.put("statusText", reasonPhrase(status));
-      out.put("headers", responseHeaders);
-      out.put("body", new String(responseBody, StandardCharsets.UTF_8));
+      out.put("statusText", response.statusText().isBlank() ? reasonPhrase(status) : response.statusText());
+      out.put("headers", response.headers());
+      out.put("body", new String(response.body(), StandardCharsets.UTF_8));
       out.put("responseTime", elapsedMs);
       return out;
     }
     throw forbidden("Host execution exceeded the redirect safety limit.");
   }
 
-  private void assertAllowed(URI uri) {
+  private InetAddress[] resolveAllowedAddresses(URI uri) {
     if (!isHttp(uri)) throw forbidden("Host execution only allows HTTP(S) URLs.");
     if (uri.getRawUserInfo() != null) throw forbidden("Host execution URLs cannot contain embedded credentials.");
     if (!allowedOrigins.contains(origin(uri))) {
@@ -251,11 +208,14 @@ public final class FlexDocHostExecution {
     if (host == null || host.isBlank()) throw badRequest("Host execution URL is missing a hostname.");
     if (isMetadataHost(host)) throw forbidden("Host execution blocks link-local and cloud metadata endpoints.");
     try {
-      for (InetAddress address : InetAddress.getAllByName(host)) {
+      InetAddress[] addresses = InetAddress.getAllByName(host);
+      if (addresses.length == 0) throw upstream("Host execution could not resolve target hostname.");
+      for (InetAddress address : addresses) {
         if (address.isLinkLocalAddress() || isMetadataAddress(address)) {
           throw forbidden("Host execution blocks DNS resolutions to link-local and cloud metadata endpoints.");
         }
       }
+      return addresses;
     } catch (FlexDocHostExecutionException error) {
       throw error;
     } catch (IOException error) {
@@ -367,10 +327,19 @@ public final class FlexDocHostExecution {
   private static String inferBodyMode(Map<String, Object> draft) {
     String mode = string(draft.get("bodyMode"));
     if (mode != null && !mode.isBlank()) return mode;
-    if (draft.get("binary") != null) return "binary";
-    if (draft.get("formData") != null) return "formdata";
-    if (draft.get("urlencoded") != null) return "urlencoded";
-    if (draft.get("graphql") != null) return "graphql";
+
+    if (draft.get("binary") instanceof Map<?, ?> rawBinary) {
+      String fileName = string(stringMap(rawBinary).get("fileName"));
+      if (fileName != null && !fileName.isEmpty()) return "binary";
+    }
+    if (!entries(draft.get("formData")).isEmpty()) return "formdata";
+    if (!entries(draft.get("urlencoded")).isEmpty()) return "urlencoded";
+    if (draft.get("graphql") instanceof Map<?, ?> rawGraphql) {
+      Map<String, Object> graphql = stringMap(rawGraphql);
+      if (!stringOrEmpty(graphql.get("query")).isEmpty() || !stringOrEmpty(graphql.get("variables")).isEmpty()) {
+        return "graphql";
+      }
+    }
     if (draft.get("body") == null || stringOrEmpty(draft.get("body")).isEmpty()) return "none";
     return stringOrEmpty(draft.get("contentType")).toLowerCase(Locale.ROOT).contains("json") ? "json" : "raw";
   }
@@ -532,11 +501,17 @@ public final class FlexDocHostExecution {
     return status == 301 || status == 302 || status == 303 || status == 307 || status == 308;
   }
 
-  private static boolean causedByResponseLimit(Throwable error) {
-    for (Throwable current = error; current != null; current = current.getCause()) {
-      if (current instanceof ResponseLimitExceeded) return true;
+  private static long remainingMillis(long deadlineNanos) {
+    long remainingNanos = deadlineNanos - System.nanoTime();
+    if (remainingNanos <= 0) return 0L;
+    return Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remainingNanos));
+  }
+
+  private static String firstResponseHeader(List<List<String>> headers, String name) {
+    for (List<String> header : headers) {
+      if (header.size() >= 2 && header.get(0).equalsIgnoreCase(name)) return header.get(1);
     }
-    return false;
+    return null;
   }
 
   private static String reasonPhrase(int status) {
@@ -613,7 +588,6 @@ public final class FlexDocHostExecution {
   private static FlexDocHostExecutionException forbidden(String message) { return new FlexDocHostExecutionException(403, message); }
   private static FlexDocHostExecutionException upstream(String message) { return new FlexDocHostExecutionException(502, message); }
 
-  private static final class ResponseLimitExceeded extends RuntimeException {}
-  private record Header(String name, String value) {}
+  record Header(String name, String value) {}
   private record Body(byte[] bytes, String contentType) {}
 }
