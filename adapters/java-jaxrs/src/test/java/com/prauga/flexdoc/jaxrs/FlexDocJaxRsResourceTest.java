@@ -102,6 +102,36 @@ final class FlexDocJaxRsResourceTest {
   }
 
   @Test
+  void rejectsUnsafeAuthHeaderBeforeTransport() {
+    String body = "{\"request\":{\"method\":\"GET\",\"url\":\"" + origin
+        + "/echo\",\"auth\":{\"type\":\"apiKey\",\"in\":\"header\",\"key\":\"Host\",\"value\":\"evil.example\"}}}";
+    Response response = resource().execute("1", null, new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8)));
+    assertEquals(400, response.getStatus());
+    assertTrue(((String) response.getEntity()).contains("Unsafe host execution request header"));
+  }
+
+  @Test
+  void rejectsUnsupportedSessionStateBeforeTransport() {
+    String body = "{\"cookieJar\":\"session\",\"request\":{\"method\":\"GET\",\"url\":\"" + origin + "/echo\"}}";
+    Response response = resource().execute("1", null, new ByteArrayInputStream(body.getBytes(StandardCharsets.UTF_8)));
+    assertEquals(400, response.getStatus());
+    assertTrue(((String) response.getEntity()).contains("Session cookie jars are not implemented"));
+  }
+
+  @Test
+  void rejectsMultipartContentTypeInjectionBeforeTransport() {
+    String descriptor = "{\"request\":{\"method\":\"POST\",\"url\":\"" + origin
+        + "/echo\",\"bodyMode\":\"formdata\",\"formData\":["
+        + "{\"key\":\"upload\",\"type\":\"file\",\"contentType\":\"text/plain\\r\\nX-Evil: yes\"}]}}";
+    Response response = resource().executeMultipart(
+        "1",
+        null,
+        List.of(new TestEntityPart("descriptor", null, MediaType.APPLICATION_JSON_TYPE, descriptor.getBytes(StandardCharsets.UTF_8))));
+    assertEquals(400, response.getStatus());
+    assertTrue(((String) response.getEntity()).contains("Invalid host execution content type"));
+  }
+
+  @Test
   void advertisesHostExecutionOnlyWhenExecutorIsAttached() throws Exception {
     Response response = resource().documentation();
     String html = new String((byte[]) response.getEntity(), StandardCharsets.UTF_8);
