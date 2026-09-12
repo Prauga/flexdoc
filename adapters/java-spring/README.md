@@ -60,7 +60,40 @@ This first native slice intentionally advertises an empty host-only capability l
 
 Java 17 `HttpClient` does not expose the selected socket address to the executor, so the Spring implementation cannot provide the Node executor's stronger connection-time DNS pinning. It resolves and rejects dangerous addresses before each request/redirect, but deployments should keep the exact-origin allowlist narrow and avoid attacker-controlled hostnames.
 
-Application middleware still protects the docs subtree and therefore the execute route. The exact-origin list is an execution boundary, not an authentication mechanism.
+Application middleware still protects the docs subtree and therefore the execute route. The exact-origin list is an execution boundary, not an authentication mechanism, and `X-FlexDoc-Execute: 1` is a protocol marker rather than a CSRF defense.
+
+### Spring Security / CSRF
+
+If Spring Security CSRF protection is enabled, the browser-owned execute POST must either participate in the application's CSRF-token mechanism or be narrowly excluded from CSRF checks. Do not disable CSRF globally just to enable FlexDoc. A typical application-owned configuration can ignore only the execute endpoint while keeping authentication/authorization on the docs subtree:
+
+```java
+@Bean
+SecurityFilterChain security(HttpSecurity http) throws Exception {
+  http
+      .authorizeHttpRequests(auth -> auth
+          .requestMatchers("/docs/**").authenticated()
+          .anyRequest().permitAll())
+      .csrf(csrf -> csrf
+          .ignoringRequestMatchers("/docs/__flexdoc/execute"));
+  return http.build();
+}
+```
+
+Adapt the path when `flexdoc.path` is customized. The execute route still requires the FlexDoc marker and exact-origin policy, but those controls do not replace application authentication or CSRF policy.
+
+### Multipart limits
+
+Spring's multipart parser runs before `FlexDocHostExecutionController`, so framework-level multipart limits can reject a request before FlexDoc's own 32 MiB envelope bound executes. When browser file execution is required, configure Spring's multipart ceilings to admit the FlexDoc maximum (or a deliberately smaller application limit):
+
+```yaml
+spring:
+  servlet:
+    multipart:
+      max-file-size: 32MB
+      max-request-size: 32MB
+```
+
+Keeping smaller application limits is valid; it simply means those limits become the effective ceiling. Do not configure Spring above what the surrounding reverse proxy, ingress, or application is prepared to accept.
 
 ## Classpath or programmatic specs
 
