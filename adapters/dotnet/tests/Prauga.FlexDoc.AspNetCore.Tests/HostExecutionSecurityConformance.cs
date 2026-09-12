@@ -69,16 +69,25 @@ internal static class HostExecutionSecurityConformance
                 method = "POST",
                 url = "https://api.example.test/upload",
                 bodyMode = "formdata",
-                formData = new[] { new { key = "upload", type = "file", enabled = true, fileName = "payload.txt" } },
+                formData = new[]
+                {
+                    new
+                    {
+                        key = "upload",
+                        type = "file",
+                        enabled = true,
+                        fileName = "payload.txt",
+                        contentType = "text/plain\r\nX-Evil: yes",
+                    },
+                },
             },
         }), Encoding.UTF8, "application/json"), "descriptor");
         var file = new ByteArrayContent(Encoding.UTF8.GetBytes("payload"));
-        file.Headers.TryAddWithoutValidation("Content-Type", "text/plain\r\nX-Evil: yes");
         multipart.Add(file, "formData[0]", "payload.txt");
         using var multipartRequest = new HttpRequestMessage(HttpMethod.Post, "/security/__flexdoc/execute") { Content = multipart };
         multipartRequest.Headers.TryAddWithoutValidation("X-FlexDoc-Execute", "1");
         using var multipartResponse = await client.SendAsync(multipartRequest);
-        Check(multipartResponse.StatusCode == HttpStatusCode.BadRequest, "multipart file content types containing CRLF must be rejected");
+        Check(multipartResponse.StatusCode == HttpStatusCode.BadRequest, "derived multipart file content types containing CRLF must be rejected");
     }
 
     private static async Task<(HttpStatusCode Status, JsonElement Json)> SendJsonAsync(HttpClient client, string path, object envelope)
