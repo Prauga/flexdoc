@@ -75,6 +75,7 @@ public class FlexDocJaxRsResource {
       @HeaderParam("X-FlexDoc-Execute") String executeMarker,
       @HeaderParam("Content-Length") String contentLength,
       InputStream body) {
+    if (!host.hasHostExecution()) return executionNotFound();
     if (!"1".equals(executeMarker)) return executionResponse(host.executeHostRequest(executeMarker, Map.of()));
     try {
       byte[] bytes = readBounded(body, contentLength, MAX_EXECUTION_REQUEST_BYTES);
@@ -93,14 +94,16 @@ public class FlexDocJaxRsResource {
       @HeaderParam("X-FlexDoc-Execute") String executeMarker,
       @HeaderParam("Content-Length") String contentLength,
       List<EntityPart> parts) {
+    if (!host.hasHostExecution()) return executionNotFound();
     if (!"1".equals(executeMarker)) return executionResponse(host.executeHostRequest(executeMarker, Map.of()));
-    validateDeclaredLength(contentLength, MAX_EXECUTION_REQUEST_BYTES);
-    if (parts == null) return badRequest("Host execution multipart request requires a descriptor.");
 
-    byte[] descriptor = null;
-    Map<Integer, FlexDocHostExecutionFile> files = new LinkedHashMap<>();
-    int total = 0;
     try {
+      validateDeclaredLength(contentLength, MAX_EXECUTION_REQUEST_BYTES);
+      if (parts == null) return badRequest("Host execution multipart request requires a descriptor.");
+
+      byte[] descriptor = null;
+      Map<Integer, FlexDocHostExecutionFile> files = new LinkedHashMap<>();
+      int total = 0;
       for (EntityPart part : parts) {
         if (part == null) continue;
         byte[] bytes = readBounded(part.getContent(), null, MAX_EXECUTION_REQUEST_BYTES - total);
@@ -113,7 +116,7 @@ public class FlexDocJaxRsResource {
         }
         Matcher matcher = FILE_PART.matcher(name == null ? "" : name);
         if (!matcher.matches()) continue;
-        int index = Integer.parseInt(matcher.group(1));
+        int index = parsePartIndex(matcher.group(1));
         if (files.containsKey(index)) {
           return badRequest("Host execution multipart request contains duplicate formData[" + index + "] parts.");
         }
@@ -176,6 +179,14 @@ public class FlexDocJaxRsResource {
     }
   }
 
+  private static int parsePartIndex(String raw) {
+    try {
+      return Integer.parseInt(raw);
+    } catch (NumberFormatException error) {
+      throw new BadEnvelope("Host execution multipart file index is invalid.");
+    }
+  }
+
   private static void validateDeclaredLength(String raw, int limit) {
     if (raw == null || raw.isBlank()) return;
     try {
@@ -185,6 +196,14 @@ public class FlexDocJaxRsResource {
     } catch (NumberFormatException error) {
       throw new BadEnvelope("Host execution request Content-Length is invalid.");
     }
+  }
+
+  private Response executionNotFound() {
+    return Response.status(Response.Status.NOT_FOUND)
+        .type(MediaType.APPLICATION_JSON_TYPE)
+        .header("Cache-Control", "no-store")
+        .entity("{\"error\":\"Host execution is disabled on this documentation server.\"}")
+        .build();
   }
 
   private Response badRequest(String message) {
