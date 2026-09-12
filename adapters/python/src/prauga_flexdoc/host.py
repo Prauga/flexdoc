@@ -34,7 +34,8 @@ class FlexDocConfig:
         try_it_default_server: Optional default server URL for Try It requests.
         try_it_credentials: Optional fetch credentials mode for Try It requests.
         try_it_api_client_persistence_key: Optional persistence key, or ``False`` to disable.
-        try_it_host_execution: Emits host-execution protocol metadata; execution is not implemented by this adapter.
+        try_it_host_execution: Requests host-execution protocol metadata. ``available``
+            remains false unless the serving transport attaches a real native executor.
     """
 
     path: str = "/docs"
@@ -75,6 +76,8 @@ class FlexDocHost:
         *,
         assets_dir: str | Path | None = None,
         runtime_intelligence_framework: str | None = None,
+        host_execution_available: bool = False,
+        host_execution_capabilities: list[str] | tuple[str, ...] = (),
     ):
         """Create a host that serves the docs shell and packaged renderer assets.
 
@@ -83,11 +86,15 @@ class FlexDocHost:
             assets_dir: Optional directory overriding the bundled renderer assets.
             runtime_intelligence_framework: Framework name advertised when runtime
                 intelligence is enabled by an ASGI transport.
+            host_execution_available: Whether the owning transport has a real execute route.
+            host_execution_capabilities: Native host-only capabilities advertised when available.
         """
         self.config = config
         self.path = "/" + config.path.strip("/")
         self.assets_dir = Path(assets_dir) if assets_dir is not None else None
         self.runtime_intelligence_framework = runtime_intelligence_framework
+        self.host_execution_available = bool(host_execution_available)
+        self.host_execution_capabilities = tuple(host_execution_capabilities)
         digest = hashlib.sha256()
         for name in ("flexdoc.standalone.js", "flexdoc.standalone.css"):
             digest.update(self._read_asset(name))
@@ -141,9 +148,9 @@ class FlexDocHost:
             try_it["apiClientPersistenceKey"] = self.config.try_it_api_client_persistence_key
         if self.config.try_it_host_execution:
             try_it["hostExecution"] = {
-                "available": False,
+                "available": self.host_execution_available,
                 "endpoint": self.path + "/__flexdoc/execute",
-                "capabilities": [],
+                "capabilities": list(self.host_execution_capabilities) if self.host_execution_available else [],
             }
 
         options: dict[str, object] = {

@@ -5,6 +5,7 @@ from typing import Literal
 
 from .asgi import FlexDocASGI
 from .host import FlexDocConfig, FlexDocHost, FlexDocResponse
+from .host_execution import FlexDocHostExecution
 from .runtime_intelligence import build_fastapi_runtime_snapshot
 
 
@@ -39,6 +40,8 @@ def setup_fastapi_flexdoc(
     try_it_credentials: Literal["omit", "same-origin", "include"] | None = None,
     try_it_api_client_persistence_key: str | Literal[False] | None = None,
     runtime_intelligence: bool = False,
+    try_it_host_execution: bool = False,
+    try_it_host_execution_allowed_origins: list[str] | tuple[str, ...] | None = None,
 ) -> FlexDocASGI:
     """Mount FlexDoc on FastAPI using the application's generated OpenAPI endpoint.
 
@@ -53,6 +56,9 @@ def setup_fastapi_flexdoc(
         try_it_credentials: Optional fetch credentials mode for Try It requests.
         try_it_api_client_persistence_key: Optional persistence key, or ``False``.
         runtime_intelligence: When ``True``, expose a live runtime snapshot endpoint.
+        try_it_host_execution: When ``True``, mount the native API-host execution route.
+        try_it_host_execution_allowed_origins: Required exact HTTP(S) origins for native
+            execution. Wildcards and paths are not accepted.
 
     Returns:
         The mounted :class:`~prauga_flexdoc.asgi.FlexDocASGI` application.
@@ -75,6 +81,12 @@ def setup_fastapi_flexdoc(
         runtime_provider = lambda scope: build_fastapi_runtime_snapshot(app, scope, normalized_path)
         runtime_framework = "fastapi"
 
+    host_execution = None
+    if try_it_host_execution:
+        if not try_it_host_execution_allowed_origins:
+            raise ValueError("FastAPI host execution requires try_it_host_execution_allowed_origins with at least one exact origin.")
+        host_execution = FlexDocHostExecution(try_it_host_execution_allowed_origins)
+
     docs = FlexDocASGI(
         FlexDocConfig(
             path=normalized_path,
@@ -82,6 +94,7 @@ def setup_fastapi_flexdoc(
             title=title,
             theme=theme,
             try_it_enabled=try_it_enabled,
+            try_it_host_execution=try_it_host_execution,
             **_config_options(
                 expand=expand,
                 try_it_default_server=try_it_default_server,
@@ -91,6 +104,7 @@ def setup_fastapi_flexdoc(
         ),
         runtime_provider=runtime_provider,
         runtime_framework=runtime_framework,
+        host_execution=host_execution,
     )
     app.mount(normalized_path, docs)
     return docs
