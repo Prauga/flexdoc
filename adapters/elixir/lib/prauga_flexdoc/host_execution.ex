@@ -9,6 +9,7 @@ defmodule PraugaFlexDoc.HostExecution do
 
   @max_request_bytes 32 * 1024 * 1024
   @max_response_bytes 10 * 1024 * 1024
+  @max_response_header_bytes 64 * 1024
   @default_timeout_ms 30_000
   @min_timeout_ms 100
   @max_timeout_ms 120_000
@@ -111,17 +112,15 @@ defmodule PraugaFlexDoc.HostExecution do
     if remaining <= 0, do: fail(502, "Host execution request timed out after #{timeout_ms} ms.")
 
     request_uri = apply_query_auth(current, auth)
-    assert_allowed(execution, request_uri)
+    validated_addresses = assert_allowed(execution, request_uri, remaining, timeout_ms)
+    remaining = deadline - System.monotonic_time(:millisecond)
+    if remaining <= 0, do: fail(502, "Host execution request timed out after #{timeout_ms} ms.")
     started = System.monotonic_time(:millisecond)
 
-    case perform_request(method, request_uri, headers, body, remaining) do
+    case perform_request(method, request_uri, headers, body, remaining, validated_addresses) do
       {:ok, status, reason, response_headers, response_body} ->
         case redirect_location(status, response_headers) do
           nil ->
-            if byte_size(response_body) > @max_response_bytes do
-              fail(502, "Host execution response exceeded the 10 MiB safety limit.")
-            end
-
             %{
               "status" => status,
               "statusText" => reason,
@@ -137,7 +136,6 @@ defmodule PraugaFlexDoc.HostExecution do
 
             next = resolve_redirect(request_uri, location)
             if origin_of(next) != origin_of(request_uri), do: fail(403, "Host execution does not follow cross-origin redirects.")
-            assert_allowed(execution, next)
 
             {next_method, next_body, next_headers} =
               if status == 303 do
@@ -162,53 +160,173 @@ defmodule PraugaFlexDoc.HostExecution do
       {:error, :timeout} ->
         fail(502, "Host execution request timed out after #{timeout_ms} ms.")
 
+      {:error, :response_too_large} ->
+        fail(502, "Host execution response exceeded the 10 MiB safety limit.")
+
       {:error, reason} ->
         fail(502, "Host execution request failed: #{format_reason(reason)}")
     end
   end
 
-  defp perform_request(method, uri, headers, body, timeout_ms) do
-    has_entity = body != <<>> or method not in ["GET", "HEAD"]
+  defp perform_request(method, uri, headers, body, timeout_ms, validated_addresses) do
+    deadline = System.monotonic_time(:millisecond) + timeout_ms
+    request_headers = Enum.flat_map(headers, fn {name, values} -> Enum.map(values, &{name, &1}) end)
+    request_target = request_target(uri)
+    request_body = if body == <<>>, do: nil, else: body
 
-    request_headers =
-      headers
-      |> Enum.reject(fn {name, _} -> has_entity and name == "content-type" end)
-      |> Enum.flat_map(fn {name, values} -> Enum.map(values, &{String.to_charlist(name), String.to_charlist(&1)}) end)
-
-    url = uri |> URI.to_string() |> String.to_charlist()
-
-    request =
-      if has_entity do
-        content_type = headers |> Map.get("content-type", [""]) |> List.first() |> to_string() |> String.to_charlist()
-        {url, request_headers, content_type, body}
-      else
-        {url, request_headers}
-      end
-
-    http_options = [autoredirect: false, timeout: timeout_ms, connect_timeout: timeout_ms]
-    options = [body_format: :binary]
-
-    case :httpc.request(method_atom(method), request, http_options, options) do
-      {:ok, {{_version, status, reason}, response_headers, response_body}} ->
-        headers = Enum.map(response_headers, fn {name, value} -> {name |> to_string() |> String.downcase(), to_string(value)} end)
-        {:ok, status, to_string(reason), headers, IO.iodata_to_binary(response_body)}
-
-      {:error, {:failed_connect, _} = reason} -> {:error, reason}
-      {:error, {:timeout, _}} -> {:error, :timeout}
-      {:error, :timeout} -> {:error, :timeout}
-      {:error, reason} -> {:error, reason}
+    with {:ok, conn} <- connect_validated(uri, validated_addresses, deadline),
+         {:ok, conn, request_ref} <- Mint.HTTP.request(conn, method, request_target, request_headers, request_body) do
+      receive_response(conn, request_ref, deadline, %{status: nil, headers: [], chunks: [], size: 0, done: false})
+    else
+      {:error, reason} -> if(timeout_reason?(reason), do: {:error, :timeout}, else: {:error, reason})
+      {:error, conn, reason} ->
+        close_connection(conn)
+        if(timeout_reason?(reason), do: {:error, :timeout}, else: {:error, reason})
     end
   rescue
-    error -> {:error, Exception.message(error)}
+    error -> {:error, error}
   end
 
-  defp method_atom("GET"), do: :get
-  defp method_atom("HEAD"), do: :head
-  defp method_atom("POST"), do: :post
-  defp method_atom("PUT"), do: :put
-  defp method_atom("PATCH"), do: :patch
-  defp method_atom("DELETE"), do: :delete
-  defp method_atom("OPTIONS"), do: :options
+  defp connect_validated(uri, addresses, deadline) do
+    Enum.reduce_while(addresses, {:error, :econnrefused}, fn address, _last_error ->
+      remaining = deadline - System.monotonic_time(:millisecond)
+
+      if remaining <= 0 do
+        {:halt, {:error, :timeout}}
+      else
+        opts = [
+          hostname: uri.host,
+          mode: :passive,
+          protocols: [:http1],
+          max_header_list_size: @max_response_header_bytes,
+          transport_opts: transport_options(uri, address, remaining)
+        ]
+
+        case Mint.HTTP.connect(scheme_atom(uri.scheme), address, uri.port || default_port(uri.scheme), opts) do
+          {:ok, conn} -> {:halt, {:ok, conn}}
+          {:error, reason} ->
+            if timeout_reason?(reason), do: {:halt, {:error, :timeout}}, else: {:cont, {:error, reason}}
+        end
+      end
+    end)
+  end
+
+  defp transport_options(uri, address, timeout_ms) do
+    family = if tuple_size(address) == 8, do: [inet6: true], else: []
+    common = [timeout: timeout_ms] ++ family
+
+    if uri.scheme == "https" do
+      [cacerts: :public_key.cacerts_get(), verify: :verify_peer] ++ common
+    else
+      common
+    end
+  end
+
+  defp receive_response(conn, request_ref, deadline, state) do
+    if state.done do
+      response = finalize_response(state)
+      close_connection(conn)
+      response
+    else
+      remaining = deadline - System.monotonic_time(:millisecond)
+
+      if remaining <= 0 do
+        close_connection(conn)
+        {:error, :timeout}
+      else
+        case Mint.HTTP.recv(conn, 0, remaining) do
+          {:ok, next_conn, responses} ->
+            case collect_responses(state, request_ref, responses) do
+              {:ok, next_state} -> receive_response(next_conn, request_ref, deadline, next_state)
+              {:error, reason} ->
+                close_connection(next_conn)
+                {:error, reason}
+            end
+
+          {:error, next_conn, reason, responses} ->
+            result = collect_responses(state, request_ref, responses)
+
+            case result do
+              {:ok, %{done: true} = next_state} ->
+                response = finalize_response(next_state)
+                close_connection(next_conn)
+                response
+
+              {:error, collect_reason} ->
+                close_connection(next_conn)
+                {:error, collect_reason}
+
+              {:ok, _next_state} ->
+                close_connection(next_conn)
+                if(timeout_reason?(reason), do: {:error, :timeout}, else: {:error, reason})
+            end
+        end
+      end
+    end
+  end
+
+  defp collect_responses(state, request_ref, responses) do
+    Enum.reduce_while(responses, {:ok, state}, fn response, {:ok, current} ->
+      case response do
+        {:status, ^request_ref, status} ->
+          next = if status >= 200, do: %{current | status: status, headers: [], chunks: [], size: 0}, else: current
+          {:cont, {:ok, next}}
+
+        {:headers, ^request_ref, headers} ->
+          normalized = Enum.map(headers, fn {name, value} -> {String.downcase(to_string(name)), to_string(value)} end)
+          {:cont, {:ok, %{current | headers: current.headers ++ normalized}}}
+
+        {:data, ^request_ref, data} ->
+          binary = IO.iodata_to_binary(data)
+          size = current.size + byte_size(binary)
+
+          if size > @max_response_bytes do
+            {:halt, {:error, :response_too_large}}
+          else
+            {:cont, {:ok, %{current | chunks: [current.chunks, binary], size: size}}}
+          end
+
+        {:done, ^request_ref} ->
+          {:halt, {:ok, %{current | done: true}}}
+
+        _ ->
+          {:cont, {:ok, current}}
+      end
+    end)
+  end
+
+  defp finalize_response(%{status: status, headers: headers, chunks: chunks}) when is_integer(status) do
+    {:ok, status, status_text(status), headers, IO.iodata_to_binary(chunks)}
+  end
+
+  defp finalize_response(_state), do: {:error, :invalid_response}
+
+  defp close_connection(conn) do
+    Mint.HTTP.close(conn)
+    :ok
+  rescue
+    _ -> :ok
+  end
+
+  defp request_target(uri) do
+    path = if uri.path in [nil, ""], do: "/", else: uri.path
+    if uri.query in [nil, ""], do: path, else: path <> "?" <> uri.query
+  end
+
+  defp status_text(status) do
+    Plug.Conn.Status.reason_phrase(status)
+  rescue
+    _ -> ""
+  end
+
+  defp scheme_atom("https"), do: :https
+  defp scheme_atom(_), do: :http
+  defp default_port("https"), do: 443
+  defp default_port(_), do: 80
+
+  defp timeout_reason?(:timeout), do: true
+  defp timeout_reason?(%Mint.TransportError{reason: :timeout}), do: true
+  defp timeout_reason?(_), do: false
 
   defp redirect_location(status, headers) when status in 300..399 do
     headers
@@ -229,7 +347,7 @@ defmodule PraugaFlexDoc.HostExecution do
     _ -> fail(400, "Host execution received an invalid redirect URL.")
   end
 
-  defp assert_allowed(execution, %URI{} = uri) do
+  defp assert_allowed(execution, %URI{} = uri, timeout_ms, total_timeout_ms) do
     unless uri.scheme in ["http", "https"] and is_binary(uri.host) do
       fail(403, "Host execution only allows HTTP(S) URLs.")
     end
@@ -241,20 +359,32 @@ defmodule PraugaFlexDoc.HostExecution do
     host = uri.host |> String.trim_leading("[") |> String.trim_trailing("]") |> String.downcase()
     if MapSet.member?(@metadata_hosts, host), do: fail(403, "Host execution blocks link-local and cloud metadata endpoints.")
 
-    case :inet.parse_address(String.to_charlist(host)) do
-      {:ok, address} ->
-        if metadata_address?(address), do: fail(403, "Host execution blocks link-local and cloud metadata endpoints.")
+    addresses =
+      case :inet.parse_address(String.to_charlist(host)) do
+        {:ok, address} -> [address]
+        {:error, _} -> resolve_addresses(host, timeout_ms, total_timeout_ms)
+      end
 
-      {:error, _} ->
-        addresses = resolve_addresses(host)
-        if addresses == [], do: fail(502, "Host execution could not resolve target hostname.")
-        if Enum.any?(addresses, &metadata_address?/1) do
-          fail(403, "Host execution blocks DNS resolutions to link-local and cloud metadata endpoints.")
-        end
+    if addresses == [], do: fail(502, "Host execution could not resolve target hostname.")
+
+    if Enum.any?(addresses, &metadata_address?/1) do
+      fail(403, "Host execution blocks DNS resolutions to link-local and cloud metadata endpoints.")
+    end
+
+    addresses
+  end
+
+  defp resolve_addresses(host, timeout_ms, total_timeout_ms) do
+    task = Task.async(fn -> do_resolve_addresses(host) end)
+
+    case Task.yield(task, timeout_ms) || Task.shutdown(task, :brutal_kill) do
+      {:ok, addresses} -> addresses
+      nil -> fail(502, "Host execution request timed out after #{total_timeout_ms} ms.")
+      {:exit, _reason} -> []
     end
   end
 
-  defp resolve_addresses(host) do
+  defp do_resolve_addresses(host) do
     char_host = String.to_charlist(host)
 
     [
@@ -370,7 +500,11 @@ defmodule PraugaFlexDoc.HostExecution do
   end
 
   defp put_bearer(headers, ""), do: headers
-  defp put_bearer(headers, token), do: Map.put(headers, "authorization", ["Bearer #{token}"])
+
+  defp put_bearer(headers, token) do
+    if invalid_header_value?(token), do: fail(400, "Invalid host execution request header: Authorization")
+    Map.put(headers, "authorization", ["Bearer #{token}"])
+  end
 
   defp apply_query_auth(uri, raw) do
     auth = if is_map(raw), do: raw, else: %{}
@@ -471,13 +605,15 @@ defmodule PraugaFlexDoc.HostExecution do
 
   defp infer_body_mode(draft) do
     explicit = string_value(draft["bodyMode"])
+    binary = draft["binary"]
+    graphql = draft["graphql"]
 
     cond do
       String.trim(explicit) != "" -> explicit
-      Map.has_key?(draft, "binary") -> "binary"
-      Map.has_key?(draft, "formData") -> "formdata"
-      Map.has_key?(draft, "urlencoded") -> "urlencoded"
-      Map.has_key?(draft, "graphql") -> "graphql"
+      is_map(binary) and string_value(binary["fileName"]) != "" -> "binary"
+      is_list(draft["formData"]) and length(draft["formData"]) > 0 -> "formdata"
+      is_list(draft["urlencoded"]) and length(draft["urlencoded"]) > 0 -> "urlencoded"
+      is_map(graphql) and (string_value(graphql["query"]) != "" or string_value(graphql["variables"]) != "") -> "graphql"
       string_value(draft["body"]) == "" -> "none"
       String.contains?(String.downcase(string_value(draft["contentType"])), "json") -> "json"
       true -> "raw"
@@ -539,6 +675,7 @@ defmodule PraugaFlexDoc.HostExecution do
     _ -> String.replace_invalid(data, "�")
   end
 
+  defp format_reason(%{__exception__: true} = error), do: Exception.message(error)
   defp format_reason(reason) when is_binary(reason), do: reason
   defp format_reason(reason), do: inspect(reason)
   defp fail(status, message), do: throw({:execution_error, status, message})

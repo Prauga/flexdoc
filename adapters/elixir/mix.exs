@@ -23,6 +23,7 @@ defmodule PraugaFlexDoc.MixProject do
     [
       {:plug, "~> 1.19"},
       {:jason, "~> 1.4"},
+      {:mint, "~> 1.10"},
       {:ex_doc, "~> 0.40", only: :dev, runtime: false}
     ]
   end
