@@ -471,15 +471,21 @@ def _infer_body_mode(draft: dict[str, object]) -> str:
     mode = _string(draft.get("bodyMode"))
     if mode and mode.strip():
         return mode
-    if draft.get("binary") is not None:
+    raw_binary = draft.get("binary")
+    if isinstance(raw_binary, dict) and _string(raw_binary.get("fileName")):
         return "binary"
-    if draft.get("formData") is not None:
+    raw_form_data = draft.get("formData")
+    if isinstance(raw_form_data, list) and len(raw_form_data) > 0:
         return "formdata"
-    if draft.get("urlencoded") is not None:
+    raw_urlencoded = draft.get("urlencoded")
+    if isinstance(raw_urlencoded, list) and len(raw_urlencoded) > 0:
         return "urlencoded"
-    if draft.get("graphql") is not None:
+    raw_graphql = draft.get("graphql")
+    if isinstance(raw_graphql, dict) and (
+        _string(raw_graphql.get("query")) or _string(raw_graphql.get("variables"))
+    ):
         return "graphql"
-    if draft.get("body") is None or _string_or_empty(draft.get("body")) == "":
+    if not _string(draft.get("body")):
         return "none"
     return "json" if "json" in (_string(draft.get("contentType")) or "").lower() else "raw"
 
