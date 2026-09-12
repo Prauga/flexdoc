@@ -43,11 +43,13 @@ setup_fastapi_flexdoc(
 )
 ```
 
-When enabled, the ASGI transport owns `POST /docs/__flexdoc/execute` and the renderer advertises `hostExecution.available: true`. The allowlist is server-side and accepts exact HTTP(S) origins only; paths, queries, credentials, and wildcards are rejected. The execute route requires `X-FlexDoc-Execute: 1`, strips unsafe browser-controlled transport headers, revalidates same-origin redirects, blocks link-local/cloud-metadata targets and link-local DNS answers, bounds request/response sizes, and consumes the same JSON/multipart envelope used by the Node host and FlexDoc Runner.
+When enabled, the ASGI transport owns `POST /docs/__flexdoc/execute` and the renderer advertises `hostExecution.available: true`. The allowlist is server-side and accepts exact HTTP(S) origins only; paths, queries, credentials, and wildcards are rejected. The execute route requires `X-FlexDoc-Execute: 1`, strips unsafe browser-controlled transport headers, revalidates same-origin redirects, blocks link-local/cloud-metadata targets and dangerous DNS answers, bounds request/response sizes, and consumes the same JSON/multipart envelope used by the Node host and FlexDoc Runner.
 
 This first Python slice intentionally advertises an empty host-only capability list. Basic, Bearer, OAuth2 bearer-token, and header/query API-key request auth are supported because they are part of the canonical request draft; session cookie jars, client certificates, Digest, Hawk, NTLM/Negotiate, OAuth 1.0, and AWS Signature V4 remain unavailable until implemented natively.
 
-The Python standard-library HTTP transport performs DNS safety preflight before connecting, but it does not pin that validated address through connection establishment. Deployments with attacker-controlled DNS should enforce equivalent egress policy at the network layer as well. Flask, Django URL-pattern, and generic WSGI helpers continue to advertise no native execute route in this slice.
+For every outbound request and redirect hop, the Python standard-library transport resolves the original hostname, rejects link-local/cloud-metadata answers, and then connects only to that validated address set. The request still retains the original hostname for the HTTP `Host` header and, for HTTPS, TLS SNI and certificate verification. The executor uses `http.client` directly and does not route through environment/system HTTP proxies. DNS lookup itself uses the platform's synchronous resolver; the execution deadline is checked immediately after resolution and applies to connection, response headers, and the complete response body, but Python cannot forcibly interrupt a resolver call that is already blocked inside the operating system. Keep exact-origin allowlists narrow and use network egress policy as an additional defense in depth where appropriate.
+
+Flask, Django URL-pattern, and generic WSGI helpers continue to advertise no native execute route in this slice.
 
 For a generic ASGI host that owns its execution policy explicitly:
 
