@@ -5,7 +5,7 @@ defmodule PraugaFlexDoc.HostExecution do
   This first native Elixir slice intentionally advertises no host-only capabilities.
   """
 
-  import Bitwise, only: [band: 2]
+  import Bitwise, only: [band: 2, bsr: 2]
 
   @max_request_bytes 32 * 1024 * 1024
   @max_response_bytes 10 * 1024 * 1024
@@ -95,6 +95,7 @@ defmodule PraugaFlexDoc.HostExecution do
     headers = draft["headers"] |> entries() |> sanitize_headers() |> apply_header_auth(draft["auth"])
     mode = infer_body_mode(draft)
     {body, content_type} = prepare_body(draft, envelope, files, mode)
+    content_type = validate_content_type(content_type)
     headers = if mode == "formdata", do: Map.delete(headers, "content-type"), else: headers
     headers = if content_type && !Map.has_key?(headers, "content-type"), do: Map.put(headers, "content-type", [content_type]), else: headers
 
@@ -271,6 +272,11 @@ defmodule PraugaFlexDoc.HostExecution do
   end
 
   defp metadata_address?({169, 254, _, _}), do: true
+
+  defp metadata_address?({0, 0, 0, 0, 0, 0xFFFF, high, _low}) do
+    band(bsr(high, 8), 0xFF) == 169 and band(high, 0xFF) == 254
+  end
+
   defp metadata_address?({first, _, _, _, _, _, _, _}), do: band(first, 0xFFC0) == 0xFE80
   defp metadata_address?(_), do: false
 
@@ -318,10 +324,9 @@ defmodule PraugaFlexDoc.HostExecution do
 
         cond do
           name == "" -> result
-          MapSet.member?(@unsafe_headers, normalized) -> result
-          String.starts_with?(normalized, ["proxy-", "sec-"]) -> result
+          unsafe_header_name?(normalized) -> result
           !Regex.match?(~r/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/, name) -> fail(400, "Invalid host execution request header: #{name}")
-          String.contains?(string_value(entry["value"]), ["\r", "\n"]) -> fail(400, "Invalid host execution request header: #{name}")
+          invalid_header_value?(string_value(entry["value"])) -> fail(400, "Invalid host execution request header: #{name}")
           true -> Map.update(result, normalized, [string_value(entry["value"])], &(&1 ++ [string_value(entry["value"])]))
         end
       else
@@ -339,14 +344,22 @@ defmodule PraugaFlexDoc.HostExecution do
       "oauth2" -> put_bearer(headers, string_value(auth["accessToken"]))
       "basic" -> Map.put(headers, "authorization", ["Basic " <> Base.encode64(string_value(auth["username"]) <> ":" <> string_value(auth["password"]))])
       "apiKey" ->
-        key = string_value(auth["key"])
-        if String.trim(key) == "", do: fail(400, "API key authentication requires a key name.")
+        key = auth["key"] |> string_value() |> String.trim()
+        if key == "", do: fail(400, "API key authentication requires a key name.")
         location = auth["in"] |> string_value() |> default_string("header")
 
         case location do
           "header" ->
-            unless Regex.match?(~r/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/, key), do: fail(400, "Invalid host execution request header: #{key}")
-            Map.put(headers, String.downcase(key), [string_value(auth["value"])])
+            normalized = String.downcase(key)
+            value = string_value(auth["value"])
+
+            cond do
+              unsafe_header_name?(normalized) -> fail(400, "Unsafe host execution request header: #{key}")
+              !Regex.match?(~r/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/, key) -> fail(400, "Invalid host execution request header: #{key}")
+              invalid_header_value?(value) -> fail(400, "Invalid host execution request header: #{key}")
+              true -> Map.put(headers, normalized, [value])
+            end
+
           "query" -> headers
           "cookie" -> fail(400, "Cookie authentication is not implemented by the Elixir host executor.")
           other -> fail(400, "Unsupported API key location: #{other}")
@@ -436,7 +449,13 @@ defmodule PraugaFlexDoc.HostExecution do
           if string_value(entry["type"]) == "file" do
             file = files[index] || fail(400, "Host execution multipart file formData[#{index}] is missing.")
             filename = file.filename |> string_value() |> default_string(string_value(entry["fileName"])) |> default_string("upload.bin")
-            content_type = file.content_type |> string_value() |> default_string(string_value(entry["contentType"])) |> default_string("application/octet-stream")
+
+            content_type =
+              file.content_type
+              |> string_value()
+              |> default_string(string_value(entry["contentType"]))
+              |> default_string("application/octet-stream")
+              |> validate_content_type()
 
             [output, "--#{boundary}\r\n", "Content-Disposition: form-data; name=\"#{quote_multipart(key)}\"; filename=\"#{quote_multipart(filename)}\"\r\n", "Content-Type: #{content_type}\r\n\r\n", file.data, "\r\n"]
           else
@@ -491,6 +510,20 @@ defmodule PraugaFlexDoc.HostExecution do
   defp non_empty(""), do: nil
   defp non_empty(nil), do: nil
   defp non_empty(value), do: value
+
+  defp unsafe_header_name?(normalized) do
+    MapSet.member?(@unsafe_headers, normalized) or
+      String.starts_with?(normalized, ["proxy-", "sec-"])
+  end
+
+  defp invalid_header_value?(value), do: String.contains?(value, ["\r", "\n"])
+
+  defp validate_content_type(nil), do: nil
+
+  defp validate_content_type(value) do
+    if invalid_header_value?(value), do: fail(400, "Invalid host execution content type.")
+    value
+  end
 
   defp quote_multipart(value) do
     value
