@@ -166,6 +166,7 @@ public sealed class FlexDocHostExecution
 
         var mode = InferBodyMode(draft);
         var prepared = await PrepareBodyAsync(draft, envelope, files, mode, cancellationToken);
+        ValidateContentType(prepared.ContentType);
         if (mode == "formdata") headers.Remove("Content-Type");
         if (!string.IsNullOrEmpty(prepared.ContentType) && !headers.ContainsKey("Content-Type"))
             SetHeader(headers, "Content-Type", prepared.ContentType);
@@ -425,6 +426,7 @@ public sealed class FlexDocHostExecution
                 ?? HeaderUtilities.RemoveQuotes(disposition.FileName).Value
                 ?? string.Empty;
             var partType = section.ContentType ?? string.Empty;
+            ValidateContentType(partType);
             files[index] = new UploadedFile(fileName, partType, data);
         }
 
@@ -591,6 +593,7 @@ public sealed class FlexDocHostExecution
                         var contentType = file.ContentType;
                         if (string.IsNullOrEmpty(contentType)) contentType = StringValue(entry, "contentType");
                         if (string.IsNullOrEmpty(contentType)) contentType = "application/octet-stream";
+                        ValidateContentType(contentType);
 
                         var part = new ByteArrayContent(file.Data);
                         part.Headers.TryAddWithoutValidation("Content-Type", contentType);
@@ -632,15 +635,11 @@ public sealed class FlexDocHostExecution
             if (name.Length == 0) continue;
 
             var normalized = name.ToLowerInvariant();
-            if (UnsafeHeaders.Contains(normalized)
-                || normalized.StartsWith("proxy-", StringComparison.Ordinal)
-                || normalized.StartsWith("sec-", StringComparison.Ordinal)
-                || normalized is "origin" or "referer")
+            if (IsUnsafeHeaderName(normalized))
                 continue;
 
             var value = StringValue(entry, "value");
-            if (!HeaderNamePattern.IsMatch(name) || value.Contains('\r') || value.Contains('\n'))
-                throw BadRequest($"Invalid host execution request header: {name}");
+            ValidateHeader(name, value);
             AddHeader(headers, name, value);
         }
         return headers;
@@ -687,10 +686,14 @@ public sealed class FlexDocHostExecution
                 switch (location)
                 {
                     case "header":
-                        if (!HeaderNamePattern.IsMatch(key))
-                            throw BadRequest($"Invalid host execution request header: {key}");
-                        SetHeader(headers, key, StringValue(auth, "value"));
+                    {
+                        if (IsUnsafeHeaderName(key))
+                            throw BadRequest($"Unsafe host execution request header: {key}");
+                        var value = StringValue(auth, "value");
+                        ValidateHeader(key, value);
+                        SetHeader(headers, key, value);
                         return;
+                    }
                     case "query":
                         return;
                     case "cookie":
@@ -809,6 +812,7 @@ public sealed class FlexDocHostExecution
 
     private static void AddHeader(Dictionary<string, List<string>> headers, string name, string value)
     {
+        ValidateHeader(name, value);
         if (!headers.TryGetValue(name, out var values))
         {
             values = new List<string>();
@@ -818,7 +822,32 @@ public sealed class FlexDocHostExecution
     }
 
     private static void SetHeader(Dictionary<string, List<string>> headers, string name, string value)
-        => headers[name] = new List<string> { value };
+    {
+        ValidateHeader(name, value);
+        headers[name] = new List<string> { value };
+    }
+
+    private static bool IsUnsafeHeaderName(string name)
+    {
+        var normalized = name.Trim().ToLowerInvariant();
+        return UnsafeHeaders.Contains(normalized)
+            || normalized.StartsWith("proxy-", StringComparison.Ordinal)
+            || normalized.StartsWith("sec-", StringComparison.Ordinal)
+            || normalized is "origin" or "referer";
+    }
+
+    private static void ValidateHeader(string name, string value)
+    {
+        if (!HeaderNamePattern.IsMatch(name) || value.Contains('\r') || value.Contains('\n'))
+            throw BadRequest($"Invalid host execution request header: {name}");
+    }
+
+    private static void ValidateContentType(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return;
+        if (value.Contains('\r') || value.Contains('\n') || !MediaTypeHeaderValue.TryParse(value, out _))
+            throw BadRequest("Invalid host execution content type.");
+    }
 
     private static bool TryParseHttpUri(string raw, out Uri uri)
     {
@@ -857,6 +886,9 @@ public sealed class FlexDocHostExecution
 
     private static bool IsMetadataAddress(IPAddress address)
     {
+        if (address.IsIPv4MappedToIPv6)
+            return IsMetadataAddress(address.MapToIPv4());
+
         if (address.AddressFamily == AddressFamily.InterNetwork)
         {
             var bytes = address.GetAddressBytes();
