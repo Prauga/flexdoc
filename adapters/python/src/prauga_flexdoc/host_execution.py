@@ -6,6 +6,7 @@ import binascii
 import http.client
 import ipaddress
 import json
+import math
 import re
 import socket
 import ssl
@@ -72,6 +73,13 @@ class _PreparedBody:
     content_type: str | None
 
 
+@dataclass(frozen=True)
+class _ValidatedAddress:
+    family: int
+    protocol: int
+    sockaddr: tuple[object, ...]
+
+
 class FlexDocHostExecution:
     """Framework-neutral synchronous executor for the existing FlexDoc execute envelope."""
 
@@ -135,7 +143,10 @@ class FlexDocHostExecution:
             _set_header(headers, "Content-Type", prepared.content_type)
 
         timeout_value = envelope.get("timeoutMs")
-        timeout_ms = int(timeout_value) if isinstance(timeout_value, (int, float)) else DEFAULT_TIMEOUT_MS
+        if isinstance(timeout_value, (int, float)) and not isinstance(timeout_value, bool) and math.isfinite(timeout_value):
+            timeout_ms = int(timeout_value)
+        else:
+            timeout_ms = DEFAULT_TIMEOUT_MS
         timeout_ms = max(MIN_TIMEOUT_MS, min(MAX_TIMEOUT_MS, timeout_ms))
         return self._execute_with_redirects(
             method,
@@ -162,10 +173,19 @@ class FlexDocHostExecution:
 
         for redirect_count in range(MAX_REDIRECTS + 1):
             target = _apply_query_auth(raw_auth, url)
-            self._assert_allowed(target)
             started = time.perf_counter()
+            deadline = time.monotonic() + timeout_ms / 1000.0
+            validated_addresses = self._assert_allowed(target)
+            if time.monotonic() >= deadline:
+                raise _upstream(f"Host execution request timed out after {timeout_ms} ms.")
             status, status_text, response_headers, response_body, location = _request_once(
-                target, method, headers, body, timeout_ms
+                target,
+                method,
+                headers,
+                body,
+                deadline,
+                timeout_ms,
+                validated_addresses,
             )
             elapsed_ms = max(0, int((time.perf_counter() - started) * 1000))
 
@@ -175,7 +195,6 @@ class FlexDocHostExecution:
                 next_url = urljoin(target, location)
                 if _origin(next_url) != _origin(target):
                     raise _forbidden("Host execution does not follow cross-origin redirects.")
-                self._assert_allowed(next_url)
                 if status == 303:
                     method = "GET"
                     body = None
@@ -193,7 +212,7 @@ class FlexDocHostExecution:
 
         raise _forbidden("Host execution exceeded the redirect safety limit.")
 
-    def _assert_allowed(self, url: str) -> None:
+    def _assert_allowed(self, url: str) -> tuple[_ValidatedAddress, ...]:
         parts = _split_http_url(url)
         origin = _origin(url)
         if origin not in self.allowed_origins:
@@ -207,8 +226,15 @@ class FlexDocHostExecution:
             addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
         except OSError as error:
             raise _upstream("Host execution could not resolve target hostname.") from error
-        for entry in addresses:
-            raw = str(entry[4][0]).split("%", 1)[0]
+        if not addresses:
+            raise _upstream("Host execution could not resolve target hostname.")
+
+        validated: list[_ValidatedAddress] = []
+        seen: set[tuple[int, tuple[object, ...]]] = set()
+        for family, socktype, protocol, _canonname, sockaddr in addresses:
+            if socktype not in {0, socket.SOCK_STREAM}:
+                continue
+            raw = str(sockaddr[0]).split("%", 1)[0]
             try:
                 address = ipaddress.ip_address(raw)
             except ValueError:
@@ -216,6 +242,16 @@ class FlexDocHostExecution:
             mapped = getattr(address, "ipv4_mapped", None)
             if address.is_link_local or (mapped is not None and mapped.is_link_local):
                 raise _forbidden("Host execution blocks DNS resolutions to link-local and cloud metadata endpoints.")
+            normalized_sockaddr = tuple(sockaddr)
+            key = (family, normalized_sockaddr)
+            if key in seen:
+                continue
+            seen.add(key)
+            validated.append(_ValidatedAddress(family, protocol, normalized_sockaddr))
+
+        if not validated:
+            raise _upstream("Host execution could not resolve target hostname.")
+        return tuple(validated)
 
 
 def _request_once(
@@ -223,20 +259,25 @@ def _request_once(
     method: str,
     headers: list[tuple[str, str]],
     body: bytes | None,
+    deadline: float,
     timeout_ms: int,
+    validated_addresses: tuple[_ValidatedAddress, ...],
 ) -> tuple[int, str, list[tuple[str, str]], bytes, str | None]:
     parts = _split_http_url(url)
     host = parts.hostname
     assert host is not None
     port = parts.port or (443 if parts.scheme.lower() == "https" else 80)
-    timeout_seconds = timeout_ms / 1000.0
-    deadline = time.monotonic() + timeout_seconds
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise _upstream(f"Host execution request timed out after {timeout_ms} ms.")
+
     if parts.scheme.lower() == "https":
         connection: http.client.HTTPConnection = http.client.HTTPSConnection(
-            host, port, timeout=timeout_seconds, context=ssl.create_default_context()
+            host, port, timeout=remaining, context=ssl.create_default_context()
         )
     else:
-        connection = http.client.HTTPConnection(host, port, timeout=timeout_seconds)
+        connection = http.client.HTTPConnection(host, port, timeout=remaining)
+    connection._create_connection = _pinned_connection_factory(validated_addresses)  # type: ignore[attr-defined]
 
     path = parts.path or "/"
     if parts.query:
@@ -251,6 +292,12 @@ def _request_once(
         if body is not None and _header(headers, "Content-Length") is None:
             connection.putheader("Content-Length", str(len(body)))
         connection.endheaders(body)
+
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise _upstream(f"Host execution request timed out after {timeout_ms} ms.")
+        if connection.sock is not None:
+            connection.sock.settimeout(remaining)
         response = connection.getresponse()
         declared_length = response.getheader("Content-Length")
         if declared_length is not None:
@@ -276,6 +323,28 @@ def _request_once(
         raise _upstream(f"Host execution request failed: {error}") from error
     finally:
         connection.close()
+
+
+def _pinned_connection_factory(validated_addresses: tuple[_ValidatedAddress, ...]):
+    def connect(_address, timeout=socket._GLOBAL_DEFAULT_TIMEOUT, source_address=None):
+        last_error: OSError | None = None
+        for candidate in validated_addresses:
+            sock = socket.socket(candidate.family, socket.SOCK_STREAM, candidate.protocol)
+            try:
+                if timeout is not socket._GLOBAL_DEFAULT_TIMEOUT:
+                    sock.settimeout(timeout)
+                if source_address is not None:
+                    sock.bind(source_address)
+                sock.connect(candidate.sockaddr)
+                return sock
+            except OSError as error:
+                sock.close()
+                last_error = error
+        if last_error is not None:
+            raise last_error
+        raise OSError("Host execution has no validated destination addresses.")
+
+    return connect
 
 
 def _read_response_body(
@@ -311,7 +380,7 @@ def _prepare_body(
     files: dict[int, FlexDocHostExecutionFile],
     mode: str,
 ) -> _PreparedBody:
-    explicit_content_type = _string(draft.get("contentType"))
+    explicit_content_type = _validate_content_type(_string(draft.get("contentType")))
     if mode == "none":
         return _PreparedBody(None, None)
     if mode == "raw":
@@ -328,7 +397,7 @@ def _prepare_body(
         content_type = explicit_content_type
         raw_binary = draft.get("binary")
         if content_type is None and isinstance(raw_binary, dict):
-            content_type = _string(raw_binary.get("contentType"))
+            content_type = _validate_content_type(_string(raw_binary.get("contentType")))
         try:
             data = base64.b64decode(encoded, validate=True)
         except (ValueError, binascii.Error) as error:
@@ -380,7 +449,10 @@ def _multipart_body(
             if file is None:
                 raise _bad_request(f'File field "{key}" needs an uploaded file part.')
             filename = file.filename or _string(entry.get("fileName")) or "upload.bin"
-            content_type = file.content_type or _string(entry.get("contentType")) or "application/octet-stream"
+            content_type = _validate_content_type(
+                file.content_type or _string(entry.get("contentType")) or "application/octet-stream"
+            )
+            assert content_type is not None
             chunks.append(
                 f'Content-Disposition: form-data; name="{quoted_key}"; filename="{_quote_multipart(filename)}"\r\n'.encode()
             )
@@ -422,12 +494,7 @@ def _sanitize_headers(entries: list[dict[str, object]]) -> list[tuple[str, str]]
             continue
         name = name.strip()
         normalized = name.lower()
-        if (
-            normalized in _HOP_BY_HOP
-            or normalized in _FORBIDDEN_HEADERS
-            or normalized.startswith("proxy-")
-            or normalized.startswith("sec-")
-        ):
+        if _unsafe_header(normalized):
             continue
         value = _string_or_empty(entry.get("value"))
         if not _HEADER_NAME.fullmatch(name) or "\r" in value or "\n" in value:
@@ -445,11 +512,15 @@ def _apply_header_auth(raw_auth: object, headers: list[tuple[str, str]]) -> None
         return
     if auth_type == "bearer":
         token = _string_or_empty(auth.get("token"))
+        if "\r" in token or "\n" in token:
+            raise _bad_request("Invalid host execution request header: Authorization")
         if token:
             _set_header(headers, "Authorization", "Bearer " + token)
         return
     if auth_type == "oauth2":
         token = _string_or_empty(auth.get("accessToken"))
+        if "\r" in token or "\n" in token:
+            raise _bad_request("Invalid host execution request header: Authorization")
         if token:
             _set_header(headers, "Authorization", "Bearer " + token)
         return
@@ -461,9 +532,16 @@ def _apply_header_auth(raw_auth: object, headers: list[tuple[str, str]]) -> None
         key = _string(auth.get("key"))
         if key is None or not key.strip():
             raise _bad_request("API key authentication requires a key name.")
+        key = key.strip()
         location = _string(auth.get("in")) or "header"
         if location == "header":
-            _set_header(headers, key, _string_or_empty(auth.get("value")))
+            normalized = key.lower()
+            if _unsafe_header(normalized):
+                raise _bad_request(f"Unsafe host execution request header: {key}")
+            value = _string_or_empty(auth.get("value"))
+            if not _HEADER_NAME.fullmatch(key) or "\r" in value or "\n" in value:
+                raise _bad_request(f"Invalid host execution request header: {key}")
+            _set_header(headers, key, value)
         elif location == "query":
             pass
         elif location == "cookie":
@@ -556,7 +634,29 @@ def _authority(parts) -> str:
 
 def _is_metadata_host(host: str) -> bool:
     normalized = host.strip("[]").lower()
-    return normalized in _METADATA_HOSTS or normalized.startswith("fe80:")
+    if normalized in _METADATA_HOSTS or normalized.startswith("fe80:"):
+        return True
+    try:
+        address = ipaddress.ip_address(normalized.split("%", 1)[0])
+    except ValueError:
+        return False
+    mapped = getattr(address, "ipv4_mapped", None)
+    return address.is_link_local or (mapped is not None and mapped.is_link_local)
+
+
+def _unsafe_header(normalized: str) -> bool:
+    return (
+        normalized in _HOP_BY_HOP
+        or normalized in _FORBIDDEN_HEADERS
+        or normalized.startswith("proxy-")
+        or normalized.startswith("sec-")
+    )
+
+
+def _validate_content_type(value: str | None) -> str | None:
+    if value is not None and ("\r" in value or "\n" in value):
+        raise _bad_request("Invalid host execution content type.")
+    return value
 
 
 def _entries(value: object) -> list[dict[str, object]]:
