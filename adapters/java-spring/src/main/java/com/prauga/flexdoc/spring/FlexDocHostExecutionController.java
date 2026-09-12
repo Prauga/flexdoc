@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prauga.flexdoc.jvm.FlexDocHost;
 import com.prauga.flexdoc.jvm.FlexDocHostExecutionFile;
+import com.prauga.flexdoc.jvm.FlexDocHostExecutionPolicy;
 import com.prauga.flexdoc.jvm.FlexDocHostExecutionResult;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.ByteArrayOutputStream;
@@ -52,7 +53,10 @@ public final class FlexDocHostExecutionController {
       HttpServletRequest request) {
     if (!"1".equals(executeMarker)) return response(host.executeHostRequest(executeMarker, Map.of()));
     try {
-      return response(host.executeHostRequest(executeMarker, parseEnvelope(readBounded(request))));
+      Map<String, Object> envelope = parseEnvelope(readBounded(request));
+      String policyError = FlexDocHostExecutionPolicy.validate(envelope);
+      if (policyError != null) return badRequest(policyError);
+      return response(host.executeHostRequest(executeMarker, envelope));
     } catch (BadEnvelope error) {
       return badRequest(error.getMessage());
     }
@@ -86,10 +90,14 @@ public final class FlexDocHostExecutionController {
         MultipartFile file = entry.getValue();
         size += file.getSize();
         if (size > MAX_EXECUTION_REQUEST_BYTES) throw new BadEnvelope("Host execution request exceeded the 32 MiB safety limit.");
-        files.put(Integer.parseInt(matcher.group(1)), new FlexDocHostExecutionFile(
+        int index = parsePartIndex(matcher.group(1));
+        files.put(index, new FlexDocHostExecutionFile(
             file.getOriginalFilename(), file.getContentType(), file.getBytes()));
       }
-      return response(host.executeHostRequest(executeMarker, parseEnvelope(descriptorBytes), files));
+      Map<String, Object> envelope = parseEnvelope(descriptorBytes);
+      String policyError = FlexDocHostExecutionPolicy.validate(envelope);
+      if (policyError != null) return badRequest(policyError);
+      return response(host.executeHostRequest(executeMarker, envelope, files));
     } catch (BadEnvelope error) {
       return badRequest(error.getMessage());
     } catch (IOException error) {
@@ -129,6 +137,14 @@ public final class FlexDocHostExecutionController {
       throw error;
     } catch (IOException error) {
       throw new BadEnvelope("Host execution request body is not valid JSON.");
+    }
+  }
+
+  private static int parsePartIndex(String raw) {
+    try {
+      return Integer.parseInt(raw);
+    } catch (NumberFormatException error) {
+      throw new BadEnvelope("Host execution multipart file index is invalid.");
     }
   }
 
