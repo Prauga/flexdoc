@@ -7,6 +7,7 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -17,12 +18,14 @@ import java.util.concurrent.TimeoutException;
 import org.apache.hc.client5.http.DnsResolver;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
 import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
 import org.apache.hc.client5.http.impl.DefaultSchemePortResolver;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.impl.routing.DefaultRoutePlanner;
+import org.apache.hc.client5.http.protocol.HttpClientContext;
 import org.apache.hc.core5.http.Header;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
@@ -73,7 +76,8 @@ final class PinnedHttpTransport {
             return ConnectionConfig.custom()
                 .setConnectTimeout(timeout)
                 .setSocketTimeout(timeout)
-                .setTimeToLive(TimeValue.ZERO_MILLISECONDS)
+                .setTimeToLive(TimeValue.ofSeconds(30))
+                .setValidateAfterInactivity(TimeValue.ofSeconds(2))
                 .build();
           })
           .setMaxConnTotal(256)
@@ -82,14 +86,12 @@ final class PinnedHttpTransport {
 
   private static final CloseableHttpClient CLIENT = HttpClients.custom()
       .setConnectionManager(CONNECTION_MANAGER)
-      .setConnectionReuseStrategy((request, response, context) -> false)
       .setRoutePlanner(new DefaultRoutePlanner(DefaultSchemePortResolver.INSTANCE))
       .disableRedirectHandling()
       .disableAutomaticRetries()
       .disableContentCompression()
       .disableCookieManagement()
       .disableAuthCaching()
-      .disableConnectionState()
       .disableDefaultUserAgent()
       .build();
 
@@ -108,10 +110,10 @@ final class PinnedHttpTransport {
     }
 
     Timeout timeout = Timeout.ofMilliseconds(Math.max(1L, timeoutMs));
-    RequestContext context = new RequestContext(
-        normalizeHost(url.getHost()),
-        validatedAddresses.clone(),
-        timeout);
+    String expectedHost = normalizeHost(url.getHost());
+    InetAddress[] pinnedAddresses = validatedAddresses.clone();
+    RequestContext requestContext = new RequestContext(expectedHost, pinnedAddresses, timeout);
+    String pinSetToken = pinSetToken(expectedHost, pinnedAddresses);
 
     HttpUriRequestBase request = new HttpUriRequestBase(method, url);
     for (FlexDocHostExecution.Header header : headers) {
@@ -120,9 +122,16 @@ final class PinnedHttpTransport {
     if (body != null) request.setEntity(new ByteArrayEntity(body, null));
 
     Future<Response> future = EXECUTOR.submit(() -> {
-      REQUEST_CONTEXT.set(context);
+      REQUEST_CONTEXT.set(requestContext);
       try {
-        return CLIENT.execute(request, response -> {
+        HttpClientContext clientContext = HttpClientContext.create();
+        clientContext.setUserToken(pinSetToken);
+        clientContext.setRequestConfig(RequestConfig.custom()
+            .setConnectionRequestTimeout(timeout)
+            .setResponseTimeout(timeout)
+            .build());
+
+        return CLIENT.execute(request, clientContext, response -> {
           List<List<String>> responseHeaders = new ArrayList<>();
           for (Header header : response.getHeaders()) {
             responseHeaders.add(List.of(header.getName(), header.getValue()));
@@ -169,6 +178,14 @@ final class PinnedHttpTransport {
       if (cause instanceof IOException io) throw io;
       throw new IOException(cause == null ? "Unknown host execution transport error." : cause.getMessage(), cause);
     }
+  }
+
+  private static String pinSetToken(String expectedHost, InetAddress[] addresses) {
+    String[] normalized = Arrays.stream(addresses)
+        .map(InetAddress::getHostAddress)
+        .sorted()
+        .toArray(String[]::new);
+    return expectedHost + "|" + String.join(",", normalized);
   }
 
   private static String normalizeHost(String host) {
