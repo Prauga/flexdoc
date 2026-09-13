@@ -196,8 +196,4 @@ The first native 3.3 slices do not expose an equivalent server-side secret/inter
 
 The host-execution protocol first appeared as the controlled Node backend path and is reused by the headless CLI and the native 3.3 adapters. The API Client state model remains shared; native adapters add execution leverage from their position inside the service/network environment rather than creating separate Java, Go, Python, Rust, Ruby, Elixir, PHP, or .NET API clients.
 
-The architectural test remains:
-
-> **Could Scalar implement this without being installed inside the backend?**
-
-Host execution clears that bar because the useful capability comes from FlexDoc's position inside the backend and its private network/runtime context, not from reproducing another browser API client.
+The differentiated value comes from FlexDoc's position inside the backend and its private network/runtime context, while the API Client itself remains one shared product surface.
