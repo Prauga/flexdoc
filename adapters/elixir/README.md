@@ -38,7 +38,7 @@ The Elixir host consumes the existing FlexDoc JSON or canonical multipart execut
 
 This first Elixir slice intentionally advertises an empty host-only capability list. Session cookie jars, client certificates, Digest, Hawk, NTLM/Negotiate, OAuth 1.0, and AWS Signature V4 remain unavailable until they are implemented natively.
 
-The OTP HTTP transport rejects link-local/cloud-metadata hosts and performs a DNS preflight before sending the request. Unlike the Go and ASP.NET Core transports, OTP `:httpc` does not expose a connection-time dial hook here, so the Elixir slice does **not** claim DNS pinning between preflight and connection.
+The Elixir executor resolves and validates the target before each request or redirect, rejects link-local/cloud-metadata addresses, and uses Mint to connect directly to one of the validated IP addresses. The original hostname remains the HTTP Host and TLS server name/certificate identity, so the socket cannot silently re-resolve to a different address between validation and connection.
 
 ## Phoenix
 
