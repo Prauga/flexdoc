@@ -6,6 +6,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -67,8 +68,40 @@ class PinnedHttpTransportTest {
     }
   }
 
+  @Test
+  void changedValidatedPinSetCannotReuseEarlierSocket() throws Exception {
+    InetAddress firstAddress = InetAddress.getByName("127.0.0.1");
+    InetAddress secondAddress = InetAddress.getByName("127.0.0.2");
+    int port;
+    try (ServerSocket reservation = new ServerSocket(0, 1, firstAddress)) {
+      port = reservation.getLocalPort();
+    }
+
+    HttpServer first = server(firstAddress, port, "first");
+    HttpServer second = null;
+    try {
+      second = server(secondAddress, port, "second");
+      URI target = URI.create("http://switch.invalid:" + port + "/marker");
+
+      PinnedHttpTransport.Response initial = PinnedHttpTransport.execute(
+          "GET", target, List.of(), null, new InetAddress[] {firstAddress}, 5_000, 1024);
+      assertEquals("first", new String(initial.body(), StandardCharsets.UTF_8));
+
+      PinnedHttpTransport.Response rebound = PinnedHttpTransport.execute(
+          "GET", target, List.of(), null, new InetAddress[] {secondAddress}, 5_000, 1024);
+      assertEquals("second", new String(rebound.body(), StandardCharsets.UTF_8));
+    } finally {
+      first.stop(0);
+      if (second != null) second.stop(0);
+    }
+  }
+
   private static HttpServer server(String marker) throws IOException {
-    HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    return server(InetAddress.getByName("127.0.0.1"), 0, marker);
+  }
+
+  private static HttpServer server(InetAddress address, int port, String marker) throws IOException {
+    HttpServer server = HttpServer.create(new InetSocketAddress(address, port), 0);
     server.createContext("/marker", exchange -> {
       byte[] body = marker.getBytes(StandardCharsets.UTF_8);
       exchange.sendResponseHeaders(200, body.length);
