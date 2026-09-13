@@ -29,7 +29,10 @@ if (!label || !output || !Array.isArray(command) || command.length === 0) {
 
 const requestCount = Math.max(20, Number(args.requests || 120));
 const concurrency = Math.max(1, Number(args.concurrency || 12));
+const sustainedSeconds = Math.max(10, Number(args['sustained-seconds'] || 30));
+const activeWarmupRequests = Math.max(20, Number(args['active-warmup-requests'] || 100));
 const settleMs = Math.max(100, Number(args['settle-ms'] || 750));
+const cooldownMs = Math.max(1000, Number(args['cooldown-ms'] || 5000));
 const startupTimeoutMs = Math.max(5000, Number(args['startup-timeout-ms'] || 60000));
 const basePort = Math.max(1024, Number(args.port || 5810));
 const targetOrigin = process.env.FLEXDOC_BENCH_TARGET_ORIGIN || 'http://127.0.0.1:5899';
@@ -140,33 +143,51 @@ async function waitReady(origin, child, logs) {
   throw new Error(`Fixture did not become ready within ${startupTimeoutMs}ms.\n${logs()}`);
 }
 
-async function load(makeRequest) {
-  const latencies = new Array(requestCount);
+function stats(latencies, count, elapsedMs, parallelism) {
+  return {
+    count,
+    concurrency: parallelism,
+    elapsedMs: round(elapsedMs),
+    throughputRps: round(count * 1000 / Math.max(elapsedMs, 0.001)),
+    p50Ms: round(percentile(latencies, 0.50)),
+    p95Ms: round(percentile(latencies, 0.95)),
+    p99Ms: round(percentile(latencies, 0.99)),
+    maxMs: round(latencies.length ? Math.max(...latencies) : 0),
+  };
+}
+
+async function countLoad(makeRequest, total = requestCount, parallelism = concurrency) {
+  const latencies = new Array(total);
   let cursor = 0;
   const started = performance.now();
   async function worker() {
     while (true) {
       const index = cursor++;
-      if (index >= requestCount) return;
+      if (index >= total) return;
       latencies[index] = await makeRequest(index);
     }
   }
-  await Promise.all(Array.from({ length: Math.min(concurrency, requestCount) }, worker));
-  const elapsedMs = performance.now() - started;
-  return {
-    count: requestCount,
-    concurrency: Math.min(concurrency, requestCount),
-    elapsedMs: round(elapsedMs),
-    throughputRps: round(requestCount * 1000 / Math.max(elapsedMs, 0.001)),
-    p50Ms: round(percentile(latencies, 0.50)),
-    p95Ms: round(percentile(latencies, 0.95)),
-    p99Ms: round(percentile(latencies, 0.99)),
-    maxMs: round(Math.max(...latencies)),
-  };
+  const workers = Math.min(parallelism, total);
+  await Promise.all(Array.from({ length: workers }, worker));
+  return stats(latencies, total, performance.now() - started, workers);
 }
 
-async function measuredLoad(rootPid, makeRequest) {
-  for (let i = 0; i < Math.min(10, requestCount); i += 1) await makeRequest(i);
+async function durationLoad(makeRequest, durationMs, parallelism) {
+  const latencies = [];
+  let count = 0;
+  const started = performance.now();
+  const deadline = started + durationMs;
+  async function worker() {
+    while (performance.now() < deadline) {
+      latencies.push(await makeRequest(count));
+      count += 1;
+    }
+  }
+  await Promise.all(Array.from({ length: parallelism }, worker));
+  return stats(latencies, count, performance.now() - started, parallelism);
+}
+
+async function measureLoad(rootPid, runner) {
   const before = await snapshot(rootPid);
   let peakRssKiB = before.rssKiB;
   let peakPssKiB = before.pssKiB;
@@ -181,19 +202,32 @@ async function measuredLoad(rootPid, makeRequest) {
       await sleep(20);
     }
   })();
-  const timings = await load(makeRequest);
-  sampling = false;
-  await sampler;
+  let timings;
+  try {
+    timings = await runner();
+  } finally {
+    sampling = false;
+    await sampler;
+  }
   const after = await snapshot(rootPid);
   const cpuMs = (after.cpuTicks - before.cpuTicks) * 1000 / clockTicks;
   return {
     ...timings,
     cpuMs: round(cpuMs),
-    cpuMsPerRequest: round(cpuMs / requestCount, 4),
+    cpuMsPerRequest: round(cpuMs / Math.max(timings.count, 1), 4),
     peakRssKiB,
     peakPssKiB,
     peakHighWaterKiB,
   };
+}
+
+async function measuredCountLoad(rootPid, makeRequest, total = requestCount, parallelism = concurrency) {
+  for (let i = 0; i < Math.min(10, total); i += 1) await makeRequest(i);
+  return measureLoad(rootPid, () => countLoad(makeRequest, total, parallelism));
+}
+
+async function measuredDurationLoad(rootPid, makeRequest, durationMs, parallelism) {
+  return measureLoad(rootPid, () => durationLoad(makeRequest, durationMs, parallelism));
 }
 
 function terminate(child) {
@@ -202,7 +236,16 @@ function terminate(child) {
   catch { try { child.kill('SIGTERM'); } catch {} }
 }
 
-async function runScenario(mode, port) {
+function hostRequest(appOrigin) {
+  const body = JSON.stringify({ request: { method: 'GET', url: `${targetOrigin}/target` } });
+  return () => timedFetch(`${appOrigin}/docs/__flexdoc/execute`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-flexdoc-execute': '1' },
+    body,
+  });
+}
+
+async function withFixture(scenario, fixtureMode, port, run) {
   const appOrigin = `http://127.0.0.1:${port}`;
   let stdout = '';
   let stderr = '';
@@ -211,7 +254,7 @@ async function runScenario(mode, port) {
     cwd: process.cwd(),
     env: {
       ...process.env,
-      FLEXDOC_BENCH_MODE: mode,
+      FLEXDOC_BENCH_MODE: fixtureMode,
       FLEXDOC_BENCH_PORT: String(port),
       FLEXDOC_BENCH_ORIGIN: targetOrigin,
     },
@@ -225,22 +268,9 @@ async function runScenario(mode, port) {
   try {
     await waitReady(appOrigin, child, logs);
     const startupMs = performance.now() - started;
-    const docsPrimeMs = mode === 'baseline' ? null : await timedFetch(`${appOrigin}/docs`);
+    const docsPrimeMs = fixtureMode === 'baseline' ? null : await timedFetch(`${appOrigin}/docs`);
     await sleep(settleMs);
-    const idle = await idleSample(child.pid);
-    const direct = await measuredLoad(child.pid, () => timedFetch(`${appOrigin}/target`));
-    let hostExecution = null;
-    if (mode === 'host') {
-      const body = JSON.stringify({ request: { method: 'GET', url: `${targetOrigin}/target` } });
-      hostExecution = await measuredLoad(child.pid, () => timedFetch(`${appOrigin}/docs/__flexdoc/execute`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-flexdoc-execute': '1' },
-        body,
-      }));
-    }
-    await sleep(settleMs);
-    const retained = await idleSample(child.pid);
-    return { mode, startupMs: round(startupMs), docsPrimeMs: docsPrimeMs == null ? null : round(docsPrimeMs), idle, direct, hostExecution, retained };
+    return await run({ scenario, appOrigin, child, startupMs, docsPrimeMs });
   } catch (error) {
     const detail = error instanceof Error ? error.stack || error.message : String(error);
     throw new Error(`${detail}\nFixture output:\n${logs()}`, { cause: error });
@@ -253,36 +283,128 @@ async function runScenario(mode, port) {
   }
 }
 
+async function runPassiveScenario(scenario, fixtureMode, port) {
+  return withFixture(scenario, fixtureMode, port, async ({ appOrigin, child, startupMs, docsPrimeMs }) => {
+    const idle = await idleSample(child.pid);
+    const direct = await measuredCountLoad(child.pid, () => timedFetch(`${appOrigin}/target`));
+    await sleep(settleMs);
+    const retained = await idleSample(child.pid);
+    return {
+      scenario,
+      fixtureMode,
+      startupMs: round(startupMs),
+      docsPrimeMs: docsPrimeMs == null ? null : round(docsPrimeMs),
+      idle,
+      direct,
+      retained,
+    };
+  });
+}
+
+async function runActiveScenario(port) {
+  return withFixture('hostActive', 'host', port, async ({ appOrigin, child, startupMs, docsPrimeMs }) => {
+    const preActiveIdle = await idleSample(child.pid);
+    const execute = hostRequest(appOrigin);
+
+    await countLoad(execute, activeWarmupRequests, Math.min(12, concurrency));
+    await sleep(settleMs);
+    const warmedIdle = await idleSample(child.pid);
+
+    const sustainedConcurrency1 = await measuredDurationLoad(child.pid, execute, sustainedSeconds * 1000, 1);
+    await sleep(settleMs);
+    const afterConcurrency1 = await idleSample(child.pid);
+
+    const sustainedConcurrency12 = await measuredDurationLoad(child.pid, execute, sustainedSeconds * 1000, 12);
+    const activeComplete = await snapshot(child.pid);
+
+    await sleep(1000);
+    const cooldown1s = await idleSample(child.pid);
+    if (cooldownMs > 1000) await sleep(cooldownMs - 1000);
+    const cooldownFinal = await idleSample(child.pid);
+
+    return {
+      scenario: 'hostActive',
+      fixtureMode: 'host',
+      startupMs: round(startupMs),
+      docsPrimeMs: round(docsPrimeMs),
+      preActiveIdle,
+      warmup: { requests: activeWarmupRequests, concurrency: Math.min(12, concurrency) },
+      warmedIdle,
+      sustainedConcurrency1,
+      afterConcurrency1,
+      sustainedConcurrency12,
+      activeComplete,
+      cooldown1s,
+      cooldownFinal,
+      cooldownMs,
+    };
+  });
+}
+
 const scenarios = {};
-for (const [index, mode] of ['baseline', 'flexdoc', 'host'].entries()) {
-  process.stdout.write(`Benchmarking ${label} / ${mode}... `);
-  scenarios[mode] = await runScenario(mode, basePort + index);
+const definitions = [
+  ['baseline', 'baseline'],
+  ['flexdoc', 'flexdoc'],
+  ['hostIdle', 'host'],
+];
+for (const [index, [scenario, fixtureMode]] of definitions.entries()) {
+  process.stdout.write(`Benchmarking ${label} / ${scenario}... `);
+  scenarios[scenario] = await runPassiveScenario(scenario, fixtureMode, basePort + index);
   console.log('done');
 }
 
-const h = scenarios.host;
+process.stdout.write(`Benchmarking ${label} / hostActive (${sustainedSeconds}s @ c1 + ${sustainedSeconds}s @ c12)... `);
+scenarios.hostActive = await runActiveScenario(basePort + definitions.length);
+console.log('done');
+
+const baseline = scenarios.baseline;
+const flexdoc = scenarios.flexdoc;
+const hostIdle = scenarios.hostIdle;
+const hostActive = scenarios.hostActive;
+
 const result = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   generatedAt: new Date().toISOString(),
   label,
   targetOrigin,
-  system: { platform: process.platform, arch: process.arch, release: os.release(), cpuCount: os.cpus().length, node: process.version },
-  workload: { requestCount, concurrency, settleMs },
+  system: {
+    platform: process.platform,
+    arch: process.arch,
+    release: os.release(),
+    cpuCount: os.cpus().length,
+    node: process.version,
+  },
+  workload: {
+    requestCount,
+    concurrency,
+    settleMs,
+    activeWarmupRequests,
+    sustainedSeconds,
+    sustainedConcurrencies: [1, 12],
+    cooldownMs,
+  },
   scenarios,
   deltas: {
-    flexdocIdleRssKiB: scenarios.flexdoc.idle.rssKiB - scenarios.baseline.idle.rssKiB,
-    flexdocIdlePssKiB: scenarios.flexdoc.idle.pssKiB - scenarios.baseline.idle.pssKiB,
-    hostIdleRssKiB: h.idle.rssKiB - scenarios.flexdoc.idle.rssKiB,
-    hostIdlePssKiB: h.idle.pssKiB - scenarios.flexdoc.idle.pssKiB,
-    hostActivePeakOverIdleRssKiB: h.hostExecution.peakRssKiB - h.idle.rssKiB,
-    hostActivePeakOverIdlePssKiB: h.hostExecution.peakPssKiB - h.idle.pssKiB,
-    hostRetainedOverIdleRssKiB: h.retained.rssKiB - h.idle.rssKiB,
-    hostRetainedOverIdlePssKiB: h.retained.pssKiB - h.idle.pssKiB,
-    flexdocDirectP95OverheadMs: round(scenarios.flexdoc.direct.p95Ms - scenarios.baseline.direct.p95Ms),
-    hostEnabledDirectP95OverheadMs: round(h.direct.p95Ms - scenarios.baseline.direct.p95Ms),
-    hostExecutionP95Ms: h.hostExecution.p95Ms,
-    hostExecutionThroughputRps: h.hostExecution.throughputRps,
-    hostExecutionCpuMsPerRequest: h.hostExecution.cpuMsPerRequest,
+    flexdocIdleRssKiB: flexdoc.idle.rssKiB - baseline.idle.rssKiB,
+    flexdocIdlePssKiB: flexdoc.idle.pssKiB - baseline.idle.pssKiB,
+    hostIdleRssKiB: hostIdle.idle.rssKiB - flexdoc.idle.rssKiB,
+    hostIdlePssKiB: hostIdle.idle.pssKiB - flexdoc.idle.pssKiB,
+    hostActiveWarmRssKiB: hostActive.warmedIdle.rssKiB - hostActive.preActiveIdle.rssKiB,
+    hostActiveWarmPssKiB: hostActive.warmedIdle.pssKiB - hostActive.preActiveIdle.pssKiB,
+    hostActiveC1PeakOverIdleRssKiB: hostActive.sustainedConcurrency1.peakRssKiB - hostActive.preActiveIdle.rssKiB,
+    hostActiveC1PeakOverIdlePssKiB: hostActive.sustainedConcurrency1.peakPssKiB - hostActive.preActiveIdle.pssKiB,
+    hostActiveC12PeakOverIdleRssKiB: hostActive.sustainedConcurrency12.peakRssKiB - hostActive.preActiveIdle.rssKiB,
+    hostActiveC12PeakOverIdlePssKiB: hostActive.sustainedConcurrency12.peakPssKiB - hostActive.preActiveIdle.pssKiB,
+    hostActiveCooldownRssKiB: hostActive.cooldownFinal.rssKiB - hostActive.preActiveIdle.rssKiB,
+    hostActiveCooldownPssKiB: hostActive.cooldownFinal.pssKiB - hostActive.preActiveIdle.pssKiB,
+    flexdocDirectP95OverheadMs: round(flexdoc.direct.p95Ms - baseline.direct.p95Ms),
+    hostEnabledDirectP95OverheadMs: round(hostIdle.direct.p95Ms - baseline.direct.p95Ms),
+    sustainedC1P95Ms: hostActive.sustainedConcurrency1.p95Ms,
+    sustainedC1ThroughputRps: hostActive.sustainedConcurrency1.throughputRps,
+    sustainedC1CpuMsPerRequest: hostActive.sustainedConcurrency1.cpuMsPerRequest,
+    sustainedC12P95Ms: hostActive.sustainedConcurrency12.p95Ms,
+    sustainedC12ThroughputRps: hostActive.sustainedConcurrency12.throughputRps,
+    sustainedC12CpuMsPerRequest: hostActive.sustainedConcurrency12.cpuMsPerRequest,
   },
 };
 
