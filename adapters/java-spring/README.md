@@ -42,7 +42,7 @@ The renderer assets are served locally at `/docs/__flexdoc/*`, so the integratio
 
 ## Native host execution (3.3 source)
 
-Spring is the first JVM transport to implement FlexDoc's existing API-host execution envelope. It is opt-in and requires an explicit exact-origin allowlist:
+Spring implements FlexDoc's existing API-host execution envelope through the shared JVM host. It is opt-in and requires an explicit exact-origin allowlist:
 
 ```yaml
 flexdoc:
@@ -52,13 +52,13 @@ flexdoc:
     - https://staging-api.example.com
 ```
 
-When enabled, the docs page advertises `hostExecution.available: true` and Spring registers `POST <docsPath>/__flexdoc/execute`. The route requires `X-FlexDoc-Execute: 1`, strips unsafe browser/request headers, accepts only HTTP(S), rejects cross-origin redirects, revalidates each target against the exact-origin allowlist, rejects literal/link-local/cloud-metadata targets plus dangerous DNS preflight resolutions, clamps execution timeouts, limits incoming execute envelopes to 32 MiB, and streams responses through a 10 MiB bound.
+When enabled, the docs page advertises `hostExecution.available: true` and Spring registers `POST <docsPath>/__flexdoc/execute`. The route requires `X-FlexDoc-Execute: 1`, strips unsafe browser/request headers, accepts only HTTP(S), rejects cross-origin redirects, revalidates each target against the exact-origin allowlist, rejects literal/link-local/cloud-metadata targets and dangerous DNS resolutions, clamps execution timeouts, limits incoming execute envelopes to 32 MiB, and streams responses through a 10 MiB bound.
 
 The Spring transport consumes the same canonical execute protocol as Node and the 3.2 Runner: JSON descriptors, Base64 binary bodies, and multipart requests containing the `descriptor` plus indexed `formData[n]` browser file parts. Multipart files are reassembled into the canonical request draft and the JVM executor generates the outbound multipart body and boundary.
 
-This first native slice intentionally advertises an empty host-only capability list. It supports ordinary canonical HTTP execution, including query/header/body modes plus None, Basic, Bearer, OAuth 2.0 access-token, and header/query API-key authentication. Cookie jars, client certificates, Digest, Hawk, NTLM, OAuth 1.0, and AWS Sig V4 remain unavailable and are rejected rather than advertised. Other Java transports (JAX-RS, Vert.x, and Ktor) continue to advertise `available: false` until they own a real execute binding.
+This first native slice intentionally advertises an empty host-only capability list. It supports ordinary canonical HTTP execution, including query/header/body modes plus None, Basic, Bearer, OAuth 2.0 access-token, and header/query API-key authentication. Cookie jars, client certificates, Digest, Hawk, NTLM, OAuth 1.0, and AWS Sig V4 remain unavailable and are rejected rather than advertised. JAX-RS uses the same shared JVM executor with its own execute binding; Java transports without a native execute binding continue to advertise `available: false`.
 
-Java 17 `HttpClient` does not expose the selected socket address to the executor, so the Spring implementation cannot provide the Node executor's stronger connection-time DNS pinning. It resolves and rejects dangerous addresses before each request/redirect, but deployments should keep the exact-origin allowlist narrow and avoid attacker-controlled hostnames.
+The shared JVM executor resolves and validates the target for each request or redirect, then uses its Apache HttpClient transport to connect through the validated address set while preserving the original hostname for HTTP authority and TLS verification. Link-local/cloud-metadata destinations are rejected before connection, and system proxy routing is not used for host execution.
 
 Application middleware still protects the docs subtree and therefore the execute route. The exact-origin list is an execution boundary, not an authentication mechanism, and `X-FlexDoc-Execute: 1` is a protocol marker rather than a CSRF defense.
 
