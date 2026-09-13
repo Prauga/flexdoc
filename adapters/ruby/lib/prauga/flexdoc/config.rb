@@ -23,7 +23,7 @@ module Prauga
     # @!attribute [r] try_it_api_client_persistence_key
     #   Optional persistence key, or `false` to disable.
     # @!attribute [r] try_it_host_execution
-    #   Emits host-execution protocol metadata; execution is not implemented by this adapter.
+    #   Enables host-execution protocol metadata when a real native executor is attached to the host.
     Config = Data.define(
       :path,
       :spec_url,
@@ -47,7 +47,7 @@ module Prauga
       # @param try_it_default_server [String, nil] optional default server URL for Try It
       # @param try_it_credentials [String, nil] optional fetch credentials mode
       # @param try_it_api_client_persistence_key [String, false, nil] optional persistence key
-      # @param try_it_host_execution [Boolean] emit host-execution protocol metadata; execution is not implemented by this adapter
+      # @param try_it_host_execution [Boolean] expose host execution when the host has a native executor
       def initialize(
         path: "/docs",
         spec_url: "/openapi.json",

@@ -13,9 +13,15 @@ include = ["src/**", "assets/**", "README.md", "Cargo.toml"]
 
 [dependencies]
 axum = "0.8"
+base64 = "0.22"
+futures-util = "0.3"
+multer = "3"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 serde = "1"
 serde_json = "1"
+tokio = { version = "1", features = ["net", "time"] }
+url = "2"
 
 [dev-dependencies]
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time"] }
 tower = { version = "0.5", features = ["util"] }
