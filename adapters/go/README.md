@@ -45,7 +45,7 @@ The Go host consumes the same JSON or canonical multipart envelope used by the N
 
 This first Go slice intentionally advertises an empty host-only capability list. Session cookie jars, client certificates, Digest, Hawk, NTLM/Negotiate, OAuth 1.0, and AWS Signature V4 remain unavailable until implemented natively.
 
-Unlike the Java 17 and Python standard-library transports, the Go executor validates DNS inside its custom `DialContext` and connects directly to one of the validated IP addresses. Link-local/cloud-metadata hostnames and resolved link-local addresses are rejected before connection, avoiding a DNS-preflight/connection-time resolution gap while preserving the original request hostname for HTTP/TLS semantics.
+The Go executor resolves and validates the target inside its custom `DialContext`, then connects directly to one of the validated IP addresses. Link-local/cloud-metadata hostnames and resolved link-local addresses are rejected before connection, while the original request hostname is preserved for HTTP Host and TLS identity semantics.
 
 For code-first generators such as Huma, pass the generated OpenAPI document directly:
 
