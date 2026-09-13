@@ -16,6 +16,7 @@ on:
       - 'examples/elixir-phoenix/**'
       - 'scripts/sync-adapter-assets.mjs'
       - '.github/workflows/framework-completion.yml'
+      - '!**/*.md'
   push:
     branches: [main]
 

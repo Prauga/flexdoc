@@ -8,6 +8,7 @@ on:
       - 'packages/client/**'
       - '.github/workflows/ruby.yml'
       - '.github/workflows/publish-ruby.yml'
+      - '!**/*.md'
   push:
     branches: [main]
     paths:
