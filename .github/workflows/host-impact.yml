@@ -9,6 +9,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/host-impact.yml'
+      - '!**/*.md'
   push:
     branches: [main]
     paths:
@@ -18,6 +19,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/host-impact.yml'
+      - '!**/*.md'
 
 concurrency:
   group: host-impact-${{ github.workflow }}-${{ github.ref }}
@@ -78,6 +80,12 @@ jobs:
           npm run build:client
           npm run build:backend
 
+      - name: Build renderer assets for packaged adapters
+        if: ${{ matrix.runtime == 'dotnet' || matrix.runtime == 'spring' }}
+        run: |
+          npm ci
+          npm run build:client
+
       - uses: actions/setup-python@v6
         if: ${{ matrix.runtime == 'python' }}
         with:
@@ -119,7 +127,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         if: ${{ startsWith(matrix.runtime, 'rust-') }}
         with:
-          toolchain: '1.84.1'
+          toolchain: '1.90.0'
       - name: Build Axum benchmark host
         if: ${{ matrix.runtime == 'rust-axum' }}
         run: |
@@ -164,11 +172,16 @@ jobs:
         run: composer dump-autoload --working-dir=adapters/php --no-dev --classmap-authoritative --no-interaction
 
       - name: Measure host impact
-        run: >-
-          node scripts/performance/host-impact/measure-http.mjs
-          --label "${{ matrix.label }}"
-          --command-json '${{ matrix.command }}'
-          --output "host-impact-${{ matrix.runtime }}.json"
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/performance/host-impact/target-server.mjs > /tmp/flexdoc-host-impact-target.log 2>&1 &
+          target_pid=$!
+          trap 'kill "$target_pid" 2>/dev/null || true' EXIT
+          node scripts/performance/host-impact/measure-v2.mjs \
+            --label "${{ matrix.label }}" \
+            --command-json '${{ matrix.command }}' \
+            --output "host-impact-${{ matrix.runtime }}.json"
 
       - name: Upload runtime result
         uses: actions/upload-artifact@v6
