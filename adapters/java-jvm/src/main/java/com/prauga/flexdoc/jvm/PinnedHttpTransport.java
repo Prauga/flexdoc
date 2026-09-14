@@ -9,10 +9,12 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.hc.client5.http.DnsResolver;
@@ -34,11 +36,21 @@ import org.apache.hc.core5.util.Timeout;
 
 /** Outbound HTTP transport that connects only to addresses already validated by FlexDoc. */
 final class PinnedHttpTransport {
-  private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(task -> {
-    Thread thread = new Thread(task, "flexdoc-jvm-host-execution");
-    thread.setDaemon(true);
-    return thread;
-  });
+  static final int MAX_EXECUTION_THREADS = 64;
+  static final int MAX_QUEUED_EXECUTIONS = 256;
+
+  private static final ThreadPoolExecutor EXECUTOR = new ThreadPoolExecutor(
+      0,
+      MAX_EXECUTION_THREADS,
+      60L,
+      TimeUnit.SECONDS,
+      new ArrayBlockingQueue<>(MAX_QUEUED_EXECUTIONS),
+      task -> {
+        Thread thread = new Thread(task, "flexdoc-jvm-host-execution");
+        thread.setDaemon(true);
+        return thread;
+      },
+      new ThreadPoolExecutor.AbortPolicy());
 
   private static final ThreadLocal<RequestContext> REQUEST_CONTEXT = new ThreadLocal<>();
 
@@ -121,45 +133,51 @@ final class PinnedHttpTransport {
     }
     if (body != null) request.setEntity(new ByteArrayEntity(body, null));
 
-    Future<Response> future = EXECUTOR.submit(() -> {
-      REQUEST_CONTEXT.set(requestContext);
-      try {
-        HttpClientContext clientContext = HttpClientContext.create();
-        clientContext.setUserToken(pinSetToken);
-        clientContext.setRequestConfig(RequestConfig.custom()
-            .setConnectionRequestTimeout(timeout)
-            .setResponseTimeout(timeout)
-            .build());
+    Future<Response> future;
+    try {
+      future = EXECUTOR.submit(() -> {
+        REQUEST_CONTEXT.set(requestContext);
+        try {
+          HttpClientContext clientContext = HttpClientContext.create();
+          clientContext.setUserToken(pinSetToken);
+          clientContext.setRequestConfig(RequestConfig.custom()
+              .setConnectionRequestTimeout(timeout)
+              .setResponseTimeout(timeout)
+              .build());
 
-        return CLIENT.execute(request, clientContext, response -> {
-          List<List<String>> responseHeaders = new ArrayList<>();
-          for (Header header : response.getHeaders()) {
-            responseHeaders.add(List.of(header.getName(), header.getValue()));
-          }
+          return CLIENT.execute(request, clientContext, response -> {
+            List<List<String>> responseHeaders = new ArrayList<>();
+            for (Header header : response.getHeaders()) {
+              responseHeaders.add(List.of(header.getName(), header.getValue()));
+            }
 
-          ByteArrayOutputStream output = new ByteArrayOutputStream();
-          HttpEntity entity = response.getEntity();
-          if (entity != null) {
-            try (InputStream input = entity.getContent()) {
-              byte[] buffer = new byte[8192];
-              int read;
-              while ((read = input.read(buffer)) != -1) {
-                if ((long) output.size() + read > maxResponseBytes) throw new ResponseTooLarge();
-                output.write(buffer, 0, read);
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            HttpEntity entity = response.getEntity();
+            if (entity != null) {
+              try (InputStream input = entity.getContent()) {
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = input.read(buffer)) != -1) {
+                  if ((long) output.size() + read > maxResponseBytes) throw new ResponseTooLarge();
+                  output.write(buffer, 0, read);
+                }
               }
             }
-          }
 
-          return new Response(
-              response.getCode(),
-              response.getReasonPhrase() == null ? "" : response.getReasonPhrase(),
-              responseHeaders,
-              output.toByteArray());
-        });
-      } finally {
-        REQUEST_CONTEXT.remove();
-      }
-    });
+            return new Response(
+                response.getCode(),
+                response.getReasonPhrase() == null ? "" : response.getReasonPhrase(),
+                responseHeaders,
+                output.toByteArray());
+          });
+        } finally {
+          REQUEST_CONTEXT.remove();
+        }
+      });
+    } catch (RejectedExecutionException error) {
+      request.cancel();
+      throw new IOException("Host execution transport capacity exceeded.", error);
+    }
 
     try {
       return future.get(Math.max(1L, timeoutMs), TimeUnit.MILLISECONDS);
