@@ -113,4 +113,7 @@ finally
     Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", originalEnvironment);
 }
 
-Console.WriteLine(".NET FlexDoc renderer and Runtime Intelligence contracts passed.");
+await HostExecutionConformance.RunAsync();
+await HostExecutionSecurityConformance.RunAsync();
+
+Console.WriteLine(".NET FlexDoc renderer, Runtime Intelligence, and host-execution contracts passed.");
