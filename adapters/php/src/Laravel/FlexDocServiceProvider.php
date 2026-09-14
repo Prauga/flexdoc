@@ -74,7 +74,20 @@ final class FlexDocServiceProvider extends ServiceProvider
 
     public function boot(Router $router): void
     {
-        $middleware = self::middlewareFromConfig($this->app['config']->get('flexdoc.middleware', []));
+        $config = $this->app['config']->get('flexdoc', []);
+        $middleware = self::middlewareFromConfig($config['middleware'] ?? []);
+        $hostExecutionEnabled = filter_var(
+            $config['try_it_host_execution'] ?? false,
+            FILTER_VALIDATE_BOOLEAN,
+            FILTER_NULL_ON_FAILURE,
+        ) ?? false;
+
+        if ($hostExecutionEnabled && $middleware === []) {
+            throw new \LogicException(
+                'FlexDoc host execution requires non-empty flexdoc.middleware; the origin allowlist is not authentication.'
+            );
+        }
+
         LaravelFlexDoc::register($router, $this->app->make(FlexDocHost::class), $middleware);
     }
 }
