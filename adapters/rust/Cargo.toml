@@ -12,6 +12,7 @@ categories = ["web-programming", "development-tools"]
 include = ["src/**", "assets/**", "README.md", "Cargo.toml"]
 
 [dependencies]
+prauga-flexdoc-host-execution = { version = "0.1.0", path = "../rust-host-execution" }
 axum = "0.8"
 base64 = "0.22"
 futures-util = "0.3"

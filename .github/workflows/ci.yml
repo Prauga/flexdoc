@@ -126,10 +126,12 @@ jobs:
           PYTHONPATH=examples/python-fastapi python3 -c "from app import app; assert app.openapi_url == '/openapi.json'"
           rm -rf adapters/python/build adapters/python/src/*.egg-info
 
-      - name: Test Rust Axum adapter
+      - name: Test shared Rust host executor and Axum adapter
         run: |
+          cargo test --manifest-path adapters/rust-host-execution/Cargo.toml --all-targets
+          cargo package --manifest-path adapters/rust-host-execution/Cargo.toml --allow-dirty
           cargo test --manifest-path adapters/rust/Cargo.toml --all-targets
-          cargo package --manifest-path adapters/rust/Cargo.toml --allow-dirty
+          cargo metadata --manifest-path adapters/rust/Cargo.toml --no-deps >/dev/null
 
       - name: Build Rust example against local release candidate
         run: |

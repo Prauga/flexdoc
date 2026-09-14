@@ -3,9 +3,7 @@
 //! The crate embeds the canonical browser renderer and exposes [`router`] or
 //! [`router_with_openapi`] for mounting documentation alongside your API.
 
-mod host_execution;
-
-pub use host_execution::{HostExecution, HostExecutionFile, HostExecutionResult};
+pub use prauga_flexdoc_host_execution::{HostExecution, HostExecutionFile, HostExecutionResult};
 
 use axum::{
     body::to_bytes,
@@ -20,7 +18,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::{collections::HashMap, convert::Infallible, sync::Arc};
 
-use host_execution::MAX_EXECUTION_REQUEST_BYTES;
+use prauga_flexdoc_host_execution::MAX_EXECUTION_REQUEST_BYTES;
 
 static RENDERER_JS: &[u8] = include_bytes!("../assets/flexdoc.standalone.js");
 static RENDERER_CSS: &[u8] = include_bytes!("../assets/flexdoc.standalone.css");
