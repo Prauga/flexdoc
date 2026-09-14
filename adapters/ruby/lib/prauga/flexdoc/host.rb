@@ -14,18 +14,30 @@ module Prauga
       #   @return [Config] validated renderer and route configuration for this host
       # @!attribute [r] fingerprint
       #   @return [String] stable renderer-asset fingerprint used for cache-busting URLs
-      attr_reader :config, :fingerprint
+      # @!attribute [r] host_execution
+      #   @return [HostExecution, nil] optional native API-host executor
+      attr_reader :config, :fingerprint, :host_execution
 
       # Create a host and load its canonical renderer assets.
       #
       # @param config [Config] renderer and route settings
       # @param assets_dir [String, nil] optional directory overriding bundled renderer assets
-      def initialize(config = Config.new, assets_dir: nil)
+      # @param host_execution [HostExecution, nil] optional native API-host executor
+      def initialize(config = Config.new, assets_dir: nil, host_execution: nil)
         @config = config
+        @host_execution = host_execution
         root = assets_dir || File.expand_path("../../../assets", __dir__)
         @javascript = File.binread(File.join(root, "flexdoc.standalone.js"))
         @css = File.binread(File.join(root, "flexdoc.standalone.css"))
         @fingerprint = Digest::SHA256.hexdigest(@javascript + "\0" + @css)[0, 16]
+      end
+
+      def execute_path
+        "#{config.path}/__flexdoc/execute"
+      end
+
+      def execution_available?
+        config.try_it_host_execution && !host_execution.nil?
       end
 
       # Match a request path and return the docs shell, renderer asset, or 404 response.
@@ -50,9 +62,9 @@ module Prauga
         try_it[:apiClientPersistenceKey] = config.try_it_api_client_persistence_key unless config.try_it_api_client_persistence_key.nil?
         if config.try_it_host_execution
           try_it[:hostExecution] = {
-            available: false,
-            endpoint: "#{config.path}/__flexdoc/execute",
-            capabilities: []
+            available: execution_available?,
+            endpoint: execute_path,
+            capabilities: host_execution&.capabilities || []
           }
         end
 

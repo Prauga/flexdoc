@@ -18,6 +18,8 @@ Gem::Specification.new do |spec|
   spec.files = Dir["lib/**/*", "assets/*", "README.md", "LICENSE"]
   spec.require_paths = ["lib"]
 
+  spec.add_dependency "base64", ">= 0.2.0"
+
   spec.add_development_dependency "actionpack", ">= 7.2", "< 9"
   spec.add_development_dependency "minitest", "~> 5.25"
   spec.add_development_dependency "rack", ">= 3.1", "< 4"
