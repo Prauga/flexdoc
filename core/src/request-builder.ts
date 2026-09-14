@@ -1,7 +1,7 @@
 import type { OpenAPISpec, Parameter, Schema, SecurityScheme } from './types/openapi.js';
 import { normalizeOperation, resolveObject, resolveServerVariables } from './openapi-normalizer.js';
 
-/** Scalar request value accepted by OpenAPI parameter and auth editors. */
+/** Request value accepted by OpenAPI parameter and auth editors. */
 export type RequestValue = string | number | boolean | string[] | number[] | Record<string, unknown>;
 
 /** User-entered Try It values keyed by parameter location and name. */
