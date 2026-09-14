@@ -16,7 +16,7 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - **Rust:** Axum, Actix Web
 - **Elixir:** Plug, Phoenix
 
-The backend-coverage program shipped in 2.3.0 and the coordinated 2.x line culminated in published **2.9.9**. Stable **3.0.0** added backend-native Runtime Intelligence, and published **3.1.0** added operation-level Contract Validation on Node Express/Fastify/Hono/NestJS with matching renderer and CLI consumption. The **3.2.0** release candidate takes the canonical API Client request/script/collection model into headless CLI/CI execution while reusing the existing advertised host-execution contract. See [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the exact milestone boundary and deferred work.
+The backend-coverage program shipped in 2.3.0 and the coordinated 2.x line culminated in published **2.9.9**. Stable **3.0.0** added backend-native Runtime Intelligence, published **3.1.0** added operation-level Contract Validation on Node Express/Fastify/Hono/NestJS with matching renderer and CLI consumption, and **3.2.0** took the canonical API Client request/script/collection model into headless CLI/CI execution while reusing the existing advertised host-execution contract. **3.3.0** expands hardened native API-host execution across the supported backend ecosystems and makes an available API host the default transport for ordinary interactive API Client sends. See [`docs/releases/3.3.md`](./docs/releases/3.3.md) for the security and operational release notes and [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md) for the milestone boundary.
 
 ## CLI
 
@@ -27,20 +27,20 @@ npx @prauga/flexdoc-cli serve openapi.yaml --watch
 npx @prauga/flexdoc-cli build openapi.yaml --out ./public
 npx @prauga/flexdoc-cli validate http://127.0.0.1:3000/docs/__flexdoc/runtime
 
-# 3.2.0 release candidate; use the repository CLI until cli/v0.7.0 is published
+# Headless Runner remains on the independently versioned CLI package.
 node tools/flexdoc-cli/bin/flexdoc.js run ./pets.flexdoc.json --json
 ```
 
 `validate` consumes the installed Node backend's structured 3.1 validation result rather than reimplementing contract comparison. It supports JSON output, custom headers, bearer/basic authentication for protected Runtime Intelligence endpoints, and opt-in stricter CI failure policies such as `--fail-on warning`. By default it exits `1` only when the backend reports `fail` (or the endpoint/payload cannot be consumed).
 
-`run` consumes a versioned artifact exported from the canonical API Client workspace and delegates to the same collection/request executor and `flex.*` script/test runtime. Ordinary requests execute directly from Node; capability-gated requests can reuse the existing same-origin host-execution advertisement. See [`docs/headless-runner.md`](./docs/headless-runner.md) for the 3.2 artifact, security, reporting, and cancellation contract.
+`run` consumes a versioned artifact exported from the canonical API Client workspace and delegates to the same collection/request executor and `flex.*` script/test runtime. Ordinary reusable/headless requests execute directly from Node unless host semantics are explicitly selected or required. See [`docs/headless-runner.md`](./docs/headless-runner.md) for the artifact, security, reporting, and cancellation contract.
 
 ## Package family
 
 | Ecosystem | Package | Source version |
 | --- | --- | ---: |
-| npm | `@prauga/flexdoc-client` | `3.2.0` |
-| npm | `@prauga/flexdoc-backend` | `3.2.0` |
+| npm | `@prauga/flexdoc-client` | `3.3.0` |
+| npm | `@prauga/flexdoc-backend` | `3.3.0` |
 | npm | `@prauga/flexdoc-core` | `0.5.0` |
 | npm | `@prauga/flexdoc-cli` | `0.7.0` |
 | NuGet | `Prauga.FlexDoc.AspNetCore` | `0.5.2` |
@@ -55,7 +55,7 @@ node tools/flexdoc-cli/bin/flexdoc.js run ./pets.flexdoc.json --json
 | Hex | `prauga_flexdoc` | `0.4.4` |
 | Go | `github.com/prauga/flexdoc/adapters/go` | `0.5.4` |
 
-Ecosystem package versions are intentionally independent. Renderer contract v1 is the cross-language compatibility boundary.
+Ecosystem package versions are intentionally independent. FlexDoc 3.3.0 is the coordinated product/source release; native adapters retain their established ecosystem semver histories. Renderer contract v1 remains the cross-language compatibility boundary.
 
 > The package table reflects the versions encoded by the current source commit. Release-preparation commits update these source versions only when the matching release is ready; source version numbers alone do not mean an artifact has been published.
 
@@ -76,7 +76,7 @@ canonical browser renderer
 
 Adapters serve version-matched local renderer assets and do not reimplement schemas, request serialization, code samples, Try It, API Client behavior, navigation, or theming.
 
-See [`examples/`](./examples/README.md), [`docs/framework-coverage-roadmap.md`](./docs/framework-coverage-roadmap.md), [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md), and [`docs/distribution.md`](./docs/distribution.md).
+See [`examples/`](./examples/README.md), [`docs/framework-coverage-roadmap.md`](./docs/framework-coverage-roadmap.md), [`docs/api-client-roadmap.md`](./docs/api-client-roadmap.md), [`docs/host-execution.md`](./docs/host-execution.md), [`docs/releases/3.3.md`](./docs/releases/3.3.md), and [`docs/distribution.md`](./docs/distribution.md).
 
 ## License
 
