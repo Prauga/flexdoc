@@ -208,6 +208,8 @@ jobs:
         run: |
           node scripts/performance/host-impact/aggregate.mjs host-impact-results host-impact-summary.md host-impact-summary.json
           cat host-impact-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Enforce host-impact regression guardrails
+        run: node scripts/performance/host-impact/check-regressions.mjs host-impact-summary.json scripts/performance/host-impact/regression-thresholds.json
       - name: Upload combined baseline
         uses: actions/upload-artifact@v6
         with:
