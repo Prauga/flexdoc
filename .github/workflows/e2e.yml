@@ -34,6 +34,12 @@ jobs:
       - name: Install pinned Playwright test runner
         run: npm install --no-save --package-lock=false @playwright/test@1.62.1
 
+      - name: Remove unrelated Google Chrome apt source
+        run: |
+          grep -RIl 'dl.google.com/linux/chrome' /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null | while read -r source; do
+            sudo rm -f "$source"
+          done
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
