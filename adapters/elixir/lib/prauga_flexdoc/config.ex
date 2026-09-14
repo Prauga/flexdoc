@@ -15,7 +15,8 @@ defmodule PraugaFlexDoc.Config do
     * `:try_it_default_server` - optional default server URL for Try It requests
     * `:try_it_credentials` - optional fetch credentials mode: `"omit"`, `"same-origin"`, or `"include"`
     * `:try_it_api_client_persistence_key` - optional persistence key, or `false` to disable
-    * `:try_it_host_execution` - emits host-execution protocol metadata; execution is not implemented by this adapter
+    * `:try_it_host_execution` - exposes host execution when a real native executor is configured
+    * `:host_execution` - optional `PraugaFlexDoc.HostExecution` instance
   """
 
   @typedoc "Validated FlexDoc configuration."
@@ -29,7 +30,8 @@ defmodule PraugaFlexDoc.Config do
           try_it_default_server: String.t() | nil,
           try_it_credentials: String.t() | nil,
           try_it_api_client_persistence_key: String.t() | false | nil,
-          try_it_host_execution: boolean()
+          try_it_host_execution: boolean(),
+          host_execution: PraugaFlexDoc.HostExecution.t() | nil
         }
 
   defstruct path: "/docs",
@@ -41,7 +43,8 @@ defmodule PraugaFlexDoc.Config do
             try_it_default_server: nil,
             try_it_credentials: nil,
             try_it_api_client_persistence_key: nil,
-            try_it_host_execution: false
+            try_it_host_execution: false,
+            host_execution: nil
 
   @doc """
   Creates a validated configuration from keyword options.
@@ -63,6 +66,10 @@ defmodule PraugaFlexDoc.Config do
     persistence_key = config.try_it_api_client_persistence_key
     unless is_nil(persistence_key) or persistence_key == false or is_binary(persistence_key) do
       raise ArgumentError, "FlexDoc API Client persistence key must be a string, false, or nil"
+    end
+
+    unless is_nil(config.host_execution) or match?(%PraugaFlexDoc.HostExecution{}, config.host_execution) do
+      raise ArgumentError, "FlexDoc host_execution must be a PraugaFlexDoc.HostExecution or nil"
     end
 
     %{config | path: path, theme: theme}
