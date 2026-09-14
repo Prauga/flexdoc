@@ -41,7 +41,10 @@ async function bootstrap() {
         defaultServer: 'http://localhost:3000',
         credentials: 'same-origin',
         apiClientPersistenceKey: 'flexdoc-nestjs-3-showcase',
-        hostExecution: true,
+        // Host execution turns this docs route into privileged server-side egress.
+        // Production deployments must authenticate the /docs subtree before FlexDoc,
+        // apply CSRF policy at the application boundary, and enforce admission/rate limits.
+        hostExecution: { enabled: true, allowedOrigins: ['http://localhost:3000'] },
       },
       codeSamples: {
         enabled: true,

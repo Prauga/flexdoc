@@ -35,12 +35,12 @@ for (const [name, version] of Object.entries({dotnetVersion, pythonVersion, phpV
   if (!version) fail(`Unable to read ${name}`);
 }
 
-// Release-candidate branches advance source manifests before registry artifacts
-// exist. Standalone examples must remain installable from the last published
-// versions until the post-publish lock-refresh PR.
+// Native ecosystem examples remain pinned to their latest published adapter versions.
+// The 3.3 release examples intentionally track the npm backend release candidate so
+// package manifests, lock metadata, docs, and GitHub release identity agree before publish.
 const published = {
   client: '3.1.0',
-  backend: '3.1.0',
+  backend: backendVersion,
   dotnet: '0.5.1',
   java: '0.8.1',
   python: '0.7.1',
