@@ -8,7 +8,10 @@ const results = JSON.parse(fs.readFileSync(input, 'utf8'));
 // only a few percent above measured payloads so future growth stays explicit.
 const budgets = {
   javascript: {
-    rawBytes: 840 * 1024,
+    // FlexDoc 3.3 host routing adds a small raw-only increase to the standalone
+    // client. PR #93 measured 860,236 raw bytes; gzip (222,923) and brotli
+    // (190,919) remain within the unchanged compressed budgets below.
+    rawBytes: 841 * 1024,
     gzipBytes: 260 * 1024,
     brotliBytes: 220 * 1024,
   },
