@@ -32,6 +32,8 @@ const sustainedSeconds = ordered[0]?.workload?.sustainedSeconds ?? 30;
 const lines = [
   '# FlexDoc 3.3 host-execution impact baseline',
   '',
+  '> **Guardrail scope:** regression thresholds are catastrophic-regression-only CI safety limits. They are not product SLOs, capacity targets, or cross-runtime performance rankings.',
+  '',
   `Each runtime is measured in five fresh processes: baseline application, FlexDoc mounted with host execution disabled, host execution enabled but idle, host-enabled sustained direct traffic, and sustained FlexDoc host-execution traffic. The two sustained processes receive the same warm-up shape, ${sustainedSeconds}s at concurrency 1 and ${sustainedSeconds}s at concurrency 12, followed by cooldown retention sampling.`,
   '',
   'PSS is the primary memory comparison because it proportionally accounts for shared pages across worker processes. The active-memory control subtracts matched sustained-direct process growth from host-execution process growth so ordinary runtime/JIT/GC/allocator expansion is visible instead of being attributed wholesale to FlexDoc. Raw RSS/PSS and both sustained scenarios remain in the per-runtime JSON.',
