@@ -11,6 +11,7 @@ on:
       - 'packages/client/**'
       - '.github/workflows/java.yml'
       - '.github/workflows/publish-java.yml'
+      - '!**/*.md'
   push:
     branches: [main]
     paths:

@@ -99,7 +99,7 @@ The 2.8 release is complete with all of the following satisfied:
 
 ## 2.9.9 Performance & production readiness
 
-2.9.9 is intentionally the final 2.x engineering gate before Runtime Intelligence. It does not reopen Postman/Scalar parity work. It establishes measurable production cost, removes avoidable documentation-host overhead, and turns performance into a regression-tested property of the product.
+2.9.9 is intentionally the final 2.x engineering gate before Runtime Intelligence. It does not reopen generic API-client parity work. It establishes measurable production cost, removes avoidable documentation-host overhead, and turns performance into a regression-tested property of the product.
 
 Definition of done:
 
@@ -111,15 +111,11 @@ Definition of done:
 - [x] verify normal application routes incur no FlexDoc request-path work through path-scoped integration regressions
 - [x] document compression, caching, replica-stable ETags, multi-pod/process-local cache behavior, and detached/static deployment guidance
 
-The architectural priority test remains unchanged: **could Scalar implement this without being installed inside the backend?** Performance work is justified here because backend installation is part of FlexDoc's differentiation; the cost of that installation must be explicit, small, and continuously measurable.
+Backend installation is part of FlexDoc's differentiation, so the cost of that installation must be explicit, small, and continuously measurable.
 
 ## Backend-native roadmap after 2.9.9
 
-FlexDoc should differentiate through information and actions available because it is installed **inside the running backend**, not by indefinitely chasing generic hosted-docs or API-client parity. The prioritization question for major roadmap work is:
-
-> **Could Scalar implement this without being installed inside the backend?**
-
-If the answer is yes, the feature may still be useful, but it does not receive the same differentiation priority as backend-native capabilities. The next product sequence is:
+FlexDoc should differentiate through information and actions available because it is installed **inside the running backend**, not by indefinitely chasing generic hosted-docs or API-client parity. Major roadmap work should prioritize backend-native capabilities where the installed service/runtime/network context creates unique leverage. The next product sequence is:
 
 | Milestone | Direction | Core outcome |
 | --- | --- | --- |
@@ -170,7 +166,7 @@ Implemented in this slice:
 
 Explicitly **not** in this 3.1 cut: schema/request/response validation, live-traffic breaking-drift policy, request rejection, generic OpenAPI linting, the headless FlexDoc Runner, and native-adapter host execution. The CLI validation command is not the 3.2 Runner: it reads Contract Validation; it does not execute collections or requests.
 
-This boundary keeps the differentiation test intact: the valuable evidence comes from FlexDoc being installed inside the backend, while later milestones can deepen validation without pretending that generic document-only linting is the moat.
+This boundary keeps the differentiation backend-native: the valuable evidence comes from FlexDoc being installed inside the backend, while later milestones can deepen validation without pretending that generic document-only linting is the moat.
 
 ## 3.2 FlexDoc Runner
 
@@ -180,7 +176,7 @@ This boundary keeps the differentiation test intact: the valuable evidence comes
 
 3.2 deliberately does not add another `__flexdoc/execute` protocol, native host execution, private/VPC policy expansion, host-side secret storage, iteration datasets, concurrency, or Newman compatibility. Those backend execution expansions remain 3.3 work. See [`headless-runner.md`](./headless-runner.md) for the complete artifact, execution, security, report, and definition-of-done contract.
 
-The product filter remains: **Could Scalar implement this without being installed inside the backend?** Headless orchestration is useful portable infrastructure; FlexDoc-specific differentiation comes from reusing the controlled execution capability already available because FlexDoc is installed inside the service.
+Headless orchestration is useful portable infrastructure; FlexDoc-specific differentiation comes from reusing the controlled execution capability already available because FlexDoc is installed inside the service.
 
 ## Release interpretation
 
