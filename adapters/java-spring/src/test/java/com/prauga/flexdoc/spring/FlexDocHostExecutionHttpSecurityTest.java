@@ -58,12 +58,12 @@ class FlexDocHostExecutionHttpSecurityTest {
   }
 
   @Test
-  void executeRouteRejectsOversizedDeclaredBodiesBeforeParsing() throws Exception {
+  void executeRouteRejectsOversizedBodiesAtHttpBoundary() throws Exception {
+    byte[] oversized = new byte[MAX_EXECUTION_REQUEST_BYTES + 1];
     mvc.perform(post("/docs/__flexdoc/execute")
             .header("X-FlexDoc-Execute", "1")
-            .header(HttpHeaders.CONTENT_LENGTH, String.valueOf(MAX_EXECUTION_REQUEST_BYTES + 1L))
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"request\":{\"url\":\"https://api.example.test/pets\"}}"))
+            .content(oversized))
         .andExpect(status().isBadRequest())
         .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
         .andExpect(jsonPath("$.error").value("Host execution request exceeded the 32 MiB safety limit."));
