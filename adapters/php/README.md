@@ -46,7 +46,7 @@ This first PHP slice intentionally advertises an empty host-only capability list
 
 The transport uses PHP's standard socket/TLS runtime rather than requiring `ext-curl`. Hostnames are resolved and validated first, then the connection is opened directly to one of the validated addresses while retaining the original hostname for the HTTP `Host` header and TLS SNI/certificate verification. Link-local/cloud-metadata destinations, including IPv4-mapped IPv6 forms, are rejected before connection. System HTTP proxy variables are not consulted by this socket transport.
 
-The execute endpoint is a server-side network capability. Protect the docs subtree and `__flexdoc/execute` with the same application authentication/authorization policy you expect for the API documentation. `X-FlexDoc-Execute: 1` is a protocol marker and cross-site friction, not a replacement for application authorization.
+The execute endpoint is a server-side network capability. Protect the docs subtree and `__flexdoc/execute` with the same application authentication/authorization policy you expect for the API documentation. `X-FlexDoc-Execute: 1` is a protocol marker and cross-site friction, not a replacement for application authorization or the framework's CSRF model.
 
 For framework-neutral integrations, route `responseForRequest()` so POST requests to the execute path can pass request headers/body and, for multipart requests, the parsed `descriptor` and uploaded `formData[n]` files.
 
@@ -56,7 +56,7 @@ Laravel package auto-discovery loads `FlexDocServiceProvider`, which binds `Flex
 
 For native host execution, enable `try_it_host_execution` and provide `host_execution_allowed_origins` as an array or comma-separated string. The packaged config exposes `FLEXDOC_HOST_EXECUTION` and `FLEXDOC_HOST_EXECUTION_ALLOWED_ORIGINS`. Laravel registers the POST execute route only when a real executor can be created from a non-empty allowlist.
 
-Protect the whole FlexDoc route set with Laravel middleware. With auto-discovery, set `flexdoc.middleware` to an array such as `['auth']`, or set a comma-separated environment value such as:
+Protect the whole FlexDoc route set with Laravel middleware. With auto-discovery, set `flexdoc.middleware` to a non-empty array such as `['auth']`, or set a comma-separated environment value such as:
 
 ```dotenv
 FLEXDOC_MIDDLEWARE=auth,verified
@@ -68,13 +68,34 @@ For manual registration, pass the middleware directly:
 LaravelFlexDoc::register($router, $host, ['auth', 'verified']);
 ```
 
-The configured middleware is attached to the docs page, renderer assets, and execute POST together. If your selected middleware stack includes Laravel's CSRF verifier, configure the application so `POST /docs/__flexdoc/execute` is exempted or use an API-style authentication middleware for this route; the browser execute protocol sends `X-FlexDoc-Execute: 1`, not a Laravel CSRF token. Do not expose the execute route without application authorization merely because the destination origin is allowlisted.
+**Fail-closed rule:** when `try_it_host_execution` / `FLEXDOC_HOST_EXECUTION` is enabled through the service provider and the normalized `flexdoc.middleware` list is empty, boot throws `LogicException` instead of registering an unauthenticated execute route. An origin allowlist restricts outbound destinations; it is not user authentication.
+
+The configured middleware is attached to the docs page, renderer assets, and execute POST together. If your selected middleware stack includes Laravel's CSRF verifier, configure the application so `POST /docs/__flexdoc/execute` is exempted only when an equivalent API-style authentication boundary is used, or send the application's required CSRF credential from the surrounding integration. The browser execute protocol sends `X-FlexDoc-Execute: 1`, not a Laravel CSRF token. Do not expose the execute route without application authorization merely because the destination origin is allowlisted.
 
 Laravel normalizes the request path used for route matching, so the single docs route serves both `/docs` and `/docs/`; the package integration tests dispatch both forms explicitly.
 
 ## Symfony
 
-Register `FlexDocHost` as a service and inject it into `Prauga\FlexDoc\Symfony\FlexDocController`. Route `/docs`, `/docs/__flexdoc/renderer.js`, and `/docs/__flexdoc/renderer.css` to the controller's corresponding methods. When native execution is enabled on the injected host, route `POST /docs/__flexdoc/execute` to `FlexDocController::execute`. Apply your Symfony firewall/access-control policy to the docs and execute paths; the controller deliberately does not invent a second authentication model.
+Register `FlexDocHost` as a service and inject it into `Prauga\FlexDoc\Symfony\FlexDocController`. Route `/docs`, `/docs/__flexdoc/renderer.js`, and `/docs/__flexdoc/renderer.css` to the controller's corresponding methods. When native execution is enabled on the injected host, route `POST /docs/__flexdoc/execute` to `FlexDocController::execute`.
+
+Apply the same authenticated firewall/access-control policy to the documentation and execute paths. For example, with a normal authenticated application firewall:
+
+```yaml
+# config/packages/security.yaml
+security:
+  firewalls:
+    main:
+      lazy: true
+      provider: app_user_provider
+      # configure the application's authenticator(s) here
+
+  access_control:
+    # Keep the explicit execute rule before the broader docs subtree rule.
+    - { path: ^/docs/__flexdoc/execute$, roles: ROLE_API_DOCS, methods: [POST] }
+    - { path: ^/docs(?:/|$), roles: ROLE_API_DOCS }
+```
+
+If the application uses cookie/session authentication, keep the execute POST inside the application's CSRF strategy or provide an equivalent API-authenticated boundary. `X-FlexDoc-Execute: 1` is not a Symfony CSRF token. The controller deliberately does not invent a second authentication model, so an application that omits these access-control rules is responsible for that exposure.
 
 ## Packaging
 
