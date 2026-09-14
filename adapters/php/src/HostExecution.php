@@ -197,7 +197,6 @@ final class HostExecution
             if (self::originOf($nextParts) !== self::originOf($target['parts'])) {
                 throw new HostExecutionException(403, 'Host execution does not follow cross-origin redirects.');
             }
-            $this->assertAllowed($next);
 
             if ($response['status'] === 303) {
                 $method = 'GET';
