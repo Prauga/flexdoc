@@ -96,18 +96,9 @@ class FlexDocASGI:
             return
 
         try:
-            body = await _read_bounded_body(scope, receive)
+            chunks = await _read_bounded_body(scope, receive)
             content_type = headers.get("content-type", "")
-            if "\r" in content_type or "\n" in content_type:
-                raise ValueError("Host execution Content-Type is invalid.")
-            media_type = content_type.split(";", 1)[0].strip().lower()
-            if media_type == "application/json":
-                envelope = _parse_json_envelope(body)
-                files: dict[int, FlexDocHostExecutionFile] = {}
-            elif media_type == "multipart/form-data":
-                envelope, files = _parse_multipart_envelope(content_type, body)
-            else:
-                raise ValueError("Host execution requires application/json or multipart/form-data.")
+            envelope, files = await asyncio.to_thread(_parse_execute_envelope, content_type, chunks)
         except ValueError as error:
             await self._send_json(send, 400, {"error": str(error)})
             return
@@ -139,7 +130,8 @@ def _scope_headers(scope) -> dict[str, str]:
     return result
 
 
-async def _read_bounded_body(scope, receive) -> bytes:
+async def _read_bounded_body(scope, receive) -> list[bytes]:
+    """Receive bounded ASGI body chunks without doing aggregate parsing on the event loop."""
     headers = _scope_headers(scope)
     declared = headers.get("content-length")
     if declared:
@@ -169,7 +161,23 @@ async def _read_bounded_body(scope, receive) -> bytes:
         chunks.append(bytes(chunk))
         if not message.get("more_body", False):
             break
-    return b"".join(chunks)
+    return chunks
+
+
+def _parse_execute_envelope(
+    content_type: str,
+    chunks: list[bytes],
+) -> tuple[dict[str, object], dict[int, FlexDocHostExecutionFile]]:
+    """Join and parse an execute envelope on a worker thread."""
+    if "\r" in content_type or "\n" in content_type:
+        raise ValueError("Host execution Content-Type is invalid.")
+    body = b"".join(chunks)
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    if media_type == "application/json":
+        return _parse_json_envelope(body), {}
+    if media_type == "multipart/form-data":
+        return _parse_multipart_envelope(content_type, body)
+    raise ValueError("Host execution requires application/json or multipart/form-data.")
 
 
 def _parse_json_envelope(body: bytes) -> dict[str, object]:
