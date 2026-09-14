@@ -1,0 +1,10 @@
+[package]
+name = "flexdoc-host-impact-actix"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.84"
+
+[dependencies]
+actix-web = "4"
+prauga-flexdoc-actix = { path = "../../../../adapters/rust-actix" }
+serde_json = "1"
