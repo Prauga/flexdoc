@@ -91,7 +91,7 @@ class FlexDocASGI:
         headers = _scope_headers(scope)
         marker = headers.get("x-flexdoc-execute")
         if marker != "1":
-            result = self.host_execution.handle(marker, {})
+            result = await asyncio.to_thread(self.host_execution.handle, marker, {})
             await self._send_json(send, result.status, result.body)
             return
 
