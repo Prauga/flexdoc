@@ -185,7 +185,7 @@ func (e *HostExecution) Execute(envelope map[string]any, files map[int]HostExecu
 	if timeout > maxExecutionTimeout {
 		timeout = maxExecutionTimeout
 	}
-	return e.executeWithRedirects(method, target, headers, prepared.data, timeout, draft["auth"])
+	return e.executeWithRedirects(method, target, headers, prepared, timeout, draft["auth"])
 }
 
 // ServeHTTP consumes the canonical JSON/multipart execute envelope at an adapter-owned route.
@@ -247,8 +247,35 @@ func (e *HostExecution) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type preparedBody struct {
-	data        []byte
 	contentType string
+	open        func() (io.Reader, error)
+}
+
+type multipartPreparedPart struct {
+	key         string
+	value       string
+	filename    string
+	contentType string
+	data        []byte
+	file        bool
+}
+
+func preparedStringBody(value, contentType string) preparedBody {
+	return preparedBody{
+		contentType: contentType,
+		open: func() (io.Reader, error) {
+			return strings.NewReader(value), nil
+		},
+	}
+}
+
+func preparedBytesBody(value []byte, contentType string) preparedBody {
+	return preparedBody{
+		contentType: contentType,
+		open: func() (io.Reader, error) {
+			return bytes.NewReader(value), nil
+		},
+	}
 }
 
 type hostExecutionError struct {
@@ -267,10 +294,10 @@ func upstream(message string) error {
 	return &hostExecutionError{status: http.StatusBadGateway, message: message}
 }
 
-func (e *HostExecution) executeWithRedirects(method string, target *url.URL, headers http.Header, body []byte, timeout time.Duration, rawAuth any) (map[string]any, error) {
+func (e *HostExecution) executeWithRedirects(method string, target *url.URL, headers http.Header, body preparedBody, timeout time.Duration, rawAuth any) (map[string]any, error) {
 	current := cloneURL(target)
 	currentHeaders := headers.Clone()
-	currentBody := append([]byte(nil), body...)
+	currentBody := body
 
 	for redirect := 0; redirect <= maxExecutionRedirects; redirect++ {
 		requestURL := cloneURL(current)
@@ -283,11 +310,19 @@ func (e *HostExecution) executeWithRedirects(method string, target *url.URL, hea
 
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		var reader io.Reader
-		if currentBody != nil {
-			reader = bytes.NewReader(currentBody)
+		if currentBody.open != nil {
+			opened, err := currentBody.open()
+			if err != nil {
+				cancel()
+				return nil, upstream("Host execution request failed: " + err.Error())
+			}
+			reader = opened
 		}
 		req, err := http.NewRequestWithContext(ctx, method, requestURL.String(), reader)
 		if err != nil {
+			if closer, ok := reader.(io.Closer); ok {
+				_ = closer.Close()
+			}
 			cancel()
 			return nil, upstream("Host execution request failed: " + err.Error())
 		}
@@ -340,7 +375,7 @@ func (e *HostExecution) executeWithRedirects(method string, target *url.URL, hea
 			}
 			if response.StatusCode == http.StatusSeeOther {
 				method = http.MethodGet
-				currentBody = nil
+				currentBody = preparedBody{}
 				currentHeaders.Del("Content-Type")
 			}
 			current = next
@@ -510,12 +545,12 @@ func prepareRequestBody(draft, envelope map[string]any, files map[int]HostExecut
 	case "none":
 		return preparedBody{}, nil
 	case "raw":
-		return preparedBody{data: []byte(stringValue(draft["body"])), contentType: explicitType}, nil
+		return preparedStringBody(stringValue(draft["body"]), explicitType), nil
 	case "json":
 		if explicitType == "" {
 			explicitType = "application/json"
 		}
-		return preparedBody{data: []byte(stringValue(draft["body"])), contentType: explicitType}, nil
+		return preparedStringBody(stringValue(draft["body"]), explicitType), nil
 	case "binary":
 		encoded := stringValue(envelope["bodyBase64"])
 		if encoded == "" {
@@ -533,7 +568,7 @@ func prepareRequestBody(draft, envelope map[string]any, files map[int]HostExecut
 		if explicitType == "" {
 			explicitType = "application/octet-stream"
 		}
-		return preparedBody{data: data, contentType: explicitType}, nil
+		return preparedBytesBody(data, explicitType), nil
 	case "urlencoded":
 		pairs := make([]string, 0)
 		for _, entry := range entries(draft["urlencoded"]) {
@@ -545,7 +580,7 @@ func prepareRequestBody(draft, envelope map[string]any, files map[int]HostExecut
 		if explicitType == "" {
 			explicitType = "application/x-www-form-urlencoded"
 		}
-		return preparedBody{data: []byte(strings.Join(pairs, "&")), contentType: explicitType}, nil
+		return preparedStringBody(strings.Join(pairs, "&"), explicitType), nil
 	case "graphql":
 		graph, ok := draft["graphql"].(map[string]any)
 		if !ok {
@@ -561,10 +596,9 @@ func prepareRequestBody(draft, envelope map[string]any, files map[int]HostExecut
 		if explicitType == "" {
 			explicitType = "application/json"
 		}
-		return preparedBody{data: data, contentType: explicitType}, nil
+		return preparedBytesBody(data, explicitType), nil
 	case "formdata":
-		var out bytes.Buffer
-		writer := multipart.NewWriter(&out)
+		parts := make([]multipartPreparedPart, 0)
 		for index, entry := range entries(draft["formData"]) {
 			if entry["enabled"] == false {
 				continue
@@ -595,26 +629,63 @@ func prepareRequestBody(draft, envelope map[string]any, files map[int]HostExecut
 				if err := validateContentType(contentType); err != nil {
 					return preparedBody{}, err
 				}
-				headers := textproto.MIMEHeader{}
-				headers.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, quoteMultipart(key), quoteMultipart(filename)))
-				headers.Set("Content-Type", contentType)
-				part, err := writer.CreatePart(headers)
-				if err != nil {
-					return preparedBody{}, badRequest("Unable to build multipart host execution body.")
-				}
-				_, _ = part.Write(file.Data)
+				parts = append(parts, multipartPreparedPart{
+					key: key, filename: filename, contentType: contentType, data: file.Data, file: true,
+				})
 			} else {
-				part, err := writer.CreateFormField(key)
-				if err != nil {
-					return preparedBody{}, badRequest("Unable to build multipart host execution body.")
-				}
-				_, _ = io.WriteString(part, stringValue(entry["value"]))
+				parts = append(parts, multipartPreparedPart{key: key, value: stringValue(entry["value"])})
 			}
 		}
-		if err := writer.Close(); err != nil {
-			return preparedBody{}, badRequest("Unable to build multipart host execution body.")
-		}
-		return preparedBody{data: out.Bytes(), contentType: writer.FormDataContentType()}, nil
+
+		boundaryWriter := multipart.NewWriter(io.Discard)
+		boundary := boundaryWriter.Boundary()
+		contentType := boundaryWriter.FormDataContentType()
+		_ = boundaryWriter.Close()
+		return preparedBody{
+			contentType: contentType,
+			open: func() (io.Reader, error) {
+				reader, writer := io.Pipe()
+				go func() {
+					multipartWriter := multipart.NewWriter(writer)
+					if err := multipartWriter.SetBoundary(boundary); err != nil {
+						_ = writer.CloseWithError(err)
+						return
+					}
+					for _, item := range parts {
+						if item.file {
+							headers := textproto.MIMEHeader{}
+							headers.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, quoteMultipart(item.key), quoteMultipart(item.filename)))
+							headers.Set("Content-Type", item.contentType)
+							part, err := multipartWriter.CreatePart(headers)
+							if err != nil {
+								_ = writer.CloseWithError(err)
+								return
+							}
+							if _, err := part.Write(item.data); err != nil {
+								_ = writer.CloseWithError(err)
+								return
+							}
+							continue
+						}
+						part, err := multipartWriter.CreateFormField(item.key)
+						if err != nil {
+							_ = writer.CloseWithError(err)
+							return
+						}
+						if _, err := io.WriteString(part, item.value); err != nil {
+							_ = writer.CloseWithError(err)
+							return
+						}
+					}
+					if err := multipartWriter.Close(); err != nil {
+						_ = writer.CloseWithError(err)
+						return
+					}
+					_ = writer.Close()
+				}()
+				return reader, nil
+			},
+		}, nil
 	default:
 		return preparedBody{}, badRequest("Body mode " + mode + " is not implemented by the Go host executor.")
 	}
