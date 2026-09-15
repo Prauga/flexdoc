@@ -1,6 +1,6 @@
 # Prauga FlexDoc for Actix Web
 
-`prauga-flexdoc-actix` `0.4.4` exposes an Actix `Scope` backed by the same canonical FlexDoc renderer shipped by the Axum adapter.
+`prauga-flexdoc-actix` `0.4.5` exposes an Actix `Scope` backed by the same canonical FlexDoc renderer shipped by the Axum adapter.
 
 ```rust
 use actix_web::{App, HttpServer};
@@ -43,6 +43,6 @@ The Actix host consumes the same JSON or canonical multipart envelope as the oth
 
 This first Actix slice intentionally advertises an empty host-only capability list. Session cookie jars, client certificates, Digest, Hawk, NTLM/Negotiate, OAuth 1.0 and AWS Signature V4 remain unavailable until implemented natively.
 
-The standalone Axum and Actix crates carry a byte-identical Rust executor implementation so neither published adapter depends on the other web framework. The executor rejects known cloud-metadata/link-local hostnames, resolves each outbound hop before connection, validates every resolved address, disables reqwest system proxies, and overrides hostname resolution for the actual request with that validated address set. The original URL hostname remains intact for HTTP and TLS verification. RFC1918/VPC addresses are not blanket-blocked and still require an explicit exact-origin allowlist.
+The standalone Axum and Actix crates consume the shared `prauga-flexdoc-host-execution` crate, so both frameworks use the same native execution and security contract without depending on each other. The executor rejects known cloud-metadata/link-local hostnames, resolves each outbound hop before connection, validates every resolved address, disables reqwest system proxies, and overrides hostname resolution for the actual request with that validated address set. The original URL hostname remains intact for HTTP and TLS verification. RFC1918/VPC addresses are not blanket-blocked and still require an explicit exact-origin allowlist.
 
 The crate packages renderer JS/CSS locally and serves fingerprinted immutable asset URLs. No CDN or Actix-specific renderer implementation is used.
