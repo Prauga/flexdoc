@@ -1,5 +1,5 @@
 import { createRoot, Root } from 'react-dom/client';
-import { FlexDoc } from './components/BrandedFlexDoc';
+import { FlexDoc } from './components/FlexDoc';
 import { ApiClientWorkspace } from './components/ApiClientWorkspace';
 import type { ApiClientWorkspaceProps } from './components/ApiClientWorkspace';
 import { OpenAPISpec } from './types/openapi';
@@ -89,12 +89,13 @@ function ensureFavicon(options: StandaloneFlexDocOptions): void {
 
 function renderFlexDoc(element: Element, source: OpenAPISpec, options: StandaloneFlexDocOptions): () => void {
   const spec = prepareSpec(source, options);
+  const rendererOptions = options.logo ? options : { ...options, logo: FLEXDOC_MARK_URL };
   ensureFavicon(options);
   const existingRoot = roots.get(element);
   if (existingRoot) existingRoot.unmount();
   const root = createRoot(element);
   roots.set(element, root);
-  root.render(<FlexDoc spec={spec} theme={resolveTheme(options)} options={options} />);
+  root.render(<FlexDoc spec={spec} theme={resolveTheme(options)} options={rendererOptions} />);
   return () => { if (roots.get(element) === root) roots.delete(element); root.unmount(); };
 }
 
