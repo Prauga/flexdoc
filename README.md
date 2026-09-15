@@ -41,7 +41,7 @@ node tools/flexdoc-cli/bin/flexdoc.js run ./pets.flexdoc.json --json
 | --- | --- | ---: |
 | npm | `@prauga/flexdoc-client` | `3.3.0` |
 | npm | `@prauga/flexdoc-backend` | `3.3.0` |
-| npm | `@prauga/flexdoc-core` | `0.5.0` |
+| npm | `@prauga/flexdoc-core` | `0.5.1` |
 | npm | `@prauga/flexdoc-cli` | `0.7.0` |
 | NuGet | `Prauga.FlexDoc.AspNetCore` | `0.5.3` |
 | Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.8.3` |
