@@ -55,6 +55,7 @@ config =
       if mode == "host" do
         options ++ [
           try_it_host_execution: true,
+          host_execution_protected: true,
           host_execution: PraugaFlexDoc.HostExecution.new!([origin])
         ]
       else
