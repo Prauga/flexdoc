@@ -11,8 +11,10 @@ function git(args: string[]): string {
   }
 }
 
-const releaseCommit = process.env.GITHUB_EVENT_NAME === 'release' ? process.env.GITHUB_SHA : undefined;
-const commit = process.env.FLEXDOC_BUILD_REVISION || releaseCommit || 'unknown';
+const jsReleaseCommit = process.env.GITHUB_EVENT_NAME === 'release' && process.env.GITHUB_REF_NAME?.startsWith('js/v')
+  ? process.env.GITHUB_SHA
+  : undefined;
+const commit = process.env.FLEXDOC_BUILD_REVISION || jsReleaseCommit || 'unknown';
 const sourceDate = process.env.SOURCE_DATE_EPOCH
   ? new Date(Number(process.env.SOURCE_DATE_EPOCH) * 1000).toISOString()
   : commit === 'unknown' ? 'unknown' : git(['show', '-s', '--format=%cI', commit]);
