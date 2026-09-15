@@ -90,7 +90,15 @@ try {
 }
 frameworkCheck($bootGuarded, 'Laravel ServiceProvider must fail closed without middleware');
 
-$symfony = new FlexDocController($with);
+$symfonyGuarded = false;
+try {
+    new FlexDocController($with);
+} catch (LogicException $exception) {
+    $symfonyGuarded = $exception->getMessage() === 'FlexDoc Symfony host execution requires hostExecutionProtected=true after configuring firewall/access_control; the origin allowlist is not authentication.';
+}
+frameworkCheck($symfonyGuarded, 'Symfony host execution must fail closed without explicit protection acknowledgement');
+
+$symfony = new FlexDocController($with, true);
 $symfonyResponse = $symfony->execute(SymfonyRequest::create(
     '/docs/__flexdoc/execute',
     'POST',
@@ -101,5 +109,8 @@ $symfonyResponse = $symfony->execute(SymfonyRequest::create(
     'not-json',
 ));
 frameworkCheck($symfonyResponse->getStatusCode() === 403, 'Symfony marker enforcement');
+
+$disabledSymfony = new FlexDocController($without);
+frameworkCheck($disabledSymfony instanceof FlexDocController, 'Symfony disabled host execution must not require protection acknowledgement');
 
 echo "PHP Laravel/Symfony host-execution bindings passed.\n";
