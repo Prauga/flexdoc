@@ -15,9 +15,10 @@ func TestHandlerRejectsMetadataTargetAtHTTPBoundary(t *testing.T) {
 	}
 
 	handler := Handler(Config{
-		Path:               "/docs",
-		TryItHostExecution: true,
-		HostExecution:      executor,
+		Path:                   "/docs",
+		TryItHostExecution:     true,
+		HostExecutionProtected: true,
+		HostExecution:          executor,
 	})
 	request := httptest.NewRequest(
 		http.MethodPost,
