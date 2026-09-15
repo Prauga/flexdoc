@@ -14,7 +14,7 @@ export const Footer = ({ footerClasses, footer }: FooterProps) => {
   const sourceDate = build.sourceDate === 'unknown' ? '' : build.sourceDate.slice(0, 10);
 
   return (
-    <footer className={`${footerClasses} w-full border-t`} data-flexdoc-version={build.version} data-flexdoc-commit={build.commit}>
+    <footer className={`${footerClasses} w-full border-t`}>
       <div className='mx-auto flex min-h-12 w-full max-w-[1600px] flex-col gap-2 px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-6 sm:text-sm'>
         <p>
           {copyright || <>Powered by <a href='https://flexdoc.prauga.com' target='_blank' rel='noopener noreferrer' className='font-semibold hover:opacity-80 transition-opacity'>FlexDoc</a></>}
