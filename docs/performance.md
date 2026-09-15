@@ -1,6 +1,6 @@
 # Performance and production readiness
 
-FlexDoc 2.9.9 established the production-readiness baseline before 3.0 Runtime Intelligence. The 3.0 UI/Product Completion Gate keeps the same operator question measurable as the renderer grows: **what does installing FlexDoc cost the service that hosts it?**
+FlexDoc 2.9.9 established the production-readiness baseline before 3.0 Runtime Intelligence. The same operator question remains measurable as the renderer and backend-native execution surface grow: **what does installing FlexDoc cost the service that hosts it?**
 
 ## What we measure
 
@@ -15,24 +15,36 @@ The baseline records:
 - generated host-page size and benchmark-process memory snapshot;
 - the exact Node/platform metadata used for the run.
 
-Workflow results are uploaded as `performance-results.json`. The workflow also publishes `flexdoc-standalone-renderer`, containing the exact standalone JS/CSS produced by that measured build, so renderer parity and release validation can use one byte-identical canonical artifact.
+Workflow results are uploaded as `performance-results.json`. Wall-clock measurements remain evidence rather than hard CI budgets because shared runners are noisy. Deterministic bundle sizes are stable enough to gate, so CI enforces explicit raw/gzip/Brotli ceilings plus the JavaScript raw-headroom policy through `npm run check:performance-budgets -- performance-results.json`.
 
-Wall-clock measurements remain evidence rather than hard CI budgets because shared runners are noisy. Deterministic bundle sizes are stable enough to gate, so CI enforces explicit raw/gzip/Brotli ceilings through `npm run check:performance-budgets -- performance-results.json`.
+The machine-readable policy is [`scripts/performance/performance-policy.json`](../scripts/performance/performance-policy.json). The `Performance Baseline` workflow runs for `main`, `3.3`, and `3.3.x` pull requests so maintenance work cannot bypass the bundle gate simply because it targets the patch line.
 
 ## Regression budgets
 
-The original 2.9.9 baseline used a 540 / 160 / 135 KiB JavaScript ceiling before the 3.0 renderer gained the full API Client completion surface, CodeMirror editing, command/navigation UX, and Runtime Intelligence UI. The 3.0 gate therefore establishes a new measured ceiling instead of silently exempting the larger product.
+The original 2.9.9 baseline used a 540 / 160 / 135 KiB JavaScript ceiling. Subsequent Runtime Intelligence, API Client completion, CodeMirror, and 3.3 host-routing work legitimately increased the renderer footprint, but budget growth remains explicit rather than automatic.
 
-The September 7, 2026 3.0 gate run measured the standalone renderer at 815.9 KiB raw / 249.8 KiB gzip / 211.1 KiB Brotli for JavaScript and 41.1 / 8.2 / 7.0 KiB for CSS. The enforced budgets retain only narrow headroom above those values:
+The final 3.3 release-candidate renderer measured approximately **840.3 KiB raw / 256.2 KiB gzip / 216.2 KiB Brotli** for JavaScript and **42.0 / 8.3 / 7.1 KiB** for CSS. The current enforced ceilings are:
 
-| Asset | Raw budget | Gzip budget | Brotli budget | 3.0 measured baseline |
+| Asset | Raw budget | Gzip budget | Brotli budget | 3.3 measured baseline |
 | --- | ---: | ---: | ---: | ---: |
-| standalone JavaScript | 840 KiB | 260 KiB | 220 KiB | 815.9 / 249.8 / 211.1 KiB |
-| standalone CSS | 42 KiB | 8.5 KiB | 7.2 KiB | 41.1 / 8.2 / 7.0 KiB |
+| standalone JavaScript | 842 KiB | 260 KiB | 220 KiB | 840.3 / 256.2 / 216.2 KiB |
+| standalone CSS | 43 KiB | 8.5 KiB | 7.2 KiB | 42.0 / 8.3 / 7.1 KiB |
 
-A future intentional bundle increase must update these budgets in the same reviewed change rather than bypassing the check. Bundle growth should remain proportional to product capability; removing unused editor dependencies is part of the gate even when tree-shaking already keeps them out of the output.
+### Bundle-headroom policy
+
+JavaScript budget changes are **trim first**. An accepted release candidate must retain at least **1 KiB of raw JavaScript headroom**. The budget checker now enforces that requirement rather than leaving it as a maintainer comment.
+
+If an intentional product change cannot fit after reasonable trimming, increase the raw ceiling only by the smallest justified amount that restores the minimum headroom and document the feature cost in the reviewed change. A raw-size increase does **not** automatically justify changing gzip or Brotli ceilings; compressed-budget changes require their own measured evidence and review.
+
+CSS remains ceiling-gated but does not currently have a separate minimum-headroom requirement. Any future minimum belongs in the machine-readable policy rather than being inferred from one release measurement.
 
 Wall-clock serialization, startup, and RSS measurements continue to be recorded on every run. They are not converted into absolute shared-runner SLAs; the regression-tested runtime properties are structural instead: one page serialization per integration, cold-request coalescing, path-scoped registration, and deterministic cross-replica ETags.
+
+## Host-impact regression governance
+
+Native API-host execution has a separate ten-runtime Host Impact workflow and catastrophic-regression guardrails. Those thresholds are not product SLOs or cross-runtime rankings. The detailed rebaseline process lives in [`scripts/performance/host-impact/README.md`](../scripts/performance/host-impact/README.md).
+
+A threshold rebaseline requires at least three successful complete matrix runs, one representative run recorded in threshold provenance, corroborating run IDs in review, an intentional-change rationale, and a fresh complete matrix after the policy change. The checker validates the machine-readable governance/provenance contract before applying numeric thresholds. A failed guardrail is therefore an investigation trigger, not permission to widen the threshold.
 
 ## Canonical renderer parity
 
@@ -60,8 +72,9 @@ The production-readiness contract now includes:
 
 - a checked-in repeatable benchmark harness and CI artifacts;
 - measured bundle and large-spec baselines;
-- deterministic raw/gzip/Brotli bundle budgets for the current 3.0 renderer surface;
-- a canonical standalone-renderer artifact plus byte-parity checks across committed native adapters;
+- deterministic raw/gzip/Brotli bundle ceilings plus an executable JavaScript headroom policy;
+- a canonical standalone renderer plus byte-parity checks across committed native adapters;
+- a ten-runtime Host Impact harness with provenance-bearing catastrophic-regression guardrails and a documented rebaseline process;
 - no repeated host-page serialization on warm docs requests, including coalesced concurrent cold requests;
 - conditional revalidation for generated docs HTML with replica-stable content ETags;
 - measured Node backend import/setup process and RSS cost;
