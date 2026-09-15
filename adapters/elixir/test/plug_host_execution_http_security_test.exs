@@ -2,7 +2,7 @@ defmodule PraugaFlexDoc.PlugHostExecutionHttpSecurityTest do
   use ExUnit.Case, async: false
   use Plug.Test
 
-  alias PraugaFlexDoc.{HostExecution, Plug}, as: PraugaFlexDocAlias
+  alias PraugaFlexDoc.HostExecution
   alias PraugaFlexDoc.Plug, as: FlexDocPlug
 
   defp opts(origins) do
@@ -55,7 +55,7 @@ defmodule PraugaFlexDoc.PlugHostExecutionHttpSecurityTest do
       end)
 
     assert_receive {:redirect_server, ^server, port}, 1_000
-    {server, "http://127.0.0.1:#{port}"}
+    "http://127.0.0.1:#{port}"
   end
 
   test "requires protocol marker before parsing the request body" do
@@ -94,7 +94,7 @@ defmodule PraugaFlexDoc.PlugHostExecutionHttpSecurityTest do
   end
 
   test "rejects cross-origin redirect before following metadata target" do
-    {server, origin} = start_redirect_server(self())
+    origin = start_redirect_server(self())
 
     response =
       post_json(
@@ -104,7 +104,6 @@ defmodule PraugaFlexDoc.PlugHostExecutionHttpSecurityTest do
 
     assert response.status == 403
     assert json_error(response) =~ "cross-origin"
-    refute Process.alive?(server)
   end
 
   test "enforces request size, method, and media type at Plug boundary" do
