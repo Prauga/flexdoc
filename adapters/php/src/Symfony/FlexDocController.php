@@ -12,7 +12,16 @@ use Symfony\Component\HttpFoundation\Response;
 /** Symfony controller that serves FlexDoc routes from a shared {@see FlexDocHost}. */
 final class FlexDocController
 {
-    public function __construct(private readonly FlexDocHost $host) {}
+    public function __construct(
+        private readonly FlexDocHost $host,
+        bool $hostExecutionProtected = false,
+    ) {
+        if ($host->executionAvailable() && !$hostExecutionProtected) {
+            throw new \LogicException(
+                'FlexDoc Symfony host execution requires hostExecutionProtected=true after configuring firewall/access_control; the origin allowlist is not authentication.'
+            );
+        }
+    }
 
     public function documentation(): Response { return $this->response($this->host->documentation()); }
     public function rendererJavaScript(): Response { return $this->response($this->host->rendererJavaScript()); }
