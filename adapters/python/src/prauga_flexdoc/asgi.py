@@ -91,7 +91,7 @@ class FlexDocASGI:
         headers = _scope_headers(scope)
         marker = headers.get("x-flexdoc-execute")
         if marker != "1":
-            result = self.host_execution.handle(marker, {})
+            result = await asyncio.to_thread(self.host_execution.handle, marker, {})
             await self._send_json(send, result.status, result.body)
             return
 
@@ -130,8 +130,8 @@ def _scope_headers(scope) -> dict[str, str]:
     return result
 
 
-async def _read_bounded_body(scope, receive) -> list[bytes]:
-    """Receive bounded ASGI body chunks without doing aggregate parsing on the event loop."""
+async def _read_bounded_body(scope, receive) -> list[bytes | bytearray]:
+    """Receive bounded ASGI body chunks without copying or assembling them on the event loop."""
     headers = _scope_headers(scope)
     declared = headers.get("content-length")
     if declared:
@@ -146,7 +146,7 @@ async def _read_bounded_body(scope, receive) -> list[bytes]:
                 raise
             raise ValueError("Host execution request Content-Length is invalid.") from error
 
-    chunks: list[bytes] = []
+    chunks: list[bytes | bytearray] = []
     size = 0
     while True:
         message = await receive()
@@ -158,7 +158,7 @@ async def _read_bounded_body(scope, receive) -> list[bytes]:
         size += len(chunk)
         if size > MAX_EXECUTION_REQUEST_BYTES:
             raise ValueError("Host execution request exceeded the 32 MiB safety limit.")
-        chunks.append(bytes(chunk))
+        chunks.append(chunk)
         if not message.get("more_body", False):
             break
     return chunks
@@ -166,7 +166,7 @@ async def _read_bounded_body(scope, receive) -> list[bytes]:
 
 def _parse_execute_envelope(
     content_type: str,
-    chunks: list[bytes],
+    chunks: list[bytes | bytearray],
 ) -> tuple[dict[str, object], dict[int, FlexDocHostExecutionFile]]:
     """Join and parse an execute envelope on a worker thread."""
     if "\r" in content_type or "\n" in content_type:

@@ -624,11 +624,24 @@ dependencies = [
  "base64",
  "futures-util",
  "multer",
+ "prauga-flexdoc-host-execution",
  "reqwest",
  "serde",
  "serde_json",
  "tokio",
  "tower",
+ "url",
+]
+
+[[package]]
+name = "prauga-flexdoc-host-execution"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "futures-util",
+ "reqwest",
+ "serde_json",
+ "tokio",
  "url",
 ]
 

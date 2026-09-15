@@ -6,10 +6,10 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 
 use Illuminate\Container\Container;
 use Illuminate\Events\Dispatcher;
-use Illuminate\Http\Request as IlluminateRequest;
 use Illuminate\Routing\CallableDispatcher;
 use Illuminate\Routing\Contracts\CallableDispatcher as CallableDispatcherContract;
 use Illuminate\Routing\Router;
+use Prauga\FlexDoc\FlexDocHost;
 use Prauga\FlexDoc\HostExecution;
 use Prauga\FlexDoc\Laravel\FlexDocServiceProvider;
 use Prauga\FlexDoc\Laravel\LaravelFlexDoc;
@@ -63,20 +63,42 @@ LaravelFlexDoc::register($routerWithout, $without, ['auth']);
 $withoutUris = array_map(static fn ($route) => $route->uri(), $routerWithout->getRoutes()->getRoutes());
 frameworkCheck(!in_array('docs/__flexdoc/execute', $withoutUris, true), 'Laravel disabled execute route must be absent');
 
-$unprotectedRouter = new Router(new Dispatcher($container), $container);
-LaravelFlexDoc::register($unprotectedRouter, $with);
-$missingMarker = $unprotectedRouter->dispatch(IlluminateRequest::create(
-    '/docs/__flexdoc/execute',
-    'POST',
-    [],
-    [],
-    [],
-    ['CONTENT_TYPE' => 'application/json'],
-    'not-json',
-));
-frameworkCheck($missingMarker->getStatusCode() === 403, 'Laravel marker enforcement');
+$manualGuarded = false;
+try {
+    LaravelFlexDoc::register(new Router(new Dispatcher($container), $container), $with);
+} catch (LogicException $exception) {
+    $manualGuarded = $exception->getMessage() === 'FlexDoc host execution requires non-empty flexdoc.middleware; the origin allowlist is not authentication.';
+}
+frameworkCheck($manualGuarded, 'Laravel manual registration must fail closed without middleware');
 
-$symfony = new FlexDocController($with);
+$bootContainer = new Container();
+$bootContainer->instance('config', new class {
+    public function get(string $key, mixed $default = null): mixed {
+        if ($key === 'flexdoc') return ['try_it_host_execution' => true, 'middleware' => []];
+        return $default;
+    }
+});
+$bootContainer->instance(FlexDocHost::class, $with);
+$bootContainer->instance(CallableDispatcherContract::class, new CallableDispatcher($bootContainer));
+$bootRouter = new Router(new Dispatcher($bootContainer), $bootContainer);
+$provider = new FlexDocServiceProvider($bootContainer);
+$bootGuarded = false;
+try {
+    $provider->boot($bootRouter);
+} catch (LogicException $exception) {
+    $bootGuarded = $exception->getMessage() === 'FlexDoc host execution requires non-empty flexdoc.middleware; the origin allowlist is not authentication.';
+}
+frameworkCheck($bootGuarded, 'Laravel ServiceProvider must fail closed without middleware');
+
+$symfonyGuarded = false;
+try {
+    new FlexDocController($with);
+} catch (LogicException $exception) {
+    $symfonyGuarded = $exception->getMessage() === 'FlexDoc Symfony host execution requires hostExecutionProtected=true after configuring firewall/access_control; the origin allowlist is not authentication.';
+}
+frameworkCheck($symfonyGuarded, 'Symfony host execution must fail closed without explicit protection acknowledgement');
+
+$symfony = new FlexDocController($with, true);
 $symfonyResponse = $symfony->execute(SymfonyRequest::create(
     '/docs/__flexdoc/execute',
     'POST',
@@ -87,5 +109,8 @@ $symfonyResponse = $symfony->execute(SymfonyRequest::create(
     'not-json',
 ));
 frameworkCheck($symfonyResponse->getStatusCode() === 403, 'Symfony marker enforcement');
+
+$disabledSymfony = new FlexDocController($without);
+frameworkCheck($disabledSymfony instanceof FlexDocController, 'Symfony disabled host execution must not require protection acknowledgement');
 
 echo "PHP Laravel/Symfony host-execution bindings passed.\n";

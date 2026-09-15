@@ -26,7 +26,9 @@ class FlexDocHostExecutionHttpSecurityTest {
   void setUp() {
     FlexDocProperties properties = new FlexDocProperties();
     properties.setTryItHostExecution(true);
-    properties.setTryItHostExecutionAllowedOrigins(List.of("https://api.example.test"));
+    properties.setTryItHostExecutionAllowedOrigins(List.of(
+        "https://api.example.test",
+        "http://169.254.169.254"));
     FlexDocHost host = new FlexDocHost(
         properties.toConfig(),
         null,
@@ -55,6 +57,17 @@ class FlexDocHostExecutionHttpSecurityTest {
         .andExpect(status().isForbidden())
         .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
         .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString("not allowed")));
+  }
+
+  @Test
+  void executeRouteRejectsMetadataEvenWhenOriginIsExplicitlyAllowed() throws Exception {
+    mvc.perform(post("/docs/__flexdoc/execute")
+            .header("X-FlexDoc-Execute", "1")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"request\":{\"url\":\"http://169.254.169.254/latest/meta-data/\"}}"))
+        .andExpect(status().isForbidden())
+        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
+        .andExpect(jsonPath("$.error").value("Host execution blocks link-local and cloud metadata endpoints."));
   }
 
   @Test

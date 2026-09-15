@@ -81,6 +81,30 @@ SecurityFilterChain security(HttpSecurity http) throws Exception {
 
 Adapt the path when `flexdoc.path` is customized. The execute route still requires the FlexDoc marker and exact-origin policy, but those controls do not replace application authentication or CSRF policy.
 
+### Admission control
+
+The starter exports `FlexDocHostExecutionAdmissionFilter` as a process-local in-flight safety hook. Register it only for the execute endpoint, after the application's authentication/CSRF policy and before the FlexDoc controller. A practical starting point is 16 concurrent execute requests per process:
+
+```java
+import com.prauga.flexdoc.spring.FlexDocHostExecutionAdmissionFilter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.core.Ordered;
+
+@Bean
+FilterRegistrationBean<FlexDocHostExecutionAdmissionFilter> flexDocHostExecutionAdmission() {
+  var registration = new FilterRegistrationBean<>(
+      new FlexDocHostExecutionAdmissionFilter(16, 1));
+  registration.addUrlPatterns("/docs/__flexdoc/execute");
+  registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 20);
+  return registration;
+}
+```
+
+When saturated, the filter rejects immediately with HTTP `429 Too Many Requests`, `Retry-After: 1`, `Cache-Control: no-store`, and does not enter the execute controller. Capacity is always released after downstream completion or failure. Change the URL pattern when `flexdoc.path` is customized.
+
+This filter is not a caller quota. Multi-replica deployments should still use the application's authenticated gateway/distributed limiter for per-user or per-session rate limits. The shared JVM executor separately has fixed last-resort safety ceilings of 64 transport workers and 256 queued executions; keep the earlier HTTP admission bound materially below those internal limits. See [`../java-jvm`](../java-jvm/README.md#resource-limits-and-production-tuning) and [`docs/host-execution-operations.md`](../../docs/host-execution-operations.md).
+
 ### Multipart limits
 
 Spring's multipart parser runs before `FlexDocHostExecutionController`, so framework-level multipart limits can reject a request before FlexDoc's own 32 MiB envelope bound executes. When browser file execution is required, configure Spring's multipart ceilings to admit the FlexDoc maximum (or a deliberately smaller application limit):

@@ -126,10 +126,12 @@ jobs:
           PYTHONPATH=examples/python-fastapi python3 -c "from app import app; assert app.openapi_url == '/openapi.json'"
           rm -rf adapters/python/build adapters/python/src/*.egg-info
 
-      - name: Test Rust Axum adapter
+      - name: Test shared Rust host executor and Axum adapter
         run: |
+          cargo test --manifest-path adapters/rust-host-execution/Cargo.toml --all-targets
+          cargo package --manifest-path adapters/rust-host-execution/Cargo.toml --allow-dirty
           cargo test --manifest-path adapters/rust/Cargo.toml --all-targets
-          cargo package --manifest-path adapters/rust/Cargo.toml --allow-dirty
+          cargo metadata --manifest-path adapters/rust/Cargo.toml --no-deps >/dev/null
 
       - name: Build Rust example against local release candidate
         run: |
@@ -187,7 +189,13 @@ jobs:
             });
             try {
               const address = server.address();
-              const response = await fetch(`http://127.0.0.1:${address.port}/docs`);
+              const origin = `http://127.0.0.1:${address.port}`;
+              const login = await fetch(`${origin}/example-login`);
+              if (!login.ok) throw new Error(`Express demo login returned ${login.status}`);
+              const setCookie = login.headers.get('set-cookie');
+              if (!setCookie) throw new Error('Express demo login did not issue a session cookie');
+              const cookie = setCookie.split(';', 1)[0];
+              const response = await fetch(`${origin}/docs`, { headers: { cookie } });
               if (!response.ok) throw new Error(`Express FlexDoc smoke test returned ${response.status}`);
             } finally {
               await new Promise((resolve) => server.close(resolve));

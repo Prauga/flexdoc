@@ -7,7 +7,13 @@ module Prauga
     # Rack application that serves FlexDoc routes from a {Host}.
     class RackApp
       # @param host [Host] host backing the Rack application
-      def initialize(host = Host.new)
+      # @param host_execution_protected [Boolean] explicit acknowledgement that the docs/execute surface is protected by application auth/middleware
+      def initialize(host = Host.new, host_execution_protected: false)
+        if host.execution_available? && !host_execution_protected
+          raise ArgumentError,
+                "FlexDoc Rack host execution requires host_execution_protected: true after configuring application auth/middleware; the origin allowlist is not authentication."
+        end
+
         @host = host
       end
 

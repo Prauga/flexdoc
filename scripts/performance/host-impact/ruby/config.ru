@@ -25,7 +25,7 @@ if mode != "baseline"
     try_it_host_execution: mode == "host"
   )
   host = Prauga::FlexDoc::Host.new(config, host_execution: executor)
-  flexdoc = Prauga::FlexDoc::RackApp.new(host)
+  flexdoc = Prauga::FlexDoc::RackApp.new(host, host_execution_protected: mode == "host")
 end
 
 json = ->(payload) { [200, { "content-type" => "application/json" }, [JSON.generate(payload)]] }

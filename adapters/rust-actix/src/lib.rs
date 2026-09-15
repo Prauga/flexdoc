@@ -3,9 +3,7 @@
 //! The crate embeds the canonical browser renderer and exposes [`scope`] for
 //! mounting documentation alongside your Actix application.
 
-mod host_execution;
-
-pub use host_execution::{HostExecution, HostExecutionFile, HostExecutionResult};
+pub use prauga_flexdoc_host_execution::{HostExecution, HostExecutionFile, HostExecutionResult};
 
 use actix_web::{
     http::{header, StatusCode},
@@ -15,7 +13,7 @@ use futures_util::{stream, StreamExt};
 use serde_json::{json, Value};
 use std::{collections::HashMap, convert::Infallible, sync::Arc};
 
-use host_execution::MAX_EXECUTION_REQUEST_BYTES;
+use prauga_flexdoc_host_execution::MAX_EXECUTION_REQUEST_BYTES;
 
 static RENDERER_JS: &[u8] = include_bytes!("../assets/flexdoc.standalone.js");
 static RENDERER_CSS: &[u8] = include_bytes!("../assets/flexdoc.standalone.css");

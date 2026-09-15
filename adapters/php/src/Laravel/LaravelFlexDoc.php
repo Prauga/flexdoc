@@ -19,6 +19,13 @@ final class LaravelFlexDoc
      */
     public static function register(object $router, FlexDocHost $host, array|string $middleware = []): void
     {
+        $middleware = self::normalizeMiddleware($middleware);
+        if ($host->executionAvailable() && $middleware === []) {
+            throw new \LogicException(
+                'FlexDoc host execution requires non-empty flexdoc.middleware; the origin allowlist is not authentication.'
+            );
+        }
+
         $base = ltrim($host->config()->path, '/');
         self::protect($router->get($base, static fn () => self::response($host->documentation())), $middleware);
         self::protect($router->get($base . '/__flexdoc/renderer.js', static fn () => self::response($host->rendererJavaScript())), $middleware);
@@ -39,15 +46,28 @@ final class LaravelFlexDoc
         }
     }
 
-    /** @param array<int, string>|string $middleware */
-    private static function protect(object $route, array|string $middleware): void
+    /** @param array<int, string>|string $middleware @return array<int, string> */
+    private static function normalizeMiddleware(array|string $middleware): array
     {
-        $values = is_array($middleware) ? array_values(array_filter($middleware, static fn ($value): bool => is_string($value) && trim($value) !== '')) : trim($middleware);
-        if ($values === [] || $values === '') return;
+        if (is_string($middleware)) {
+            $value = trim($middleware);
+            return $value === '' ? [] : [$value];
+        }
+
+        return array_values(array_filter(
+            array_map(static fn ($value): string => is_string($value) ? trim($value) : '', $middleware),
+            static fn (string $value): bool => $value !== '',
+        ));
+    }
+
+    /** @param array<int, string> $middleware */
+    private static function protect(object $route, array $middleware): void
+    {
+        if ($middleware === []) return;
         if (!method_exists($route, 'middleware')) {
             throw new \RuntimeException('Laravel FlexDoc route object does not support middleware.');
         }
-        $route->middleware($values);
+        $route->middleware($middleware);
     }
 
     /** @return array<string, string> */

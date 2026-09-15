@@ -49,6 +49,7 @@ func main() {
 			executor, err := flexdoc.NewHostExecution([]string{origin})
 			if err != nil { log.Fatal(err) }
 			config.TryItHostExecution = true
+			config.HostExecutionProtected = true
 			config.HostExecution = executor
 		}
 		docs := flexdoc.Handler(config)

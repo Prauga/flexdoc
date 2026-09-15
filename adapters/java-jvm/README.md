@@ -30,7 +30,7 @@ X-FlexDoc-Execute: 1
 
 The first JVM native slice advertises `capabilities: []`. That means ordinary host transport is available while cookie jars, client certificates, Digest, Hawk, OAuth 1.0 and SigV4 remain unsupported and fail closed; an empty list does not mean the execute route is disabled.
 
-### Resource limits
+### Resource limits and production tuning
 
 The shared pinned Apache client is intentionally bounded:
 
@@ -41,6 +41,12 @@ The shared pinned Apache client is intentionally bounded:
 - connection acquisition, connect/socket work and the overall executor future remain covered by the canonical request deadline;
 - changed DNS pin sets use a different HttpClient user token, so a socket created for an earlier validated address set cannot be reused after rebinding.
 
-The finite worker/queue boundary is a safety ceiling, not an application rate limit. Production deployments should still apply per-user/session or gateway rate limits and concurrency controls to the execute HTTP route.
+The worker/queue values are internal **last-resort safety ceilings**, not recommended request concurrency. When all 64 workers and all 256 queue slots are occupied, the next transport submission is rejected promptly as `IOException: Host execution transport capacity exceeded.` rather than waiting indefinitely or creating another worker/queue structure. The repository has a saturation regression that fills both bounds and proves that failure mode.
+
+Production HTTP admission should normally be **materially lower** than the transport ceiling so overload is rejected before request parsing, DNS/TLS work, or queue residence. For a typical Spring deployment, start with an application-owned per-process execute limit such as **16 concurrent requests**, measure target latency/CPU/socket pressure, and adjust from production telemetry. Keep caller-aware quotas at the gateway/application identity layer; a local semaphore is not a distributed user quota.
+
+If the execute route reaches the JVM transport-capacity error, treat it as evidence that the earlier admission boundary is missing, too high, or bypassed. Prefer lowering the HTTP in-flight limit, adding caller-aware throttling, or scaling application replicas before changing the internal transport implementation. The 64/256 values are not exposed as a public tuning knob in 3.3 because changing them also changes thread, queue, connection and timeout pressure that must be profiled together.
+
+For Spring, use `FlexDocHostExecutionAdmissionFilter` on `<docsPath>/__flexdoc/execute`; the Spring starter README and [`docs/host-execution-operations.md`](../../docs/host-execution-operations.md) contain the copy-paste registration pattern. JAX-RS or custom JVM bindings should apply the equivalent application/gateway admission boundary before invoking `FlexDocHostExecution`.
 
 For Guice or Governator-style applications, bind a configured `FlexDocHost` as a singleton and have the application's existing HTTP layer translate `FlexDocHttpResponse` into its native response type. Governator is built around Guice lifecycle/DI, so no renderer-specific Governator integration is required. If that HTTP layer exposes native execution, protect it with the same application security policy as the docs route rather than treating the FlexDoc marker as authorization.

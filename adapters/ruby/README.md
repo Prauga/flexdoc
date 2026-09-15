@@ -40,10 +40,14 @@ host = Prauga::FlexDoc::Host.new(
   host_execution: executor
 )
 
-run Prauga::FlexDoc::RackApp.new(host)
+# Configure application authentication/authorization middleware around the
+# FlexDoc subtree first, then acknowledge that boundary explicitly.
+run Prauga::FlexDoc::RackApp.new(host, host_execution_protected: true)
 ```
 
 The Rack transport then owns `POST /docs/__flexdoc/execute`. Without a real executor, FlexDoc advertises `available: false` and the execute path remains a 404.
+
+**Fail-closed rule:** when host execution is available, `RackApp.new` raises `ArgumentError` unless `host_execution_protected: true` is supplied. The flag does not authenticate requests; it is an explicit assertion that the surrounding Rack/Rails stack already protects the documentation and execute surface. The outbound origin allowlist is not user authentication.
 
 This first native slice supports the canonical JSON and multipart envelopes, Basic/Bearer/OAuth2-bearer and header/query API-key request auth, raw/JSON/binary/urlencoded/GraphQL/form-data bodies, same-origin redirect revalidation, unsafe-header stripping, a 32 MiB inbound envelope bound, a 10 MiB response bound, and a full-response deadline. Host-only cookies, client certificates, Digest/Hawk/NTLM/Kerberos, OAuth 1.0, AWS SigV4, host secrets, and runtime-derived environment are not advertised yet.
 
@@ -65,6 +69,8 @@ Prauga::FlexDoc::Rails.mount(self, host: host, at: "/docs")
 ```
 
 Rails already uses Rack, so the Rails helper intentionally mounts the same `RackApp` rather than introducing a Rails-specific renderer host. If `at:` is supplied, it must resolve to the same normalized path as `host.config.path`; the helper raises immediately on a mismatch so the HTML shell cannot point at renderer asset URLs that the mounted Rack app will reject. Native execution uses that same mounted Rack app, so Rails does not need a separate executor implementation.
+
+When the host has native execution available, protect the `/docs` mount with the application's authentication/authorization stack and pass `host_execution_protected: true` to `Prauga::FlexDoc::Rails.mount(...)`. The Rails helper forwards that acknowledgement into `RackApp`; omitting it keeps native execution fail closed.
 
 ## Packaging
 

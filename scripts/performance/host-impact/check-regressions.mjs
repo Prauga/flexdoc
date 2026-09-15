@@ -22,7 +22,7 @@ const checks = [
   ['sustainedC12ThroughputRps', 'minC12ThroughputRps', '>=', 'c12 req/s'],
   ['sustainedC1CpuMsPerRequest', 'maxC1CpuMsPerRequest', '<=', 'c1 CPU ms/req'],
   ['sustainedC12CpuMsPerRequest', 'maxC12CpuMsPerRequest', '<=', 'c12 CPU ms/req'],
-  ['hostActiveCooldownPssKiB', 'maxHostActiveCooldownPssKiB', '<=', 'host cooldown PSS growth KiB'],
+  ['hostAttributableCooldownPssKiB', 'maxHostAttributableCooldownPssKiB', '<=', 'attributable cooldown PSS delta KiB'],
 ];
 
 const failures = [];

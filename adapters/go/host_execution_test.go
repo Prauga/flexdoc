@@ -75,7 +75,8 @@ func TestGoHandlerAdvertisesAndOwnsExecuteRouteOnlyWithRealExecutor(t *testing.T
 
 	with := HandlerWithAssets(Config{
 		Path: "/docs", SpecURL: "/openapi.json", TryItEnabled: true, TryItHostExecution: true,
-		HostExecution: mustHostExecution(t, target.URL),
+		HostExecutionProtected: true,
+		HostExecution:          mustHostExecution(t, target.URL),
 	}, testAssets())
 	page = httptest.NewRecorder()
 	with.ServeHTTP(page, httptest.NewRequest(http.MethodGet, "/docs", nil))

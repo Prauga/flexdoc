@@ -38,6 +38,8 @@ type Config struct {
 	TryItAPIClientPersistenceKey any
 	// TryItHostExecution requests host-execution protocol metadata and route exposure.
 	TryItHostExecution bool
+	// HostExecutionProtected explicitly acknowledges that application auth/middleware protects the docs/execute surface.
+	HostExecutionProtected bool
 	// HostExecution is the real native executor. A nil executor keeps host execution unavailable.
 	HostExecution *HostExecution
 }
@@ -79,6 +81,9 @@ func HandlerWithAssets(cfg Config, assets fs.FS) http.Handler {
 }
 
 func handlerWithSpec(cfg Config, assets fs.FS, spec []byte) http.Handler {
+	if cfg.TryItHostExecution && cfg.HostExecution != nil && !cfg.HostExecutionProtected {
+		panic("FlexDoc Go host execution requires HostExecutionProtected: true after configuring application auth/middleware; the origin allowlist is not authentication.")
+	}
 	if cfg.Path == "" {
 		cfg.Path = "/docs"
 	}

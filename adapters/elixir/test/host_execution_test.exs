@@ -175,6 +175,7 @@ defmodule PraugaFlexDoc.HostExecutionTest do
         path: "/docs",
         spec_url: "/openapi.json",
         try_it_host_execution: true,
+        host_execution_protected: true,
         host_execution: executor
       )
 
@@ -326,6 +327,7 @@ defmodule PraugaFlexDoc.HostExecutionTest do
       FlexDocPlug.init(
         path: "/docs",
         try_it_host_execution: true,
+        host_execution_protected: true,
         host_execution: executor
       )
 
