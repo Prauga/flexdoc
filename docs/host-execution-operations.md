@@ -1,6 +1,6 @@
 # API-host execution operations and abuse controls
 
-FlexDoc API-host execution is an application-owned server capability. When it is available, an interactive browser request can become two network hops: browser -> API host -> target API. The execute endpoint therefore consumes API-host CPU, memory, sockets, outbound bandwidth, DNS/TLS work, and target-service capacity in addition to the ordinary documentation request.
+This guidance is part of the `@prauga/flexdoc-backend` **3.3.0** host-execution contract. FlexDoc API-host execution is an application-owned server capability. When it is available, an interactive browser request can become two network hops: browser -> API host -> target API. The execute endpoint therefore consumes API-host CPU, memory, sockets, outbound bandwidth, DNS/TLS work, and target-service capacity in addition to the ordinary documentation request.
 
 The built-in executor safety policy is necessary but is not an application abuse policy. Exact-origin allowlists, DNS/address pinning, redirect validation, request/response size bounds, execution deadlines, and `X-FlexDoc-Execute: 1` prevent classes of unsafe execution; they do not identify the caller or decide how much work one authenticated user may cause.
 
@@ -15,43 +15,30 @@ For production deployments that enable host execution:
 5. Keep FlexDoc's request, response, redirect, and timeout bounds enabled. Application or ingress limits may be lower than FlexDoc's canonical maxima.
 6. Observe the execute route separately from ordinary documentation traffic. At minimum track request rate, in-flight count, rejections, p95/p99 duration, timeout/upstream-error rate, request/response sizes, and outbound connection/egress pressure.
 
-A multi-instance deployment should normally enforce user-aware rate limits in a shared gateway or distributed limiter. The small in-process examples below are admission-control backstops for one process; they are not distributed quotas.
+A multi-instance deployment should normally enforce user-aware rate limits in a shared gateway or distributed limiter. The small in-process helpers below are admission-control backstops for one process; they are not distributed quotas.
 
-## Node / Express reference admission control
+## Node / Express / Nest reference admission control
 
-Register application authentication first, then the admission-control middleware, then mount FlexDoc. The example limits only the execute POST and guarantees that the counter is released once on either normal completion or connection close.
+`@prauga/flexdoc-backend` exports `createHostExecutionAdmission` and `createHostExecutionAdmissionMiddleware`. Register application authentication first, then any CSRF/same-origin policy, then the admission middleware, then mount FlexDoc. The middleware limits only the execute route and releases the process-local slot once on response finish/close or synchronous downstream failure.
 
 ```ts
 import express from 'express';
-import { setupExpressFlexDoc } from '@prauga/flexdoc-backend';
+import {
+  createHostExecutionAdmission,
+  createHostExecutionAdmissionMiddleware,
+  setupExpressFlexDoc,
+} from '@prauga/flexdoc-backend';
 
 const app = express();
-const maxFlexDocExecutions = 16;
-let flexDocExecutionsInFlight = 0;
+const hostExecutionAdmission = createHostExecutionAdmission({ maxInFlight: 16 });
 
-// Application-owned authentication/authorization belongs before FlexDoc.
+// Application-owned identity and CSRF policy belong before FlexDoc.
 app.use('/docs', requireDocumentationUser);
-
-app.use('/docs/__flexdoc/execute', (req, res, next) => {
-  if (req.method !== 'POST') return next();
-
-  if (flexDocExecutionsInFlight >= maxFlexDocExecutions) {
-    res.setHeader('Retry-After', '1');
-    res.status(429).json({ error: 'FlexDoc host execution is busy.' });
-    return;
-  }
-
-  flexDocExecutionsInFlight += 1;
-  let released = false;
-  const release = () => {
-    if (released) return;
-    released = true;
-    flexDocExecutionsInFlight -= 1;
-  };
-  res.once('finish', release);
-  res.once('close', release);
-  next();
-});
+app.use('/docs/__flexdoc/execute', requireSameOriginOrCsrfToken);
+app.use(
+  '/docs/__flexdoc/execute',
+  createHostExecutionAdmissionMiddleware(hostExecutionAdmission, { retryAfterSeconds: 1 }),
+);
 
 setupExpressFlexDoc(app, '/docs', {
   spec,
@@ -65,59 +52,31 @@ setupExpressFlexDoc(app, '/docs', {
 });
 ```
 
-Use the framework or ingress rate limiter already standard in the application for quotas such as requests per authenticated user per minute. A distributed Express/Nest deployment should not use the process-local counter as its only rate limit.
+The same middleware shape works with Nest when mounted on the underlying Express adapter before `setupNestFlexDoc`. Use the framework or ingress rate limiter already standard in the application for quotas such as requests per authenticated user per minute. A distributed Express/Nest deployment should not use the process-local admission controller as its only rate limit.
 
 ## Spring reference admission control
 
-The shared JVM transport has its own finite worker and queue bounds as a final resource-safety layer, but applications should reject overload earlier at the HTTP boundary. One application-owned `OncePerRequestFilter` can put a small semaphore around the execute POST while Spring Security continues to own authentication/authorization.
+The Spring starter exports `FlexDocHostExecutionAdmissionFilter`. The shared JVM transport has its own finite worker and queue bounds as a final resource-safety layer, but applications should reject overload earlier at the HTTP boundary. Register the filter only for the execute route and keep Spring Security ahead of it for authentication/authorization.
 
 ```java
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.util.concurrent.Semaphore;
+import com.prauga.flexdoc.spring.FlexDocHostExecutionAdmissionFilter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.core.Ordered;
 
 @Bean
-OncePerRequestFilter flexDocExecuteAdmissionControl() {
-  Semaphore permits = new Semaphore(16);
-
-  return new OncePerRequestFilter() {
-    @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-      return !("POST".equals(request.getMethod())
-          && "/docs/__flexdoc/execute".equals(request.getRequestURI()));
-    }
-
-    @Override
-    protected void doFilterInternal(
-        HttpServletRequest request,
-        HttpServletResponse response,
-        FilterChain chain) throws ServletException, IOException {
-      if (!permits.tryAcquire()) {
-        response.setStatus(429);
-        response.setHeader("Retry-After", "1");
-        response.setContentType("application/json");
-        response.getWriter().write("{\"error\":\"FlexDoc host execution is busy.\"}");
-        return;
-      }
-
-      try {
-        chain.doFilter(request, response);
-      } finally {
-        permits.release();
-      }
-    }
-  };
+FilterRegistrationBean<FlexDocHostExecutionAdmissionFilter> flexDocHostExecutionAdmission() {
+  var registration = new FilterRegistrationBean<>(
+      new FlexDocHostExecutionAdmissionFilter(16, 1));
+  registration.addUrlPatterns("/docs/__flexdoc/execute");
+  registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 20);
+  return registration;
 }
 ```
 
-Adapt the path when `flexdoc.path`, servlet context path, or reverse-proxy path rewriting is customized. For a multi-instance Spring deployment, use the gateway or the application's existing distributed rate limiter for per-user quotas and keep the semaphore as a local in-flight bound.
+Adapt the mapping when `flexdoc.path`, servlet context path, or reverse-proxy path rewriting is customized. The filter returns HTTP `429` with `Retry-After` immediately when its local in-flight bound is saturated and releases capacity in a `finally` block after downstream completion or failure.
 
-The JVM executor itself currently uses a bounded host-execution worker pool (64 workers with a finite 256-request queue) and a bounded Apache connection pool. Those internal bounds prevent unbounded executor growth; they are deliberately not exposed as caller quotas because only the surrounding application knows who the caller is and which users should share limits.
+For a multi-instance Spring deployment, use the gateway or the application's existing distributed rate limiter for per-user quotas and keep the filter as a local in-flight backstop. The JVM executor itself currently uses a bounded host-execution worker pool (**64 workers with a finite 256-request queue**) and a bounded Apache connection pool. Those internal bounds prevent unbounded executor growth; they are deliberately not exposed as caller quotas because only the surrounding application knows who the caller is and which users should share limits.
 
 ## CSRF and cross-site requests
 
