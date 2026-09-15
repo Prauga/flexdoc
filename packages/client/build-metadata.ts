@@ -20,6 +20,4 @@ export const flexDocBuildInfo = {
   version: packageJson.version,
   commit,
   sourceDate,
-  contractVersion: '1',
-  repository: 'https://github.com/Prauga/flexdoc',
 } as const;
