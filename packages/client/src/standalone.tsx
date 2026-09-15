@@ -5,7 +5,6 @@ import type { ApiClientWorkspaceProps } from './components/ApiClientWorkspace';
 import { OpenAPISpec } from './types/openapi';
 import { FlexDocRendererOptions } from './types/options';
 import { bundleExternalReferences, DocumentLoader } from './utils/openapi-resolver';
-import { FLEXDOC_BUILD_INFO } from './build-info';
 import { FLEXDOC_MARK_URL } from './branding';
 import './styles.css';
 
@@ -148,7 +147,6 @@ declare global {
       /** Mount the full API Client workspace. */ mountApiClient: typeof mountApiClient;
       /** Clone and apply renderer metadata/tag-group options to a spec. */ prepareSpec: typeof prepareSpec;
       /** Renderer-host compatibility contract version. */ contractVersion: typeof FLEXDOC_CONTRACT_VERSION;
-      /** Renderer package/source identity for diagnostics. */ buildInfo: typeof FLEXDOC_BUILD_INFO;
     };
   }
 }
@@ -159,5 +157,4 @@ if (typeof window !== 'undefined') window.FlexDocStandalone = {
   mountApiClient,
   prepareSpec,
   contractVersion: FLEXDOC_CONTRACT_VERSION,
-  buildInfo: FLEXDOC_BUILD_INFO,
 };
