@@ -11,6 +11,7 @@ defmodule PraugaFlexDoc.PlugHostExecutionHttpSecurityTest do
     FlexDocPlug.init(
       path: "/docs",
       try_it_host_execution: true,
+      host_execution_protected: true,
       host_execution: execution
     )
   end
