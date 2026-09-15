@@ -104,7 +104,7 @@ class FlexDocHostExecutionTest < Minitest::Test
       Prauga::FlexDoc::Config.new(try_it_host_execution: true),
       host_execution: executor
     )
-    Prauga::FlexDoc::RackApp.new(host)
+    Prauga::FlexDoc::RackApp.new(host, host_execution_protected: true)
   end
 
   def post_json(app, envelope, marker: true)
