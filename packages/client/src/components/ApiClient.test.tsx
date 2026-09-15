@@ -87,6 +87,7 @@ describe('ApiClient', () => {
     });
 
     render(<ApiClient
+      density='basic'
       initialRequest={{ method: 'GET', url: 'https://api.example.test/pets' }}
       hostExecution={{
         available: true,
