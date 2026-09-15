@@ -154,6 +154,31 @@ console.log('checked');
     expect(outcome.response).toMatchObject({ status: 200, body: '{"via":"host"}', responseTime: 6 });
   });
 
+
+it('honors a host-advertised direct preference for ordinary requests', async () => {
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  const fetcher: typeof fetch = async (input, init) => {
+    calls.push({ url: String(input), init });
+    return mockResponse('{\"via\":\"direct\"}', { headers: { 'content-type': 'application/json' } });
+  };
+
+  const outcome = await executeApiClientRequest({
+    request: { method: 'GET', url: 'https://api.example.test/pets' },
+    hostExecution: {
+      available: true,
+      endpoint: '/docs/__flexdoc/execute',
+      capabilities: [],
+      preferHostExecution: false,
+    },
+    fetcher,
+  });
+
+  expect(calls).toHaveLength(1);
+  expect(calls[0].url).toBe('https://api.example.test/pets');
+  expect(new Headers(calls[0].init?.headers).get('x-flexdoc-execute')).toBeNull();
+  expect(outcome.response).toMatchObject({ status: 200, body: '{\"via\":\"direct\"}' });
+});
+
   it('forwards an intentional GET body through API-host execution', async () => {
     let descriptor: any;
     const fetcher: typeof fetch = async (_input, init) => {

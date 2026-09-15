@@ -17,6 +17,11 @@ For production deployments that enable host execution:
 
 A multi-instance deployment should normally enforce user-aware rate limits in a shared gateway or distributed limiter. The small in-process helpers below are admission-control backstops for one process; they are not distributed quotas.
 
+### Ordinary-request routing knob
+
+When native host execution must remain enabled but operators do not want ordinary interactive Try It requests to take the additional browser -> API-host -> target hop, the Node host can set `tryIt.hostExecution.preferHostExecution: false`. Host-only features still require host execution; this knob only keeps ordinary requests on direct browser transport. Omitting the option keeps the 3.3 default (`true`).
+
+
 ## Node / Express / Nest reference admission control
 
 `@prauga/flexdoc-backend` exports `createHostExecutionAdmission` and `createHostExecutionAdmissionMiddleware`. Register application authentication first, then any CSRF/same-origin policy, then the admission middleware, then mount FlexDoc. The middleware limits only the execute route and releases the process-local slot once on response finish/close or synchronous downstream failure.

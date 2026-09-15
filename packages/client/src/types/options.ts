@@ -207,6 +207,7 @@ export interface FlexDocHostExecutionPublicOptions {
   /** Whether the documentation host currently exposes an execution endpoint. */ available: boolean;
   /** Same-origin endpoint that accepts FlexDoc host-execution requests. */ endpoint: string;
   /** Transport/authentication capabilities implemented by the host. */ capabilities: FlexDocHostExecutionCapability[];
+  /** Whether ordinary interactive browser requests should prefer this API host. Omission preserves the host-preferred compatibility default. */ preferHostExecution?: boolean;
   /** Safe certificate identifiers/names available for client-certificate selection; private key material is never serialized. */ clientCertificates?: FlexDocHostExecutionCertificateChoice[];
   /** Same-origin endpoint used to inspect or clear the host-side cookie jar. */ cookiesEndpoint?: string;
 }
