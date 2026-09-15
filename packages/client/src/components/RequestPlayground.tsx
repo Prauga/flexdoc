@@ -89,8 +89,10 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
       ? 'The browser cannot send this request. FlexDoc will execute it from the API host.'
       : options?.tryIt?.hostExecution?.available
         ? `The API host does not support the required capability${missingHostCapabilities.length === 1 ? '' : 'ies'}: ${missingHostCapabilities.join(', ')}.`
-        : 'Host execution is disabled on this documentation server.'
-    : null;
+        : 'API-host execution is unavailable on this documentation server.'
+    : options?.tryIt?.hostExecution?.available && hostCapabilities.size === 0
+      ? 'This request runs from your API server.'
+      : null;
 
   const commitValues = (next: RequestValues) => {
     valuesRef.current = next;

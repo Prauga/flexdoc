@@ -50,6 +50,13 @@ export type { ExpressLikeApplication, FastifyLikeApplication, FastifyLikeReply, 
 export { setupHonoFlexDoc } from './hono-adapter';
 export { createHostExecutionState, executeHostRequest, publicHostExecutionOptions } from './host-execution';
 export { parseHostExecutionRequestBody, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
+export { createHostExecutionAdmission, createHostExecutionAdmissionMiddleware } from './host-execution-admission';
+export type {
+  FlexDocHostExecutionAdmission,
+  FlexDocHostExecutionAdmissionMiddlewareOptions,
+  FlexDocHostExecutionAdmissionOptions,
+  FlexDocHostExecutionAdmissionResponse,
+} from './host-execution-admission';
 export { validateRuntimeContract } from './contract-validation';
 export type {
   FlexDocContractDuplicateRuntimeRoute,

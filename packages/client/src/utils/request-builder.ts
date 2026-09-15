@@ -6,7 +6,7 @@ import {
   parametersFor as coreParametersFor,
 } from '../../../../core/dist/request-builder.js';
 
-/** Scalar request value accepted by OpenAPI parameter and auth editors. */
+/** Request value accepted by OpenAPI parameter and auth editors. */
 export type RequestValue = string | number | boolean | string[] | number[] | Record<string, unknown>;
 
 /** User-entered Try It values keyed by parameter location and name. */

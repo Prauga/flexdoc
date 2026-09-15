@@ -33,8 +33,11 @@ public sealed class FlexDocOptions
     /// <summary>API Client persistence key, or false to disable IndexedDB workspace persistence.</summary>
     public object? TryItApiClientPersistenceKey { get; set; }
 
-    /// <summary>Advertise the host-execution protocol shape in renderer options. Host execution is not implemented yet.</summary>
+    /// <summary>Advertise host-execution protocol metadata and register the route when a real executor is configured.</summary>
     public bool TryItHostExecution { get; set; }
+
+    /// <summary>Native ASP.NET Core executor. A null executor keeps host execution unavailable and the execute route unregistered.</summary>
+    public FlexDocHostExecution? HostExecution { get; set; }
 
     /// <summary>Explicit opt-in for live ASP.NET Core route discovery and OpenAPI presence drift.</summary>
     public bool RuntimeIntelligence { get; set; }

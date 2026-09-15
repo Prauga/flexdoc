@@ -2,10 +2,6 @@
 
 FlexDoc 3.2 takes the canonical API Client request/script/collection model outside the browser. It does **not** add a second request engine, a second `__flexdoc/execute` endpoint, or native host execution.
 
-The architectural rule remains:
-
-> Could Scalar implement this without being installed inside the backend?
-
 The Runner itself is portable CLI/CI infrastructure. Its backend-native value comes from consuming the host-execution contract FlexDoc already advertises because it is installed inside the application. 3.2 must therefore reuse that contract exactly rather than reimplement it.
 
 ## Baseline reused from 2.9/2.9.5

@@ -8,6 +8,7 @@ on:
       - 'packages/client/**'
       - '.github/workflows/python.yml'
       - '.github/workflows/publish-python.yml'
+      - '!**/*.md'
   push:
     branches: [main]
     paths:

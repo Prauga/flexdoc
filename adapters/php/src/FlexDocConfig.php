@@ -24,7 +24,8 @@ final readonly class FlexDocConfig
      * @param string|null $tryItDefaultServer Optional default server URL for Try It requests.
      * @param string|null $tryItCredentials Optional fetch credentials mode: `omit`, `same-origin`, or `include`.
      * @param string|false|null $tryItApiClientPersistenceKey Optional persistence key, or `false` to disable.
-     * @param bool $tryItHostExecution Emits host-execution protocol metadata; execution is not implemented by this adapter.
+     * @param bool $tryItHostExecution Whether native API-host execution may be advertised when a real executor is attached.
+     * @param HostExecution|null $hostExecution Optional native host executor. Server-only; never serialized into docs HTML.
      */
     public function __construct(
         string $path = '/docs',
@@ -37,6 +38,7 @@ final readonly class FlexDocConfig
         public ?string $tryItCredentials = null,
         public string|false|null $tryItApiClientPersistenceKey = null,
         public bool $tryItHostExecution = false,
+        public ?HostExecution $hostExecution = null,
     ) {
         $normalized = '/' . trim($path, '/');
         $this->path = $normalized === '/' ? '/docs' : $normalized;

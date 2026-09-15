@@ -155,6 +155,7 @@ export interface FlexDocHostExecutionRequest {
 /** Server-only API-host execution configuration. */
 export interface FlexDocHostExecutionOptions {
   /** Enable API-host execution routes. Defaults to disabled unless explicitly opted in. */ enabled?: boolean;
+  /** Prefer API-host execution for ordinary browser requests when available. Defaults to true. */ preferHostExecution?: boolean;
   /** Target origins the host is allowed to call; omitted values use the host's safe default policy. */ allowedOrigins?: string[];
   /** Client certificates that may be selected by id for outbound requests. */ clientCertificates?: FlexDocHostExecutionCertificate[];
   /** Hook invoked before the backend sends an outbound request. */ interceptor?: (request: FlexDocHostExecutionRequest) => FlexDocHostExecutionRequest | Promise<FlexDocHostExecutionRequest>;
@@ -165,6 +166,7 @@ export interface FlexDocHostExecutionPublicOptions {
   /** Whether the host-execution endpoint is currently available. */ available: boolean;
   /** Same-origin endpoint accepting execution requests. */ endpoint: string;
   /** Capabilities implemented by the backend host. */ capabilities: FlexDocHostExecutionCapability[];
+  /** Whether ordinary browser requests should prefer the API host when available. */ preferHostExecution?: boolean;
   /** Safe certificate ids/names; certificate and key material are never serialized. */ clientCertificates?: FlexDocHostExecutionCertificateChoice[];
   /** Same-origin endpoint used to inspect or clear the host-side cookie jar. */ cookiesEndpoint?: string;
 }

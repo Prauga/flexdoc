@@ -1,4 +1,4 @@
-import { FlexDocOptions } from './interfaces';
+import type { FlexDocHostExecutionOptions, FlexDocOptions } from './interfaces';
 
 interface OpenAPISpec {
   info?: { title?: string; description?: string; version?: string };
@@ -48,6 +48,9 @@ export function generateFlexDocHTML(spec: OpenAPISpec | null, options: RenderOpt
   const assetVersion = rendererVersion ? `?v=${encodeURIComponent(rendererVersion)}` : '';
 
   const documentTitle = title || spec?.info?.title || 'API Documentation';
+  const preferHostExecution = typeof serverTryIt?.hostExecution === 'object'
+    ? (serverTryIt.hostExecution as FlexDocHostExecutionOptions & { preferHostExecution?: boolean }).preferHostExecution !== false
+    : true;
   const publicTryIt = serverTryIt || hostExecutionPublic ? {
     ...(serverTryIt ? {
       ...(serverTryIt.enabled !== undefined ? { enabled: serverTryIt.enabled } : {}),
@@ -55,7 +58,7 @@ export function generateFlexDocHTML(spec: OpenAPISpec | null, options: RenderOpt
       ...(serverTryIt.credentials !== undefined ? { credentials: serverTryIt.credentials } : {}),
       ...(serverTryIt.apiClientPersistenceKey !== undefined ? { apiClientPersistenceKey: serverTryIt.apiClientPersistenceKey } : {}),
     } : {}),
-    ...(hostExecutionPublic ? { hostExecution: hostExecutionPublic } : {}),
+    ...(hostExecutionPublic ? { hostExecution: { ...hostExecutionPublic, preferHostExecution } } : {}),
   } : undefined;
   const publicOptions = {
     contractVersion: '1',
