@@ -189,7 +189,13 @@ jobs:
             });
             try {
               const address = server.address();
-              const response = await fetch(`http://127.0.0.1:${address.port}/docs`);
+              const origin = `http://127.0.0.1:${address.port}`;
+              const login = await fetch(`${origin}/example-login`);
+              if (!login.ok) throw new Error(`Express demo login returned ${login.status}`);
+              const setCookie = login.headers.get('set-cookie');
+              if (!setCookie) throw new Error('Express demo login did not issue a session cookie');
+              const cookie = setCookie.split(';', 1)[0];
+              const response = await fetch(`${origin}/docs`, { headers: { cookie } });
               if (!response.ok) throw new Error(`Express FlexDoc smoke test returned ${response.status}`);
             } finally {
               await new Promise((resolve) => server.close(resolve));
