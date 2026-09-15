@@ -4,6 +4,8 @@ The host-impact harness measures FlexDoc host execution across the supported run
 
 `regression-thresholds.json` is a **catastrophic regression guardrail**, not a service-level objective or a cross-runtime performance ranking. The thresholds are deliberately broad enough to tolerate normal GitHub-hosted runner variance while still failing changes that materially break host execution.
 
+The CI memory guardrail uses the **matched direct-vs-host attributable cooldown PSS delta** (`hostAttributableCooldownPssKiB`). It intentionally does not gate on raw host-process cooldown growth. Managed runtimes can commit heap/pages, JIT code, allocator arenas, thread stacks, and other process memory under either sustained path, so raw host growth without the matched direct control is not a reliable FlexDoc-specific regression signal. Raw host/direct working-set growth remains in the summary and per-runtime JSON for diagnosis.
+
 ## Rebaselining thresholds
 
 Do not edit thresholds simply because a pull request fails the guardrail. Rebaseline only when an intentional, reviewed runtime or harness change makes the previous baseline obsolete.
