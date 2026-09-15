@@ -13,7 +13,7 @@ class FlexDocRackHostExecutionHttpSecurityTest < Minitest::Test
       Prauga::FlexDoc::Config.new(try_it_host_execution: true),
       host_execution: executor
     )
-    Prauga::FlexDoc::RackApp.new(host)
+    Prauga::FlexDoc::RackApp.new(host, host_execution_protected: true)
   end
 
   def test_rejects_cross_origin_redirect_before_metadata_second_hop
