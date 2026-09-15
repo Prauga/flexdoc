@@ -42,7 +42,7 @@ When both `tryItHostExecution: true` and a real `HostExecution` are present, Fle
 
 The PHP executor consumes the same canonical JSON or multipart envelope used by the other native hosts and FlexDoc Runner. It requires `X-FlexDoc-Execute: 1`, accepts only explicitly allowlisted HTTP(S) origins, strips unsafe transport headers, rejects cross-origin redirects, bounds incoming envelopes to 32 MiB and target response bodies to 10 MiB, bounds response header parsing, and applies a full-request deadline. Basic, Bearer, OAuth2 bearer-token, and header/query API-key request auth are supported as canonical request-draft features.
 
-This first PHP slice intentionally advertises an empty host-only capability list. Session cookie jars, client certificates, Digest, Hawk, NTLM/Negotiate, OAuth 1.0, and AWS Signature V4 remain unavailable until implemented natively. The 3.3 client host-routing change is responsible for sending ordinary Try It requests through an available native executor; capability entries remain reserved for additional host-only features.
+This first PHP slice intentionally advertises an empty host-only capability list. Session cookie jars, client certificates, Digest, Hawk, NTLM/Negotiate, OAuth 1.0, AWS Signature V4 remain unavailable until implemented natively. The 3.3 client host-routing change is responsible for sending ordinary Try It requests through an available native executor; capability entries remain reserved for additional host-only features.
 
 The transport uses PHP's standard socket/TLS runtime rather than requiring `ext-curl`. Hostnames are resolved and validated first, then the connection is opened directly to one of the validated addresses while retaining the original hostname for the HTTP `Host` header and TLS SNI/certificate verification. Link-local/cloud-metadata destinations, including IPv4-mapped IPv6 forms, are rejected before connection. System HTTP proxy variables are not consulted by this socket transport.
 
@@ -95,7 +95,15 @@ security:
     - { path: ^/docs(?:/|$), roles: ROLE_API_DOCS }
 ```
 
-If the application uses cookie/session authentication, keep the execute POST inside the application's CSRF strategy or provide an equivalent API-authenticated boundary. `X-FlexDoc-Execute: 1` is not a Symfony CSRF token. The controller deliberately does not invent a second authentication model, so an application that omits these access-control rules is responsible for that exposure.
+After that application protection is configured, construct the controller with the explicit acknowledgement:
+
+```php
+$controller = new FlexDocController($host, hostExecutionProtected: true);
+```
+
+**Fail-closed rule:** if the injected host has native execution available and `hostExecutionProtected` is omitted or false, controller construction throws `LogicException`. The flag is only an assertion that the application firewall/access-control boundary above exists; it does not create authentication itself. An origin allowlist restricts outbound destinations and is not user authentication.
+
+If the application uses cookie/session authentication, keep the execute POST inside the application's CSRF strategy or provide an equivalent API-authenticated boundary. `X-FlexDoc-Execute: 1` is not a Symfony CSRF token.
 
 ## Packaging
 
