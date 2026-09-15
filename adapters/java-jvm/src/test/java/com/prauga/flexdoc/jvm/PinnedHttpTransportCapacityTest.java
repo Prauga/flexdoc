@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -24,31 +25,29 @@ class PinnedHttpTransportCapacityTest {
     ThreadPoolExecutor executor = (ThreadPoolExecutor) executorField.get(null);
 
     CountDownLatch release = new CountDownLatch(1);
-    CountDownLatch workersStarted = new CountDownLatch(PinnedHttpTransport.MAX_EXECUTION_THREADS);
     List<Future<?>> blockers = new ArrayList<>();
+    boolean saturated = false;
 
     try {
-      for (int index = 0; index < PinnedHttpTransport.MAX_EXECUTION_THREADS; index++) {
-        blockers.add(executor.submit(() -> {
-          workersStarted.countDown();
-          try {
-            release.await();
-          } catch (InterruptedException error) {
-            Thread.currentThread().interrupt();
-          }
-        }));
+      int maximumAccepted = PinnedHttpTransport.MAX_EXECUTION_THREADS
+          + PinnedHttpTransport.MAX_QUEUED_EXECUTIONS;
+      for (int index = 0; index <= maximumAccepted; index++) {
+        try {
+          blockers.add(executor.submit(() -> {
+            try {
+              release.await();
+            } catch (InterruptedException error) {
+              Thread.currentThread().interrupt();
+            }
+          }));
+        } catch (RejectedExecutionException expected) {
+          saturated = true;
+          break;
+        }
       }
-      assertTrue(workersStarted.await(5, TimeUnit.SECONDS), "host-execution workers did not saturate");
 
-      for (int index = 0; index < PinnedHttpTransport.MAX_QUEUED_EXECUTIONS; index++) {
-        blockers.add(executor.submit(() -> {
-          try {
-            release.await();
-          } catch (InterruptedException error) {
-            Thread.currentThread().interrupt();
-          }
-        }));
-      }
+      assertTrue(saturated, "host-execution executor did not reach its bounded capacity");
+      assertEquals(PinnedHttpTransport.MAX_EXECUTION_THREADS, executor.getPoolSize());
       assertEquals(0, executor.getQueue().remainingCapacity(), "host-execution queue should be full");
 
       long started = System.nanoTime();
@@ -67,7 +66,12 @@ class PinnedHttpTransportCapacityTest {
     } finally {
       for (Future<?> blocker : blockers) blocker.cancel(true);
       release.countDown();
-      executor.purge();
+      long cleanupDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+      do {
+        executor.purge();
+        if (executor.getActiveCount() == 0 && executor.getQueue().isEmpty()) break;
+        Thread.sleep(10L);
+      } while (System.nanoTime() < cleanupDeadline);
     }
   }
 }
