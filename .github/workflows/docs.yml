@@ -5,6 +5,7 @@ on:
     paths:
       - '**/*.md'
       - 'scripts/check-example-versions.mjs'
+      - 'scripts/check-release-doc-version-claims.mjs'
       - '.github/workflows/docs.yml'
 
 concurrency:
@@ -37,3 +38,6 @@ jobs:
 
       - name: Verify source-derived package and example version claims
         run: node scripts/check-example-versions.mjs
+
+      - name: Verify 3.3 release documentation version claims
+        run: node scripts/check-release-doc-version-claims.mjs
