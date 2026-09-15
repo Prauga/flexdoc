@@ -11,10 +11,11 @@ function git(args: string[]): string {
   }
 }
 
-const commit = process.env.GITHUB_SHA || git(['rev-parse', 'HEAD']);
+const releaseCommit = process.env.GITHUB_EVENT_NAME === 'release' ? process.env.GITHUB_SHA : undefined;
+const commit = process.env.FLEXDOC_BUILD_REVISION || releaseCommit || 'unknown';
 const sourceDate = process.env.SOURCE_DATE_EPOCH
   ? new Date(Number(process.env.SOURCE_DATE_EPOCH) * 1000).toISOString()
-  : git(['show', '-s', '--format=%cI', commit]);
+  : commit === 'unknown' ? 'unknown' : git(['show', '-s', '--format=%cI', commit]);
 
 export const flexDocBuildInfo = {
   version: packageJson.version,
