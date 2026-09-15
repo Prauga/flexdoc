@@ -268,7 +268,7 @@ test('fails capability-gated requests before transport when host execution is un
   const report = JSON.parse(output[0]);
   assert.equal(report.status, 'fail');
   assert.equal(report.items[0].executor, null);
-  assert.match(report.items[0].error, /Host execution is disabled/);
+  assert.match(report.items[0].error, /API-host execution is unavailable/);
   assert.equal(report.items[0].status, undefined);
 });
 
