@@ -15,8 +15,12 @@ class FlexDocHostExecutionSecurityTest < Minitest::Test
     )
   end
 
+  def rack_app(host)
+    Prauga::FlexDoc::RackApp.new(host, host_execution_protected: true)
+  end
+
   def post_json(host, request)
-    Rack::MockRequest.new(Prauga::FlexDoc::RackApp.new(host)).post(
+    Rack::MockRequest.new(rack_app(host)).post(
       "/docs/__flexdoc/execute",
       "CONTENT_TYPE" => "application/json",
       "HTTP_X_FLEXDOC_EXECUTE" => "1",
@@ -25,7 +29,7 @@ class FlexDocHostExecutionSecurityTest < Minitest::Test
   end
 
   def test_missing_marker_is_rejected_before_malformed_body_is_parsed
-    app = Prauga::FlexDoc::RackApp.new(host_for("https://api.example.test"))
+    app = rack_app(host_for("https://api.example.test"))
     response = Rack::MockRequest.new(app).post(
       "/docs/__flexdoc/execute",
       "CONTENT_TYPE" => "application/json",
@@ -92,7 +96,7 @@ class FlexDocHostExecutionSecurityTest < Minitest::Test
     end
 
     origin = "http://pin.flexdoc.test:#{port}"
-    app = Prauga::FlexDoc::RackApp.new(host_for(origin))
+    app = rack_app(host_for(origin))
     address = Addrinfo.tcp("127.0.0.1", port)
     previous_proxy = ENV["http_proxy"]
     ENV["http_proxy"] = "http://127.0.0.1:1"
