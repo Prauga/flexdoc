@@ -43,17 +43,18 @@ node tools/flexdoc-cli/bin/flexdoc.js run ./pets.flexdoc.json --json
 | npm | `@prauga/flexdoc-backend` | `3.3.0` |
 | npm | `@prauga/flexdoc-core` | `0.5.0` |
 | npm | `@prauga/flexdoc-cli` | `0.7.0` |
-| NuGet | `Prauga.FlexDoc.AspNetCore` | `0.5.2` |
-| Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.8.2` |
-| Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.8.2` |
-| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.8.2` |
-| PyPI | `prauga-flexdoc` | `0.7.2` |
-| Composer | `prauga/flexdoc` | `0.4.4` |
-| RubyGems | `prauga-flexdoc` | `0.4.4` |
-| crates.io | `prauga-flexdoc-axum` | `0.5.4` |
-| crates.io | `prauga-flexdoc-actix` | `0.4.4` |
-| Hex | `prauga_flexdoc` | `0.4.4` |
-| Go | `github.com/prauga/flexdoc/adapters/go` | `0.5.4` |
+| NuGet | `Prauga.FlexDoc.AspNetCore` | `0.5.3` |
+| Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.8.3` |
+| Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.8.3` |
+| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.8.3` |
+| PyPI | `prauga-flexdoc` | `0.7.3` |
+| Composer | `prauga/flexdoc` | `0.4.5` |
+| RubyGems | `prauga-flexdoc` | `0.4.5` |
+| crates.io | `prauga-flexdoc-host-execution` | `0.1.0` |
+| crates.io | `prauga-flexdoc-axum` | `0.5.5` |
+| crates.io | `prauga-flexdoc-actix` | `0.4.5` |
+| Hex | `prauga_flexdoc` | `0.4.5` |
+| Go | `github.com/prauga/flexdoc/adapters/go` | `0.5.5` |
 
 Ecosystem package versions are intentionally independent. FlexDoc 3.3.0 is the coordinated product/source release; native adapters retain their established ecosystem semver histories. Renderer contract v1 remains the cross-language compatibility boundary.
 
