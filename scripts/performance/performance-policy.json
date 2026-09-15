@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "hostImpact": {
+    "guardrailKind": "catastrophic-regression-only",
+    "rebaseline": {
+      "minimumCompleteSuccessfulRuns": 3,
+      "requireSameRuntimeScenarioFields": true,
+      "requireRepresentativeRunId": true,
+      "requireCorroboratingRunIdsInReview": true,
+      "requireIntentionalChangeRationale": true,
+      "requireFreshFullMatrixAfterPolicyChange": true
+    }
+  },
+  "bundles": {
+    "governance": {
+      "increasePolicy": "trim-first",
+      "compressedBudgetIncreaseRequiresEvidence": true
+    },
+    "assets": {
+      "javascript": {
+        "rawBytes": 862208,
+        "gzipBytes": 266240,
+        "brotliBytes": 225280,
+        "minimumRawHeadroomBytes": 1024
+      },
+      "css": {
+        "rawBytes": 44032,
+        "gzipBytes": 8704,
+        "brotliBytes": 7372.8,
+        "minimumRawHeadroomBytes": 0
+      }
+    }
+  }
+}
