@@ -8,7 +8,7 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 | --- | --- | --- | --- |
 | `@prauga/flexdoc-client` | `3.3.0` | `js/v3.3.0` | canonical renderer; renderer contract v1 |
 | `@prauga/flexdoc-backend` | `3.3.0` | `js/v3.3.0` | matching renderer; contract v1 |
-| `@prauga/flexdoc-core` | `0.5.0` | `core/v0.5.0` | framework-neutral OpenAPI engine |
+| `@prauga/flexdoc-core` | `0.5.1` | `core/v0.5.1` | framework-neutral OpenAPI engine + host-execution target-policy contract |
 | `@prauga/flexdoc-cli` | `0.7.0` | `cli/v0.7.0` | Contract Validation + headless Runner consumer; compatible Prauga renderer |
 | `Prauga.FlexDoc.AspNetCore` | `0.5.3` | `dotnet/v0.5.3` | ASP.NET Core 8+; renderer contract v1 |
 | `com.prauga.flexdoc:flexdoc-jvm` | `0.8.3` | `java/v0.8.3` | Java 17+ framework-neutral renderer host |
@@ -25,7 +25,7 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 
 The table describes the versions encoded by the current source tree. A new source version is not considered published merely because it appears here; publication still requires its matching release workflow to complete successfully.
 
-Versions are intentionally independent across ecosystems. FlexDoc 3.3 advances client/backend to `3.3.0` and publishes new native adapter patch versions because the host-execution implementations themselves changed in every supported runtime. `@prauga/flexdoc-core` remains `0.5.0` and `@prauga/flexdoc-cli` remains `0.7.0` because this release does not require a new framework-neutral core or CLI package version. The renderer contract, not matching package numbers, remains the cross-ecosystem compatibility boundary.
+Versions are intentionally independent across ecosystems. FlexDoc 3.3 advances client/backend to `3.3.0` and publishes new native adapter patch versions because the host-execution implementations themselves changed in every supported runtime. The HX-10 3.3.x follow-up advances `@prauga/flexdoc-core` to `0.5.1` because it adds the framework-neutral host-execution target-policy contract intended for reuse by future gateway/SSRF enforcement. `@prauga/flexdoc-cli` remains `0.7.0`. The renderer contract, not matching package numbers, remains the cross-ecosystem compatibility boundary.
 
 ## Self-contained adapter artifacts
 
@@ -113,7 +113,7 @@ For a release that changes the canonical renderer:
 3. Publish the Node backend/CLI releases that consume that renderer as required.
 4. Publish or tag native adapters only after their package validation proves they contain the exact intended renderer.
 5. Within an ecosystem family, publish base/native host packages before framework wrappers that depend on them.
-6. `@prauga/flexdoc-core` remains independently versioned unless the release changes framework-neutral engine behavior.
+6. `@prauga/flexdoc-core` remains independently versioned and is published only when framework-neutral engine or shared policy behavior changes.
 7. Merge the paired `Prauga/flexdoc-website` release-data PR only after the package/tag matrix it advertises is actually public; the website serves that feed directly, so release metadata must never lead publication.
 
 The paired website release-data PR is a required release artifact for every coordinated FlexDoc release, not optional website bookkeeping. Its release date, package matrix, announcement state, and public copy must be verified against the actual publication before it is merged.
