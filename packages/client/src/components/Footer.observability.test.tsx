@@ -9,6 +9,6 @@ test('keeps renderer build identity visible even with custom footer content', ()
   />);
 
   expect(screen.getByText('Acme API')).toBeInTheDocument();
-  expect(screen.getByLabelText('FlexDoc build information')).toHaveTextContent('vdev');
-  expect(screen.getByLabelText('FlexDoc build information')).toHaveTextContent('contract 1');
+  expect(screen.getByLabelText('FlexDoc build')).toHaveTextContent('vdev');
+  expect(screen.getByLabelText('FlexDoc build')).toHaveTextContent('contract 1');
 });
