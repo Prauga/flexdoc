@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    prauga-flexdoc (0.4.4)
+    prauga-flexdoc (0.4.5)
       base64 (>= 0.2.0)
 
 GEM
