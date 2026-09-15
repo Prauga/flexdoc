@@ -121,8 +121,9 @@ jobs:
       - name: Build Spring benchmark host against local adapter
         if: ${{ matrix.runtime == 'spring' }}
         run: |
+          FLEXDOC_VERSION=$(mvn -q -f adapters/java/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)
           mvn -f adapters/java/pom.xml --batch-mode -DskipTests install
-          mvn -f scripts/performance/host-impact/spring/pom.xml --batch-mode -DskipTests package
+          mvn -f scripts/performance/host-impact/spring/pom.xml --batch-mode -DskipTests -Dflexdoc.version="$FLEXDOC_VERSION" package
 
       - uses: dtolnay/rust-toolchain@stable
         if: ${{ startsWith(matrix.runtime, 'rust-') }}
