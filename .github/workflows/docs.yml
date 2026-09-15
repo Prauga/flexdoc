@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - '**/*.md'
+      - 'packages/*/package.json'
       - 'scripts/check-example-versions.mjs'
       - 'scripts/check-release-doc-version-claims.mjs'
       - '.github/workflows/docs.yml'
