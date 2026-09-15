@@ -15,7 +15,7 @@ The Plug config also accepts `expand`, `try_it_default_server`, `try_it_credenti
 
 ## Native API-host execution (3.3)
 
-Create a framework-neutral native executor with an explicit exact-origin allowlist, then attach it to the same Plug:
+Create a framework-neutral native executor with an explicit exact-origin allowlist, protect the docs/execute subtree with application authentication/authorization plugs, then acknowledge that boundary explicitly:
 
 ```elixir
 host_execution =
@@ -29,10 +29,13 @@ plug PraugaFlexDoc.Plug,
   title: "My API",
   try_it_enabled: true,
   try_it_host_execution: true,
+  host_execution_protected: true,
   host_execution: host_execution
 ```
 
 When both `try_it_host_execution: true` and a real `PraugaFlexDoc.HostExecution` are configured, the Plug owns `POST /docs/__flexdoc/execute` and the renderer advertises `hostExecution.available: true`. Enabling the option without an executor keeps `available: false` and the execute path returns `404`.
+
+**Fail-closed rule:** Plug initialization raises `ArgumentError` when host execution is available but `host_execution_protected: true` is absent. The option is only an explicit assertion that the surrounding Plug/Phoenix pipeline already authenticates and authorizes the documentation/execute surface; it does not install authentication itself. The outbound origin allowlist is not user authentication.
 
 The Elixir host consumes the existing FlexDoc JSON or canonical multipart execute envelope. It requires `X-FlexDoc-Execute: 1`, accepts only explicitly allowlisted HTTP(S) origins, strips unsafe transport headers, revalidates same-origin redirects, bounds incoming envelopes to 32 MiB and returned response bodies to 10 MiB, and applies a full-request deadline. Basic, Bearer, OAuth2 bearer-token, and header/query API-key auth are supported as canonical request-draft features.
 
@@ -42,7 +45,7 @@ The Elixir executor resolves and validates the target before each request or red
 
 ## Phoenix
 
-Phoenix routers can forward directly to the same Plug:
+Phoenix routers can forward directly to the same Plug. Place the application's authentication/authorization plugs before the forward, then use the same explicit protection acknowledgement when host execution is enabled:
 
 ```elixir
 forward "/docs", PraugaFlexDoc.Plug,
@@ -51,6 +54,6 @@ forward "/docs", PraugaFlexDoc.Plug,
   title: "My API"
 ```
 
-Because Phoenix is Plug-based, no Phoenix-specific renderer implementation is necessary. The same `try_it_host_execution` / `host_execution` options apply when using `forward`.
+Because Phoenix is Plug-based, no Phoenix-specific renderer implementation is necessary. The same `try_it_host_execution` / `host_execution_protected` / `host_execution` options apply when using `forward`.
 
 CI exercises the package through `Plug.Test` and byte-compares its packaged JS/CSS with the canonical renderer.
