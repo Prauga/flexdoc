@@ -33,6 +33,8 @@ public class FlexDocProperties {
   private Object tryItApiClientPersistenceKey;
   /** Enables the Spring-owned native host execution endpoint. */
   private boolean tryItHostExecution;
+  /** Explicitly acknowledges that application auth protects the docs/execute surface. */
+  private boolean hostExecutionProtected;
   /** Exact HTTP(S) origins the native host executor may target. */
   private List<String> tryItHostExecutionAllowedOrigins = List.of();
   /** Enables live Spring route discovery and OpenAPI presence drift reporting. */
@@ -116,6 +118,12 @@ public class FlexDocProperties {
   /** @param tryItHostExecution whether to register and advertise the native Spring executor */
   public void setTryItHostExecution(boolean tryItHostExecution) { this.tryItHostExecution = tryItHostExecution; }
 
+  /** @return whether application auth protection for native host execution has been acknowledged */
+  public boolean isHostExecutionProtected() { return hostExecutionProtected; }
+
+  /** @param hostExecutionProtected whether application auth protects the docs/execute surface */
+  public void setHostExecutionProtected(boolean hostExecutionProtected) { this.hostExecutionProtected = hostExecutionProtected; }
+
   /** @return exact target origins permitted for native host execution */
   public List<String> getTryItHostExecutionAllowedOrigins() { return tryItHostExecutionAllowedOrigins; }
 
@@ -139,7 +147,8 @@ public class FlexDocProperties {
         .tryItEnabled(tryItEnabled)
         .tryItDefaultServer(tryItDefaultServer)
         .tryItCredentials(tryItCredentials)
-        .tryItHostExecution(tryItHostExecution);
+        .tryItHostExecution(tryItHostExecution)
+        .hostExecutionProtected(hostExecutionProtected);
 
     if (runtimeIntelligence) builder.runtimeIntelligenceFramework("spring");
     if (expandSections != null && !expandSections.isEmpty()) builder.expandSections(expandSections);
