@@ -20,7 +20,7 @@ http.Handle("/docs/", docs)
 
 ## Native API-host execution (3.3)
 
-Create a native executor with an explicit exact-origin allowlist and attach it to the same `net/http` handler:
+Create a native executor with an explicit exact-origin allowlist and attach it to the same `net/http` handler. Protect the docs/execute subtree with application authentication/authorization middleware first, then set `HostExecutionProtected: true` to acknowledge that boundary:
 
 ```go
 executor, err := flexdoc.NewHostExecution([]string{
@@ -34,12 +34,15 @@ docs := flexdoc.Handler(flexdoc.Config{
     Title: "My API",
     TryItEnabled: true,
     TryItHostExecution: true,
+    HostExecutionProtected: true,
     HostExecution: executor,
 })
 http.Handle("/docs/", docs)
 ```
 
 When both `TryItHostExecution` and a real `HostExecution` are present, the handler owns `POST /docs/__flexdoc/execute` and the renderer truthfully advertises `hostExecution.available: true`. Setting `TryItHostExecution: true` without an executor continues to advertise `available: false` and the execute path remains unregistered (`404`).
+
+**Fail-closed rule:** an available native executor with `TryItHostExecution: true` causes handler construction to panic unless `HostExecutionProtected: true` is present. That field is only an explicit assertion that the surrounding application has installed an authentication/authorization boundary; it does not authenticate requests itself. The outbound origin allowlist is not user authentication.
 
 The Go host consumes the same JSON or canonical multipart envelope used by the Node/JVM/Python hosts and FlexDoc Runner. It requires `X-FlexDoc-Execute: 1`, accepts only explicitly allowlisted HTTP(S) origins, strips unsafe transport headers, revalidates same-origin redirects, bounds incoming envelopes to 32 MiB and responses to 10 MiB, and applies a full-response deadline. Basic, Bearer, OAuth2 bearer-token, and header/query API-key request auth are supported as canonical request-draft features.
 
@@ -62,7 +65,7 @@ if err != nil { log.Fatal(err) }
 http.Handle("/docs/", docs)
 ```
 
-`HandlerFromOpenAPI` accepts any JSON-serializable OpenAPI 3.x value and exposes it beneath the FlexDoc route, so the application does not need a second spec endpoint. It accepts the same `TryItHostExecution` / `HostExecution` configuration when native execution is required.
+`HandlerFromOpenAPI` accepts any JSON-serializable OpenAPI 3.x value and exposes it beneath the FlexDoc route, so the application does not need a second spec endpoint. It accepts the same `TryItHostExecution` / `HostExecutionProtected` / `HostExecution` configuration when native execution is required.
 
 The module embeds its version-matched renderer JS/CSS. `HandlerWithAssets` is available when an application intentionally wants to override those assets.
 
