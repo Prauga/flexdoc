@@ -1,0 +1,221 @@
+name: Host Impact Baseline
+
+on:
+  pull_request:
+    paths:
+      - 'adapters/**'
+      - 'packages/backend/**'
+      - 'scripts/performance/host-impact/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/host-impact.yml'
+      - '!**/*.md'
+  push:
+    branches: [main]
+    paths:
+      - 'adapters/**'
+      - 'packages/backend/**'
+      - 'scripts/performance/host-impact/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/host-impact.yml'
+      - '!**/*.md'
+
+concurrency:
+  group: host-impact-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runtime: node
+            label: Node / Express
+            command: '["node","scripts/performance/host-impact/node/server.cjs"]'
+          - runtime: python
+            label: Python / FastAPI
+            command: '["python","scripts/performance/host-impact/python/server.py"]'
+          - runtime: go
+            label: Go / net-http
+            command: '["/tmp/flexdoc-host-impact-go"]'
+          - runtime: dotnet
+            label: .NET / ASP.NET Core
+            command: '["dotnet","scripts/performance/host-impact/dotnet/bin/Release/net8.0/FlexDocHostImpact.dll"]'
+          - runtime: spring
+            label: Java / Spring Boot
+            command: '["java","-jar","scripts/performance/host-impact/spring/target/flexdoc-host-impact-spring-0.1.0.jar"]'
+          - runtime: rust-axum
+            label: Rust / Axum
+            command: '["/tmp/flexdoc-host-impact-axum"]'
+          - runtime: rust-actix
+            label: Rust / Actix
+            command: '["/tmp/flexdoc-host-impact-actix"]'
+          - runtime: ruby
+            label: Ruby / Rack
+            command: '["bash","-lc","BUNDLE_GEMFILE=scripts/performance/host-impact/ruby/Gemfile bundle exec rackup -o 127.0.0.1 -p $FLEXDOC_BENCH_PORT scripts/performance/host-impact/ruby/config.ru"]'
+          - runtime: elixir
+            label: Elixir / Plug
+            command: '["bash","-lc","cd scripts/performance/host-impact/elixir && MIX_ENV=prod mix run --no-compile --no-deps-check --no-halt run.exs"]'
+          - runtime: php
+            label: PHP / native host
+            command: '["bash","-lc","PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:$FLEXDOC_BENCH_PORT scripts/performance/host-impact/php/router.php"]'
+
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+
+      - name: Build Node benchmark dependencies
+        if: ${{ matrix.runtime == 'node' }}
+        run: |
+          npm ci
+          npm run build:client
+          npm run build:backend
+
+      - name: Build renderer assets for packaged adapters
+        if: ${{ matrix.runtime == 'dotnet' || matrix.runtime == 'spring' }}
+        run: |
+          npm ci
+          npm run build:client
+
+      - uses: actions/setup-python@v6
+        if: ${{ matrix.runtime == 'python' }}
+        with:
+          python-version: '3.12'
+      - name: Install Python benchmark dependencies
+        if: ${{ matrix.runtime == 'python' }}
+        run: python -m pip install --disable-pip-version-check -q 'fastapi>=0.116,<1' 'uvicorn>=0.35,<1' 'python-multipart>=0.0.20,<1'
+
+      - uses: actions/setup-go@v6
+        if: ${{ matrix.runtime == 'go' }}
+        with:
+          go-version: '1.25.x'
+          cache: false
+      - name: Build Go benchmark host
+        if: ${{ matrix.runtime == 'go' }}
+        working-directory: scripts/performance/host-impact/go
+        run: go build -trimpath -o /tmp/flexdoc-host-impact-go .
+
+      - uses: actions/setup-dotnet@v5
+        if: ${{ matrix.runtime == 'dotnet' }}
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build .NET benchmark host
+        if: ${{ matrix.runtime == 'dotnet' }}
+        run: dotnet build scripts/performance/host-impact/dotnet/FlexDocHostImpact.csproj --configuration Release
+
+      - uses: actions/setup-java@v6
+        if: ${{ matrix.runtime == 'spring' }}
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Build Spring benchmark host against local adapter
+        if: ${{ matrix.runtime == 'spring' }}
+        run: |
+          mvn -f adapters/java/pom.xml --batch-mode -DskipTests install
+          mvn -f scripts/performance/host-impact/spring/pom.xml --batch-mode -DskipTests package
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: ${{ startsWith(matrix.runtime, 'rust-') }}
+        with:
+          toolchain: '1.90.0'
+      - name: Build Axum benchmark host
+        if: ${{ matrix.runtime == 'rust-axum' }}
+        run: |
+          cargo build --release --manifest-path scripts/performance/host-impact/axum/Cargo.toml
+          cp scripts/performance/host-impact/axum/target/release/flexdoc-host-impact-axum /tmp/flexdoc-host-impact-axum
+      - name: Build Actix benchmark host
+        if: ${{ matrix.runtime == 'rust-actix' }}
+        run: |
+          cargo build --release --manifest-path scripts/performance/host-impact/actix/Cargo.toml
+          cp scripts/performance/host-impact/actix/target/release/flexdoc-host-impact-actix /tmp/flexdoc-host-impact-actix
+
+      - uses: ruby/setup-ruby@v1
+        if: ${{ matrix.runtime == 'ruby' }}
+        with:
+          ruby-version: '3.3'
+      - name: Install Ruby benchmark dependencies
+        if: ${{ matrix.runtime == 'ruby' }}
+        run: BUNDLE_GEMFILE=scripts/performance/host-impact/ruby/Gemfile bundle install --jobs 4 --retry 3
+
+      - uses: erlef/setup-beam@v1
+        if: ${{ matrix.runtime == 'elixir' }}
+        with:
+          otp-version: '28.3'
+          elixir-version: '1.20.4'
+      - name: Compile Elixir benchmark host
+        if: ${{ matrix.runtime == 'elixir' }}
+        working-directory: scripts/performance/host-impact/elixir
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+          MIX_ENV=prod mix deps.get
+          MIX_ENV=prod mix compile
+
+      - uses: shivammathur/setup-php@v2
+        if: ${{ matrix.runtime == 'php' }}
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+          coverage: none
+      - name: Build PHP autoloader
+        if: ${{ matrix.runtime == 'php' }}
+        run: composer dump-autoload --working-dir=adapters/php --no-dev --classmap-authoritative --no-interaction
+
+      - name: Measure host impact
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/performance/host-impact/target-server.mjs > /tmp/flexdoc-host-impact-target.log 2>&1 &
+          target_pid=$!
+          trap 'kill "$target_pid" 2>/dev/null || true' EXIT
+          node scripts/performance/host-impact/measure-v2.mjs \
+            --label "${{ matrix.label }}" \
+            --command-json '${{ matrix.command }}' \
+            --output "host-impact-${{ matrix.runtime }}.json"
+
+      - name: Upload runtime result
+        uses: actions/upload-artifact@v6
+        with:
+          name: host-impact-${{ matrix.runtime }}
+          path: host-impact-${{ matrix.runtime }}.json
+          if-no-files-found: error
+          retention-days: 14
+
+  summarize:
+    needs: benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: host-impact-*
+          path: host-impact-results
+          merge-multiple: true
+      - name: Build host-impact summary
+        run: |
+          node scripts/performance/host-impact/aggregate.mjs host-impact-results host-impact-summary.md host-impact-summary.json
+          cat host-impact-summary.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Enforce host-impact regression guardrails
+        run: node scripts/performance/host-impact/check-regressions.mjs host-impact-summary.json scripts/performance/host-impact/regression-thresholds.json
+      - name: Upload combined baseline
+        uses: actions/upload-artifact@v6
+        with:
+          name: host-impact-summary
+          path: |
+            host-impact-summary.md
+            host-impact-summary.json
+          if-no-files-found: error
+          retention-days: 30

@@ -44,8 +44,8 @@ export interface ApiClientExecutionOutcome {
   /** Normalized HTTP response when transport completed successfully. */ response?: ApiClientExecutionResponse;
   /** Transport/build error preventing a successful response. */ error?: string;
   /** Script-phase error, separate from transport errors. */ scriptError?: string;
-  /** Test assertions collected from the test script. */ scriptTests: ApiClientScriptTestResult[];
-  /** Script log output collected across pre-request and test phases. */ scriptLogs: string[];
+  /** Test assertions collected from the post-response script. */ scriptTests: ApiClientScriptTestResult[];
+  /** Console/log output collected across pre-request and test phases. */ scriptLogs: string[];
   /** Reproducible cURL command for direct-browser string-body executions when available. */ curlCommand?: string;
 }
 
@@ -62,6 +62,7 @@ export interface ExecuteApiClientRequestOptions {
   /** External/host-supplied variables available to scripts. */ externalVariables?: HttpVariables;
   /** Active environment variables available to scripts. */ environmentVariables?: HttpVariables;
   /** Public API-host execution endpoint/capabilities advertised by the docs host. */ hostExecution?: FlexDocHostExecutionPublicOptions;
+  /** Whether an available API host should also handle ordinary requests. Defaults to the host-advertised preference, then true for older hosts. */ preferHostExecution?: boolean;
   /** Called after a direct-browser request is built and before the interceptor executes. */ onRequestBuilt?: (request: BuiltRequest) => void;
   /** Called with collection-variable mutations emitted by scripts. */ onCollectionChanges?: (changes: ApiClientScriptCollectionChange[]) => void;
   /** Called with environment-variable mutations emitted by scripts. */ onEnvironmentChanges?: (changes: ApiClientScriptEnvironmentChange[]) => void;
@@ -120,7 +121,7 @@ function curlCommandForTransport(url: string, init: RequestInit): string | undef
 }
 
 function hostUnavailableMessage(missing: string[], hostExecution: FlexDocHostExecutionPublicOptions | undefined): string {
-  if (!hostExecution?.available) return 'Host execution is disabled on this documentation server.';
+  if (!hostExecution?.available) return 'API-host execution is unavailable on this documentation server.';
   return `The API host does not support the required capability${missing.length === 1 ? '' : 'ies'}: ${missing.join(', ')}.`;
 }
 
@@ -222,7 +223,9 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
     resolvedUrl = executionDraft.url;
     const requirements = httpHostExecutionRequirements(executionDraft);
     const bodyNeedsHostTransport = ['GET', 'HEAD'].includes(executedMethod) && inferHttpBodyMode(executionDraft) !== 'none';
-    const shouldUseHost = requirements.length > 0 || (bodyNeedsHostTransport && options.hostExecution?.available === true);
+    const serializedPreference = (options.hostExecution as (FlexDocHostExecutionPublicOptions & { preferHostExecution?: boolean }) | undefined)?.preferHostExecution;
+    const preferHostExecution = options.preferHostExecution ?? serializedPreference ?? true;
+    const shouldUseHost = (preferHostExecution && options.hostExecution?.available === true) || requirements.length > 0 || bodyNeedsHostTransport;
     let apiResponse: ApiClientExecutionResponse;
 
     if (shouldUseHost) {

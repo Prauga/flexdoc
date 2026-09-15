@@ -38,6 +38,34 @@ FlexDoc serves the docs shell at `/docs` and version-fingerprinted renderer asse
 
 The basic docs integration only needs an OpenAPI JSON URL and deliberately has no dependency on Swashbuckle, NSwag, or a particular OpenAPI generator.
 
+## Native API-host execution (3.3)
+
+ASP.NET Core can execute the existing FlexDoc request envelope natively instead of falling back to browser transport. Configure an explicit exact-origin allowlist and attach the executor to the existing docs mapping:
+
+```csharp
+var hostExecution = new FlexDocHostExecution(new[]
+{
+    "https://api.example.internal",
+});
+
+app.MapFlexDoc(options =>
+{
+    options.Path = "/docs";
+    options.SpecUrl = "/openapi/v1.json";
+    options.TryItEnabled = true;
+    options.TryItHostExecution = true;
+    options.HostExecution = hostExecution;
+});
+```
+
+When both `TryItHostExecution` and a real `HostExecution` are configured, FlexDoc registers `POST /docs/__flexdoc/execute` and truthfully advertises `hostExecution.available: true`. Setting `TryItHostExecution = true` without an executor preserves `available: false` and leaves the execute route unregistered (`404`).
+
+The ASP.NET Core host consumes the same canonical JSON or multipart envelope used by the Node/JVM/Python/Go hosts and FlexDoc Runner. It requires `X-FlexDoc-Execute: 1`, accepts only explicitly allowlisted HTTP(S) origins, strips unsafe transport headers, revalidates same-origin redirects, bounds incoming envelopes to 32 MiB and responses to 10 MiB, and enforces a full-response deadline. Basic, Bearer, OAuth2 bearer-token, and header/query API-key request auth are supported as request-draft features.
+
+This first .NET slice intentionally advertises an empty host-only capability list. Session cookie jars, client certificates, Digest, Hawk, NTLM/Negotiate, OAuth 1.0, and AWS Signature V4 remain unavailable until implemented natively.
+
+The executor validates DNS inside `SocketsHttpHandler.ConnectCallback` and connects directly to a validated IP address while preserving the original hostname for HTTP/TLS semantics. Link-local/cloud-metadata hostnames and DNS answers are rejected before connection, avoiding a DNS-preflight/connection-time resolution gap.
+
 ## Runtime Intelligence
 
 ASP.NET Core can opt into FlexDoc 3.0 Runtime Intelligence using the live endpoint-routing data source:

@@ -72,6 +72,39 @@ describe('ApiClient', () => {
     expect(init.headers).toContainEqual(['Authorization', 'Bearer secret']);
   });
 
+  it('treats capabilities: [] as available basic host transport', async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers({ 'content-type': 'application/json' }),
+      text: async () => JSON.stringify({
+        status: 200,
+        statusText: 'OK',
+        headers: [['content-type', 'application/json']],
+        body: '{"via":"host"}',
+        responseTime: 5,
+      }),
+    });
+
+    render(<ApiClient
+      density='basic'
+      initialRequest={{ method: 'GET', url: 'https://api.example.test/pets' }}
+      hostExecution={{
+        available: true,
+        endpoint: '/docs/__flexdoc/execute',
+        capabilities: [],
+      }}
+    />);
+
+    expect(screen.queryByText('Host execution is disabled on this documentation server.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Send request/ }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/docs/__flexdoc/execute');
+    expect(new Headers(init.headers).get('x-flexdoc-execute')).toBe('1');
+  });
+
   it('reports the current canonical built request to consumers', async () => {
     const onRequestChange = jest.fn();
     render(<ApiClient initialRequest={{ method: 'GET', url: 'https://api.example.test/pets' }} onRequestChange={onRequestChange} />);

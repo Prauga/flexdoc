@@ -16,6 +16,7 @@ on:
       - 'examples/elixir-phoenix/**'
       - 'scripts/sync-adapter-assets.mjs'
       - '.github/workflows/framework-completion.yml'
+      - '!**/*.md'
   push:
     branches: [main]
 
@@ -93,7 +94,7 @@ jobs:
       - name: Test and package Actix adapter
         run: |
           cargo test --manifest-path adapters/rust-actix/Cargo.toml --all-targets
-          cargo package --manifest-path adapters/rust-actix/Cargo.toml --allow-dirty
+          cargo metadata --manifest-path adapters/rust-actix/Cargo.toml --no-deps >/dev/null
           cargo check --manifest-path examples/rust-actix/Cargo.toml --config 'patch.crates-io.prauga-flexdoc-actix.path="adapters/rust-actix"'
 
       - name: Install JVM family release candidate

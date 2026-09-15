@@ -17,12 +17,13 @@ defmodule PraugaFlexDoc.MixProject do
     ]
   end
 
-  def application, do: [extra_applications: [:logger, :crypto]]
+  def application, do: [extra_applications: [:logger, :crypto, :inets, :ssl]]
 
   defp deps do
     [
       {:plug, "~> 1.19"},
       {:jason, "~> 1.4"},
+      {:mint, "~> 1.10"},
       {:ex_doc, "~> 0.40", only: :dev, runtime: false}
     ]
   end

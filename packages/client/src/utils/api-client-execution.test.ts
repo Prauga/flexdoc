@@ -120,6 +120,64 @@ console.log('checked');
     expect(outcome.scriptTests).toEqual([{ name: 'host response', passed: true }]);
   });
 
+  it('routes ordinary requests through an available API host even with no host-only capabilities', async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetcher: typeof fetch = async (input, init) => {
+      calls.push({ url: String(input), init });
+      return mockResponse(JSON.stringify({
+        status: 200,
+        statusText: 'OK',
+        headers: [['content-type', 'application/json']],
+        body: '{"via":"host"}',
+        responseTime: 6,
+      }));
+    };
+    let interceptorCalls = 0;
+
+    const outcome = await executeApiClientRequest({
+      request: { method: 'POST', url: 'https://api.example.test/pets', bodyMode: 'json', body: '{"name":"Ada"}', contentType: 'application/json' },
+      requestInterceptor: (request) => { interceptorCalls += 1; return request; },
+      hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] },
+      fetcher,
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('/docs/__flexdoc/execute');
+    expect(new Headers(calls[0].init?.headers).get('x-flexdoc-execute')).toBe('1');
+    expect(JSON.parse(String(calls[0].init?.body)).request).toMatchObject({
+      method: 'POST',
+      url: 'https://api.example.test/pets',
+      bodyMode: 'json',
+      body: '{"name":"Ada"}',
+    });
+    expect(interceptorCalls).toBe(0);
+    expect(outcome.response).toMatchObject({ status: 200, body: '{"via":"host"}', responseTime: 6 });
+  });
+
+  it('honors a host-advertised direct preference for ordinary requests', async () => {
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    const fetcher: typeof fetch = async (input, init) => {
+      calls.push({ url: String(input), init });
+      return mockResponse('{"via":"direct"}', { headers: { 'content-type': 'application/json' } });
+    };
+
+    const outcome = await executeApiClientRequest({
+      request: { method: 'GET', url: 'https://api.example.test/pets' },
+      hostExecution: {
+        available: true,
+        endpoint: '/docs/__flexdoc/execute',
+        capabilities: [],
+        preferHostExecution: false,
+      },
+      fetcher,
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('https://api.example.test/pets');
+    expect(new Headers(calls[0].init?.headers).get('x-flexdoc-execute')).toBeNull();
+    expect(outcome.response).toMatchObject({ status: 200, body: '{"via":"direct"}' });
+  });
+
   it('forwards an intentional GET body through API-host execution', async () => {
     let descriptor: any;
     const fetcher: typeof fetch = async (_input, init) => {
@@ -148,7 +206,7 @@ console.log('checked');
       fetcher: async () => { fetchCalls += 1; return mockResponse('unexpected'); },
     });
     expect(fetchCalls).toBe(0);
-    expect(outcome.error).toBe('Host execution is disabled on this documentation server.');
+    expect(outcome.error).toBe('API-host execution is unavailable on this documentation server.');
     expect(outcome.result?.error).toBe(outcome.error);
   });
 

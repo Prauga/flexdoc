@@ -8,6 +8,7 @@ on:
       - 'packages/client/**'
       - '.github/workflows/dotnet.yml'
       - '.github/workflows/publish-dotnet.yml'
+      - '!**/*.md'
   push:
     branches: [main]
     paths:

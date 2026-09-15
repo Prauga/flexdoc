@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "basis": "FlexDoc 3.3 PR #93 integrated baseline run 34869203383. Thresholds are intentionally coarse merge guardrails, not performance targets. Memory limits apply to the matched direct-vs-host attributable cooldown PSS delta, not raw managed-runtime process growth.",
+  "runtimes": {
+    ".NET / ASP.NET Core": {
+      "maxC1P95Ms": 2.5,
+      "maxC12P95Ms": 19,
+      "minC1ThroughputRps": 570,
+      "minC12ThroughputRps": 1130,
+      "maxC1CpuMsPerRequest": 2.0,
+      "maxC12CpuMsPerRequest": 1.25,
+      "maxHostAttributableCooldownPssKiB": 278528
+    },
+    "Elixir / Plug": {
+      "maxC1P95Ms": 2.5,
+      "maxC12P95Ms": 21,
+      "minC1ThroughputRps": 470,
+      "minC12ThroughputRps": 1010,
+      "maxC1CpuMsPerRequest": 2.0,
+      "maxC12CpuMsPerRequest": 2.25,
+      "maxHostAttributableCooldownPssKiB": 65536
+    },
+    "Go / net-http": {
+      "maxC1P95Ms": 1.5,
+      "maxC12P95Ms": 12,
+      "minC1ThroughputRps": 1060,
+      "minC12ThroughputRps": 2020,
+      "maxC1CpuMsPerRequest": 0.5,
+      "maxC12CpuMsPerRequest": 0.5,
+      "maxHostAttributableCooldownPssKiB": 65536
+    },
+    "Java / Spring Boot": {
+      "maxC1P95Ms": 4.0,
+      "maxC12P95Ms": 19,
+      "minC1ThroughputRps": 530,
+      "minC12ThroughputRps": 1130,
+      "maxC1CpuMsPerRequest": 2.0,
+      "maxC12CpuMsPerRequest": 1.0,
+      "maxHostAttributableCooldownPssKiB": 180224
+    },
+    "Node / Express": {
+      "maxC1P95Ms": 2.0,
+      "maxC12P95Ms": 17,
+      "minC1ThroughputRps": 700,
+      "minC12ThroughputRps": 1370,
+      "maxC1CpuMsPerRequest": 1.0,
+      "maxC12CpuMsPerRequest": 0.75,
+      "maxHostAttributableCooldownPssKiB": 229376
+    },
+    "PHP / native host": {
+      "maxC1P95Ms": 22.5,
+      "maxC12P95Ms": 116,
+      "minC1ThroughputRps": 60,
+      "minC12ThroughputRps": 150,
+      "maxC1CpuMsPerRequest": 13.5,
+      "maxC12CpuMsPerRequest": 21.75,
+      "maxHostAttributableCooldownPssKiB": 81920
+    },
+    "Python / FastAPI": {
+      "maxC1P95Ms": 4.0,
+      "maxC12P95Ms": 35,
+      "minC1ThroughputRps": 290,
+      "minC12ThroughputRps": 460,
+      "maxC1CpuMsPerRequest": 2.75,
+      "maxC12CpuMsPerRequest": 2.5,
+      "maxHostAttributableCooldownPssKiB": 65536
+    },
+    "Ruby / Rack": {
+      "maxC1P95Ms": 106.5,
+      "maxC12P95Ms": 111,
+      "minC1ThroughputRps": 10,
+      "minC12ThroughputRps": 110,
+      "maxC1CpuMsPerRequest": 3.5,
+      "maxC12CpuMsPerRequest": 3.25,
+      "maxHostAttributableCooldownPssKiB": 65536
+    },
+    "Rust / Actix": {
+      "maxC1P95Ms": 2.0,
+      "maxC12P95Ms": 18,
+      "minC1ThroughputRps": 690,
+      "minC12ThroughputRps": 1170,
+      "maxC1CpuMsPerRequest": 0.75,
+      "maxC12CpuMsPerRequest": 0.75,
+      "maxHostAttributableCooldownPssKiB": 65536
+    },
+    "Rust / Axum": {
+      "maxC1P95Ms": 2.0,
+      "maxC12P95Ms": 18,
+      "minC1ThroughputRps": 670,
+      "minC12ThroughputRps": 1150,
+      "maxC1CpuMsPerRequest": 1.0,
+      "maxC12CpuMsPerRequest": 1.0,
+      "maxHostAttributableCooldownPssKiB": 65536
+    }
+  }
+}
