@@ -15,7 +15,7 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.8.3` | `java/v0.8.3` | Jakarta REST/JAX-RS transport over `flexdoc-jvm` |
 | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.8.3` | `java/v0.8.3` | Spring Boot 3 transport over `flexdoc-jvm` |
 | `prauga-flexdoc` (PyPI) | `0.7.3` | `python/v0.7.3` | ASGI/WSGI adapter + embedded renderer |
-| `prauga/flexdoc` | `0.4.5` | `php/v0.4.5` | PHP 8.2+; Composer/Packagist distribution mirrored to `Prauga/flexdoc-php` |
+| `prauga/flexdoc` | `0.4.5` | `Prauga/flexdoc-php` `v0.4.5` | PHP 8.2+; Composer/Packagist distribution mirrored to `Prauga/flexdoc-php` |
 | `prauga-flexdoc` (RubyGems) | `0.4.5` | `ruby/v0.4.5` | Ruby 3.2+ Rack/Rails host + embedded renderer |
 | `prauga-flexdoc-host-execution` | `0.1.0` | published by Rust adapter workflows | shared Rust native host-execution engine |
 | `prauga-flexdoc-axum` | `0.5.5` | `rust/v0.5.5` | Axum adapter + embedded renderer |
@@ -83,6 +83,8 @@ The distribution name is `prauga-flexdoc`; the import package is `prauga_flexdoc
 ## Composer / Packagist
 
 The Composer package is `prauga/flexdoc`. Its canonical source remains under `adapters/php` in `Prauga/flexdoc`; [`Prauga/flexdoc-php`](https://github.com/Prauga/flexdoc-php) is the standalone distribution repository intended for Composer/Packagist consumption and is synchronized from the monorepo.
+
+PHP does not use a `php/v<version>` release in the monorepo. After the sync workflow copies `adapters/php` to `Prauga/flexdoc-php`, the standalone distribution repository publishes `v<version>` (for the 3.3 release, `v0.4.5`).
 
 The distribution repository owns its standalone Composer validation/CI surface. Product development continues in `Prauga/flexdoc`, so fixes should be made in the monorepo first and then mirrored to `Prauga/flexdoc-php` rather than edited independently in the distribution copy.
 
