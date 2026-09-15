@@ -341,8 +341,10 @@ export const ApiClient: React.FC<ApiClientProps> = ({
       ? messages?.hostBrowserUnsupported || 'The browser cannot send this request. FlexDoc will execute it from the API host.'
       : hostExecution?.available
         ? `The API host does not support the required capability${missingHostCapabilities.length === 1 ? '' : 'ies'}: ${missingHostCapabilities.join(', ')}.`
-        : messages?.hostExecutionDisabled || 'Host execution is disabled on this documentation server.'
-    : null;
+        : messages?.hostExecutionDisabled || 'API-host execution is unavailable on this documentation server.'
+    : hostExecution?.available && hostCapabilities.size === 0
+      ? 'This request runs from your API server.'
+      : null;
   const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && hostCapabilities.has(capability);
 
   const execute = async () => {

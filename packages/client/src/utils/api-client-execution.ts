@@ -121,7 +121,7 @@ function curlCommandForTransport(url: string, init: RequestInit): string | undef
 }
 
 function hostUnavailableMessage(missing: string[], hostExecution: FlexDocHostExecutionPublicOptions | undefined): string {
-  if (!hostExecution?.available) return 'Host execution is disabled on this documentation server.';
+  if (!hostExecution?.available) return 'API-host execution is unavailable on this documentation server.';
   return `The API host does not support the required capability${missing.length === 1 ? '' : 'ies'}: ${missing.join(', ')}.`;
 }
 

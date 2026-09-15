@@ -95,6 +95,18 @@ test('offers a custom server even when the OpenAPI document has no configured se
   expect(onOpenInApiClient.mock.calls[0][0].serverUrl).toBe('https://spot-canary.example.test');
 });
 
+test('shows positive Try It copy for an available API host with no advanced capabilities', () => {
+  render(<RequestPlayground
+    spec={spec}
+    path='/pets'
+    method='get'
+    theme='light'
+    options={{ tryIt: { enabled: true, hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] } } }}
+  />);
+
+  expect(screen.getByRole('status')).toHaveTextContent('This request runs from your API server.');
+  expect(screen.queryByText(/Host execution is disabled/i)).not.toBeInTheDocument();
+});
 
 test('blocks host-only Try It requests before Send when host execution is unavailable', () => {
   const cookieSpec = JSON.parse(JSON.stringify(spec)) as OpenAPISpec;
@@ -104,6 +116,6 @@ test('blocks host-only Try It requests before Send when host execution is unavai
   render(<RequestPlayground spec={cookieSpec} path='/pets' method='get' theme='light' />);
 
   expect(screen.getByLabelText('cookie session')).toHaveValue('session-42');
-  expect(screen.getByRole('alert')).toHaveTextContent('Host execution is disabled on this documentation server.');
+  expect(screen.getByRole('alert')).toHaveTextContent('API-host execution is unavailable on this documentation server.');
   expect(screen.getByRole('button', { name: 'Send request' })).toBeDisabled();
 });
