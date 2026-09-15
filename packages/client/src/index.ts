@@ -7,7 +7,7 @@
  */
 import './styles.css';
 
-export { FlexDoc } from './components/BrandedFlexDoc';
+export { FlexDoc } from './components/FlexDoc';
 export { ApiClient } from './components/ApiClient';
 export type { ApiClientExecutionResult, ApiClientProps } from './components/ApiClient';
 export { ApiClientCodeEditor } from './components/ApiClientCodeEditor';
@@ -22,8 +22,6 @@ export { App as ApiDocsDemo } from './App';
 export type { AppProps } from './App';
 export type { OpenAPISpec } from './types/openapi';
 export type { FlexDocProps } from './components/FlexDoc';
-export { FLEXDOC_BUILD_INFO } from './build-info';
-export type { FlexDocBuildInfo } from './build-info';
 export type {
   ExpandOption,
   ExpandPreset,
