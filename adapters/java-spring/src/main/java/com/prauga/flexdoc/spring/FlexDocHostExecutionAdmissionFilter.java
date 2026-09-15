@@ -60,7 +60,7 @@ public final class FlexDocHostExecutionAdmissionFilter extends OncePerRequestFil
       HttpServletResponse response,
       FilterChain filterChain) throws ServletException, IOException {
     if (!permits.tryAcquire()) {
-      response.setStatus(HttpServletResponse.SC_TOO_MANY_REQUESTS);
+      response.setStatus(429);
       response.setHeader("Retry-After", Integer.toString(retryAfterSeconds));
       response.setHeader("Cache-Control", "no-store");
       response.setContentType("application/json");
