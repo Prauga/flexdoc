@@ -36,10 +36,10 @@ for (const [name, version] of Object.entries({dotnetVersion, pythonVersion, phpV
 }
 
 // Native ecosystem examples remain pinned to their latest published adapter versions.
-// The 3.3 release examples intentionally track the npm backend release candidate so
+// The 3.3 release examples intentionally track the npm client/backend release candidate so
 // package manifests, lock metadata, docs, and GitHub release identity agree before publish.
 const published = {
-  client: '3.1.0',
+  client: clientVersion,
   backend: backendVersion,
   dotnet: '0.5.1',
   java: '0.8.1',

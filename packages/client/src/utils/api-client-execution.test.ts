@@ -206,7 +206,7 @@ console.log('checked');
       fetcher: async () => { fetchCalls += 1; return mockResponse('unexpected'); },
     });
     expect(fetchCalls).toBe(0);
-    expect(outcome.error).toBe('Host execution is disabled on this documentation server.');
+    expect(outcome.error).toBe('API-host execution is unavailable on this documentation server.');
     expect(outcome.result?.error).toBe(outcome.error);
   });
 
