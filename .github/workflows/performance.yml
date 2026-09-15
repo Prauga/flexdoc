@@ -2,7 +2,7 @@ name: Performance Baseline
 
 on:
   pull_request:
-    branches: [main, 3.3]
+    branches: [main, 3.3, 3.3.x]
     paths-ignore:
       - '**/*.md'
   push:
