@@ -16,6 +16,7 @@ defmodule PraugaFlexDoc.Config do
     * `:try_it_credentials` - optional fetch credentials mode: `"omit"`, `"same-origin"`, or `"include"`
     * `:try_it_api_client_persistence_key` - optional persistence key, or `false` to disable
     * `:try_it_host_execution` - exposes host execution when a real native executor is configured
+    * `:host_execution_protected` - explicit acknowledgement that application auth/middleware protects the docs/execute surface
     * `:host_execution` - optional `PraugaFlexDoc.HostExecution` instance
   """
 
@@ -31,6 +32,7 @@ defmodule PraugaFlexDoc.Config do
           try_it_credentials: String.t() | nil,
           try_it_api_client_persistence_key: String.t() | false | nil,
           try_it_host_execution: boolean(),
+          host_execution_protected: boolean(),
           host_execution: PraugaFlexDoc.HostExecution.t() | nil
         }
 
@@ -44,6 +46,7 @@ defmodule PraugaFlexDoc.Config do
             try_it_credentials: nil,
             try_it_api_client_persistence_key: nil,
             try_it_host_execution: false,
+            host_execution_protected: false,
             host_execution: nil
 
   @doc """
@@ -70,6 +73,11 @@ defmodule PraugaFlexDoc.Config do
 
     unless is_nil(config.host_execution) or match?(%PraugaFlexDoc.HostExecution{}, config.host_execution) do
       raise ArgumentError, "FlexDoc host_execution must be a PraugaFlexDoc.HostExecution or nil"
+    end
+
+    if config.try_it_host_execution == true and match?(%PraugaFlexDoc.HostExecution{}, config.host_execution) and config.host_execution_protected != true do
+      raise ArgumentError,
+            "FlexDoc Plug host execution requires host_execution_protected: true after configuring application auth/middleware; the origin allowlist is not authentication."
     end
 
     %{config | path: path, theme: theme}
