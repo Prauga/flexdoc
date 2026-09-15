@@ -1,10 +1,12 @@
 import { createRoot, Root } from 'react-dom/client';
-import { FlexDoc } from './components/FlexDoc';
+import { FlexDoc } from './components/BrandedFlexDoc';
 import { ApiClientWorkspace } from './components/ApiClientWorkspace';
 import type { ApiClientWorkspaceProps } from './components/ApiClientWorkspace';
 import { OpenAPISpec } from './types/openapi';
 import { FlexDocRendererOptions } from './types/options';
 import { bundleExternalReferences, DocumentLoader } from './utils/openapi-resolver';
+import { FLEXDOC_BUILD_INFO } from './build-info';
+import { FLEXDOC_MARK_URL } from './branding';
 import './styles.css';
 
 /** Renderer options accepted by the standalone browser mount API. */
@@ -75,8 +77,19 @@ function resolveTheme(options: StandaloneFlexDocOptions): 'light' | 'dark' {
   return 'light';
 }
 
+function ensureFavicon(options: StandaloneFlexDocOptions): void {
+  if (typeof document === 'undefined') return;
+  const existing = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+  if (existing && !options.favicon) return;
+  const link = existing || document.createElement('link');
+  link.rel = 'icon';
+  link.href = options.favicon || FLEXDOC_MARK_URL;
+  if (!existing) document.head.appendChild(link);
+}
+
 function renderFlexDoc(element: Element, source: OpenAPISpec, options: StandaloneFlexDocOptions): () => void {
   const spec = prepareSpec(source, options);
+  ensureFavicon(options);
   const existingRoot = roots.get(element);
   if (existingRoot) existingRoot.unmount();
   const root = createRoot(element);
@@ -134,6 +147,7 @@ declare global {
       /** Mount the full API Client workspace. */ mountApiClient: typeof mountApiClient;
       /** Clone and apply renderer metadata/tag-group options to a spec. */ prepareSpec: typeof prepareSpec;
       /** Renderer-host compatibility contract version. */ contractVersion: typeof FLEXDOC_CONTRACT_VERSION;
+      /** Renderer package/source identity for diagnostics. */ buildInfo: typeof FLEXDOC_BUILD_INFO;
     };
   }
 }
@@ -144,4 +158,5 @@ if (typeof window !== 'undefined') window.FlexDocStandalone = {
   mountApiClient,
   prepareSpec,
   contractVersion: FLEXDOC_CONTRACT_VERSION,
+  buildInfo: FLEXDOC_BUILD_INFO,
 };
