@@ -3,8 +3,8 @@ import { ExternalLink, Play, Loader2, AlertCircle } from 'lucide-react';
 import { OpenAPISpec, Operation } from '../types/openapi';
 import { FlexDocRendererOptions } from '../types/options';
 import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
-import { executeApiClientRequest } from '../utils/api-client-execution';
-import { httpHostExecutionRequirements, requestDraftFromBuiltRequest } from '../utils/http-client';
+import { executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
+import { requestDraftFromBuiltRequest } from '../utils/http-client';
 import type { RequestValues } from '../utils/request-builder';
 import { createOpenApiApiClientSession } from '../utils/openapi-api-client-session';
 import type { OpenApiApiClientSession } from '../utils/openapi-api-client-session';
@@ -66,7 +66,7 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
   const selectedServerRef = useRef(configuredDefault);
   const customServerInputRef = useRef<HTMLInputElement>(null);
   const onRequestChangeRef = useRef(onRequestChange);
-  const [response, setResponse] = useState<{ status: number; statusText: string; headers: Array<[string, string]>; body: string; responseTime: number } | null>(null);
+  const [response, setResponse] = useState<{ status: number; statusText: string; headers: Array<[string, string]>; body: string; responseTime: number; transport?: 'browser' | 'api-host' } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const parameters = useMemo(() => parametersFor(spec, path, method), [spec, path, method]);
@@ -75,22 +75,23 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
     try { return requestDraftFromBuiltRequest(buildRequest(spec, path, method, values)); }
     catch { return null; }
   }, [spec, path, method, values]);
-  const hostRequirements = (() => {
-    const required = new Set(currentDraft ? httpHostExecutionRequirements(currentDraft) : []);
-    if (Object.values(values.cookies || {}).some((value) => value !== undefined && value !== null && String(value) !== '')) required.add('cookies');
-    return [...required];
-  })();
-  const hostCapabilities = new Set(options?.tryIt?.hostExecution?.capabilities || []);
-  const missingHostCapabilities = hostRequirements.filter((capability) => !hostCapabilities.has(capability));
-  const hostRequired = hostRequirements.length > 0;
-  const hostAvailable = options?.tryIt?.hostExecution?.available === true && missingHostCapabilities.length === 0;
+  const cookieRequiresHost = Object.values(values.cookies || {}).some((value) => value !== undefined && value !== null && String(value) !== '');
+  const transport = resolveApiClientTransport({
+    request: currentDraft || { method, url: '' },
+    hostExecution: options?.tryIt?.hostExecution,
+    additionalRequirements: cookieRequiresHost ? ['cookies'] : [],
+  });
+  const missingHostCapabilities = transport.missingCapabilities;
+  const hostRequired = transport.mode === 'host-required';
+  const hostAvailable = transport.hostAvailable;
+  const transportLabel = transport.mode === 'host-required' ? 'Host required' : transport.mode === 'api-host' ? 'API host' : 'Browser';
   const hostNotice = hostRequired
     ? hostAvailable
       ? 'The browser cannot send this request. FlexDoc will execute it from the API host.'
       : options?.tryIt?.hostExecution?.available
         ? `The API host does not support the required capability${missingHostCapabilities.length === 1 ? '' : 'ies'}: ${missingHostCapabilities.join(', ')}.`
         : 'API-host execution is unavailable on this documentation server.'
-    : options?.tryIt?.hostExecution?.available && hostCapabilities.size === 0
+    : transport.mode === 'api-host'
       ? 'This request runs from your API server.'
       : null;
 
@@ -129,6 +130,7 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
         headers: outcome.response.headers.map(([key, value]) => [key, value]),
         body: outcome.response.body,
         responseTime: outcome.response.responseTime,
+        transport: outcome.response.transport,
       });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Request failed');
@@ -193,11 +195,12 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
         <label className={labelClass}>Request body<textarea aria-label='Request body' rows={8} className={`mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} value={values.body || ''} onChange={(e) => commitValues({ ...valuesRef.current, body: e.target.value })} /></label>
       </>}
 
+      <div className='text-xs'><span aria-label='Request transport' className='rounded border px-2 py-1'>{transportLabel}</span></div>
       {hostNotice && <div role={hostAvailable ? 'status' : 'alert'} className={`rounded-md border p-3 text-sm ${hostAvailable ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-amber-300 bg-amber-50 text-amber-800'}`}>{hostNotice}</div>}
 
       <div className='flex flex-wrap gap-2'>
         <button onClick={execute} disabled={loading || (hostRequired && !hostAvailable)} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60'>
-          {loading ? <Loader2 className='h-4 w-4 animate-spin' /> : <Play className='h-4 w-4' />} {loading ? 'Sending…' : hostRequired && hostAvailable ? 'Send via API host' : 'Send request'}
+          {loading ? <Loader2 className='h-4 w-4 animate-spin' /> : <Play className='h-4 w-4' />} {loading ? 'Sending…' : transport.mode !== 'browser' && hostAvailable ? 'Send via API host' : 'Send request'}
         </button>
         {onOpenInApiClient && <button type='button' onClick={openInApiClient} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md border px-4 py-2 font-medium'>
           <ExternalLink className='h-4 w-4' /> Open in API Client

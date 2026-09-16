@@ -198,7 +198,7 @@ function isHttpRequestDraft(value: unknown): value is HttpRequestDraft {
   if (value.formData !== undefined && (!Array.isArray(value.formData) || !value.formData.every(isHttpFormDataEntry))) return false;
   if (value.binary !== undefined && !isHttpBinaryBody(value.binary)) return false;
   if (value.graphql !== undefined && (!isRecord(value.graphql) || !hasString(value.graphql, 'query') || !hasString(value.graphql, 'variables'))) return false;
-  if (value.hostExecution !== undefined && (!isRecord(value.hostExecution) || (value.hostExecution.certificateId !== undefined && typeof value.hostExecution.certificateId !== 'string') || (value.hostExecution.cookieJar !== undefined && value.hostExecution.cookieJar !== 'session'))) return false;
+  if (value.hostExecution !== undefined && (!isRecord(value.hostExecution) || (value.hostExecution.certificateId !== undefined && typeof value.hostExecution.certificateId !== 'string') || (value.hostExecution.cookieJar !== undefined && value.hostExecution.cookieJar !== 'session') || (value.hostExecution.preferHostExecution !== undefined && typeof value.hostExecution.preferHostExecution !== 'boolean'))) return false;
   return value.auth === undefined || isHttpAuth(value.auth);
 }
 
