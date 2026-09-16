@@ -4,6 +4,7 @@ import { OpenAPISpec, Operation } from '../types/openapi';
 import { FlexDocRendererOptions } from '../types/options';
 import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
 import { executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
+import type { ApiClientExecutionResponse } from '../utils/api-client-execution';
 import { requestDraftFromBuiltRequest } from '../utils/http-client';
 import type { RequestValues } from '../utils/request-builder';
 import { createOpenApiApiClientSession } from '../utils/openapi-api-client-session';
@@ -66,7 +67,7 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
   const selectedServerRef = useRef(configuredDefault);
   const customServerInputRef = useRef<HTMLInputElement>(null);
   const onRequestChangeRef = useRef(onRequestChange);
-  const [response, setResponse] = useState<{ status: number; statusText: string; headers: Array<[string, string]>; body: string; responseTime: number; transport?: 'browser' | 'api-host' } | null>(null);
+  const [response, setResponse] = useState<ApiClientExecutionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const parameters = useMemo(() => parametersFor(spec, path, method), [spec, path, method]);
@@ -75,7 +76,7 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
     try { return requestDraftFromBuiltRequest(buildRequest(spec, path, method, values)); }
     catch { return null; }
   }, [spec, path, method, values]);
-  const cookieRequiresHost = Object.values(values.cookies || {}).some((value) => value !== undefined && value !== null && String(value) !== '');
+  const cookieRequiresHost = Object.values(values.cookies || {}).some(Boolean);
   const transport = resolveApiClientTransport({
     request: currentDraft || { method, url: '' },
     hostExecution: options?.tryIt?.hostExecution,
@@ -124,14 +125,7 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
         hostExecution: options?.tryIt?.hostExecution,
       });
       if (outcome.error) setError(outcome.error);
-      if (outcome.response) setResponse({
-        status: outcome.response.status,
-        statusText: outcome.response.statusText,
-        headers: outcome.response.headers.map(([key, value]) => [key, value]),
-        body: outcome.response.body,
-        responseTime: outcome.response.responseTime,
-        transport: outcome.response.transport,
-      });
+      if (outcome.response) setResponse(outcome.response);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Request failed');
     } finally { setLoading(false); }

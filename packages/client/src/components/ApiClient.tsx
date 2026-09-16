@@ -9,7 +9,7 @@ import { executeApiClientRequest, resolveApiClientTransport } from '../utils/api
 import { buildHttpRequest, inferHttpBodyMode } from '../utils/http-client';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import { replaceRequestServer, requestUsesServer, resolveServerUrl } from '../utils/server-url';
-import type { ApiClientExecutionResult } from '../utils/api-client-execution';
+import type { ApiClientExecutionResponse, ApiClientExecutionResult } from '../utils/api-client-execution';
 import type { HttpAuth, HttpHostExecutionCapability, HttpKeyValue, HttpRequestDraft, HttpVariables } from '../utils/http-client';
 import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from '../utils/api-client-scripting';
 import type { BuiltRequest } from '../utils/request-builder';
@@ -202,7 +202,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   const [customServerUrl, setCustomServerUrl] = useState(initialCustomServer);
   const serverUrlRef = useRef(initialEffectiveServer);
   const originalServerUrlRef = useRef(initialEffectiveServer);
-  const [response, setResponse] = useState<{ status: number; statusText: string; headers: Array<[string, string]>; body: string; responseTime: number; transport?: 'browser' | 'api-host' } | null>(null);
+  const [response, setResponse] = useState<ApiClientExecutionResponse | null>(null);
   const [curlCommand, setCurlCommand] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [scriptError, setScriptError] = useState<string | null>(null);
@@ -327,7 +327,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
 
   const resolvedAuth = resolveAuth ? resolveAuth(draft.auth) : draft.auth;
   const transport = resolveApiClientTransport({ request: { ...draft, auth: resolvedAuth }, hostExecution });
-  const hostCapabilities = new Set(hostExecution?.capabilities || []);
+  const hostCapabilities = hostExecution?.capabilities || [];
   const missingHostCapabilities = transport.missingCapabilities;
   const bodyNeedsHostTransport = transport.bodyNeedsHostTransport;
   const hostRequired = transport.mode === 'host-required';
@@ -346,7 +346,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
     : transport.mode === 'api-host'
       ? 'This request runs from your API server.'
       : null;
-  const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && hostCapabilities.has(capability);
+  const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && hostCapabilities.includes(capability);
   const setTransportPreference = (value: string) => setDraft((current) => ({
     ...current,
     hostExecution: { ...(current.hostExecution || {}), preferHostExecution: value === 'inherit' ? undefined : value === 'host' },
@@ -386,17 +386,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
       setScriptError(outcome.scriptError || null);
       setScriptTests(outcome.scriptTests);
       setScriptLogs(outcome.scriptLogs);
-      if (outcome.response) {
-        setCurlCommand(outcome.curlCommand);
-        setResponse({
-          status: outcome.response.status,
-          statusText: outcome.response.statusText,
-          headers: outcome.response.headers.map(([key, value]) => [key, value]),
-          body: outcome.response.body,
-          responseTime: outcome.response.responseTime,
-          transport: outcome.response.transport,
-        });
-      }
+      if (outcome.response) { setCurlCommand(outcome.curlCommand); setResponse(outcome.response); }
       if (outcome.result) onExecutionComplete?.(outcome.result);
     } finally {
       if (abortControllerRef.current === controller) abortControllerRef.current = null;
