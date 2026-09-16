@@ -15,63 +15,36 @@ jobs:
     steps:
       - name: Checkout branch
         uses: actions/checkout@v6
-
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '22.22.3'
           cache: npm
-
       - name: Install dependencies
         run: npm ci
-
-      - name: Measure transport UX base
-        run: |
-          git fetch --no-tags --depth=1 origin feat/3.3.1-transport-ux
-          git checkout --detach FETCH_HEAD
-          npm run build:client
-          node - <<'NODE'
-          const fs = require('fs');
-          const zlib = require('zlib');
-          const file = fs.readFileSync('packages/client/dist/standalone/flexdoc.standalone.js');
-          console.log(`FLEXDOC_BASE_RAW_BYTES=${file.length}`);
-          console.log(`FLEXDOC_BASE_GZIP_BYTES=${zlib.gzipSync(file, { level: 9 }).length}`);
-          console.log(`FLEXDOC_BASE_BROTLI_BYTES=${zlib.brotliCompressSync(file, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } }).length}`);
-          NODE
-          git checkout feat/3.3.x-history-privacy
-
-      - name: Apply transport persistence simplification
-        run: node scripts/obs01-trim.mjs
-
-      - name: Validate privacy source changes
+      - name: Validate privacy source
         run: |
           npm run lint
           npm test -w packages/client -- --runInBand
-
       - name: Build canonical renderer
         run: npm run build:client
-
       - name: Report standalone bundle sizes
         run: |
           node - <<'NODE'
           const fs = require('fs');
           const zlib = require('zlib');
           const file = fs.readFileSync('packages/client/dist/standalone/flexdoc.standalone.js');
-          const gzip = zlib.gzipSync(file, { level: 9 });
-          const brotli = zlib.brotliCompressSync(file, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } });
           console.log(`FLEXDOC_BUNDLE_RAW_BYTES=${file.length}`);
-          console.log(`FLEXDOC_BUNDLE_GZIP_BYTES=${gzip.length}`);
-          console.log(`FLEXDOC_BUNDLE_BROTLI_BYTES=${brotli.length}`);
+          console.log(`FLEXDOC_BUNDLE_GZIP_BYTES=${zlib.gzipSync(file, { level: 9 }).length}`);
+          console.log(`FLEXDOC_BUNDLE_BROTLI_BYTES=${zlib.brotliCompressSync(file, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } }).length}`);
           NODE
-
       - name: Synchronize adapter renderer assets
         run: npm run sync:adapter-assets
-
-      - name: Commit validated source and generated assets
+      - name: Commit generated assets
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add packages/client/src \
+          git add \
             adapters/elixir/assets/flexdoc.standalone.js \
             adapters/go/assets/flexdoc.standalone.js \
             adapters/php/assets/flexdoc.standalone.js \
@@ -79,6 +52,7 @@ jobs:
             adapters/ruby/assets/flexdoc.standalone.js \
             adapters/rust-actix/assets/flexdoc.standalone.js \
             adapters/rust/assets/flexdoc.standalone.js
+          if git diff --cached --quiet; then exit 0; fi
           git diff --cached --check
-          git commit -m 'fix: api-client/privacy: persist transport with history' -m 'Store the safe browser/API-host classification on bounded history entries so privacy behavior survives reload without a duplicate localStorage transport map.'
+          git commit -m 'chore: renderer/assets: synchronize compact privacy build' -m 'Regenerate committed adapter renderer copies after reducing OBS-01 sanitizer overhead.'
           git push origin HEAD:feat/3.3.x-history-privacy
