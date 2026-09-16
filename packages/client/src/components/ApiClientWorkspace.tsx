@@ -169,8 +169,10 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
     if (persistenceKey === false) return;
     const preferences = readApiClientUiPreferences(persistenceKey);
     historyTransportByIdRef.current = new Map(Object.entries(preferences.historyTransports || {}) as Array<[string, ApiClientTransport]>);
-    setPersistHostHistoryBodies(preferences.persistHostHistoryBodies ?? true);
     let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setPersistHostHistoryBodies(preferences.persistHostHistoryBodies ?? true);
+    });
     loadApiClientWorkspace(persistenceKey)
       .then((next) => {
         if (cancelled) return;
