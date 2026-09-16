@@ -67,6 +67,11 @@ edit('packages/client/src/components/ApiClientHistoryPage.tsx', (source) => {
     'history page duplicate helpers');
   source = source.replaceAll('hasFailure(', 'apiClientHistoryHasFailure(');
   source = source.replaceAll('displayTime(', 'apiClientHistoryDisplayTime(');
+  source = once(source,
+    "  const codeClass = theme === 'dark' ? 'border-gray-700 bg-gray-950 text-gray-100' : 'border-gray-200 bg-white text-gray-900';",
+    "  const codeClass = theme === 'dark' ? 'border-gray-700 bg-gray-950 text-gray-100' : 'border-gray-200 bg-white text-gray-900';\n  const headingClass = 'text-xs font-semibold uppercase tracking-wide';",
+    'history heading class');
+  source = source.replaceAll("className='text-xs font-semibold uppercase tracking-wide'", 'className={headingClass}');
   return source;
 });
 
@@ -185,6 +190,18 @@ edit('packages/client/src/components/FlexDoc.test.tsx', (source) => {
     "import { createFlexDocViewerPreferencesKey, writeFlexDocViewerPreference } from '../utils/renderer-preferences';",
     'FlexDoc test preference import');
   source = source.replaceAll("writeFlexDocViewerThemePreference(preferenceKey, 'dark')", "writeFlexDocViewerPreference(preferenceKey, 'theme', 'dark')");
+  return source;
+});
+
+edit('packages/client/src/components/ApiClient.tsx', (source) => {
+  source = once(source,
+    "  const inputClass = theme === 'dark' ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900';",
+    "  const inputClass = theme === 'dark' ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900';\n  const fieldClass = `rounded-md border px-3 py-2 ${inputClass}`;\n  const fullFieldClass = `w-full ${fieldClass}`;\n  const smallFieldClass = `${fieldClass} text-sm`;",
+    'API Client shared field classes');
+  source = source.replaceAll('className={`rounded-md border px-3 py-2 ${inputClass}`}', 'className={fieldClass}');
+  source = source.replaceAll('className={`w-full rounded-md border px-3 py-2 ${inputClass}`}', 'className={fullFieldClass}');
+  source = source.replaceAll('className={`rounded-md border px-3 py-2 text-sm ${inputClass}`}', 'className={smallFieldClass}');
+  source = source.replaceAll('fieldClass={`w-full rounded-md border px-3 py-2 text-sm ${inputClass}`}', 'fieldClass={`${fullFieldClass} text-sm`}');
   return source;
 });
 
