@@ -11,8 +11,8 @@ interface Props {
   onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
   onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts, collectionId?: string, folderId?: string) => void;
   onViewAll?: () => void;
-  persistHostHistoryBodies: boolean;
-  onPersistHostHistoryBodiesChange: (value: boolean) => void;
+  historyBodies: boolean;
+  onHistoryBodiesChange: (value: boolean) => void;
   theme: 'light' | 'dark';
 }
 
@@ -21,7 +21,7 @@ function displayTime(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
-export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange, onLoadRequest, onViewAll, persistHostHistoryBodies, onPersistHostHistoryBodiesChange, theme }) => {
+export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange, onLoadRequest, onViewAll, historyBodies, onHistoryBodiesChange, theme }) => {
   const mutedClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
 
   const loadHistory = (id: string) => {
@@ -51,12 +51,9 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
       {workspace.history.length > 0 && onViewAll && <button type='button' className={`text-xs underline underline-offset-2 ${mutedClass}`} onClick={onViewAll}>View all</button>}
     </div>
 
-    <label className='flex items-start gap-2 rounded-md border px-2 py-2 text-xs'>
-      <input type='checkbox' className='mt-0.5' checked={persistHostHistoryBodies} onChange={(event) => onPersistHostHistoryBodiesChange(event.target.checked)} />
-      <span>
-        <span className='block font-medium'>Store API-host bodies in history</span>
-        <span className={`block ${mutedClass}`}>Turn off for metadata-only persisted host history. Sensitive headers are always redacted.</span>
-      </span>
+    <label className='flex items-center gap-2 rounded-md border p-2 text-xs' title='Sensitive history headers are always redacted.'>
+      <input type='checkbox' checked={historyBodies} onChange={(event) => onHistoryBodiesChange(event.target.checked)} />
+      <span>Store API-host bodies</span>
     </label>
 
     <div className='space-y-1'>

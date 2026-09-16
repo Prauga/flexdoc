@@ -4,12 +4,6 @@ import type { HttpKeyValue, HttpRequestDraft } from './http-client';
 const REDACTED_HISTORY_VALUE = '[REDACTED]';
 const SENSITIVE_HISTORY_HEADER = /authorization|cookie|(?:api|functions)[-_]?key|(?:auth|access|security)[-_]?token/i;
 
-/** Privacy controls applied only to the workspace copy written to IndexedDB. */
-export interface ApiClientHistoryPersistencePrivacyOptions {
-  /** Keep API-host request/response bodies in IndexedDB. Defaults to true. */
-  persistHostHistoryBodies?: boolean;
-}
-
 /** Return whether a header value should never be written verbatim to request history. */
 export function isSensitiveApiClientHistoryHeader(name: string): boolean {
   return SENSITIVE_HISTORY_HEADER.test(name);
@@ -47,13 +41,12 @@ function persistedRequest(request: HttpRequestDraft, omitBody: boolean): HttpReq
  */
 export function createApiClientWorkspacePersistenceSnapshot(
   workspace: ApiClientWorkspaceState,
-  options: ApiClientHistoryPersistencePrivacyOptions = {},
+  historyBodies = true,
 ): ApiClientWorkspaceState {
-  const persistHostBodies = options.persistHostHistoryBodies !== false;
   return {
     ...workspace,
     history: workspace.history.map((entry) => {
-      const omitBody = !persistHostBodies && entry.transport !== 'browser';
+      const omitBody = !historyBodies && entry.transport !== 'browser';
       const bodyFree = {
         ...entry,
         request: persistedRequest(entry.request, omitBody),

@@ -159,7 +159,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   const [hydrated, setHydrated] = useState(persistenceKey === false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(initialUiPreferences.sidebarCollapsed ?? false);
   const [workspaceTheme, setWorkspaceTheme] = useState<'light' | 'dark'>(initialUiPreferences.theme || theme);
-  const [persistHostHistoryBodies, setPersistHostHistoryBodies] = useState(initialUiPreferences.persistHostHistoryBodies ?? true);
+  const [historyBodies, setHistoryBodies] = useState(initialUiPreferences.historyBodies ?? true);
   const activeTheme = manageTheme ? workspaceTheme : theme;
 
   useEffect(() => {
@@ -167,7 +167,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
     const preferences = readApiClientUiPreferences(persistenceKey);
     let cancelled = false;
     queueMicrotask(() => {
-      if (!cancelled) setPersistHostHistoryBodies(preferences.persistHostHistoryBodies ?? true);
+      if (!cancelled) setHistoryBodies(preferences.historyBodies ?? true);
     });
     loadApiClientWorkspace(persistenceKey)
       .then((next) => {
@@ -185,9 +185,9 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
 
   useEffect(() => {
     if (!hydrated || persistenceKey === false) return;
-    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, { persistHostHistoryBodies });
+    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, historyBodies);
     void saveApiClientWorkspace(persistenceKey, snapshot).catch(() => undefined);
-  }, [hydrated, persistHostHistoryBodies, persistenceKey, workspace]);
+  }, [hydrated, historyBodies, persistenceKey, workspace]);
 
   const collectionVariables = useMemo(
     () => apiClientCollectionVariables(workspace, selectedCollectionId),
@@ -345,9 +345,9 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
     return next;
   });
 
-  const handlePersistHostHistoryBodiesChange = (value: boolean) => {
-    setPersistHostHistoryBodies(value);
-    if (persistenceKey !== false) writeApiClientUiPreferences(persistenceKey, { persistHostHistoryBodies: value });
+  const handleHistoryBodiesChange = (value: boolean) => {
+    setHistoryBodies(value);
+    if (persistenceKey !== false) writeApiClientUiPreferences(persistenceKey, { historyBodies: value });
   };
 
   const panelClass = activeTheme === 'dark' ? 'border-gray-700 bg-gray-900/40 text-gray-100' : 'border-gray-200 bg-white text-gray-900';
@@ -392,8 +392,8 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
           onWorkspaceChange={setWorkspace}
           onLoadRequest={loadSavedRequest}
           onViewAll={() => openHistory()}
-          persistHostHistoryBodies={persistHostHistoryBodies}
-          onPersistHostHistoryBodiesChange={handlePersistHostHistoryBodiesChange}
+          historyBodies={historyBodies}
+          onHistoryBodiesChange={handleHistoryBodiesChange}
           theme={activeTheme}
         />
       </div>

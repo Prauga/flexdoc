@@ -19,14 +19,14 @@ describe('api-client-ui-preferences', () => {
     writeApiClientUiPreferences('workspace-a', { requestTab: 'authorization' }, storage);
     writeApiClientUiPreferences('workspace-a', { scriptTab: 'tests' }, storage);
     writeApiClientUiPreferences('workspace-a', { theme: 'dark' }, storage);
-    writeApiClientUiPreferences('workspace-a', { persistHostHistoryBodies: false }, storage);
+    writeApiClientUiPreferences('workspace-a', { historyBodies: false }, storage);
     expect(readApiClientUiPreferences('workspace-a', storage)).toEqual({
       version: 1,
       sidebarCollapsed: true,
       requestTab: 'authorization',
       scriptTab: 'tests',
       theme: 'dark',
-      persistHostHistoryBodies: false,
+      historyBodies: false,
     });
     expect(readApiClientUiPreferences('workspace-b', storage)).toEqual({ version: 1 });
   });
