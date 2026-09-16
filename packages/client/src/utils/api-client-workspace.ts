@@ -172,8 +172,7 @@ function isHttpAuth(value: unknown): value is HttpAuth {
   if (value.type === 'bearer') return hasString(value, 'token');
   if (value.type === 'oauth2') {
     if (!hasString(value, 'accessToken')) return false;
-    const grantTypes = new Set(['accessToken', 'authorizationCode', 'clientCredentials', 'password', 'implicit']);
-    if (value.grantType !== undefined && (typeof value.grantType !== 'string' || !grantTypes.has(value.grantType))) return false;
+    if (value.grantType !== undefined && (typeof value.grantType !== 'string' || !['accessToken', 'authorizationCode', 'clientCredentials', 'password', 'implicit'].includes(value.grantType))) return false;
     if (value.clientAuthentication !== undefined && value.clientAuthentication !== 'body' && value.clientAuthentication !== 'basic') return false;
     for (const key of ['authorizationUrl', 'tokenUrl', 'clientId', 'clientSecret', 'redirectUri', 'username', 'password', 'refreshToken']) if (value[key] !== undefined && typeof value[key] !== 'string') return false;
     return value.scopes === undefined || (Array.isArray(value.scopes) && value.scopes.every((scope) => typeof scope === 'string'));
