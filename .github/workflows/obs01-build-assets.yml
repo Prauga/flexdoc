@@ -40,6 +40,14 @@ jobs:
           NODE
           git checkout feat/3.3.x-history-privacy
 
+      - name: Apply transport persistence simplification
+        run: node scripts/obs01-trim.mjs
+
+      - name: Validate privacy source changes
+        run: |
+          npm run lint
+          npm test -w packages/client -- --runInBand
+
       - name: Build canonical renderer
         run: npm run build:client
 
@@ -56,29 +64,14 @@ jobs:
           console.log(`FLEXDOC_BUNDLE_BROTLI_BYTES=${brotli.length}`);
           NODE
 
-      - name: Report largest standalone source modules
-        continue-on-error: true
-        run: |
-          npx --yes source-map-explorer packages/client/dist/standalone/flexdoc.standalone.js --json > /tmp/flexdoc-sizes.json
-          node - <<'NODE'
-          const report = require('/tmp/flexdoc-sizes.json');
-          const bundle = Object.values(report)[0] || {};
-          const files = bundle.files || {};
-          const rows = Object.entries(files)
-            .map(([name, value]) => [name, typeof value === 'number' ? value : value.size || 0])
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 30);
-          for (const [name, size] of rows) console.log(`${size}\t${name}`);
-          NODE
-
       - name: Synchronize adapter renderer assets
         run: npm run sync:adapter-assets
 
-      - name: Commit generated assets
+      - name: Commit validated source and generated assets
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
+          git add packages/client/src \
             adapters/elixir/assets/flexdoc.standalone.js \
             adapters/go/assets/flexdoc.standalone.js \
             adapters/php/assets/flexdoc.standalone.js \
@@ -86,9 +79,6 @@ jobs:
             adapters/ruby/assets/flexdoc.standalone.js \
             adapters/rust-actix/assets/flexdoc.standalone.js \
             adapters/rust/assets/flexdoc.standalone.js
-          if git diff --cached --quiet; then
-            echo 'Generated adapter assets are already synchronized.'
-            exit 0
-          fi
-          git commit -m 'chore: renderer/assets: synchronize history privacy build' -m 'Regenerate committed adapter renderer copies from the OBS-01 client source using the repository Node toolchain.'
+          git diff --cached --check
+          git commit -m 'fix: api-client/privacy: persist transport with history' -m 'Store the safe browser/API-host classification on bounded history entries so privacy behavior survives reload without a duplicate localStorage transport map.'
           git push origin HEAD:feat/3.3.x-history-privacy
