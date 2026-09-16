@@ -39,8 +39,9 @@ export interface ApiClientExecutionResult {
   /** HTTP method actually sent after scripts and variable resolution. */ executedMethod: string;
   /** Absolute URL actually sent after scripts, variables, and interceptors. */ resolvedUrl: string;
   /** HTTP status code when a response was received. */ status?: number;
-  /** HTTP status text when a response was received. */ statusText?: string;
+  /** HTTP response status text when available. */ statusText?: string;
   /** Measured request/response duration in milliseconds. */ responseTime?: number;
+  /** Actual transport used once a request attempt began. */ transport?: ApiClientTransport;
   /** Ordered response header entries. */ responseHeaders?: Array<[string, string]>;
   /** Response body text retained by the execution result. */ responseBody?: string;
   /** Transport/build error when execution failed. */ error?: string;
@@ -230,6 +231,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
   let resolvedUrl = '';
   let startedAt = 0;
   let requestAttempted = false;
+  let attemptedTransport: ApiClientTransport | undefined;
   let curlCommand: string | undefined;
 
   try {
@@ -288,6 +290,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
       const payload = await hostExecutionBody(executionDraft);
       startedAt = now();
       requestAttempted = true;
+      attemptedTransport = 'api-host';
       const hostResponse = await fetcher(options.hostExecution.endpoint, {
         method: 'POST',
         credentials: 'same-origin',
@@ -335,6 +338,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
       curlCommand = curlCommandForTransport(url, init);
       startedAt = now();
       requestAttempted = true;
+      attemptedTransport = 'browser';
       if (!fetcher) throw new Error('Fetch API is not available');
       const response = await fetcher(url, init);
       const body = await response.text();
@@ -374,6 +378,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
       status: apiResponse.status,
       statusText: apiResponse.statusText,
       responseTime: apiResponse.responseTime,
+      transport: apiResponse.transport,
       responseHeaders: apiResponse.headers.map(([key, value]) => [key, value]),
       responseBody: apiResponse.body,
       ...(scriptTests.length ? { scriptTests } : {}),
@@ -402,6 +407,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
       executedMethod,
       resolvedUrl,
       responseTime: startedAt ? now() - startedAt : undefined,
+      transport: attemptedTransport,
       error,
       ...(logs.length ? { scriptLogs: [...logs] } : {}),
     };
