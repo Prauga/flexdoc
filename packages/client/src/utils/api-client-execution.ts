@@ -154,7 +154,9 @@ export function resolveApiClientTransport(options: ResolveApiClientTransportOpti
   const bodyHost = ['GET', 'HEAD'].includes(method) && inferHttpBodyMode(options.request) !== 'none';
   const requestPreference = options.request.hostExecution?.preferHostExecution;
   const serverPreference = options.hostExecution?.preferHostExecution;
-  const preferHostExecution = options.preferHostExecution ?? requestPreference ?? serverPreference ?? true;
+  const preferHostExecution = serverPreference === false
+    ? false
+    : options.preferHostExecution ?? requestPreference ?? serverPreference ?? true;
   const capabilities = new Set(options.hostExecution?.capabilities || []);
   const missing = requirements.filter((requirement) => !capabilities.has(requirement));
   const hostRequired = requirements.length > 0 || bodyHost;
