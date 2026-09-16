@@ -1,5 +1,5 @@
 import { createApiClientWorkspacePersistenceSnapshot, isSensitiveApiClientHistoryHeader } from './api-client-history-privacy';
-import { addApiClientHistoryEntry, createDefaultApiClientWorkspace } from './api-client-workspace';
+import { addApiClientHistoryEntry, createDefaultApiClientWorkspace, normalizeApiClientWorkspace } from './api-client-workspace';
 
 function workspaceWithHistory(transport?: 'browser' | 'api-host') {
   return addApiClientHistoryEntry(createDefaultApiClientWorkspace(), {
@@ -38,6 +38,11 @@ describe('API Client history persistence privacy', () => {
     expect(isSensitiveApiClientHistoryHeader('X-Trace-Id')).toBe(false);
   });
 
+  it('persists the history-body privacy mode with workspace state', () => {
+    const workspace = normalizeApiClientWorkspace({ ...createDefaultApiClientWorkspace(), historyBodies: false });
+    expect(workspace.historyBodies).toBe(false);
+  });
+
   it('always redacts sensitive request and response headers before persistence', () => {
     const workspace = workspaceWithHistory();
     const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace);
@@ -55,7 +60,7 @@ describe('API Client history persistence privacy', () => {
 
   it('omits API-host request and response bodies without mutating live history', () => {
     const workspace = workspaceWithHistory('api-host');
-    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, false);
+    const snapshot = createApiClientWorkspacePersistenceSnapshot({ ...workspace, historyBodies: false });
     const persisted = snapshot.history[0];
     expect(persisted.request.body).toBeUndefined();
     expect(persisted.request.urlencoded).toBeUndefined();
@@ -69,14 +74,14 @@ describe('API Client history persistence privacy', () => {
 
   it('preserves positively identified browser bodies in privacy mode', () => {
     const workspace = workspaceWithHistory('browser');
-    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, false);
+    const snapshot = createApiClientWorkspacePersistenceSnapshot({ ...workspace, historyBodies: false });
     expect(snapshot.history[0].request.graphql?.query).toContain('Secret');
     expect(snapshot.history[0].responseBody).toContain('secret');
   });
 
   it('treats legacy entries with unknown transport as private when the mode is enabled', () => {
     const workspace = workspaceWithHistory();
-    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, false);
+    const snapshot = createApiClientWorkspacePersistenceSnapshot({ ...workspace, historyBodies: false });
     expect(snapshot.history[0].request.body).toBeUndefined();
     expect(snapshot.history[0].responseBody).toBeUndefined();
   });

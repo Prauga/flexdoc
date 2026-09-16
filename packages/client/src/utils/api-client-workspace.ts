@@ -116,6 +116,7 @@ export interface ApiClientWorkspaceState {
   /** Saved requests belonging to collections/folders. */ requests: ApiClientSavedRequest[];
   /** Named variable environments. */ environments: ApiClientEnvironment[];
   /** Currently active environment id, when one is selected. */ activeEnvironmentId?: string;
+  /** Whether API-host request/response bodies may be persisted in history. Defaults to true. */ historyBodies?: boolean;
   /** Most-recent-first execution history, capped by the workspace implementation. */ history: ApiClientHistoryEntry[];
 }
 
@@ -525,6 +526,7 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
     requests: requestValues,
     environments: environmentValues,
     activeEnvironmentId,
+    historyBodies: typeof value.historyBodies === 'boolean' ? value.historyBodies : undefined,
     history: historyValues,
   };
 }

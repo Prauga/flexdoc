@@ -159,16 +159,11 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   const [hydrated, setHydrated] = useState(persistenceKey === false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(initialUiPreferences.sidebarCollapsed ?? false);
   const [workspaceTheme, setWorkspaceTheme] = useState<'light' | 'dark'>(initialUiPreferences.theme || theme);
-  const [historyBodies, setHistoryBodies] = useState(initialUiPreferences.historyBodies ?? true);
   const activeTheme = manageTheme ? workspaceTheme : theme;
 
   useEffect(() => {
     if (persistenceKey === false) return;
-    const preferences = readApiClientUiPreferences(persistenceKey);
     let cancelled = false;
-    queueMicrotask(() => {
-      if (!cancelled) setHistoryBodies(preferences.historyBodies ?? true);
-    });
     loadApiClientWorkspace(persistenceKey)
       .then((next) => {
         if (cancelled) return;
@@ -185,9 +180,9 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
 
   useEffect(() => {
     if (!hydrated || persistenceKey === false) return;
-    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, historyBodies);
+    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace);
     void saveApiClientWorkspace(persistenceKey, snapshot).catch(() => undefined);
-  }, [hydrated, historyBodies, persistenceKey, workspace]);
+  }, [hydrated, persistenceKey, workspace]);
 
   const collectionVariables = useMemo(
     () => apiClientCollectionVariables(workspace, selectedCollectionId),
@@ -345,11 +340,6 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
     return next;
   });
 
-  const handleHistoryBodiesChange = (value: boolean) => {
-    setHistoryBodies(value);
-    if (persistenceKey !== false) writeApiClientUiPreferences(persistenceKey, { historyBodies: value });
-  };
-
   const panelClass = activeTheme === 'dark' ? 'border-gray-700 bg-gray-900/40 text-gray-100' : 'border-gray-200 bg-white text-gray-900';
   const inputClass = activeTheme === 'dark' ? 'border-gray-700 bg-gray-900 text-gray-100' : 'border-gray-300 bg-white text-gray-900';
 
@@ -392,8 +382,6 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
           onWorkspaceChange={setWorkspace}
           onLoadRequest={loadSavedRequest}
           onViewAll={() => openHistory()}
-          historyBodies={historyBodies}
-          onHistoryBodiesChange={handleHistoryBodiesChange}
           theme={activeTheme}
         />
       </div>

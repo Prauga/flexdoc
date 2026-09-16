@@ -39,14 +39,11 @@ function persistedRequest(request: HttpRequestDraft, omitBody: boolean): HttpReq
  * disabled, positively identified browser executions retain bodies while API-host and
  * legacy/unknown executions omit request and response payloads.
  */
-export function createApiClientWorkspacePersistenceSnapshot(
-  workspace: ApiClientWorkspaceState,
-  historyBodies = true,
-): ApiClientWorkspaceState {
+export function createApiClientWorkspacePersistenceSnapshot(workspace: ApiClientWorkspaceState): ApiClientWorkspaceState {
   return {
     ...workspace,
     history: workspace.history.map((entry) => {
-      const omitBody = !historyBodies && entry.transport !== 'browser';
+      const omitBody = workspace.historyBodies === false && entry.transport !== 'browser';
       const bodyFree = {
         ...entry,
         request: persistedRequest(entry.request, omitBody),

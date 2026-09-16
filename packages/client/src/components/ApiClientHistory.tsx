@@ -11,8 +11,6 @@ interface Props {
   onWorkspaceChange: React.Dispatch<React.SetStateAction<ApiClientWorkspaceState>>;
   onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts, collectionId?: string, folderId?: string) => void;
   onViewAll?: () => void;
-  historyBodies: boolean;
-  onHistoryBodiesChange: (value: boolean) => void;
   theme: 'light' | 'dark';
 }
 
@@ -21,7 +19,7 @@ function displayTime(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
-export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange, onLoadRequest, onViewAll, historyBodies, onHistoryBodiesChange, theme }) => {
+export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange, onLoadRequest, onViewAll, theme }) => {
   const mutedClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
 
   const loadHistory = (id: string) => {
@@ -52,7 +50,7 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
     </div>
 
     <label className='flex items-center gap-2 rounded-md border p-2 text-xs' title='Sensitive history headers are always redacted.'>
-      <input type='checkbox' checked={historyBodies} onChange={(event) => onHistoryBodiesChange(event.target.checked)} />
+      <input type='checkbox' checked={workspace.historyBodies !== false} onChange={(event) => onWorkspaceChange((current) => ({ ...current, historyBodies: event.target.checked }))} />
       <span>Store API-host bodies</span>
     </label>
 
