@@ -5,6 +5,7 @@ import type { ApiClientWorkspaceProps } from './components/ApiClientWorkspace';
 import { OpenAPISpec } from './types/openapi';
 import { FlexDocRendererOptions } from './types/options';
 import { bundleExternalReferences, DocumentLoader } from './utils/openapi-resolver';
+import { FLEXDOC_MARK_URL } from './branding';
 import './styles.css';
 
 /** Renderer options accepted by the standalone browser mount API. */
@@ -75,13 +76,25 @@ function resolveTheme(options: StandaloneFlexDocOptions): 'light' | 'dark' {
   return 'light';
 }
 
+function ensureFavicon(options: StandaloneFlexDocOptions): void {
+  if (typeof document === 'undefined') return;
+  const existing = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+  if (existing && !options.favicon) return;
+  const link = existing || document.createElement('link');
+  link.rel = 'icon';
+  link.href = options.favicon || FLEXDOC_MARK_URL;
+  if (!existing) document.head.appendChild(link);
+}
+
 function renderFlexDoc(element: Element, source: OpenAPISpec, options: StandaloneFlexDocOptions): () => void {
   const spec = prepareSpec(source, options);
+  const rendererOptions = options.logo ? options : { ...options, logo: FLEXDOC_MARK_URL };
+  ensureFavicon(options);
   const existingRoot = roots.get(element);
   if (existingRoot) existingRoot.unmount();
   const root = createRoot(element);
   roots.set(element, root);
-  root.render(<FlexDoc spec={spec} theme={resolveTheme(options)} options={options} />);
+  root.render(<FlexDoc spec={spec} theme={resolveTheme(options)} options={rendererOptions} />);
   return () => { if (roots.get(element) === root) roots.delete(element); root.unmount(); };
 }
 
