@@ -17,9 +17,6 @@ for (const path of [
   'packages/client/src/utils/api-client-execution.ts',
   'packages/client/src/components/ApiClient.tsx',
   'packages/client/src/components/RequestPlayground.tsx',
-  'packages/client/src/utils/api-client-execution.test.ts',
-  'packages/client/src/components/ApiClient.host-execution-copy.test.tsx',
-  'packages/client/src/components/RequestPlayground.test.tsx',
 ]) {
   edit(path, (source) => source
     .replaceAll('hostAvailable', 'available')
