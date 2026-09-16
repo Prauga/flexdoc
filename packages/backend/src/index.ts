@@ -57,6 +57,18 @@ export type {
   FlexDocHostExecutionAdmissionOptions,
   FlexDocHostExecutionAdmissionResponse,
 } from './host-execution-admission';
+export { createHostExecutionCompleteEvent, createHostExecutionStartEvent } from './host-execution-observability';
+export type {
+  CreateHostExecutionCompleteEventInput,
+  CreateHostExecutionStartEventInput,
+  FlexDocHostExecutionCompleteEvent,
+  FlexDocHostExecutionEvent,
+  FlexDocHostExecutionEventBase,
+  FlexDocHostExecutionEventName,
+  FlexDocHostExecutionEventSink,
+  FlexDocHostExecutionOutcome,
+  FlexDocHostExecutionStartEvent,
+} from './host-execution-observability';
 export { validateRuntimeContract } from './contract-validation';
 export type {
   FlexDocContractDuplicateRuntimeRoute,
