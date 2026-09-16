@@ -1,0 +1,64 @@
+name: OBS-01 Build Assets
+
+on:
+  push:
+    branches:
+      - feat/3.3.x-history-privacy
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build canonical renderer
+        run: npm run build:client
+
+      - name: Report standalone bundle sizes
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const zlib = require('zlib');
+          const file = fs.readFileSync('packages/client/dist/standalone/flexdoc.standalone.js');
+          const gzip = zlib.gzipSync(file, { level: 9 });
+          const brotli = zlib.brotliCompressSync(file, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } });
+          console.log(`FLEXDOC_BUNDLE_RAW_BYTES=${file.length}`);
+          console.log(`FLEXDOC_BUNDLE_GZIP_BYTES=${gzip.length}`);
+          console.log(`FLEXDOC_BUNDLE_BROTLI_BYTES=${brotli.length}`);
+          NODE
+
+      - name: Synchronize adapter renderer assets
+        run: npm run sync:adapter-assets
+
+      - name: Commit generated assets
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            adapters/elixir/assets/flexdoc.standalone.js \
+            adapters/go/assets/flexdoc.standalone.js \
+            adapters/php/assets/flexdoc.standalone.js \
+            adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.js \
+            adapters/ruby/assets/flexdoc.standalone.js \
+            adapters/rust-actix/assets/flexdoc.standalone.js \
+            adapters/rust/assets/flexdoc.standalone.js
+          if git diff --cached --quiet; then
+            echo 'Generated adapter assets are already synchronized.'
+            exit 0
+          fi
+          git commit -m 'chore: renderer/assets: synchronize history privacy build' -m 'Regenerate committed adapter renderer copies from the OBS-01 client source using the repository Node toolchain.'
+          git push origin HEAD:feat/3.3.x-history-privacy
