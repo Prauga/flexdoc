@@ -14,10 +14,7 @@ import {
   createFlexDocViewerPreferencesKey,
   readFlexDocViewerPreferences,
   resolveExpandSections,
-  writeFlexDocViewerExpandPreference,
-  writeFlexDocViewerExpandedTagsPreference,
-  writeFlexDocViewerSidebarPreference,
-  writeFlexDocViewerThemePreference,
+  writeFlexDocViewerPreference,
 } from '../utils/renderer-preferences';
 import type { FlexDocViewerPreferences } from '../utils/renderer-preferences';
 import { parseRuntimeIntelligenceSnapshot } from '../utils/runtime-intelligence';
@@ -321,23 +318,23 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
 
   const toggleDesktopSidebar = () => {
     const next = !desktopSidebarCollapsed;
-    writeFlexDocViewerSidebarPreference(preferenceKey, next);
+    writeFlexDocViewerPreference(preferenceKey, 'sidebarCollapsed', next);
     updateViewerPreferences({ sidebarCollapsed: next });
   };
 
   const hostExpandedSections = resolveExpandSections(options.expand, options.expand === undefined ? options.expandResponses : undefined);
   const defaultExpandedSections = viewerExpand === undefined ? hostExpandedSections : resolveExpandSections(viewerExpand);
   const handleViewerExpandChange = (expand?: ExpandOption) => {
-    writeFlexDocViewerExpandPreference(preferenceKey, expand);
+    writeFlexDocViewerPreference(preferenceKey, 'expand', expand);
     setViewerPreferencesFromStorage();
   };
   const handleViewerThemeChange = (nextTheme?: FlexDocViewerTheme) => {
     if (!manageTheme) return;
-    writeFlexDocViewerThemePreference(preferenceKey, nextTheme);
+    writeFlexDocViewerPreference(preferenceKey, 'theme', nextTheme);
     setViewerPreferencesFromStorage();
   };
   const handleExpandedTagsChange = (tags: string[]) => {
-    writeFlexDocViewerExpandedTagsPreference(preferenceKey, tags);
+    writeFlexDocViewerPreference(preferenceKey, 'expandedTags', tags);
     updateViewerPreferences({ expandedTags: tags });
   };
 

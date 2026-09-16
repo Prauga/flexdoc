@@ -1,5 +1,6 @@
 import type { HttpAuth, HttpBinaryBody, HttpFormDataEntry, HttpKeyValue, HttpRequestDraft } from './http-client';
 import { cloneApiClientScripts } from './api-client-scripting';
+import { createApiClientWorkspacePersistenceSnapshot } from './api-client-history-privacy';
 import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from './api-client-scripting';
 
 /** One named value stored in an API Client environment or collection variable list. */
@@ -175,8 +176,7 @@ function isHttpAuth(value: unknown): value is HttpAuth {
   if (value.type === 'bearer') return hasString(value, 'token');
   if (value.type === 'oauth2') {
     if (!hasString(value, 'accessToken')) return false;
-    const grantTypes = new Set(['accessToken', 'authorizationCode', 'clientCredentials', 'password', 'implicit']);
-    if (value.grantType !== undefined && (typeof value.grantType !== 'string' || !grantTypes.has(value.grantType))) return false;
+    if (value.grantType !== undefined && (typeof value.grantType !== 'string' || !['accessToken', 'authorizationCode', 'clientCredentials', 'password', 'implicit'].includes(value.grantType))) return false;
     if (value.clientAuthentication !== undefined && value.clientAuthentication !== 'body' && value.clientAuthentication !== 'basic') return false;
     for (const key of ['authorizationUrl', 'tokenUrl', 'clientId', 'clientSecret', 'redirectUri', 'username', 'password', 'refreshToken']) if (value[key] !== undefined && typeof value[key] !== 'string') return false;
     return value.scopes === undefined || (Array.isArray(value.scopes) && value.scopes.every((scope) => typeof scope === 'string'));
@@ -800,7 +800,7 @@ export async function saveApiClientWorkspace(key: string, workspace: ApiClientWo
   try {
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, 'readwrite');
-      transaction.objectStore(STORE_NAME).put(workspace, key);
+      transaction.objectStore(STORE_NAME).put(createApiClientWorkspacePersistenceSnapshot(workspace), key);
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error || new Error('Unable to save FlexDoc API Client workspace'));
       transaction.onabort = () => reject(transaction.error || new Error('Unable to save FlexDoc API Client workspace'));

@@ -18,13 +18,10 @@ export function readApiClientUiPreferences(persistenceKey: string, storage?: Sto
     if (!raw) return { version: 1 };
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     if (parsed.version !== 1) return { version: 1 };
-    const requestTabs = new Set(['params', 'headers', 'authorization', 'body', 'scripts']);
-    const scriptTabs = new Set(['pre-request', 'tests']);
-    const themes = new Set(['light', 'dark']);
     if (parsed.sidebarCollapsed !== undefined && typeof parsed.sidebarCollapsed !== 'boolean') return { version: 1 };
-    if (parsed.requestTab !== undefined && (typeof parsed.requestTab !== 'string' || !requestTabs.has(parsed.requestTab))) return { version: 1 };
-    if (parsed.scriptTab !== undefined && (typeof parsed.scriptTab !== 'string' || !scriptTabs.has(parsed.scriptTab))) return { version: 1 };
-    if (parsed.theme !== undefined && (typeof parsed.theme !== 'string' || !themes.has(parsed.theme))) return { version: 1 };
+    if (parsed.requestTab !== undefined && !['params', 'headers', 'authorization', 'body', 'scripts'].includes(parsed.requestTab as string)) return { version: 1 };
+    if (parsed.scriptTab !== undefined && !['pre-request', 'tests'].includes(parsed.scriptTab as string)) return { version: 1 };
+    if (parsed.theme !== undefined && !['light', 'dark'].includes(parsed.theme as string)) return { version: 1 };
     return {
       version: 1,
       ...(typeof parsed.sidebarCollapsed === 'boolean' ? { sidebarCollapsed: parsed.sidebarCollapsed } : {}),

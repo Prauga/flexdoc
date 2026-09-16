@@ -10,10 +10,9 @@ const EXPAND_PRESETS: Record<ExpandPreset, ExpandSection[]> = {
   interactive: ['parameters', 'requestBody', 'tryIt', 'codeSamples'],
 };
 
-const ARRAY_PRESETS = new Set(['minimal', 'documentation', 'interactive']);
-const SECTION_SET = new Set(EXPAND_SECTIONS);
-const PRESET_SET = new Set(Object.keys(EXPAND_PRESETS));
-const VIEWER_THEMES = new Set<FlexDocViewerTheme>(['light', 'dark', 'high-contrast']);
+const ARRAY_PRESETS = ['minimal', 'documentation', 'interactive'];
+const PRESET_NAMES = Object.keys(EXPAND_PRESETS);
+const VIEWER_THEMES: FlexDocViewerTheme[] = ['light', 'dark', 'high-contrast'];
 
 export interface FlexDocViewerPreferences {
   version: 1;
@@ -24,32 +23,21 @@ export interface FlexDocViewerPreferences {
 }
 
 export function isExpandOption(value: unknown): value is ExpandOption {
-  if (typeof value === 'string') return PRESET_SET.has(value);
+  if (typeof value === 'string') return PRESET_NAMES.includes(value);
   return Array.isArray(value) && value.every((entry) =>
-    typeof entry === 'string' && (SECTION_SET.has(entry as ExpandSection) || ARRAY_PRESETS.has(entry))
+    typeof entry === 'string' && (EXPAND_SECTIONS.includes(entry as ExpandSection) || ARRAY_PRESETS.includes(entry))
   );
-}
-
-function addPreset(target: Set<ExpandSection>, preset: ExpandPreset): void {
-  for (const section of EXPAND_PRESETS[preset]) target.add(section);
 }
 
 export function resolveExpandSections(expand?: ExpandOption, legacyExpandResponses?: string): ExpandSection[] {
   if (expand === undefined && legacyExpandResponses !== undefined) {
-    const legacy = new Set<ExpandSection>(['parameters', 'requestBody', 'tryIt', 'codeSamples']);
-    if (legacyExpandResponses !== 'none') legacy.add('responses');
-    return EXPAND_SECTIONS.filter((section) => legacy.has(section));
+    return EXPAND_SECTIONS.filter((section) => legacyExpandResponses !== 'none' || section !== 'responses');
   }
-
   if (expand === undefined) return [];
   if (typeof expand === 'string') return [...EXPAND_PRESETS[expand]];
-
-  const resolved = new Set<ExpandSection>();
-  for (const entry of expand) {
-    if (SECTION_SET.has(entry as ExpandSection)) resolved.add(entry as ExpandSection);
-    else addPreset(resolved, entry as ExpandPreset);
-  }
-  return EXPAND_SECTIONS.filter((section) => resolved.has(section));
+  return EXPAND_SECTIONS.filter((section) => expand.some((entry) =>
+    entry === section || EXPAND_PRESETS[entry as ExpandPreset]?.includes(section)
+  ));
 }
 
 export function createFlexDocViewerPreferencesKey(title?: string, host?: string): string {
@@ -66,7 +54,7 @@ export function readFlexDocViewerPreferences(key: string, storage?: Storage): Fl
     if (parsed.version !== 1) return { version: 1 };
     if (parsed.expand !== undefined && !isExpandOption(parsed.expand)) return { version: 1 };
     if (parsed.sidebarCollapsed !== undefined && typeof parsed.sidebarCollapsed !== 'boolean') return { version: 1 };
-    if (parsed.theme !== undefined && (typeof parsed.theme !== 'string' || !VIEWER_THEMES.has(parsed.theme as FlexDocViewerTheme))) return { version: 1 };
+    if (parsed.theme !== undefined && (typeof parsed.theme !== 'string' || !VIEWER_THEMES.includes(parsed.theme as FlexDocViewerTheme))) return { version: 1 };
     if (parsed.expandedTags !== undefined && (!Array.isArray(parsed.expandedTags) || !parsed.expandedTags.every((tag) => typeof tag === 'string'))) return { version: 1 };
     return {
       version: 1,
@@ -80,45 +68,22 @@ export function readFlexDocViewerPreferences(key: string, storage?: Storage): Fl
   }
 }
 
-function writePreferences(key: string, next: FlexDocViewerPreferences, storage?: Storage): void {
+export function writeFlexDocViewerPreference<K extends Exclude<keyof FlexDocViewerPreferences, 'version'>>(
+  key: string,
+  field: K,
+  value: FlexDocViewerPreferences[K],
+  storage?: Storage,
+): void {
   const resolvedStorage = storage ?? (typeof window !== 'undefined' ? window.localStorage : undefined);
   if (!resolvedStorage) return;
   try {
+    const next = { ...readFlexDocViewerPreferences(key, resolvedStorage) };
+    const stored = field === 'expandedTags' && Array.isArray(value) ? [...new Set(value)] : value;
+    if (stored === undefined) delete next[field];
+    else next[field] = stored as FlexDocViewerPreferences[K];
     if (next.expand === undefined && next.sidebarCollapsed === undefined && next.theme === undefined && next.expandedTags === undefined) resolvedStorage.removeItem(key);
     else resolvedStorage.setItem(key, JSON.stringify(next));
   } catch {
     // Viewer preferences are best-effort and must never prevent documentation rendering.
   }
-}
-
-export function writeFlexDocViewerExpandPreference(key: string, expand?: ExpandOption, storage?: Storage): void {
-  const current = readFlexDocViewerPreferences(key, storage);
-  const next: FlexDocViewerPreferences = { ...current };
-  if (expand === undefined) delete next.expand;
-  else next.expand = expand;
-  writePreferences(key, next, storage);
-}
-
-export function writeFlexDocViewerSidebarPreference(key: string, sidebarCollapsed?: boolean, storage?: Storage): void {
-  const current = readFlexDocViewerPreferences(key, storage);
-  const next: FlexDocViewerPreferences = { ...current };
-  if (sidebarCollapsed === undefined) delete next.sidebarCollapsed;
-  else next.sidebarCollapsed = sidebarCollapsed;
-  writePreferences(key, next, storage);
-}
-
-export function writeFlexDocViewerThemePreference(key: string, theme?: FlexDocViewerTheme, storage?: Storage): void {
-  const current = readFlexDocViewerPreferences(key, storage);
-  const next: FlexDocViewerPreferences = { ...current };
-  if (theme === undefined) delete next.theme;
-  else next.theme = theme;
-  writePreferences(key, next, storage);
-}
-
-export function writeFlexDocViewerExpandedTagsPreference(key: string, expandedTags?: string[], storage?: Storage): void {
-  const current = readFlexDocViewerPreferences(key, storage);
-  const next: FlexDocViewerPreferences = { ...current };
-  if (expandedTags === undefined) delete next.expandedTags;
-  else next.expandedTags = [...new Set(expandedTags)];
-  writePreferences(key, next, storage);
 }

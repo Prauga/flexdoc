@@ -1,10 +1,9 @@
 import React from 'react';
 import { Clock3, Trash2 } from 'lucide-react';
-import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import type { ApiClientRequestScripts } from '../utils/api-client-scripting';
-import { cloneRequestDraft } from '../utils/api-client-workspace';
 import type { ApiClientWorkspaceState } from '../utils/api-client-workspace';
 import type { HttpRequestDraft } from '../utils/http-client';
+import { apiClientHistoryDisplayTime } from '../utils/api-client-history';
 
 interface Props {
   workspace: ApiClientWorkspaceState;
@@ -14,23 +13,13 @@ interface Props {
   theme: 'light' | 'dark';
 }
 
-function displayTime(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-}
-
 export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange, onLoadRequest, onViewAll, theme }) => {
   const mutedClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
 
   const loadHistory = (id: string) => {
     const entry = workspace.history.find((candidate) => candidate.id === id);
     if (!entry) return;
-    onLoadRequest(
-      cloneRequestDraft(entry.request),
-      entry.scripts ? cloneApiClientScripts(entry.scripts) : undefined,
-      entry.collectionId,
-      entry.folderId,
-    );
+    onLoadRequest(entry.request, entry.scripts, entry.collectionId, entry.folderId);
   };
 
   const removeHistory = (id: string) => {
@@ -75,7 +64,7 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
             </div>
             <div className='truncate font-mono text-xs' title={entry.resolvedUrl}>{entry.resolvedUrl}</div>
             {testSummary && <div className={`mt-1 text-[11px] ${entry.scriptError ? 'text-red-600' : mutedClass}`}>{testSummary}</div>}
-            <div className={`mt-1 text-[11px] ${mutedClass}`}>{displayTime(entry.createdAt)}</div>
+            <div className={`mt-1 text-[11px] ${mutedClass}`}>{apiClientHistoryDisplayTime(entry.createdAt)}</div>
           </button>
           <button type='button' className='rounded-md p-2 opacity-70 hover:opacity-100' aria-label={`Delete history request ${entry.executedMethod.toUpperCase()} ${entry.resolvedUrl}`} onClick={() => removeHistory(entry.id)}>
             <Trash2 className='h-4 w-4' />

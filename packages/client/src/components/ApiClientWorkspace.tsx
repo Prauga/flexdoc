@@ -8,7 +8,6 @@ import { ApiClientHistory } from './ApiClientHistory';
 import { ApiClientHistoryPage } from './ApiClientHistoryPage';
 import { ApiClientImport } from './ApiClientImport';
 import { ApiClientRunnerPage } from './ApiClientRunnerPage';
-import { createApiClientWorkspacePersistenceSnapshot } from '../utils/api-client-history-privacy';
 import { inferHttpBodyMode } from '../utils/http-client';
 import type { HttpAuth, HttpRequestDraft } from '../utils/http-client';
 import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange } from '../utils/api-client-scripting';
@@ -180,8 +179,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
 
   useEffect(() => {
     if (!hydrated || persistenceKey === false) return;
-    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace);
-    void saveApiClientWorkspace(persistenceKey, snapshot).catch(() => undefined);
+    void saveApiClientWorkspace(persistenceKey, workspace).catch(() => undefined);
   }, [hydrated, persistenceKey, workspace]);
 
   const collectionVariables = useMemo(
