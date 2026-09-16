@@ -1,3 +1,5 @@
+import type { FlexDocHostExecutionCompleteEvent, FlexDocHostExecutionStartEvent } from './host-execution-observability';
+
 /** Separate vertical/horizontal padding values for a renderer logo container. */
 export interface LogoPaddingOptions {
   /** Vertical CSS padding. Numeric values are interpreted as pixels. */ vertical?: string | number;
@@ -159,6 +161,8 @@ export interface FlexDocHostExecutionOptions {
   /** Target origins the host is allowed to call; omitted values use the host's safe default policy. */ allowedOrigins?: string[];
   /** Client certificates that may be selected by id for outbound requests. */ clientCertificates?: FlexDocHostExecutionCertificate[];
   /** Hook invoked before the backend sends an outbound request. */ interceptor?: (request: FlexDocHostExecutionRequest) => FlexDocHostExecutionRequest | Promise<FlexDocHostExecutionRequest>;
+  /** Best-effort non-blocking hook invoked when a validated API-host execution begins. Hook failures never fail the request. */ onHostExecutionStart?: (event: FlexDocHostExecutionStartEvent) => void | Promise<void>;
+  /** Best-effort non-blocking hook invoked when that execution succeeds, is rejected, or errors. Hook failures never fail the request. */ onHostExecutionComplete?: (event: FlexDocHostExecutionCompleteEvent) => void | Promise<void>;
 }
 
 /** Public host-execution metadata serialized to the browser renderer. */
