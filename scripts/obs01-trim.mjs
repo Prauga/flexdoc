@@ -13,94 +13,174 @@ function once(source, from, to, label) {
   return source.slice(0, index) + to + source.slice(index + from.length);
 }
 
-edit('packages/client/src/utils/api-client-ui-preferences.ts', (source) => {
-  source = once(source, "  historyBodies?: boolean;\n", '', 'UI privacy field');
-  source = once(source, "    if (parsed.historyBodies !== undefined && typeof parsed.historyBodies !== 'boolean') return { version: 1 };\n", '', 'UI privacy validation');
-  source = once(source, "      ...(typeof parsed.historyBodies === 'boolean' ? { historyBodies: parsed.historyBodies } : {}),\n", '', 'UI privacy readback');
-  return source;
-});
-
-edit('packages/client/src/utils/api-client-ui-preferences.test.ts', (source) => {
-  source = once(source, "    writeApiClientUiPreferences('workspace-a', { historyBodies: false }, storage);\n", '', 'UI privacy write test');
-  source = once(source, "      historyBodies: false,\n", '', 'UI privacy expectation');
-  return source;
-});
-
+// Make IndexedDB persistence itself enforce OBS-01 so every workspace save shares one boundary.
 edit('packages/client/src/utils/api-client-workspace.ts', (source) => {
   source = once(source,
-    "  /** Currently active environment id, when one is selected. */ activeEnvironmentId?: string;\n  /** Most-recent-first execution history, capped by the workspace implementation. */ history: ApiClientHistoryEntry[];",
-    "  /** Currently active environment id, when one is selected. */ activeEnvironmentId?: string;\n  /** Whether API-host request/response bodies may be persisted in history. Defaults to true. */ historyBodies?: boolean;\n  /** Most-recent-first execution history, capped by the workspace implementation. */ history: ApiClientHistoryEntry[];",
-    'workspace privacy field');
+    "import { cloneApiClientScripts } from './api-client-scripting';\n",
+    "import { cloneApiClientScripts } from './api-client-scripting';\nimport { createApiClientWorkspacePersistenceSnapshot } from './api-client-history-privacy';\n",
+    'workspace privacy import');
   source = once(source,
-    "    activeEnvironmentId,\n    history: historyValues,",
-    "    activeEnvironmentId,\n    historyBodies: typeof value.historyBodies === 'boolean' ? value.historyBodies : undefined,\n    history: historyValues,",
-    'workspace privacy normalization');
-  return source;
-});
-
-edit('packages/client/src/utils/api-client-history-privacy.ts', (source) => {
-  source = once(source,
-    "export function createApiClientWorkspacePersistenceSnapshot(\n  workspace: ApiClientWorkspaceState,\n  historyBodies = true,\n): ApiClientWorkspaceState {",
-    "export function createApiClientWorkspacePersistenceSnapshot(workspace: ApiClientWorkspaceState): ApiClientWorkspaceState {",
-    'privacy snapshot signature');
-  source = once(source,
-    "      const omitBody = !historyBodies && entry.transport !== 'browser';",
-    "      const omitBody = workspace.historyBodies === false && entry.transport !== 'browser';",
-    'privacy workspace mode');
+    "      transaction.objectStore(STORE_NAME).put(workspace, key);",
+    "      transaction.objectStore(STORE_NAME).put(createApiClientWorkspacePersistenceSnapshot(workspace), key);",
+    'workspace persistence sanitizer');
   return source;
 });
 
 edit('packages/client/src/components/ApiClientWorkspace.tsx', (source) => {
-  source = once(source, "  const [historyBodies, setHistoryBodies] = useState(initialUiPreferences.historyBodies ?? true);\n", '', 'privacy React state');
   source = once(source,
-    "    const preferences = readApiClientUiPreferences(persistenceKey);\n    let cancelled = false;\n    queueMicrotask(() => {\n      if (!cancelled) setHistoryBodies(preferences.historyBodies ?? true);\n    });\n    loadApiClientWorkspace(persistenceKey)",
-    "    let cancelled = false;\n    loadApiClientWorkspace(persistenceKey)",
-    'privacy preference hydration');
-  source = once(source,
-    "    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, historyBodies);\n    void saveApiClientWorkspace(persistenceKey, snapshot).catch(() => undefined);\n  }, [hydrated, historyBodies, persistenceKey, workspace]);",
-    "    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace);\n    void saveApiClientWorkspace(persistenceKey, snapshot).catch(() => undefined);\n  }, [hydrated, persistenceKey, workspace]);",
-    'privacy persistence effect');
-  source = once(source,
-    "  const handleHistoryBodiesChange = (value: boolean) => {\n    setHistoryBodies(value);\n    if (persistenceKey !== false) writeApiClientUiPreferences(persistenceKey, { historyBodies: value });\n  };\n\n",
+    "import { createApiClientWorkspacePersistenceSnapshot } from '../utils/api-client-history-privacy';\n",
     '',
-    'privacy preference handler');
+    'workspace caller privacy import');
   source = once(source,
-    "          onViewAll={() => openHistory()}\n          historyBodies={historyBodies}\n          onHistoryBodiesChange={handleHistoryBodiesChange}\n          theme={activeTheme}",
-    "          onViewAll={() => openHistory()}\n          theme={activeTheme}",
-    'privacy history props');
+    "    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace);\n    void saveApiClientWorkspace(persistenceKey, snapshot).catch(() => undefined);",
+    "    void saveApiClientWorkspace(persistenceKey, workspace).catch(() => undefined);",
+    'workspace caller snapshot');
+  return source;
+});
+
+// History replay enters through ApiClientWorkspace.loadSavedRequest, which clones once at the owning boundary.
+edit('packages/client/src/components/ApiClientHistoryPage.tsx', (source) => {
+  source = once(source, "import { cloneApiClientScripts } from '../utils/api-client-scripting';\n", '', 'history page script clone import');
+  source = once(source, "import { cloneRequestDraft } from '../utils/api-client-workspace';\n", '', 'history page request clone import');
+  source = once(source,
+    "    onLoadRequest(cloneRequestDraft(entry.request), entry.scripts ? cloneApiClientScripts(entry.scripts) : undefined, entry.collectionId, entry.folderId);",
+    "    onLoadRequest(entry.request, entry.scripts, entry.collectionId, entry.folderId);",
+    'history page redundant clones');
+  return source;
+});
+
+// Share history failure/time helpers instead of emitting duplicate implementations in the two history surfaces.
+edit('packages/client/src/utils/api-client-history.ts', (source) => {
+  source = once(source,
+    "function hasFailure(entry: ApiClientHistoryEntry): boolean {\n  return !!entry.error\n    || !!entry.scriptError\n    || (entry.status !== undefined && entry.status >= 400)\n    || !!entry.scriptTests?.some((test) => !test.passed);\n}\n",
+    "export function apiClientHistoryHasFailure(entry: ApiClientHistoryEntry): boolean {\n  return !!entry.error || !!entry.scriptError || (entry.status !== undefined && entry.status >= 400) || !!entry.scriptTests?.some((test) => !test.passed);\n}\n\nexport function apiClientHistoryDisplayTime(value: string): string {\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();\n}\n",
+    'history shared helpers');
+  source = source.replaceAll('const failed = hasFailure(entry);', 'const failed = apiClientHistoryHasFailure(entry);');
+  return source;
+});
+
+edit('packages/client/src/components/ApiClientHistoryPage.tsx', (source) => {
+  source = once(source,
+    "import { filterApiClientHistoryEntries, groupApiClientHistoryEntries } from '../utils/api-client-history';",
+    "import { apiClientHistoryDisplayTime, apiClientHistoryHasFailure, filterApiClientHistoryEntries, groupApiClientHistoryEntries } from '../utils/api-client-history';",
+    'history page helper imports');
+  source = once(source,
+    "function displayTime(value: string): string {\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();\n}\n\nfunction hasFailure(entry: ApiClientHistoryEntry): boolean {\n  return !!entry.error\n    || !!entry.scriptError\n    || (entry.status !== undefined && entry.status >= 400)\n    || !!entry.scriptTests?.some((test) => !test.passed);\n}\n\n",
+    '',
+    'history page duplicate helpers');
+  source = source.replaceAll('hasFailure(entry)', 'apiClientHistoryHasFailure(entry)');
+  source = source.replaceAll('displayTime(entry.createdAt)', 'apiClientHistoryDisplayTime(entry.createdAt)');
   return source;
 });
 
 edit('packages/client/src/components/ApiClientHistory.tsx', (source) => {
   source = once(source,
-    "  onViewAll?: () => void;\n  historyBodies: boolean;\n  onHistoryBodiesChange: (value: boolean) => void;\n  theme: 'light' | 'dark';",
-    "  onViewAll?: () => void;\n  theme: 'light' | 'dark';",
-    'privacy history prop types');
+    "import type { HttpRequestDraft } from '../utils/http-client';\n",
+    "import type { HttpRequestDraft } from '../utils/http-client';\nimport { apiClientHistoryDisplayTime } from '../utils/api-client-history';\n",
+    'recent history display helper import');
   source = once(source,
-    "export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange, onLoadRequest, onViewAll, historyBodies, onHistoryBodiesChange, theme }) => {",
-    "export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange, onLoadRequest, onViewAll, theme }) => {",
-    'privacy history destructure');
-  source = once(source,
-    "      <input type='checkbox' checked={historyBodies} onChange={(event) => onHistoryBodiesChange(event.target.checked)} />",
-    "      <input type='checkbox' checked={workspace.historyBodies !== false} onChange={(event) => onWorkspaceChange((current) => ({ ...current, historyBodies: event.target.checked }))} />",
-    'privacy workspace toggle');
+    "function displayTime(value: string): string {\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();\n}\n\n",
+    '',
+    'recent history duplicate time helper');
+  source = source.replaceAll('displayTime(entry.createdAt)', 'apiClientHistoryDisplayTime(entry.createdAt)');
   return source;
 });
 
-edit('packages/client/src/utils/api-client-history-privacy.test.ts', (source) => {
+// Collapse four renderer preference writer wrappers and the second persistence helper into one typed writer.
+edit('packages/client/src/utils/renderer-preferences.ts', (source) => once(source,
+`function writePreferences(key: string, next: FlexDocViewerPreferences, storage?: Storage): void {
+  const resolvedStorage = storage ?? (typeof window !== 'undefined' ? window.localStorage : undefined);
+  if (!resolvedStorage) return;
+  try {
+    if (next.expand === undefined && next.sidebarCollapsed === undefined && next.theme === undefined && next.expandedTags === undefined) resolvedStorage.removeItem(key);
+    else resolvedStorage.setItem(key, JSON.stringify(next));
+  } catch {
+    // Viewer preferences are best-effort and must never prevent documentation rendering.
+  }
+}
+
+function writePreference<K extends Exclude<keyof FlexDocViewerPreferences, 'version'>>(
+  key: string,
+  field: K,
+  value: FlexDocViewerPreferences[K],
+  storage?: Storage,
+): void {
+  const next = { ...readFlexDocViewerPreferences(key, storage) };
+  if (value === undefined) delete next[field];
+  else next[field] = value;
+  writePreferences(key, next, storage);
+}
+
+export function writeFlexDocViewerExpandPreference(key: string, expand?: ExpandOption, storage?: Storage): void {
+  writePreference(key, 'expand', expand, storage);
+}
+
+export function writeFlexDocViewerSidebarPreference(key: string, sidebarCollapsed?: boolean, storage?: Storage): void {
+  writePreference(key, 'sidebarCollapsed', sidebarCollapsed, storage);
+}
+
+export function writeFlexDocViewerThemePreference(key: string, theme?: FlexDocViewerTheme, storage?: Storage): void {
+  writePreference(key, 'theme', theme, storage);
+}
+
+export function writeFlexDocViewerExpandedTagsPreference(key: string, expandedTags?: string[], storage?: Storage): void {
+  writePreference(key, 'expandedTags', expandedTags ? [...new Set(expandedTags)] : undefined, storage);
+}
+`,
+`export function writeFlexDocViewerPreference<K extends Exclude<keyof FlexDocViewerPreferences, 'version'>>(
+  key: string,
+  field: K,
+  value: FlexDocViewerPreferences[K],
+  storage?: Storage,
+): void {
+  const resolvedStorage = storage ?? (typeof window !== 'undefined' ? window.localStorage : undefined);
+  if (!resolvedStorage) return;
+  try {
+    const next = { ...readFlexDocViewerPreferences(key, resolvedStorage) };
+    const stored = field === 'expandedTags' && Array.isArray(value) ? [...new Set(value)] : value;
+    if (stored === undefined) delete next[field];
+    else next[field] = stored as FlexDocViewerPreferences[K];
+    if (next.expand === undefined && next.sidebarCollapsed === undefined && next.theme === undefined && next.expandedTags === undefined) resolvedStorage.removeItem(key);
+    else resolvedStorage.setItem(key, JSON.stringify(next));
+  } catch {
+    // Viewer preferences are best-effort and must never prevent documentation rendering.
+  }
+}
+`,
+  'renderer preference writers'));
+
+edit('packages/client/src/components/FlexDoc.tsx', (source) => {
   source = once(source,
-    "import { addApiClientHistoryEntry, createDefaultApiClientWorkspace } from './api-client-workspace';",
-    "import { addApiClientHistoryEntry, createDefaultApiClientWorkspace, normalizeApiClientWorkspace } from './api-client-workspace';",
-    'privacy normalization import');
-  source = source.replaceAll(
-    'createApiClientWorkspacePersistenceSnapshot(workspace, false)',
-    'createApiClientWorkspacePersistenceSnapshot({ ...workspace, historyBodies: false })',
-  );
-  source = once(source,
-    "  it('always redacts sensitive request and response headers before persistence', () => {",
-    "  it('persists the history-body privacy mode with workspace state', () => {\n    const workspace = normalizeApiClientWorkspace({ ...createDefaultApiClientWorkspace(), historyBodies: false });\n    expect(workspace.historyBodies).toBe(false);\n  });\n\n  it('always redacts sensitive request and response headers before persistence', () => {",
-    'privacy workspace persistence test');
+`  writeFlexDocViewerExpandPreference,
+  writeFlexDocViewerExpandedTagsPreference,
+  writeFlexDocViewerSidebarPreference,
+  writeFlexDocViewerThemePreference,`,
+`  writeFlexDocViewerPreference,`,
+    'FlexDoc preference imports');
+  source = source
+    .replaceAll('writeFlexDocViewerSidebarPreference(preferenceKey, next)', "writeFlexDocViewerPreference(preferenceKey, 'sidebarCollapsed', next)")
+    .replaceAll('writeFlexDocViewerExpandPreference(preferenceKey, expand)', "writeFlexDocViewerPreference(preferenceKey, 'expand', expand)")
+    .replaceAll('writeFlexDocViewerThemePreference(preferenceKey, nextTheme)', "writeFlexDocViewerPreference(preferenceKey, 'theme', nextTheme)")
+    .replaceAll('writeFlexDocViewerExpandedTagsPreference(preferenceKey, tags)', "writeFlexDocViewerPreference(preferenceKey, 'expandedTags', tags)");
   return source;
 });
 
-console.log('Applied workspace-backed OBS-01 privacy mode.');
+edit('packages/client/src/utils/renderer-preferences.test.ts', (source) => {
+  source = once(source,
+`  writeFlexDocViewerExpandPreference,
+  writeFlexDocViewerExpandedTagsPreference,
+  writeFlexDocViewerSidebarPreference,
+  writeFlexDocViewerThemePreference,`,
+`  writeFlexDocViewerPreference,`,
+    'preference test imports');
+  source = source
+    .replaceAll("writeFlexDocViewerExpandPreference(key, ['responses'], storage)", "writeFlexDocViewerPreference(key, 'expand', ['responses'], storage)")
+    .replaceAll('writeFlexDocViewerExpandPreference(key, undefined, storage)', "writeFlexDocViewerPreference(key, 'expand', undefined, storage)")
+    .replaceAll('writeFlexDocViewerSidebarPreference(key, true, storage)', "writeFlexDocViewerPreference(key, 'sidebarCollapsed', true, storage)")
+    .replaceAll("writeFlexDocViewerThemePreference(key, 'dark', storage)", "writeFlexDocViewerPreference(key, 'theme', 'dark', storage)")
+    .replaceAll("writeFlexDocViewerExpandedTagsPreference(key, ['pets', 'admin', 'pets'], storage)", "writeFlexDocViewerPreference(key, 'expandedTags', ['pets', 'admin', 'pets'], storage)")
+    .replaceAll('writeFlexDocViewerThemePreference(key, undefined, storage)', "writeFlexDocViewerPreference(key, 'theme', undefined, storage)");
+  return source;
+});
+
+console.log('Applied combined transport/privacy size cleanup.');
