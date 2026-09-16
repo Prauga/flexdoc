@@ -18,8 +18,12 @@ describe('host execution lifecycle hooks', () => {
     try {
       const state = createHostExecutionState({
         allowedOrigins: [origin],
-        onHostExecutionStart: (event) => starts.push(event),
-        onHostExecutionComplete: (event) => completes.push(event),
+        onHostExecutionStart: (event) => {
+          starts.push(event);
+        },
+        onHostExecutionComplete: (event) => {
+          completes.push(event);
+        },
       });
       const result = await runHostExecutionRoute({
         state,
@@ -50,8 +54,12 @@ describe('host execution lifecycle hooks', () => {
     const completes: FlexDocHostExecutionCompleteEvent[] = [];
     const state = createHostExecutionState({
       allowedOrigins: ['https://allowed.example.test'],
-      onHostExecutionStart: (event) => starts.push(event),
-      onHostExecutionComplete: (event) => completes.push(event),
+      onHostExecutionStart: (event) => {
+        starts.push(event);
+      },
+      onHostExecutionComplete: (event) => {
+        completes.push(event);
+      },
     });
 
     const result = await runHostExecutionRoute({
