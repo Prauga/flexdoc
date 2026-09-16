@@ -5,8 +5,8 @@ import { OAuthEditor } from './ApiClientAuthEditor';
 import { ApiClientBodyEditor } from './ApiClientBodyEditor';
 import { ApiClientResponseViewer } from './ApiClientResponseViewer';
 import { ApiClientScriptEditor } from './ApiClientScriptEditor';
-import { executeApiClientRequest } from '../utils/api-client-execution';
-import { buildHttpRequest, httpHostExecutionRequirements, inferHttpBodyMode } from '../utils/http-client';
+import { executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
+import { buildHttpRequest, inferHttpBodyMode } from '../utils/http-client';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import { replaceRequestServer, requestUsesServer, resolveServerUrl } from '../utils/server-url';
 import type { ApiClientExecutionResult } from '../utils/api-client-execution';
@@ -202,7 +202,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   const [customServerUrl, setCustomServerUrl] = useState(initialCustomServer);
   const serverUrlRef = useRef(initialEffectiveServer);
   const originalServerUrlRef = useRef(initialEffectiveServer);
-  const [response, setResponse] = useState<{ status: number; statusText: string; headers: Array<[string, string]>; body: string; responseTime: number } | null>(null);
+  const [response, setResponse] = useState<{ status: number; statusText: string; headers: Array<[string, string]>; body: string; responseTime: number; transport?: 'browser' | 'api-host' } | null>(null);
   const [curlCommand, setCurlCommand] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [scriptError, setScriptError] = useState<string | null>(null);
@@ -326,12 +326,13 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   };
 
   const resolvedAuth = resolveAuth ? resolveAuth(draft.auth) : draft.auth;
-  const hostRequirements = httpHostExecutionRequirements({ ...draft, auth: resolvedAuth });
+  const transport = resolveApiClientTransport({ request: { ...draft, auth: resolvedAuth }, hostExecution });
   const hostCapabilities = new Set(hostExecution?.capabilities || []);
-  const missingHostCapabilities = hostRequirements.filter((requirement) => !hostCapabilities.has(requirement));
-  const bodyNeedsHostTransport = bodyUnusual && hasBody;
-  const hostRequired = hostRequirements.length > 0;
-  const hostAvailable = hostExecution?.available === true && missingHostCapabilities.length === 0;
+  const missingHostCapabilities = transport.missingCapabilities;
+  const bodyNeedsHostTransport = transport.bodyNeedsHostTransport;
+  const hostRequired = transport.mode === 'host-required';
+  const hostAvailable = transport.hostAvailable;
+  const transportLabel = transport.mode === 'host-required' ? 'Host required' : transport.mode === 'api-host' ? 'API host' : 'Browser';
   const hostNotice = bodyNeedsHostTransport
     ? hostExecution?.available
       ? messages?.unusualBodyHostExecution || `${method} request bodies are unusual. FlexDoc will use API-host execution so the body can be sent.`
@@ -342,10 +343,14 @@ export const ApiClient: React.FC<ApiClientProps> = ({
       : hostExecution?.available
         ? `The API host does not support the required capability${missingHostCapabilities.length === 1 ? '' : 'ies'}: ${missingHostCapabilities.join(', ')}.`
         : messages?.hostExecutionDisabled || 'API-host execution is unavailable on this documentation server.'
-    : hostExecution?.available && hostCapabilities.size === 0
+    : transport.mode === 'api-host'
       ? 'This request runs from your API server.'
       : null;
   const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && hostCapabilities.has(capability);
+  const setTransportPreference = (value: string) => setDraft((current) => ({
+    ...current,
+    hostExecution: { ...(current.hostExecution || {}), preferHostExecution: value === 'inherit' ? undefined : value === 'host' },
+  }));
 
   const execute = async () => {
     if (loading) return;
@@ -389,6 +394,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
           headers: outcome.response.headers.map(([key, value]) => [key, value]),
           body: outcome.response.body,
           responseTime: outcome.response.responseTime,
+          transport: outcome.response.transport,
         });
       }
       if (outcome.result) onExecutionComplete?.(outcome.result);
@@ -546,6 +552,11 @@ export const ApiClient: React.FC<ApiClientProps> = ({
           />
         </div>}
       </section>}
+
+      <div className='flex flex-wrap items-center gap-2 text-xs'>
+        <span aria-label='Request transport' className={`rounded border px-2 py-1 ${mutedClass}`}>{transportLabel}</span>
+        {hostExecution?.available && <label className={`inline-flex items-center gap-2 ${mutedClass}`}>Transport preference<select aria-label='Transport preference' disabled={hostRequired} className={`rounded-md border px-2 py-1 ${inputClass}`} value={draft.hostExecution?.preferHostExecution === undefined ? 'inherit' : draft.hostExecution.preferHostExecution ? 'host' : 'browser'} onChange={(event) => setTransportPreference(event.target.value)}><option value='inherit'>Server default</option><option value='browser'>Prefer browser</option><option value='host'>Prefer API host</option></select></label>}
+      </div>
 
       {hostNotice && <div role={bodyNeedsHostTransport ? 'status' : hostAvailable ? 'status' : 'alert'} aria-label={messages?.hostExecutionStatus || 'Host execution status'} className={`rounded-md border p-3 text-sm ${hostAvailable ? (theme === 'dark' ? 'border-blue-800 bg-blue-950/40 text-blue-200' : 'border-blue-300 bg-blue-50 text-blue-800') : (theme === 'dark' ? 'border-amber-800 bg-amber-950/40 text-amber-200' : 'border-amber-300 bg-amber-50 text-amber-800')}`}>{hostNotice}</div>}
 
