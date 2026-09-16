@@ -6,10 +6,11 @@ on:
       - feat/3.3.1-transport-ux
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  measure:
+  trim:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -18,29 +19,36 @@ jobs:
           node-version: '22.22.3'
           cache: npm
       - run: npm ci
-      - name: Measure current ES2020 build
+      - name: Apply guarded structural trim
+        run: node scripts/ux-size-trim.mjs
+      - name: Validate client
+        run: |
+          npm run lint
+          npm test -w packages/client -- --runInBand
+      - name: Build and measure
         run: |
           npm run build:client
           node - <<'NODE'
           const fs=require('fs'),z=require('zlib');
           const f=fs.readFileSync('packages/client/dist/standalone/flexdoc.standalone.js');
-          console.log(`CURRENT_RAW=${f.length}`);
-          console.log(`CURRENT_GZIP=${z.gzipSync(f,{level:9}).length}`);
-          console.log(`CURRENT_BROTLI=${z.brotliCompressSync(f,{params:{[z.constants.BROTLI_PARAM_QUALITY]:11}}).length}`);
+          console.log(`FLEXDOC_RAW_BYTES=${f.length}`);
+          console.log(`FLEXDOC_GZIP_BYTES=${z.gzipSync(f,{level:9}).length}`);
+          console.log(`FLEXDOC_BROTLI_BYTES=${z.brotliCompressSync(f,{params:{[z.constants.BROTLI_PARAM_QUALITY]:11}}).length}`);
           NODE
-      - name: Measure hidden source map build
+      - name: Synchronize adapter assets
+        run: npm run sync:adapter-assets
+      - name: Commit validated trim
         run: |
-          sed -i "s/sourcemap: true/sourcemap: 'hidden'/" packages/client/vite.standalone.config.ts
-          npm run build:client
-          node -e "const f=require('fs').readFileSync('packages/client/dist/standalone/flexdoc.standalone.js');console.log('HIDDEN_MAP_RAW='+f.length)"
-      - name: Measure ES2022 hidden-map build
-        run: |
-          sed -i "s/target: 'es2020'/target: 'es2022'/" packages/client/vite.standalone.config.ts
-          npm run build:client
-          node - <<'NODE'
-          const fs=require('fs'),z=require('zlib');
-          const f=fs.readFileSync('packages/client/dist/standalone/flexdoc.standalone.js');
-          console.log(`ES2022_RAW=${f.length}`);
-          console.log(`ES2022_GZIP=${z.gzipSync(f,{level:9}).length}`);
-          console.log(`ES2022_BROTLI=${z.brotliCompressSync(f,{params:{[z.constants.BROTLI_PARAM_QUALITY]:11}}).length}`);
-          NODE
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add packages/client/src \
+            adapters/elixir/assets/flexdoc.standalone.js \
+            adapters/go/assets/flexdoc.standalone.js \
+            adapters/php/assets/flexdoc.standalone.js \
+            adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.js \
+            adapters/ruby/assets/flexdoc.standalone.js \
+            adapters/rust-actix/assets/flexdoc.standalone.js \
+            adapters/rust/assets/flexdoc.standalone.js
+          git diff --cached --check
+          git commit -m 'fix: renderer/transport: reduce standalone transport overhead' -m 'Compact internal transport decision keys and share standalone React-root lifecycle code without changing the public execution API or transport semantics.'
+          git push origin HEAD:feat/3.3.1-transport-ux
