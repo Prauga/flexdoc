@@ -1,0 +1,42 @@
+name: Harden PR 106
+
+on:
+  push:
+    branches:
+      - tmp/3.3.x-review-106
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feat/3.3.1-transport-ux
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - name: Apply requested transport-policy fix
+        run: |
+          git show origin/tmp/3.3.x-review-106:scripts/harden-pr106.py > /tmp/harden-pr106.py
+          python /tmp/harden-pr106.py
+          git fetch origin 3.3.x
+          git checkout origin/3.3.x -- adapters/elixir/assets/flexdoc.standalone.js adapters/go/assets/flexdoc.standalone.js adapters/php/assets/flexdoc.standalone.js adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.js adapters/ruby/assets/flexdoc.standalone.js adapters/rust-actix/assets/flexdoc.standalone.js adapters/rust/assets/flexdoc.standalone.js
+          git diff --check
+      - name: Validate client source
+        run: |
+          npm ci
+          npm run lint
+          npm test -w packages/client -- --runInBand
+          npm run build:client
+      - name: Commit target branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: api-client/transport: enforce server preference ceiling' -m 'Prevent request and caller preferences from escalating ordinary traffic to API-host execution when the documentation host explicitly sets preferHostExecution=false, while preserving mandatory host-only execution and deferring vendored asset refresh to the release stack.'
+          git push origin HEAD:feat/3.3.1-transport-ux
