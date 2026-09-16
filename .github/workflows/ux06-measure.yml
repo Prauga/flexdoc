@@ -1,0 +1,40 @@
+name: UX-06 Execute Route Preflight Measurement
+
+on:
+  push:
+    branches:
+      - feat/3.3.x-execute-route-preflight
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - name: Apply guarded UX-06 transform
+        run: node scripts/ux06-stage.mjs
+      - name: Install dependencies
+        run: npm ci
+      - name: Validate client
+        run: |
+          npm run lint
+          npm test -w packages/client -- --runInBand
+      - name: Build and measure standalone renderer
+        run: |
+          npm run build:client
+          node - <<'NODE'
+          const fs = require('fs');
+          const zlib = require('zlib');
+          const file = fs.readFileSync('packages/client/dist/standalone/flexdoc.standalone.js');
+          console.log(`UX06_RAW=${file.length}`);
+          console.log(`UX06_HEADROOM=${862208-file.length}`);
+          console.log(`UX06_RESERVE_MARGIN=${861184-file.length}`);
+          console.log(`UX06_GZIP=${zlib.gzipSync(file, { level: 9 }).length}`);
+          console.log(`UX06_BROTLI=${zlib.brotliCompressSync(file, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } }).length}`);
+          NODE
