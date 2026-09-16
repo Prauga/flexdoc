@@ -57,6 +57,18 @@ export type {
   FlexDocHostExecutionAdmissionOptions,
   FlexDocHostExecutionAdmissionResponse,
 } from './host-execution-admission';
+export {
+  createHostExecutionAdmissionRejectionMetricUpdate,
+  createHostExecutionCompleteMetricUpdates,
+  createHostExecutionStartMetricUpdates,
+} from './host-execution-metrics';
+export type {
+  FlexDocHostExecutionMetricKind,
+  FlexDocHostExecutionMetricName,
+  FlexDocHostExecutionMetricSink,
+  FlexDocHostExecutionMetricUpdate,
+  FlexDocHostExecutionRejectionSource,
+} from './host-execution-metrics';
 export { createHostExecutionCompleteEvent, createHostExecutionStartEvent } from './host-execution-observability';
 export type {
   CreateHostExecutionCompleteEventInput,
