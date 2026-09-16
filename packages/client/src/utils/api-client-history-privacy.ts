@@ -1,4 +1,3 @@
-import type { ApiClientTransport } from './api-client-execution';
 import { cloneRequestDraft } from './api-client-workspace';
 import type { ApiClientWorkspaceState } from './api-client-workspace';
 import type { HttpKeyValue, HttpRequestDraft } from './http-client';
@@ -22,8 +21,6 @@ const SENSITIVE_HISTORY_HEADERS = new Set([
 export interface ApiClientHistoryPersistencePrivacyOptions {
   /** Keep API-host request/response bodies in IndexedDB. Defaults to true. */
   persistHostHistoryBodies?: boolean;
-  /** Exact transport observed for history entries created in the current session. */
-  transportByHistoryId?: ReadonlyMap<string, ApiClientTransport>;
 }
 
 /** Return whether a header value should never be written verbatim to request history. */
@@ -67,8 +64,7 @@ export function createApiClientWorkspacePersistenceSnapshot(
   return {
     ...workspace,
     history: workspace.history.map((entry) => {
-      const transport = options.transportByHistoryId?.get(entry.id);
-      const omitBody = !persistHostBodies && transport !== 'browser';
+      const omitBody = !persistHostBodies && entry.transport !== 'browser';
       const request = persistedRequest(entry.request, omitBody);
       const responseHeaders = redactResponseHeaders(entry.responseHeaders);
       if (!omitBody) return {

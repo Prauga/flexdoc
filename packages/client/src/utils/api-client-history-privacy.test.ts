@@ -1,7 +1,7 @@
 import { createApiClientWorkspacePersistenceSnapshot, isSensitiveApiClientHistoryHeader } from './api-client-history-privacy';
 import { addApiClientHistoryEntry, createDefaultApiClientWorkspace } from './api-client-workspace';
 
-function workspaceWithHistory() {
+function workspaceWithHistory(transport?: 'browser' | 'api-host') {
   return addApiClientHistoryEntry(createDefaultApiClientWorkspace(), {
     request: {
       method: 'POST',
@@ -21,6 +21,7 @@ function workspaceWithHistory() {
     executedMethod: 'POST',
     resolvedUrl: 'https://api.example.test/pets',
     status: 200,
+    transport,
     responseHeaders: [
       ['Set-Cookie', 'sid=secret'],
       ['X-Request-Id', 'req-123'],
@@ -53,12 +54,8 @@ describe('API Client history persistence privacy', () => {
   });
 
   it('omits API-host request and response bodies without mutating live history', () => {
-    const workspace = workspaceWithHistory();
-    const id = workspace.history[0].id;
-    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, {
-      persistHostHistoryBodies: false,
-      transportByHistoryId: new Map([[id, 'api-host']]),
-    });
+    const workspace = workspaceWithHistory('api-host');
+    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, { persistHostHistoryBodies: false });
     const persisted = snapshot.history[0];
     expect(persisted.request.body).toBeUndefined();
     expect(persisted.request.urlencoded).toBeUndefined();
@@ -71,12 +68,8 @@ describe('API Client history persistence privacy', () => {
   });
 
   it('preserves positively identified browser bodies in privacy mode', () => {
-    const workspace = workspaceWithHistory();
-    const id = workspace.history[0].id;
-    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, {
-      persistHostHistoryBodies: false,
-      transportByHistoryId: new Map([[id, 'browser']]),
-    });
+    const workspace = workspaceWithHistory('browser');
+    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, { persistHostHistoryBodies: false });
     expect(snapshot.history[0].request.graphql?.query).toContain('Secret');
     expect(snapshot.history[0].responseBody).toContain('secret');
   });

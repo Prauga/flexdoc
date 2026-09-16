@@ -1,7 +1,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Clock3, History, Loader2, Play, Square, XCircle } from 'lucide-react';
-import type { ApiClientTransport, ExecuteApiClientRequestOptions } from '../utils/api-client-execution';
+import type { ExecuteApiClientRequestOptions } from '../utils/api-client-execution';
 import { apiClientCollectionRunName, apiClientCollectionRunRequests, runApiClientCollection } from '../utils/api-client-runner';
 import type { ApiClientCollectionRunItem, ApiClientCollectionRunResult } from '../utils/api-client-runner';
 import type { ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange } from '../utils/api-client-scripting';
@@ -21,7 +21,6 @@ export interface ApiClientRunnerPageProps {
   externalEnvironmentVariables?: HttpVariables;
   onCollectionChanges?: (changes: ApiClientScriptCollectionChange[]) => void;
   onEnvironmentChanges?: (changes: ApiClientScriptEnvironmentChange[]) => void;
-  onHistoryTransport?: (entryId: string, transport: ApiClientTransport) => void;
   onOpenHistory: (entryId?: string, runId?: string) => void;
   onBack: () => void;
   fetcher?: typeof globalThis.fetch;
@@ -66,7 +65,6 @@ export const ApiClientRunnerPage: React.FC<ApiClientRunnerPageProps> = ({
   externalEnvironmentVariables,
   onCollectionChanges,
   onEnvironmentChanges,
-  onHistoryTransport,
   onOpenHistory,
   onBack,
   fetcher,
@@ -129,10 +127,6 @@ export const ApiClientRunnerPage: React.FC<ApiClientRunnerPageProps> = ({
     });
 
     if (!mountedRef.current) return;
-    for (const item of result.items) {
-      const transport = item.outcome.result?.transport;
-      if (item.historyEntryId && transport) onHistoryTransport?.(item.historyEntryId, transport);
-    }
     onWorkspaceChange(result.workspace);
     setRows((current) => Object.fromEntries(queue.map((request) => {
       const existing = current[request.id] || { status: 'pending' as RowStatus };

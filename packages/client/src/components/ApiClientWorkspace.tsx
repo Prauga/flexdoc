@@ -8,7 +8,6 @@ import { ApiClientHistory } from './ApiClientHistory';
 import { ApiClientHistoryPage } from './ApiClientHistoryPage';
 import { ApiClientImport } from './ApiClientImport';
 import { ApiClientRunnerPage } from './ApiClientRunnerPage';
-import type { ApiClientTransport } from '../utils/api-client-execution';
 import { createApiClientWorkspacePersistenceSnapshot } from '../utils/api-client-history-privacy';
 import { inferHttpBodyMode } from '../utils/http-client';
 import type { HttpAuth, HttpRequestDraft } from '../utils/http-client';
@@ -141,7 +140,6 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   const initialScriptState = cloneApiClientScripts(initialScripts);
   const initialWorkspace = createDefaultApiClientWorkspace();
   const initialUiPreferences = persistenceKey === false ? { version: 1 as const } : readApiClientUiPreferences(persistenceKey);
-  const initialHistoryTransports = Object.entries(initialUiPreferences.historyTransports || {}) as Array<[string, ApiClientTransport]>;
   const [editorRequest, setEditorRequest] = useState<HttpRequestDraft>(initialDraft);
   const [currentRequest, setCurrentRequest] = useState<HttpRequestDraft>(initialDraft);
   const [editorScripts, setEditorScripts] = useState<ApiClientRequestScripts>(initialScriptState);
@@ -158,7 +156,6 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   const [selectedFolderId, setSelectedFolderId] = useState('');
   const executionCollectionIdRef = useRef<string | undefined>(initialWorkspace.collections[0]?.id);
   const executionFolderIdRef = useRef<string | undefined>(undefined);
-  const historyTransportByIdRef = useRef(new Map<string, ApiClientTransport>(initialHistoryTransports));
   const [hydrated, setHydrated] = useState(persistenceKey === false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(initialUiPreferences.sidebarCollapsed ?? false);
   const [workspaceTheme, setWorkspaceTheme] = useState<'light' | 'dark'>(initialUiPreferences.theme || theme);
@@ -168,7 +165,6 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   useEffect(() => {
     if (persistenceKey === false) return;
     const preferences = readApiClientUiPreferences(persistenceKey);
-    historyTransportByIdRef.current = new Map(Object.entries(preferences.historyTransports || {}) as Array<[string, ApiClientTransport]>);
     let cancelled = false;
     queueMicrotask(() => {
       if (!cancelled) setPersistHostHistoryBodies(preferences.persistHostHistoryBodies ?? true);
@@ -189,16 +185,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
 
   useEffect(() => {
     if (!hydrated || persistenceKey === false) return;
-    const historyIds = new Set(workspace.history.map((entry) => entry.id));
-    const transports = new Map(
-      [...historyTransportByIdRef.current].filter(([historyId]) => historyIds.has(historyId)),
-    );
-    historyTransportByIdRef.current = transports;
-    writeApiClientUiPreferences(persistenceKey, { historyTransports: Object.fromEntries(transports) });
-    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, {
-      persistHostHistoryBodies,
-      transportByHistoryId: transports,
-    });
+    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, { persistHostHistoryBodies });
     void saveApiClientWorkspace(persistenceKey, snapshot).catch(() => undefined);
   }, [hydrated, persistHostHistoryBodies, persistenceKey, workspace]);
 
@@ -292,12 +279,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   };
 
   const handleExecutionComplete = (result: ApiClientExecutionResult) => {
-    setWorkspace((current) => {
-      const next = addApiClientHistoryEntry(current, { ...result, collectionId: executionCollectionIdRef.current, folderId: executionFolderIdRef.current });
-      const historyId = next.history[0]?.id;
-      if (historyId && result.transport) historyTransportByIdRef.current.set(historyId, result.transport);
-      return next;
-    });
+    setWorkspace((current) => addApiClientHistoryEntry(current, { ...result, collectionId: executionCollectionIdRef.current, folderId: executionFolderIdRef.current }));
     onExecutionComplete?.(result);
   };
 
@@ -462,7 +444,6 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
       externalEnvironmentVariables={externalEnvironmentVariables}
       onCollectionChanges={onCollectionChanges}
       onEnvironmentChanges={onEnvironmentChanges}
-      onHistoryTransport={(entryId, transport) => historyTransportByIdRef.current.set(entryId, transport)}
       onOpenHistory={openHistory}
       onBack={() => setActiveView('request')}
     /> : <ApiClient

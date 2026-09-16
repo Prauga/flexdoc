@@ -20,7 +20,6 @@ describe('api-client-ui-preferences', () => {
     writeApiClientUiPreferences('workspace-a', { scriptTab: 'tests' }, storage);
     writeApiClientUiPreferences('workspace-a', { theme: 'dark' }, storage);
     writeApiClientUiPreferences('workspace-a', { persistHostHistoryBodies: false }, storage);
-    writeApiClientUiPreferences('workspace-a', { historyTransports: { 'history-1': 'api-host', 'history-2': 'browser' } }, storage);
     expect(readApiClientUiPreferences('workspace-a', storage)).toEqual({
       version: 1,
       sidebarCollapsed: true,
@@ -28,7 +27,6 @@ describe('api-client-ui-preferences', () => {
       scriptTab: 'tests',
       theme: 'dark',
       persistHostHistoryBodies: false,
-      historyTransports: { 'history-1': 'api-host', 'history-2': 'browser' },
     });
     expect(readApiClientUiPreferences('workspace-b', storage)).toEqual({ version: 1 });
   });
@@ -39,9 +37,6 @@ describe('api-client-ui-preferences', () => {
     expect(readApiClientUiPreferences('bad', storage)).toEqual({ version: 1 });
 
     storage.setItem('flexdoc:api-client-ui:bad', JSON.stringify({ version: 1, theme: 'system' }));
-    expect(readApiClientUiPreferences('bad', storage)).toEqual({ version: 1 });
-
-    storage.setItem('flexdoc:api-client-ui:bad', JSON.stringify({ version: 1, historyTransports: { 'history-1': 'unknown' } }));
     expect(readApiClientUiPreferences('bad', storage)).toEqual({ version: 1 });
   });
 });
