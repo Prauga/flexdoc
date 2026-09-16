@@ -13,58 +13,36 @@ function once(source, from, to, label) {
   return source.slice(0, i) + to + source.slice(i + from.length);
 }
 
-edit('packages/client/src/utils/api-client-execution.ts', (source) => {
+edit('packages/client/src/utils/api-client-workspace.ts', (source) => once(source,
+  `    const grantTypes = new Set(['accessToken', 'authorizationCode', 'clientCredentials', 'password', 'implicit']);\n    if (value.grantType !== undefined && (typeof value.grantType !== 'string' || !grantTypes.has(value.grantType))) return false;`,
+  `    if (value.grantType !== undefined && (typeof value.grantType !== 'string' || !['accessToken', 'authorizationCode', 'clientCredentials', 'password', 'implicit'].includes(value.grantType))) return false;`,
+  'OAuth grant validation'));
+
+edit('packages/client/src/standalone.tsx', (source) => {
   source = once(source,
-    `export interface ApiClientTransportDecision {\n  mode: ApiClientTransportMode;\n  available: boolean;\n  bodyHost: boolean;\n  missing: HttpHostExecutionCapability[];\n}`,
-    `export type ApiClientTransportDecision = readonly [\n  mode: ApiClientTransportMode,\n  available: boolean,\n  bodyHost: boolean,\n  missing: HttpHostExecutionCapability[],\n];`,
-    'transport decision type');
+    `  const paths: OpenAPISpec['paths'] = {};\n  const methods = new Set(['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace']);`,
+    `  const paths: OpenAPISpec['paths'] = {};`,
+    'standalone method Set');
   source = once(source,
-    `  return {\n    mode: hostRequired ? 'host-required' : preferHostExecution && options.hostExecution?.available === true ? 'api-host' : 'browser',\n    available, bodyHost, missing,\n  };\n}`,
-    `  return [\n    hostRequired ? 'host-required' : preferHostExecution && options.hostExecution?.available === true ? 'api-host' : 'browser',\n    available, bodyHost, missing,\n  ];\n}\n\nexport function apiClientTransportLabel(mode: ApiClientTransportMode): string {\n  return mode === 'host-required' ? 'Host required' : mode === 'api-host' ? 'API host' : 'Browser';\n}\n\nexport function apiClientTransportNotice(\n  decision: ApiClientTransportDecision,\n  hostExecution: FlexDocHostExecutionPublicOptions | undefined,\n  unsupported?: string,\n  disabled?: string,\n): string | null {\n  const [mode, available, , missing] = decision;\n  if (mode === 'host-required') {\n    if (available) return unsupported || 'The browser cannot send this request. FlexDoc will execute it from the API host.';\n    if (!hostExecution?.available) return disabled || 'API-host execution is unavailable on this documentation server.';\n    return hostUnavailableMessage(missing, hostExecution);\n  }\n  return mode === 'api-host' ? 'This request runs from your API server.' : null;\n}`,
-    'transport decision return');
-  source = once(source,
-    `    const transport = resolveApiClientTransport({ request: executionDraft, hostExecution: options.hostExecution, preferHostExecution: options.preferHostExecution });\n    let apiResponse: ApiClientExecutionResponse;\n\n    if (transport.mode !== 'browser') {\n      const missing = transport.missing;`,
-    `    const [transportMode, , , missing] = resolveApiClientTransport({ request: executionDraft, hostExecution: options.hostExecution, preferHostExecution: options.preferHostExecution });\n    let apiResponse: ApiClientExecutionResponse;\n\n    if (transportMode !== 'browser') {`,
-    'executor transport decision');
+    `      if (!methods.has(key)) { (nextPathItem as Record<string, unknown>)[key] = value; continue; }`,
+    `      if (!['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'].includes(key)) { (nextPathItem as Record<string, unknown>)[key] = value; continue; }`,
+    'standalone method lookup');
   return source;
 });
 
-edit('packages/client/src/components/ApiClient.tsx', (source) => {
+edit('packages/client/src/components/ApiClientHistory.tsx', (source) => {
+  source = once(source, `import { cloneApiClientScripts } from '../utils/api-client-scripting';\n`, '', 'recent history script clone import');
+  source = once(source, `import { cloneRequestDraft } from '../utils/api-client-workspace';\n`, '', 'recent history request clone import');
   source = once(source,
-    `import { executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';`,
-    `import { apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';`,
-    'API Client transport imports');
-  source = once(source,
-    `  const transport = resolveApiClientTransport({ request: { ...draft, auth: resolvedAuth }, hostExecution });\n  const hostCapabilities = hostExecution?.capabilities || [];\n  const missingHostCapabilities = transport.missing;\n  const bodyHost = transport.bodyHost;\n  const hostRequired = transport.mode === 'host-required';\n  const available = transport.available;\n  const transportLabel = transport.mode === 'host-required' ? 'Host required' : transport.mode === 'api-host' ? 'API host' : 'Browser';\n  const hostNotice = bodyHost\n    ? hostExecution?.available\n      ? messages?.unusualBodyHostExecution || \`\${method} request bodies are unusual. FlexDoc will use API-host execution so the body can be sent.\`\n      : messages?.unusualBodyBrowserWarning || \`\${method} request bodies are unusual. Browser fetch may reject this request; enable API-host execution to send it reliably.\`\n    : hostRequired\n    ? available\n      ? messages?.hostBrowserUnsupported || 'The browser cannot send this request. FlexDoc will execute it from the API host.'\n      : hostExecution?.available\n        ? \`The API host does not support the required capability\${missingHostCapabilities.length === 1 ? '' : 'ies'}: \${missingHostCapabilities.join(', ')}.\`\n        : messages?.hostExecutionDisabled || 'API-host execution is unavailable on this documentation server.'\n    : transport.mode === 'api-host'\n      ? 'This request runs from your API server.'\n      : null;\n  const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && hostCapabilities.includes(capability);\n  const setTransportPreference = (value: string) => setDraft((current) => ({\n    ...current,\n    hostExecution: { ...(current.hostExecution || {}), preferHostExecution: value === 'inherit' ? undefined : value === 'host' },\n  }));`,
-    `  const transport = resolveApiClientTransport({ request: { ...draft, auth: resolvedAuth }, hostExecution });\n  const [transportMode, available, bodyHost] = transport;\n  const hostRequired = transportMode === 'host-required';\n  const hostNotice = bodyHost\n    ? hostExecution?.available\n      ? messages?.unusualBodyHostExecution || \`\${method} request bodies are unusual. FlexDoc will use API-host execution so the body can be sent.\`\n      : messages?.unusualBodyBrowserWarning || \`\${method} request bodies are unusual. Browser fetch may reject this request; enable API-host execution to send it reliably.\`\n    : apiClientTransportNotice(transport, hostExecution, messages?.hostBrowserUnsupported, messages?.hostExecutionDisabled);\n  const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && (hostExecution.capabilities || []).includes(capability);`,
-    'API Client transport block');
-  source = once(source,
-    `{transportLabel}</span>\n        {hostExecution?.available && <label className={\`inline-flex items-center gap-2 \${mutedClass}\`}>Transport preference<select aria-label='Transport preference' disabled={hostRequired} className={\`rounded-md border px-2 py-1 \${inputClass}\`} value={draft.hostExecution?.preferHostExecution === undefined ? 'inherit' : draft.hostExecution.preferHostExecution ? 'host' : 'browser'} onChange={(event) => setTransportPreference(event.target.value)}>` ,
-    `{apiClientTransportLabel(transportMode)}</span>\n        {hostExecution?.available && <label className={\`inline-flex items-center gap-2 \${mutedClass}\`}>Transport preference<select aria-label='Transport preference' disabled={hostRequired} className={\`rounded-md border px-2 py-1 \${inputClass}\`} value={draft.hostExecution?.preferHostExecution === undefined ? 'inherit' : draft.hostExecution.preferHostExecution ? 'host' : 'browser'} onChange={({ target: { value } }) => setDraft((current) => ({ ...current, hostExecution: { ...(current.hostExecution || {}), preferHostExecution: value === 'inherit' ? undefined : value === 'host' } }))}>`,
-    'API Client preference control');
+    `    onLoadRequest(\n      cloneRequestDraft(entry.request),\n      entry.scripts ? cloneApiClientScripts(entry.scripts) : undefined,\n      entry.collectionId,\n      entry.folderId,\n    );`,
+    `    onLoadRequest(entry.request, entry.scripts, entry.collectionId, entry.folderId);`,
+    'recent history redundant clones');
   return source;
 });
 
-edit('packages/client/src/components/RequestPlayground.tsx', (source) => {
-  source = once(source,
-    `import { executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';`,
-    `import { apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';`,
-    'Try It transport imports');
-  source = once(source,
-    `  const cookieRequiresHost = Object.values(values.cookies || {}).some(Boolean);\n  const transport = resolveApiClientTransport({\n    request: currentDraft || { method, url: '' },\n    hostExecution: options?.tryIt?.hostExecution,\n    additionalRequirements: cookieRequiresHost ? ['cookies'] : [],\n  });\n  const missingHostCapabilities = transport.missing;\n  const hostRequired = transport.mode === 'host-required';\n  const available = transport.available;\n  const transportLabel = transport.mode === 'host-required' ? 'Host required' : transport.mode === 'api-host' ? 'API host' : 'Browser';\n  const hostNotice = hostRequired\n    ? available\n      ? 'The browser cannot send this request. FlexDoc will execute it from the API host.'\n      : options?.tryIt?.hostExecution?.available\n        ? \`The API host does not support the required capability\${missingHostCapabilities.length === 1 ? '' : 'ies'}: \${missingHostCapabilities.join(', ')}.\`\n        : 'API-host execution is unavailable on this documentation server.'\n    : transport.mode === 'api-host'\n      ? 'This request runs from your API server.'\n      : null;`,
-    `  const transport = resolveApiClientTransport({\n    request: currentDraft || { method, url: '' },\n    hostExecution: options?.tryIt?.hostExecution,\n    additionalRequirements: Object.values(values.cookies || {}).some(Boolean) ? ['cookies'] : [],\n  });\n  const [transportMode, available] = transport;\n  const hostRequired = transportMode === 'host-required';\n  const hostNotice = apiClientTransportNotice(transport, options?.tryIt?.hostExecution);`,
-    'Try It transport block');
-  source = source.replaceAll('{transportLabel}</span>', '{apiClientTransportLabel(transportMode)}</span>');
-  source = source.replaceAll("transport.mode !== 'browser'", "transportMode !== 'browser'");
-  return source;
-});
+edit('packages/client/src/components/ApiClientHistoryPage.tsx', (source) => once(source,
+  `  const selectedRun = selectedRunId\n    ? blocks.find((block) => block.kind === 'run' && block.group.runId === selectedRunId)?.kind === 'run'\n      ? (blocks.find((block) => block.kind === 'run' && block.group.runId === selectedRunId) as { kind: 'run'; group: ApiClientHistoryRunGroup }).group\n      : undefined\n    : undefined;`,
+  `  const selectedRunBlock = selectedRunId ? blocks.find((block) => block.kind === 'run' && block.group.runId === selectedRunId) : undefined;\n  const selectedRun = selectedRunBlock?.kind === 'run' ? selectedRunBlock.group : undefined;`,
+  'full history duplicate run lookup'));
 
-edit('packages/client/src/utils/api-client-ui-preferences.ts', (source) => {
-  source = once(source,
-    `    const requestTabs = new Set(['params', 'headers', 'authorization', 'body', 'scripts']);\n    const scriptTabs = new Set(['pre-request', 'tests']);\n    const themes = new Set(['light', 'dark']);\n    if (parsed.sidebarCollapsed !== undefined && typeof parsed.sidebarCollapsed !== 'boolean') return { version: 1 };\n    if (parsed.requestTab !== undefined && (typeof parsed.requestTab !== 'string' || !requestTabs.has(parsed.requestTab))) return { version: 1 };\n    if (parsed.scriptTab !== undefined && (typeof parsed.scriptTab !== 'string' || !scriptTabs.has(parsed.scriptTab))) return { version: 1 };\n    if (parsed.theme !== undefined && (typeof parsed.theme !== 'string' || !themes.has(parsed.theme))) return { version: 1 };`,
-    `    if (parsed.sidebarCollapsed !== undefined && typeof parsed.sidebarCollapsed !== 'boolean') return { version: 1 };\n    if (parsed.requestTab !== undefined && !['params', 'headers', 'authorization', 'body', 'scripts'].includes(parsed.requestTab as string)) return { version: 1 };\n    if (parsed.scriptTab !== undefined && !['pre-request', 'tests'].includes(parsed.scriptTab as string)) return { version: 1 };\n    if (parsed.theme !== undefined && !['light', 'dark'].includes(parsed.theme as string)) return { version: 1 };`,
-    'UI preference validators');
-  return source;
-});
-
-console.log('Applied shared transport and preference size trim.');
+console.log('Applied renderer size hygiene pass.');
