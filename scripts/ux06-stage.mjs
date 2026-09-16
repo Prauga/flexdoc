@@ -53,6 +53,14 @@ edit('packages/client/src/components/ApiClient.tsx', (source) => {
       onExecutionStart?.();
       const outcome = await executeApiClientRequest({`,
     'ApiClient intent-time preflight');
+  source = once(source,
+    "  const inputClass = theme === 'dark' ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900';",
+    "  const inputClass = theme === 'dark' ? 'bg-gray-900 border-gray-700 text-gray-100' : 'bg-white border-gray-300 text-gray-900';\n  const fieldClass = `rounded-md border px-3 py-2 ${inputClass}`;\n  const fullFieldClass = `w-full ${fieldClass}`;\n  const smallFieldClass = `${fieldClass} text-sm`;",
+    'API Client shared field classes');
+  source = source.replaceAll('className={`rounded-md border px-3 py-2 ${inputClass}`}', 'className={fieldClass}');
+  source = source.replaceAll('className={`w-full rounded-md border px-3 py-2 ${inputClass}`}', 'className={fullFieldClass}');
+  source = source.replaceAll('className={`rounded-md border px-3 py-2 text-sm ${inputClass}`}', 'className={smallFieldClass}');
+  source = source.replaceAll('fieldClass={`w-full rounded-md border px-3 py-2 text-sm ${inputClass}`}', 'fieldClass={`${fullFieldClass} text-sm`}');
   return source;
 });
 
