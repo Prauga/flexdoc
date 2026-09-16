@@ -1,4 +1,4 @@
-name: OBS-01 Workspace Privacy Validation
+name: OBS-01 Latest Stack Measurement
 
 on:
   push:
@@ -6,15 +6,32 @@ on:
       - feat/3.3.x-history-privacy
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  validate-and-sync:
-    if: github.actor != 'github-actions[bot]'
+  measure:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout privacy branch
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Assemble latest transport UX tree
+        run: |
+          git fetch origin feat/3.3.1-transport-ux
+          git config user.name 'stack-measure'
+          git config user.email 'stack-measure@invalid'
+          git merge --no-ff --no-commit origin/feat/3.3.1-transport-ux || true
+          mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
+          printf 'STACK_CONFLICT=%s\n' "${conflicts[@]}"
+          for path in "${conflicts[@]}"; do
+            case "$path" in
+              adapters/elixir/assets/flexdoc.standalone.js|adapters/go/assets/flexdoc.standalone.js|adapters/php/assets/flexdoc.standalone.js|adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.js|adapters/ruby/assets/flexdoc.standalone.js|adapters/rust-actix/assets/flexdoc.standalone.js|adapters/rust/assets/flexdoc.standalone.js)
+                git checkout --theirs -- "$path"; git add "$path" ;;
+              *) echo "Unexpected source conflict: $path"; exit 1 ;;
+            esac
+          done
+          test -z "$(git diff --name-only --diff-filter=U)"
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
@@ -22,38 +39,19 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Apply workspace-backed privacy mode
-        run: node scripts/obs01-trim.mjs
-      - name: Validate privacy source
+      - name: Validate combined client
         run: |
           npm run lint
           npm test -w packages/client -- --runInBand
-      - name: Build and measure standalone renderer
+      - name: Build and measure combined standalone renderer
         run: |
           npm run build:client
           node - <<'NODE'
           const fs = require('fs');
           const zlib = require('zlib');
           const file = fs.readFileSync('packages/client/dist/standalone/flexdoc.standalone.js');
-          console.log(`OBS01_RAW=${file.length}`);
-          console.log(`OBS01_HEADROOM=${862208-file.length}`);
-          console.log(`OBS01_GZIP=${zlib.gzipSync(file, { level: 9 }).length}`);
-          console.log(`OBS01_BROTLI=${zlib.brotliCompressSync(file, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } }).length}`);
+          console.log(`STACKED_RAW=${file.length}`);
+          console.log(`STACKED_HEADROOM=${862208-file.length}`);
+          console.log(`STACKED_GZIP=${zlib.gzipSync(file, { level: 9 }).length}`);
+          console.log(`STACKED_BROTLI=${zlib.brotliCompressSync(file, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } }).length}`);
           NODE
-      - name: Synchronize adapter renderer assets
-        run: npm run sync:adapter-assets
-      - name: Commit validated privacy refactor
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add packages/client/src \
-            adapters/elixir/assets/flexdoc.standalone.js \
-            adapters/go/assets/flexdoc.standalone.js \
-            adapters/php/assets/flexdoc.standalone.js \
-            adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.js \
-            adapters/ruby/assets/flexdoc.standalone.js \
-            adapters/rust-actix/assets/flexdoc.standalone.js \
-            adapters/rust/assets/flexdoc.standalone.js
-          git diff --cached --check
-          git commit -m 'fix: api-client/privacy: persist history mode with workspace' -m 'Keep the OBS-01 privacy toggle in IndexedDB workspace state, remove duplicate localStorage/React plumbing, preserve conservative body omission for host and legacy history, and regenerate adapter renderer assets.'
-          git push origin HEAD:feat/3.3.x-history-privacy
