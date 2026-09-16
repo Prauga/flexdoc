@@ -13,51 +13,94 @@ function once(source, from, to, label) {
   return source.slice(0, index) + to + source.slice(index + from.length);
 }
 
-for (const path of [
-  'packages/client/src/utils/api-client-ui-preferences.ts',
-  'packages/client/src/utils/api-client-ui-preferences.test.ts',
-  'packages/client/src/components/ApiClientWorkspace.tsx',
-  'packages/client/src/components/ApiClientHistory.tsx',
-]) {
-  edit(path, (source) => source
-    .replaceAll('persistHostHistoryBodies', 'historyBodies')
-    .replaceAll('PersistHostHistoryBodies', 'HistoryBodies'));
-}
+edit('packages/client/src/utils/api-client-ui-preferences.ts', (source) => {
+  source = once(source, "  historyBodies?: boolean;\n", '', 'UI privacy field');
+  source = once(source, "    if (parsed.historyBodies !== undefined && typeof parsed.historyBodies !== 'boolean') return { version: 1 };\n", '', 'UI privacy validation');
+  source = once(source, "      ...(typeof parsed.historyBodies === 'boolean' ? { historyBodies: parsed.historyBodies } : {}),\n", '', 'UI privacy readback');
+  return source;
+});
+
+edit('packages/client/src/utils/api-client-ui-preferences.test.ts', (source) => {
+  source = once(source, "    writeApiClientUiPreferences('workspace-a', { historyBodies: false }, storage);\n", '', 'UI privacy write test');
+  source = once(source, "      historyBodies: false,\n", '', 'UI privacy expectation');
+  return source;
+});
+
+edit('packages/client/src/utils/api-client-workspace.ts', (source) => {
+  source = once(source,
+    "  /** Currently active environment id, when one is selected. */ activeEnvironmentId?: string;\n  /** Most-recent-first execution history, capped by the workspace implementation. */ history: ApiClientHistoryEntry[];",
+    "  /** Currently active environment id, when one is selected. */ activeEnvironmentId?: string;\n  /** Whether API-host request/response bodies may be persisted in history. Defaults to true. */ historyBodies?: boolean;\n  /** Most-recent-first execution history, capped by the workspace implementation. */ history: ApiClientHistoryEntry[];",
+    'workspace privacy field');
+  source = once(source,
+    "    activeEnvironmentId,\n    history: historyValues,",
+    "    activeEnvironmentId,\n    historyBodies: typeof value.historyBodies === 'boolean' ? value.historyBodies : undefined,\n    history: historyValues,",
+    'workspace privacy normalization');
+  return source;
+});
 
 edit('packages/client/src/utils/api-client-history-privacy.ts', (source) => {
   source = once(source,
-    "/** Privacy controls applied only to the workspace copy written to IndexedDB. */\nexport interface ApiClientHistoryPersistencePrivacyOptions {\n  /** Keep API-host request/response bodies in IndexedDB. Defaults to true. */\n  persistHostHistoryBodies?: boolean;\n}\n\n",
-    '',
-    'privacy options type');
-  source = once(source,
-    "export function createApiClientWorkspacePersistenceSnapshot(\n  workspace: ApiClientWorkspaceState,\n  options: ApiClientHistoryPersistencePrivacyOptions = {},\n): ApiClientWorkspaceState {\n  const persistHostBodies = options.persistHostHistoryBodies !== false;",
     "export function createApiClientWorkspacePersistenceSnapshot(\n  workspace: ApiClientWorkspaceState,\n  historyBodies = true,\n): ApiClientWorkspaceState {",
-    'privacy options parameter');
-  source = source.replaceAll('!persistHostBodies', '!historyBodies');
+    "export function createApiClientWorkspacePersistenceSnapshot(workspace: ApiClientWorkspaceState): ApiClientWorkspaceState {",
+    'privacy snapshot signature');
+  source = once(source,
+    "      const omitBody = !historyBodies && entry.transport !== 'browser';",
+    "      const omitBody = workspace.historyBodies === false && entry.transport !== 'browser';",
+    'privacy workspace mode');
   return source;
 });
 
 edit('packages/client/src/components/ApiClientWorkspace.tsx', (source) => {
+  source = once(source, "  const [historyBodies, setHistoryBodies] = useState(initialUiPreferences.historyBodies ?? true);\n", '', 'privacy React state');
   source = once(source,
-    'createApiClientWorkspacePersistenceSnapshot(workspace, { historyBodies })',
-    'createApiClientWorkspacePersistenceSnapshot(workspace, historyBodies)',
-    'privacy persistence call');
-  return source;
-});
-
-edit('packages/client/src/utils/api-client-history-privacy.test.ts', (source) => {
-  source = source
-    .replaceAll('createApiClientWorkspacePersistenceSnapshot(workspace, { historyBodies: false })', 'createApiClientWorkspacePersistenceSnapshot(workspace, false)')
-    .replaceAll('createApiClientWorkspacePersistenceSnapshot(workspace, { persistHostHistoryBodies: false })', 'createApiClientWorkspacePersistenceSnapshot(workspace, false)');
+    "    const preferences = readApiClientUiPreferences(persistenceKey);\n    let cancelled = false;\n    queueMicrotask(() => {\n      if (!cancelled) setHistoryBodies(preferences.historyBodies ?? true);\n    });\n    loadApiClientWorkspace(persistenceKey)",
+    "    let cancelled = false;\n    loadApiClientWorkspace(persistenceKey)",
+    'privacy preference hydration');
+  source = once(source,
+    "    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, historyBodies);\n    void saveApiClientWorkspace(persistenceKey, snapshot).catch(() => undefined);\n  }, [hydrated, historyBodies, persistenceKey, workspace]);",
+    "    const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace);\n    void saveApiClientWorkspace(persistenceKey, snapshot).catch(() => undefined);\n  }, [hydrated, persistenceKey, workspace]);",
+    'privacy persistence effect');
+  source = once(source,
+    "  const handleHistoryBodiesChange = (value: boolean) => {\n    setHistoryBodies(value);\n    if (persistenceKey !== false) writeApiClientUiPreferences(persistenceKey, { historyBodies: value });\n  };\n\n",
+    '',
+    'privacy preference handler');
+  source = once(source,
+    "          onViewAll={() => openHistory()}\n          historyBodies={historyBodies}\n          onHistoryBodiesChange={handleHistoryBodiesChange}\n          theme={activeTheme}",
+    "          onViewAll={() => openHistory()}\n          theme={activeTheme}",
+    'privacy history props');
   return source;
 });
 
 edit('packages/client/src/components/ApiClientHistory.tsx', (source) => {
   source = once(source,
-    "    <label className='flex items-start gap-2 rounded-md border px-2 py-2 text-xs'>\n      <input type='checkbox' className='mt-0.5' checked={historyBodies} onChange={(event) => onHistoryBodiesChange(event.target.checked)} />\n      <span>\n        <span className='block font-medium'>Store API-host bodies in history</span>\n        <span className={`block ${mutedClass}`}>Turn off for metadata-only persisted host history. Sensitive headers are always redacted.</span>\n      </span>\n    </label>",
-    "    <label className='flex items-center gap-2 rounded-md border p-2 text-xs' title='Sensitive history headers are always redacted.'>\n      <input type='checkbox' checked={historyBodies} onChange={(event) => onHistoryBodiesChange(event.target.checked)} />\n      <span>Store API-host bodies</span>\n    </label>",
-    'privacy history toggle');
+    "  onViewAll?: () => void;\n  historyBodies: boolean;\n  onHistoryBodiesChange: (value: boolean) => void;\n  theme: 'light' | 'dark';",
+    "  onViewAll?: () => void;\n  theme: 'light' | 'dark';",
+    'privacy history prop types');
+  source = once(source,
+    "export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange, onLoadRequest, onViewAll, historyBodies, onHistoryBodiesChange, theme }) => {",
+    "export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange, onLoadRequest, onViewAll, theme }) => {",
+    'privacy history destructure');
+  source = once(source,
+    "      <input type='checkbox' checked={historyBodies} onChange={(event) => onHistoryBodiesChange(event.target.checked)} />",
+    "      <input type='checkbox' checked={workspace.historyBodies !== false} onChange={(event) => onWorkspaceChange((current) => ({ ...current, historyBodies: event.target.checked }))} />",
+    'privacy workspace toggle');
   return source;
 });
 
-console.log('Applied compact OBS-01 private-state trim.');
+edit('packages/client/src/utils/api-client-history-privacy.test.ts', (source) => {
+  source = once(source,
+    "import { addApiClientHistoryEntry, createDefaultApiClientWorkspace } from './api-client-workspace';",
+    "import { addApiClientHistoryEntry, createDefaultApiClientWorkspace, normalizeApiClientWorkspace } from './api-client-workspace';",
+    'privacy normalization import');
+  source = source.replaceAll(
+    'createApiClientWorkspacePersistenceSnapshot(workspace, false)',
+    'createApiClientWorkspacePersistenceSnapshot({ ...workspace, historyBodies: false })',
+  );
+  source = once(source,
+    "  it('always redacts sensitive request and response headers before persistence', () => {",
+    "  it('persists the history-body privacy mode with workspace state', () => {\n    const workspace = normalizeApiClientWorkspace({ ...createDefaultApiClientWorkspace(), historyBodies: false });\n    expect(workspace.historyBodies).toBe(false);\n  });\n\n  it('always redacts sensitive request and response headers before persistence', () => {",
+    'privacy workspace persistence test');
+  return source;
+});
+
+console.log('Applied workspace-backed OBS-01 privacy mode.');
