@@ -48,6 +48,8 @@ For the documentation path itself, the generated host page is immutable for the 
 
 Renderer assets remain version-addressed and use `public, max-age=31536000, immutable`. ETags are content-derived, so independent application replicas serving the same spec/options produce the same validator without shared cache state; each replica keeps only its own in-process page promise/body.
 
+FlexDoc 3.3 also keeps a permanent ten-runtime Host Impact Baseline for the explicit API-host execution path. See [`host-impact-summary.md`](./host-impact-summary.md) for the representative 3.3 measurements, matched direct-vs-host memory interpretation, optimization decisions, and catastrophic-regression policy. Harness and rebaseline details remain in `scripts/performance/host-impact/README.md`.
+
 ## Deployment choices
 
 The embedded mode optimizes for zero normal-route overhead and cheap docs requests. Teams that require literally zero FlexDoc runtime presence can continue to export/serve static documentation through the CLI or their static hosting pipeline.
