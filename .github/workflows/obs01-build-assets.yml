@@ -1,4 +1,4 @@
-name: OBS-01 Stacked Measurement
+name: OBS-01 Workspace Privacy Validation
 
 on:
   push:
@@ -6,62 +6,54 @@ on:
       - feat/3.3.x-history-privacy
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  measure:
+  validate-and-sync:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout privacy branch
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Assemble latest transport UX tree
-        run: |
-          git fetch origin feat/3.3.1-transport-ux
-          git config user.name 'stack-measure'
-          git config user.email 'stack-measure@invalid'
-          git merge --no-ff --no-commit origin/feat/3.3.1-transport-ux || true
-          mapfile -t conflicts < <(git diff --name-only --diff-filter=U)
-          printf 'STACK_CONFLICT=%s\n' "${conflicts[@]}"
-          for path in "${conflicts[@]}"; do
-            case "$path" in
-              adapters/elixir/assets/flexdoc.standalone.js|adapters/go/assets/flexdoc.standalone.js|adapters/php/assets/flexdoc.standalone.js|adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.js|adapters/ruby/assets/flexdoc.standalone.js|adapters/rust-actix/assets/flexdoc.standalone.js|adapters/rust/assets/flexdoc.standalone.js)
-                git checkout --theirs -- "$path"; git add "$path" ;;
-              packages/client/src/utils/api-client-ui-preferences.ts)
-                git checkout --theirs -- "$path"
-                python3 - <<'PY'
-          from pathlib import Path
-          p=Path('packages/client/src/utils/api-client-ui-preferences.ts')
-          s=p.read_text()
-          s=s.replace("  theme?: 'light' | 'dark';\n", "  theme?: 'light' | 'dark';\n  historyBodies?: boolean;\n", 1)
-          s=s.replace("    if (parsed.theme !== undefined && !['light', 'dark'].includes(parsed.theme as string)) return { version: 1 };\n", "    if (parsed.theme !== undefined && !['light', 'dark'].includes(parsed.theme as string)) return { version: 1 };\n    if (parsed.historyBodies !== undefined && typeof parsed.historyBodies !== 'boolean') return { version: 1 };\n", 1)
-          s=s.replace("      ...(typeof parsed.theme === 'string' ? { theme: parsed.theme as ApiClientUiPreferences['theme'] } : {}),\n", "      ...(typeof parsed.theme === 'string' ? { theme: parsed.theme as ApiClientUiPreferences['theme'] } : {}),\n      ...(typeof parsed.historyBodies === 'boolean' ? { historyBodies: parsed.historyBodies } : {}),\n", 1)
-          p.write_text(s)
-          PY
-                git add "$path" ;;
-              *) echo "Unexpected source conflict: $path"; exit 1 ;;
-            esac
-          done
-          test -z "$(git diff --name-only --diff-filter=U)"
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '22.22.3'
           cache: npm
-      - run: npm ci
-      - name: Validate combined client
+      - name: Install dependencies
+        run: npm ci
+      - name: Apply workspace-backed privacy mode
+        run: node scripts/obs01-trim.mjs
+      - name: Validate privacy source
         run: |
           npm run lint
           npm test -w packages/client -- --runInBand
-      - name: Build and measure combined standalone renderer
+      - name: Build and measure standalone renderer
         run: |
           npm run build:client
           node - <<'NODE'
-          const fs=require('fs'),z=require('zlib');
-          const f=fs.readFileSync('packages/client/dist/standalone/flexdoc.standalone.js');
-          console.log(`STACKED_RAW=${f.length}`);
-          console.log(`STACKED_HEADROOM=${862208-f.length}`);
-          console.log(`STACKED_GZIP=${z.gzipSync(f,{level:9}).length}`);
-          console.log(`STACKED_BROTLI=${z.brotliCompressSync(f,{params:{[z.constants.BROTLI_PARAM_QUALITY]:11}}).length}`);
+          const fs = require('fs');
+          const zlib = require('zlib');
+          const file = fs.readFileSync('packages/client/dist/standalone/flexdoc.standalone.js');
+          console.log(`OBS01_RAW=${file.length}`);
+          console.log(`OBS01_HEADROOM=${862208-file.length}`);
+          console.log(`OBS01_GZIP=${zlib.gzipSync(file, { level: 9 }).length}`);
+          console.log(`OBS01_BROTLI=${zlib.brotliCompressSync(file, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } }).length}`);
           NODE
+      - name: Synchronize adapter renderer assets
+        run: npm run sync:adapter-assets
+      - name: Commit validated privacy refactor
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add packages/client/src \
+            adapters/elixir/assets/flexdoc.standalone.js \
+            adapters/go/assets/flexdoc.standalone.js \
+            adapters/php/assets/flexdoc.standalone.js \
+            adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.js \
+            adapters/ruby/assets/flexdoc.standalone.js \
+            adapters/rust-actix/assets/flexdoc.standalone.js \
+            adapters/rust/assets/flexdoc.standalone.js
+          git diff --cached --check
+          git commit -m 'fix: api-client/privacy: persist history mode with workspace' -m 'Keep the OBS-01 privacy toggle in IndexedDB workspace state, remove duplicate localStorage/React plumbing, preserve conservative body omission for host and legacy history, and regenerate adapter renderer assets.'
+          git push origin HEAD:feat/3.3.x-history-privacy
