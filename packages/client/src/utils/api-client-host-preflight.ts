@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react';
-
 type HostPreflightFetcher = typeof globalThis.fetch;
-const hostPreflights = new Map<string, Promise<string | null>>();
+const successfulHostPreflights = new Set<string>();
 
 function preflightMessage(status: number): string {
   if (status === 401) return 'API-host execute route preflight was unauthorized. Check documentation authentication for the execute path.';
@@ -14,8 +12,15 @@ function preflightMessage(status: number): string {
 /**
  * Probe the advertised API-host execute route without executing a target request.
  * A valid FlexDoc route rejects the deliberately empty canonical envelope with a FlexDoc 400.
+ * Successful probes using the real browser fetch implementation are cached for the page lifetime.
  */
-export async function preflightApiClientHostExecution(endpoint: string, fetcher: HostPreflightFetcher = globalThis.fetch): Promise<string | null> {
+export async function preflightApiClientHostExecution(
+  endpoint: string,
+  fetcher: HostPreflightFetcher = globalThis.fetch,
+  signal?: AbortSignal,
+): Promise<string | null> {
+  const cache = fetcher === globalThis.fetch;
+  if (cache && successfulHostPreflights.has(endpoint)) return null;
   if (!fetcher) return 'API-host execute route preflight could not run because Fetch is unavailable.';
   try {
     const response = await fetcher(endpoint, {
@@ -23,6 +28,7 @@ export async function preflightApiClientHostExecution(endpoint: string, fetcher:
       credentials: 'same-origin',
       headers: { 'X-FlexDoc-Execute': '1', 'Content-Type': 'application/json' },
       body: '{}',
+      ...(signal ? { signal } : {}),
     });
     const raw = await response.text();
     let flexDocError = '';
@@ -30,30 +36,16 @@ export async function preflightApiClientHostExecution(endpoint: string, fetcher:
       const parsed: unknown = raw ? JSON.parse(raw) : {};
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && typeof (parsed as { error?: unknown }).error === 'string') flexDocError = (parsed as { error: string }).error;
     } catch { /* middleware HTML/text is diagnosed below */ }
-    if (response.status === 429) return null;
-    if (response.status === 400 && /host execution/i.test(flexDocError)) return null;
+    const reachable = response.status === 429 || (response.status === 400 && /host execution/i.test(flexDocError));
+    if (reachable) {
+      if (cache) successfulHostPreflights.add(endpoint);
+      return null;
+    }
     if (response.redirected) return 'API-host execute route preflight was redirected. Check authentication middleware for the execute path.';
     if (response.ok) return 'API-host execute route preflight returned an unexpected success response. Check middleware routing for the execute path.';
     return preflightMessage(response.status);
   } catch {
+    if (signal?.aborted) return null;
     return 'API-host execute route preflight could not reach the advertised endpoint. Check the execute path and documentation middleware.';
   }
-}
-
-/** Run one shared preflight per advertised endpoint for interactive browser surfaces. */
-export function useApiClientHostExecutionPreflight(endpoint?: string): string | null {
-  const [result, setResult] = useState<{ endpoint: string; warning: string | null }>({ endpoint: '', warning: null });
-  useEffect(() => {
-    let active = true;
-    if (!endpoint) return () => { active = false; };
-    let pending = hostPreflights.get(endpoint);
-    if (!pending) {
-      pending = preflightApiClientHostExecution(endpoint);
-      hostPreflights.set(endpoint, pending);
-      void pending.then((warning) => { if (warning && hostPreflights.get(endpoint) === pending) hostPreflights.delete(endpoint); });
-    }
-    void pending.then((warning) => { if (active) setResult({ endpoint, warning }); });
-    return () => { active = false; };
-  }, [endpoint]);
-  return endpoint && result.endpoint === endpoint ? result.warning : null;
 }
