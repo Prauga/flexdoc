@@ -13,58 +13,34 @@ function once(source, from, to, label) {
   return source.slice(0, i) + to + source.slice(i + from.length);
 }
 
-edit('packages/client/src/utils/api-client-execution.ts', (source) => {
-  source = once(source, '  shouldUseHost: boolean;\n', '', 'redundant shouldUseHost type');
+for (const path of [
+  'packages/client/src/utils/api-client-execution.ts',
+  'packages/client/src/components/ApiClient.tsx',
+  'packages/client/src/components/RequestPlayground.tsx',
+  'packages/client/src/utils/api-client-execution.test.ts',
+  'packages/client/src/components/ApiClient.host-execution-copy.test.tsx',
+  'packages/client/src/components/RequestPlayground.test.tsx',
+]) {
+  edit(path, (source) => source
+    .replaceAll('hostAvailable', 'available')
+    .replaceAll('bodyNeedsHostTransport', 'bodyHost')
+    .replaceAll('missingCapabilities', 'missing'));
+}
+
+edit('packages/client/src/standalone.tsx', (source) => {
   source = once(source,
-    "  const shouldUseHost = hostRequired || (preferHostExecution && options.hostExecution?.available === true);\n  return {\n    mode: hostRequired ? 'host-required' : shouldUseHost ? 'api-host' : 'browser',\n    shouldUseHost, hostAvailable, bodyNeedsHostTransport, missingCapabilities,\n  };",
-    "  return {\n    mode: hostRequired ? 'host-required' : preferHostExecution && options.hostExecution?.available === true ? 'api-host' : 'browser',\n    hostAvailable, bodyNeedsHostTransport, missingCapabilities,\n  };",
-    'resolver shouldUseHost runtime');
-  source = once(source, '    if (transport.shouldUseHost) {', "    if (transport.mode !== 'browser') {", 'executor shouldUseHost check');
+    "import { createRoot, Root } from 'react-dom/client';",
+    "import type { ReactNode } from 'react';\nimport { createRoot, Root } from 'react-dom/client';",
+    'ReactNode import');
+  source = once(source,
+    "function renderFlexDoc(element: Element, source: OpenAPISpec, options: StandaloneFlexDocOptions): () => void {\n  const spec = prepareSpec(source, options);\n  const existingRoot = roots.get(element);\n  if (existingRoot) existingRoot.unmount();\n  const root = createRoot(element);\n  roots.set(element, root);\n  root.render(<FlexDoc spec={spec} theme={resolveTheme(options)} options={options} />);\n  return () => { if (roots.get(element) === root) roots.delete(element); root.unmount(); };\n}",
+    "function mountRoot(element: Element, child: ReactNode): () => void {\n  const existingRoot = roots.get(element);\n  if (existingRoot) existingRoot.unmount();\n  const root = createRoot(element);\n  roots.set(element, root);\n  root.render(child);\n  return () => { if (roots.get(element) === root) roots.delete(element); root.unmount(); };\n}\n\nfunction renderFlexDoc(element: Element, source: OpenAPISpec, options: StandaloneFlexDocOptions): () => void {\n  return mountRoot(element, <FlexDoc spec={prepareSpec(source, options)} theme={resolveTheme(options)} options={options} />);\n}",
+    'FlexDoc root lifecycle');
+  source = once(source,
+    "export function mountApiClient(element: Element, config: StandaloneApiClientConfig = {}): () => void {\n  const existingRoot = roots.get(element);\n  if (existingRoot) existingRoot.unmount();\n  const root = createRoot(element);\n  roots.set(element, root);\n  root.render(<ApiClientWorkspace {...config} />);\n  return () => { if (roots.get(element) === root) roots.delete(element); root.unmount(); };\n}",
+    "export function mountApiClient(element: Element, config: StandaloneApiClientConfig = {}): () => void {\n  return mountRoot(element, <ApiClientWorkspace {...config} />);\n}",
+    'API Client root lifecycle');
   return source;
 });
 
-edit('packages/client/src/components/ApiClient.tsx', (source) => {
-  source = once(source,
-    "import type { ApiClientExecutionResult } from '../utils/api-client-execution';",
-    "import type { ApiClientExecutionResponse, ApiClientExecutionResult } from '../utils/api-client-execution';",
-    'API Client execution response type import');
-  source = once(source,
-    "  const [response, setResponse] = useState<{ status: number; statusText: string; headers: Array<[string, string]>; body: string; responseTime: number; transport?: 'browser' | 'api-host' } | null>(null);",
-    "  const [response, setResponse] = useState<ApiClientExecutionResponse | null>(null);",
-    'API Client response state type');
-  source = once(source,
-    "  const hostCapabilities = new Set(hostExecution?.capabilities || []);\n",
-    "  const hostCapabilities = hostExecution?.capabilities || [];\n",
-    'API Client host capabilities allocation');
-  source = once(source,
-    "  const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && hostCapabilities.has(capability);",
-    "  const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && hostCapabilities.includes(capability);",
-    'API Client capability lookup');
-  source = once(source,
-    "      if (outcome.response) {\n        setCurlCommand(outcome.curlCommand);\n        setResponse({\n          status: outcome.response.status,\n          statusText: outcome.response.statusText,\n          headers: outcome.response.headers.map(([key, value]) => [key, value]),\n          body: outcome.response.body,\n          responseTime: outcome.response.responseTime,\n          transport: outcome.response.transport,\n        });\n      }",
-    "      if (outcome.response) { setCurlCommand(outcome.curlCommand); setResponse(outcome.response); }",
-    'API Client response copy');
-  return source;
-});
-
-edit('packages/client/src/components/RequestPlayground.tsx', (source) => {
-  source = once(source,
-    "import { executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';",
-    "import { executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';\nimport type { ApiClientExecutionResponse } from '../utils/api-client-execution';",
-    'Try It execution response type import');
-  source = once(source,
-    "  const [response, setResponse] = useState<{ status: number; statusText: string; headers: Array<[string, string]>; body: string; responseTime: number; transport?: 'browser' | 'api-host' } | null>(null);",
-    "  const [response, setResponse] = useState<ApiClientExecutionResponse | null>(null);",
-    'Try It response state type');
-  source = once(source,
-    "  const cookieRequiresHost = Object.values(values.cookies || {}).some((value) => value !== undefined && value !== null && String(value) !== '');",
-    "  const cookieRequiresHost = Object.values(values.cookies || {}).some(Boolean);",
-    'Try It cookie requirement');
-  source = once(source,
-    "      if (outcome.response) setResponse({\n        status: outcome.response.status,\n        statusText: outcome.response.statusText,\n        headers: outcome.response.headers.map(([key, value]) => [key, value]),\n        body: outcome.response.body,\n        responseTime: outcome.response.responseTime,\n        transport: outcome.response.transport,\n      });",
-    "      if (outcome.response) setResponse(outcome.response);",
-    'Try It response copy');
-  return source;
-});
-
-console.log('Applied transport UX size trim.');
+console.log('Applied structural transport UX size trim.');
