@@ -36,7 +36,7 @@ export function resolveExpandSections(expand?: ExpandOption, legacyExpandRespons
   if (expand === undefined) return [];
   if (typeof expand === 'string') return [...EXPAND_PRESETS[expand]];
   return EXPAND_SECTIONS.filter((section) => expand.some((entry) =>
-    entry === section || EXPAND_PRESETS[entry as ExpandPreset].includes(section)
+    entry === section || EXPAND_PRESETS[entry as ExpandPreset]?.includes(section)
   ));
 }
 
