@@ -42,19 +42,18 @@ export async function preflightApiClientHostExecution(endpoint: string, fetcher:
 
 /** Run one shared preflight per advertised endpoint for interactive browser surfaces. */
 export function useApiClientHostExecutionPreflight(endpoint?: string): string | null {
-  const [warning, setWarning] = useState<string | null>(null);
+  const [result, setResult] = useState<{ endpoint: string; warning: string | null }>({ endpoint: '', warning: null });
   useEffect(() => {
     let active = true;
-    setWarning(null);
     if (!endpoint) return () => { active = false; };
     let pending = hostPreflights.get(endpoint);
     if (!pending) {
       pending = preflightApiClientHostExecution(endpoint);
       hostPreflights.set(endpoint, pending);
-      void pending.then((result) => { if (result && hostPreflights.get(endpoint) === pending) hostPreflights.delete(endpoint); });
+      void pending.then((warning) => { if (warning && hostPreflights.get(endpoint) === pending) hostPreflights.delete(endpoint); });
     }
-    void pending.then((result) => { if (active) setWarning(result); });
+    void pending.then((warning) => { if (active) setResult({ endpoint, warning }); });
     return () => { active = false; };
   }, [endpoint]);
-  return warning;
+  return endpoint && result.endpoint === endpoint ? result.warning : null;
 }
