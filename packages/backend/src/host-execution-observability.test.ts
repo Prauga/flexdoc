@@ -52,8 +52,9 @@ describe('host execution observability contract', () => {
     expect(JSON.stringify(event)).not.toContain('secret');
   });
 
-  it('uses UNKNOWN when a method is unavailable and clamps negative durations', () => {
+  it('uses UNKNOWN for missing or untrusted method metadata and clamps negative durations', () => {
     expect(createHostExecutionStartEvent({ executionId: 'exec-1' }).method).toBe('UNKNOWN');
+    expect(createHostExecutionStartEvent({ executionId: 'exec-1', method: 'secret-token-value' }).method).toBe('UNKNOWN');
     expect(createHostExecutionCompleteEvent({
       executionId: 'exec-1',
       durationMs: -5,
