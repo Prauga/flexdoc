@@ -18,9 +18,9 @@ export type ApiClientTransportMode = ApiClientTransport | 'host-required';
 /** Effective transport decision shared by API Client, Try It, and the executor. */
 export interface ApiClientTransportDecision {
   mode: ApiClientTransportMode;
-  hostAvailable: boolean;
-  bodyNeedsHostTransport: boolean;
-  missingCapabilities: HttpHostExecutionCapability[];
+  available: boolean;
+  bodyHost: boolean;
+  missing: HttpHostExecutionCapability[];
 }
 
 /** Inputs used to resolve one request's effective transport. */
@@ -151,17 +151,17 @@ function hostUnavailableMessage(missing: string[], hostExecution: FlexDocHostExe
 export function resolveApiClientTransport(options: ResolveApiClientTransportOptions): ApiClientTransportDecision {
   const method = (options.request.method || 'GET').toUpperCase();
   const requirements = [...new Set([...httpHostExecutionRequirements(options.request), ...(options.additionalRequirements || [])])];
-  const bodyNeedsHostTransport = ['GET', 'HEAD'].includes(method) && inferHttpBodyMode(options.request) !== 'none';
+  const bodyHost = ['GET', 'HEAD'].includes(method) && inferHttpBodyMode(options.request) !== 'none';
   const requestPreference = options.request.hostExecution?.preferHostExecution;
   const serverPreference = options.hostExecution?.preferHostExecution;
   const preferHostExecution = options.preferHostExecution ?? requestPreference ?? serverPreference ?? true;
   const capabilities = new Set(options.hostExecution?.capabilities || []);
-  const missingCapabilities = requirements.filter((requirement) => !capabilities.has(requirement));
-  const hostRequired = requirements.length > 0 || bodyNeedsHostTransport;
-  const hostAvailable = options.hostExecution?.available === true && missingCapabilities.length === 0;
+  const missing = requirements.filter((requirement) => !capabilities.has(requirement));
+  const hostRequired = requirements.length > 0 || bodyHost;
+  const available = options.hostExecution?.available === true && missing.length === 0;
   return {
     mode: hostRequired ? 'host-required' : preferHostExecution && options.hostExecution?.available === true ? 'api-host' : 'browser',
-    hostAvailable, bodyNeedsHostTransport, missingCapabilities,
+    available, bodyHost, missing,
   };
 }
 
@@ -265,7 +265,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
     let apiResponse: ApiClientExecutionResponse;
 
     if (transport.mode !== 'browser') {
-      const missing = transport.missingCapabilities;
+      const missing = transport.missing;
       if (!options.hostExecution?.available || missing.length > 0) {
         const error = hostUnavailableMessage(missing, options.hostExecution);
         return {
