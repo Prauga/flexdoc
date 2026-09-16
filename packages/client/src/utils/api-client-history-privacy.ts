@@ -76,7 +76,9 @@ export function createApiClientWorkspacePersistenceSnapshot(
         request,
         ...(responseHeaders ? { responseHeaders } : {}),
       };
-      const { responseBody: _responseBody, responseBodyTruncated: _responseBodyTruncated, ...bodyFree } = entry;
+      const bodyFree = { ...entry };
+      delete bodyFree.responseBody;
+      delete bodyFree.responseBodyTruncated;
       return {
         ...bodyFree,
         request,
