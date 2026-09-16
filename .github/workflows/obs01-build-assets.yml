@@ -39,6 +39,28 @@ jobs:
           cache: npm
       - name: Apply guarded combined cleanup
         run: node scripts/obs01-trim.mjs
+      - name: Attribute repeated static source strings
+        run: |
+          python3 - <<'PY'
+          import re
+          from collections import defaultdict
+          from pathlib import Path
+          by_file=defaultdict(lambda: defaultdict(int))
+          pattern=re.compile(r"(['\"])([^'\"\n]{24,})\1")
+          for path in Path('packages/client/src').rglob('*'):
+              if path.suffix not in {'.ts','.tsx'} or path.name.endswith('.test.ts') or path.name.endswith('.test.tsx'):
+                  continue
+              text=path.read_text()
+              for _, value in pattern.findall(text):
+                  by_file[str(path)][value]+=1
+          rows=[]
+          for path, values in by_file.items():
+              for value,count in values.items():
+                  if count > 1:
+                      rows.append(((len(value)-4)*(count-1),count,len(value),path,value))
+          for saving,count,length,path,value in sorted(rows, reverse=True)[:60]:
+              print(f'REPEAT saving~{saving:4d} count={count:2d} len={length:3d} {path}: {value}')
+          PY
       - name: Install dependencies
         run: npm ci
       - name: Validate combined client
