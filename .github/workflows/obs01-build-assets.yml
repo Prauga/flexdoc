@@ -22,6 +22,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Apply guarded privacy trim
+        run: node scripts/obs01-trim.mjs
       - name: Validate privacy source
         run: |
           npm run lint
@@ -40,11 +42,11 @@ jobs:
           NODE
       - name: Synchronize adapter renderer assets
         run: npm run sync:adapter-assets
-      - name: Commit generated assets
+      - name: Commit validated privacy trim and assets
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
+          git add packages/client/src \
             adapters/elixir/assets/flexdoc.standalone.js \
             adapters/go/assets/flexdoc.standalone.js \
             adapters/php/assets/flexdoc.standalone.js \
@@ -52,7 +54,6 @@ jobs:
             adapters/ruby/assets/flexdoc.standalone.js \
             adapters/rust-actix/assets/flexdoc.standalone.js \
             adapters/rust/assets/flexdoc.standalone.js
-          if git diff --cached --quiet; then exit 0; fi
           git diff --cached --check
-          git commit -m 'chore: renderer/assets: synchronize compact privacy build' -m 'Regenerate committed adapter renderer copies after reducing OBS-01 sanitizer overhead.'
+          git commit -m 'fix: api-client/privacy: compact history privacy persistence' -m 'Keep OBS-01 semantics while reducing private preference, sanitizer, and history-toggle overhead; then synchronize committed renderer assets.'
           git push origin HEAD:feat/3.3.x-history-privacy
