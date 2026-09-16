@@ -82,12 +82,12 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
     hostExecution: options?.tryIt?.hostExecution,
     additionalRequirements: cookieRequiresHost ? ['cookies'] : [],
   });
-  const missingHostCapabilities = transport.missingCapabilities;
+  const missingHostCapabilities = transport.missing;
   const hostRequired = transport.mode === 'host-required';
-  const hostAvailable = transport.hostAvailable;
+  const available = transport.available;
   const transportLabel = transport.mode === 'host-required' ? 'Host required' : transport.mode === 'api-host' ? 'API host' : 'Browser';
   const hostNotice = hostRequired
-    ? hostAvailable
+    ? available
       ? 'The browser cannot send this request. FlexDoc will execute it from the API host.'
       : options?.tryIt?.hostExecution?.available
         ? `The API host does not support the required capability${missingHostCapabilities.length === 1 ? '' : 'ies'}: ${missingHostCapabilities.join(', ')}.`
@@ -190,11 +190,11 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
       </>}
 
       <div className='text-xs'><span aria-label='Request transport' className='rounded border px-2 py-1'>{transportLabel}</span></div>
-      {hostNotice && <div role={hostAvailable ? 'status' : 'alert'} className={`rounded-md border p-3 text-sm ${hostAvailable ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-amber-300 bg-amber-50 text-amber-800'}`}>{hostNotice}</div>}
+      {hostNotice && <div role={available ? 'status' : 'alert'} className={`rounded-md border p-3 text-sm ${available ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-amber-300 bg-amber-50 text-amber-800'}`}>{hostNotice}</div>}
 
       <div className='flex flex-wrap gap-2'>
-        <button onClick={execute} disabled={loading || (hostRequired && !hostAvailable)} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60'>
-          {loading ? <Loader2 className='h-4 w-4 animate-spin' /> : <Play className='h-4 w-4' />} {loading ? 'Sending…' : transport.mode !== 'browser' && hostAvailable ? 'Send via API host' : 'Send request'}
+        <button onClick={execute} disabled={loading || (hostRequired && !available)} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60'>
+          {loading ? <Loader2 className='h-4 w-4 animate-spin' /> : <Play className='h-4 w-4' />} {loading ? 'Sending…' : transport.mode !== 'browser' && available ? 'Send via API host' : 'Send request'}
         </button>
         {onOpenInApiClient && <button type='button' onClick={openInApiClient} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md border px-4 py-2 font-medium'>
           <ExternalLink className='h-4 w-4' /> Open in API Client

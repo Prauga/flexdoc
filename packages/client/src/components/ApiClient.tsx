@@ -328,17 +328,17 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   const resolvedAuth = resolveAuth ? resolveAuth(draft.auth) : draft.auth;
   const transport = resolveApiClientTransport({ request: { ...draft, auth: resolvedAuth }, hostExecution });
   const hostCapabilities = hostExecution?.capabilities || [];
-  const missingHostCapabilities = transport.missingCapabilities;
-  const bodyNeedsHostTransport = transport.bodyNeedsHostTransport;
+  const missingHostCapabilities = transport.missing;
+  const bodyHost = transport.bodyHost;
   const hostRequired = transport.mode === 'host-required';
-  const hostAvailable = transport.hostAvailable;
+  const available = transport.available;
   const transportLabel = transport.mode === 'host-required' ? 'Host required' : transport.mode === 'api-host' ? 'API host' : 'Browser';
-  const hostNotice = bodyNeedsHostTransport
+  const hostNotice = bodyHost
     ? hostExecution?.available
       ? messages?.unusualBodyHostExecution || `${method} request bodies are unusual. FlexDoc will use API-host execution so the body can be sent.`
       : messages?.unusualBodyBrowserWarning || `${method} request bodies are unusual. Browser fetch may reject this request; enable API-host execution to send it reliably.`
     : hostRequired
-    ? hostAvailable
+    ? available
       ? messages?.hostBrowserUnsupported || 'The browser cannot send this request. FlexDoc will execute it from the API host.'
       : hostExecution?.available
         ? `The API host does not support the required capability${missingHostCapabilities.length === 1 ? '' : 'ies'}: ${missingHostCapabilities.join(', ')}.`
@@ -397,7 +397,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   const cancel = () => abortControllerRef.current?.abort();
 
   const passedTests = scriptTests.filter((test) => test.passed).length;
-  const canExecute = !loading && !(hostRequired && !hostAvailable);
+  const canExecute = !loading && !(hostRequired && !available);
 
   return <div
     className={`min-w-0 rounded-xl border p-4 md:p-5 ${panelClass}`}
@@ -548,7 +548,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
         {hostExecution?.available && <label className={`inline-flex items-center gap-2 ${mutedClass}`}>Transport preference<select aria-label='Transport preference' disabled={hostRequired} className={`rounded-md border px-2 py-1 ${inputClass}`} value={draft.hostExecution?.preferHostExecution === undefined ? 'inherit' : draft.hostExecution.preferHostExecution ? 'host' : 'browser'} onChange={(event) => setTransportPreference(event.target.value)}><option value='inherit'>Server default</option><option value='browser'>Prefer browser</option><option value='host'>Prefer API host</option></select></label>}
       </div>
 
-      {hostNotice && <div role={bodyNeedsHostTransport ? 'status' : hostAvailable ? 'status' : 'alert'} aria-label={messages?.hostExecutionStatus || 'Host execution status'} className={`rounded-md border p-3 text-sm ${hostAvailable ? (theme === 'dark' ? 'border-blue-800 bg-blue-950/40 text-blue-200' : 'border-blue-300 bg-blue-50 text-blue-800') : (theme === 'dark' ? 'border-amber-800 bg-amber-950/40 text-amber-200' : 'border-amber-300 bg-amber-50 text-amber-800')}`}>{hostNotice}</div>}
+      {hostNotice && <div role={bodyHost ? 'status' : available ? 'status' : 'alert'} aria-label={messages?.hostExecutionStatus || 'Host execution status'} className={`rounded-md border p-3 text-sm ${available ? (theme === 'dark' ? 'border-blue-800 bg-blue-950/40 text-blue-200' : 'border-blue-300 bg-blue-50 text-blue-800') : (theme === 'dark' ? 'border-amber-800 bg-amber-950/40 text-amber-200' : 'border-amber-300 bg-amber-50 text-amber-800')}`}>{hostNotice}</div>}
 
       {loading ? <button type='button' onClick={cancel} className='inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-red-500 px-4 py-2 font-medium text-red-600 sm:w-auto'><Square className='h-4 w-4' />{messages?.cancelRequest || 'Cancel request'}</button> : <button type='button' data-api-client-send='true' onClick={() => { void execute(); }} disabled={!canExecute} aria-keyshortcuts='Control+Enter Meta+Enter' title={`${messages?.sendRequest || 'Send request'} (Ctrl/Cmd+Enter)`} className='inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60 sm:w-auto'><Play className='h-4 w-4' /> {messages?.sendRequest || 'Send request'} <span className='text-xs font-normal opacity-80'>Ctrl/Cmd+Enter</span></button>}
 

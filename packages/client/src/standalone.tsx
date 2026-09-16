@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { FlexDoc } from './components/FlexDoc';
 import { ApiClientWorkspace } from './components/ApiClientWorkspace';
@@ -75,14 +76,17 @@ function resolveTheme(options: StandaloneFlexDocOptions): 'light' | 'dark' {
   return 'light';
 }
 
-function renderFlexDoc(element: Element, source: OpenAPISpec, options: StandaloneFlexDocOptions): () => void {
-  const spec = prepareSpec(source, options);
+function mountRoot(element: Element, child: ReactNode): () => void {
   const existingRoot = roots.get(element);
   if (existingRoot) existingRoot.unmount();
   const root = createRoot(element);
   roots.set(element, root);
-  root.render(<FlexDoc spec={spec} theme={resolveTheme(options)} options={options} />);
+  root.render(child);
   return () => { if (roots.get(element) === root) roots.delete(element); root.unmount(); };
+}
+
+function renderFlexDoc(element: Element, source: OpenAPISpec, options: StandaloneFlexDocOptions): () => void {
+  return mountRoot(element, <FlexDoc spec={prepareSpec(source, options)} theme={resolveTheme(options)} options={options} />);
 }
 
 /**
@@ -103,12 +107,7 @@ export function mountFlexDoc(element: Element, config: StandaloneFlexDocConfig):
  * @returns Cleanup function that unmounts the React root.
  */
 export function mountApiClient(element: Element, config: StandaloneApiClientConfig = {}): () => void {
-  const existingRoot = roots.get(element);
-  if (existingRoot) existingRoot.unmount();
-  const root = createRoot(element);
-  roots.set(element, root);
-  root.render(<ApiClientWorkspace {...config} />);
-  return () => { if (roots.get(element) === root) roots.delete(element); root.unmount(); };
+  return mountRoot(element, <ApiClientWorkspace {...config} />);
 }
 
 /**
