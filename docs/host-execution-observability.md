@@ -27,7 +27,7 @@ setupFlexDoc(app, '/docs', {
 });
 ```
 
-The hooks are **best effort, non-blocking, and non-fatal**. FlexDoc invokes them without waiting for returned promises. A synchronous throw or rejected promise is ignored by the execution path. Do not use these hooks for authorization, policy enforcement, billing correctness, or any action that must complete before the request proceeds.
+The hooks are **best effort and non-fatal**. FlexDoc invokes them without waiting for returned promises; a synchronous throw or rejected promise is ignored by the execution path. Synchronous work inside the callback still runs on the application's event loop, so hooks should remain lightweight and hand off expensive export/aggregation work to the application's existing telemetry pipeline. Do not use these hooks for authorization, policy enforcement, billing correctness, or any action that must complete before the request proceeds.
 
 ## Event contract
 
@@ -36,7 +36,7 @@ A start event contains only:
 - `name: 'flexdoc.execute.start'`;
 - opaque `executionId`;
 - ISO-8601 `timestamp`;
-- uppercase HTTP `method` (or `UNKNOWN`).
+- supported uppercase HTTP `method` (or `UNKNOWN` for missing/untrusted method metadata).
 
 A completion event carries the same correlation fields plus:
 
@@ -44,7 +44,7 @@ A completion event carries the same correlation fields plus:
 - `outcome: 'success' | 'rejected' | 'error'`;
 - optional FlexDoc execute-route `statusCode`.
 
-The canonical event type has **no URL, target hostname, query string, headers, request body, response body, cookies, certificate material, auth configuration, tokens, or arbitrary metadata bag**. This is intentional. Deployment, service, environment, tenant, or fleet labels should be attached by the application/collector outside the FlexDoc event rather than expanding the default OSS payload.
+The canonical event type has **no URL, target hostname, query string, headers, request body, response body, cookies, certificate material, auth configuration, tokens, or arbitrary metadata bag**. Method metadata is restricted to FlexDoc's supported HTTP verb set; arbitrary method strings collapse to `UNKNOWN` rather than becoming telemetry. Deployment, service, environment, tenant, or fleet labels should be attached by the application/collector outside the FlexDoc event rather than expanding the default OSS payload.
 
 ## Outcome semantics
 
