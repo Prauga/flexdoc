@@ -1,4 +1,4 @@
-name: OBS-01 Latest Stack Measurement
+name: OBS-01 Combined Size Measurement
 
 on:
   push:
@@ -37,6 +37,8 @@ jobs:
         with:
           node-version: '22.22.3'
           cache: npm
+      - name: Apply guarded combined cleanup
+        run: node scripts/obs01-trim.mjs
       - name: Install dependencies
         run: npm ci
       - name: Validate combined client
@@ -52,6 +54,7 @@ jobs:
           const file = fs.readFileSync('packages/client/dist/standalone/flexdoc.standalone.js');
           console.log(`STACKED_RAW=${file.length}`);
           console.log(`STACKED_HEADROOM=${862208-file.length}`);
+          console.log(`TARGET_MARGIN=${861184-file.length}`);
           console.log(`STACKED_GZIP=${zlib.gzipSync(file, { level: 9 }).length}`);
           console.log(`STACKED_BROTLI=${zlib.brotliCompressSync(file, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } }).length}`);
           NODE
