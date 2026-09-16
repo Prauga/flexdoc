@@ -5,7 +5,7 @@ import { OAuthEditor } from './ApiClientAuthEditor';
 import { ApiClientBodyEditor } from './ApiClientBodyEditor';
 import { ApiClientResponseViewer } from './ApiClientResponseViewer';
 import { ApiClientScriptEditor } from './ApiClientScriptEditor';
-import { executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
+import { apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
 import { buildHttpRequest, inferHttpBodyMode } from '../utils/http-client';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import { replaceRequestServer, requestUsesServer, resolveServerUrl } from '../utils/server-url';
@@ -327,30 +327,14 @@ export const ApiClient: React.FC<ApiClientProps> = ({
 
   const resolvedAuth = resolveAuth ? resolveAuth(draft.auth) : draft.auth;
   const transport = resolveApiClientTransport({ request: { ...draft, auth: resolvedAuth }, hostExecution });
-  const hostCapabilities = hostExecution?.capabilities || [];
-  const missingHostCapabilities = transport.missing;
-  const bodyHost = transport.bodyHost;
-  const hostRequired = transport.mode === 'host-required';
-  const available = transport.available;
-  const transportLabel = transport.mode === 'host-required' ? 'Host required' : transport.mode === 'api-host' ? 'API host' : 'Browser';
+  const [transportMode, available, bodyHost] = transport;
+  const hostRequired = transportMode === 'host-required';
   const hostNotice = bodyHost
     ? hostExecution?.available
       ? messages?.unusualBodyHostExecution || `${method} request bodies are unusual. FlexDoc will use API-host execution so the body can be sent.`
       : messages?.unusualBodyBrowserWarning || `${method} request bodies are unusual. Browser fetch may reject this request; enable API-host execution to send it reliably.`
-    : hostRequired
-    ? available
-      ? messages?.hostBrowserUnsupported || 'The browser cannot send this request. FlexDoc will execute it from the API host.'
-      : hostExecution?.available
-        ? `The API host does not support the required capability${missingHostCapabilities.length === 1 ? '' : 'ies'}: ${missingHostCapabilities.join(', ')}.`
-        : messages?.hostExecutionDisabled || 'API-host execution is unavailable on this documentation server.'
-    : transport.mode === 'api-host'
-      ? 'This request runs from your API server.'
-      : null;
-  const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && hostCapabilities.includes(capability);
-  const setTransportPreference = (value: string) => setDraft((current) => ({
-    ...current,
-    hostExecution: { ...(current.hostExecution || {}), preferHostExecution: value === 'inherit' ? undefined : value === 'host' },
-  }));
+    : apiClientTransportNotice(transport, hostExecution, messages?.hostBrowserUnsupported, messages?.hostExecutionDisabled);
+  const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && (hostExecution.capabilities || []).includes(capability);
 
   const execute = async () => {
     if (loading) return;
@@ -544,8 +528,8 @@ export const ApiClient: React.FC<ApiClientProps> = ({
       </section>}
 
       <div className='flex flex-wrap items-center gap-2 text-xs'>
-        <span aria-label='Request transport' className={`rounded border px-2 py-1 ${mutedClass}`}>{transportLabel}</span>
-        {hostExecution?.available && <label className={`inline-flex items-center gap-2 ${mutedClass}`}>Transport preference<select aria-label='Transport preference' disabled={hostRequired} className={`rounded-md border px-2 py-1 ${inputClass}`} value={draft.hostExecution?.preferHostExecution === undefined ? 'inherit' : draft.hostExecution.preferHostExecution ? 'host' : 'browser'} onChange={(event) => setTransportPreference(event.target.value)}><option value='inherit'>Server default</option><option value='browser'>Prefer browser</option><option value='host'>Prefer API host</option></select></label>}
+        <span aria-label='Request transport' className={`rounded border px-2 py-1 ${mutedClass}`}>{apiClientTransportLabel(transportMode)}</span>
+        {hostExecution?.available && <label className={`inline-flex items-center gap-2 ${mutedClass}`}>Transport preference<select aria-label='Transport preference' disabled={hostRequired} className={`rounded-md border px-2 py-1 ${inputClass}`} value={draft.hostExecution?.preferHostExecution === undefined ? 'inherit' : draft.hostExecution.preferHostExecution ? 'host' : 'browser'} onChange={({ target: { value } }) => setDraft((current) => ({ ...current, hostExecution: { ...(current.hostExecution || {}), preferHostExecution: value === 'inherit' ? undefined : value === 'host' } }))}><option value='inherit'>Server default</option><option value='browser'>Prefer browser</option><option value='host'>Prefer API host</option></select></label>}
       </div>
 
       {hostNotice && <div role={bodyHost ? 'status' : available ? 'status' : 'alert'} aria-label={messages?.hostExecutionStatus || 'Host execution status'} className={`rounded-md border p-3 text-sm ${available ? (theme === 'dark' ? 'border-blue-800 bg-blue-950/40 text-blue-200' : 'border-blue-300 bg-blue-50 text-blue-800') : (theme === 'dark' ? 'border-amber-800 bg-amber-950/40 text-amber-200' : 'border-amber-300 bg-amber-50 text-amber-800')}`}>{hostNotice}</div>}

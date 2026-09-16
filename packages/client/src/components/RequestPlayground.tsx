@@ -3,7 +3,7 @@ import { ExternalLink, Play, Loader2, AlertCircle } from 'lucide-react';
 import { OpenAPISpec, Operation } from '../types/openapi';
 import { FlexDocRendererOptions } from '../types/options';
 import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
-import { executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
+import { apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
 import type { ApiClientExecutionResponse } from '../utils/api-client-execution';
 import { requestDraftFromBuiltRequest } from '../utils/http-client';
 import type { RequestValues } from '../utils/request-builder';
@@ -76,25 +76,14 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
     try { return requestDraftFromBuiltRequest(buildRequest(spec, path, method, values)); }
     catch { return null; }
   }, [spec, path, method, values]);
-  const cookieRequiresHost = Object.values(values.cookies || {}).some(Boolean);
   const transport = resolveApiClientTransport({
     request: currentDraft || { method, url: '' },
     hostExecution: options?.tryIt?.hostExecution,
-    additionalRequirements: cookieRequiresHost ? ['cookies'] : [],
+    additionalRequirements: Object.values(values.cookies || {}).some(Boolean) ? ['cookies'] : [],
   });
-  const missingHostCapabilities = transport.missing;
-  const hostRequired = transport.mode === 'host-required';
-  const available = transport.available;
-  const transportLabel = transport.mode === 'host-required' ? 'Host required' : transport.mode === 'api-host' ? 'API host' : 'Browser';
-  const hostNotice = hostRequired
-    ? available
-      ? 'The browser cannot send this request. FlexDoc will execute it from the API host.'
-      : options?.tryIt?.hostExecution?.available
-        ? `The API host does not support the required capability${missingHostCapabilities.length === 1 ? '' : 'ies'}: ${missingHostCapabilities.join(', ')}.`
-        : 'API-host execution is unavailable on this documentation server.'
-    : transport.mode === 'api-host'
-      ? 'This request runs from your API server.'
-      : null;
+  const [transportMode, available] = transport;
+  const hostRequired = transportMode === 'host-required';
+  const hostNotice = apiClientTransportNotice(transport, options?.tryIt?.hostExecution);
 
   const commitValues = (next: RequestValues) => {
     valuesRef.current = next;
@@ -189,12 +178,12 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
         <label className={labelClass}>Request body<textarea aria-label='Request body' rows={8} className={`mt-1 w-full rounded-md border px-3 py-2 font-mono text-sm ${inputClass}`} value={values.body || ''} onChange={(e) => commitValues({ ...valuesRef.current, body: e.target.value })} /></label>
       </>}
 
-      <div className='text-xs'><span aria-label='Request transport' className='rounded border px-2 py-1'>{transportLabel}</span></div>
+      <div className='text-xs'><span aria-label='Request transport' className='rounded border px-2 py-1'>{apiClientTransportLabel(transportMode)}</span></div>
       {hostNotice && <div role={available ? 'status' : 'alert'} className={`rounded-md border p-3 text-sm ${available ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-amber-300 bg-amber-50 text-amber-800'}`}>{hostNotice}</div>}
 
       <div className='flex flex-wrap gap-2'>
         <button onClick={execute} disabled={loading || (hostRequired && !available)} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60'>
-          {loading ? <Loader2 className='h-4 w-4 animate-spin' /> : <Play className='h-4 w-4' />} {loading ? 'Sending…' : transport.mode !== 'browser' && available ? 'Send via API host' : 'Send request'}
+          {loading ? <Loader2 className='h-4 w-4 animate-spin' /> : <Play className='h-4 w-4' />} {loading ? 'Sending…' : transportMode !== 'browser' && available ? 'Send via API host' : 'Send request'}
         </button>
         {onOpenInApiClient && <button type='button' onClick={openInApiClient} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md border px-4 py-2 font-medium'>
           <ExternalLink className='h-4 w-4' /> Open in API Client

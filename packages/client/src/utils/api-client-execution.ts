@@ -16,12 +16,12 @@ export type ApiClientTransport = 'browser' | 'api-host';
 export type ApiClientTransportMode = ApiClientTransport | 'host-required';
 
 /** Effective transport decision shared by API Client, Try It, and the executor. */
-export interface ApiClientTransportDecision {
-  mode: ApiClientTransportMode;
-  available: boolean;
-  bodyHost: boolean;
-  missing: HttpHostExecutionCapability[];
-}
+export type ApiClientTransportDecision = readonly [
+  mode: ApiClientTransportMode,
+  available: boolean,
+  bodyHost: boolean,
+  missing: HttpHostExecutionCapability[],
+];
 
 /** Inputs used to resolve one request's effective transport. */
 export interface ResolveApiClientTransportOptions {
@@ -159,10 +159,29 @@ export function resolveApiClientTransport(options: ResolveApiClientTransportOpti
   const missing = requirements.filter((requirement) => !capabilities.has(requirement));
   const hostRequired = requirements.length > 0 || bodyHost;
   const available = options.hostExecution?.available === true && missing.length === 0;
-  return {
-    mode: hostRequired ? 'host-required' : preferHostExecution && options.hostExecution?.available === true ? 'api-host' : 'browser',
+  return [
+    hostRequired ? 'host-required' : preferHostExecution && options.hostExecution?.available === true ? 'api-host' : 'browser',
     available, bodyHost, missing,
-  };
+  ];
+}
+
+export function apiClientTransportLabel(mode: ApiClientTransportMode): string {
+  return mode === 'host-required' ? 'Host required' : mode === 'api-host' ? 'API host' : 'Browser';
+}
+
+export function apiClientTransportNotice(
+  decision: ApiClientTransportDecision,
+  hostExecution: FlexDocHostExecutionPublicOptions | undefined,
+  unsupported?: string,
+  disabled?: string,
+): string | null {
+  const [mode, available, , missing] = decision;
+  if (mode === 'host-required') {
+    if (available) return unsupported || 'The browser cannot send this request. FlexDoc will execute it from the API host.';
+    if (!hostExecution?.available) return disabled || 'API-host execution is unavailable on this documentation server.';
+    return hostUnavailableMessage(missing, hostExecution);
+  }
+  return mode === 'api-host' ? 'This request runs from your API server.' : null;
 }
 
 function base64FromBytes(bytes: Uint8Array): string {
@@ -261,11 +280,10 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
     executionDraft = resolveHttpRequestDraftVariables(executionDraft, executionVariables);
     executedMethod = (executionDraft.method || 'GET').toUpperCase();
     resolvedUrl = executionDraft.url;
-    const transport = resolveApiClientTransport({ request: executionDraft, hostExecution: options.hostExecution, preferHostExecution: options.preferHostExecution });
+    const [transportMode, , , missing] = resolveApiClientTransport({ request: executionDraft, hostExecution: options.hostExecution, preferHostExecution: options.preferHostExecution });
     let apiResponse: ApiClientExecutionResponse;
 
-    if (transport.mode !== 'browser') {
-      const missing = transport.missing;
+    if (transportMode !== 'browser') {
       if (!options.hostExecution?.available || missing.length > 0) {
         const error = hostUnavailableMessage(missing, options.hostExecution);
         return {
