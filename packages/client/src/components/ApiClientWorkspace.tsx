@@ -141,6 +141,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   const initialScriptState = cloneApiClientScripts(initialScripts);
   const initialWorkspace = createDefaultApiClientWorkspace();
   const initialUiPreferences = persistenceKey === false ? { version: 1 as const } : readApiClientUiPreferences(persistenceKey);
+  const initialHistoryTransports = Object.entries(initialUiPreferences.historyTransports || {}) as Array<[string, ApiClientTransport]>;
   const [editorRequest, setEditorRequest] = useState<HttpRequestDraft>(initialDraft);
   const [currentRequest, setCurrentRequest] = useState<HttpRequestDraft>(initialDraft);
   const [editorScripts, setEditorScripts] = useState<ApiClientRequestScripts>(initialScriptState);
@@ -157,7 +158,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
   const [selectedFolderId, setSelectedFolderId] = useState('');
   const executionCollectionIdRef = useRef<string | undefined>(initialWorkspace.collections[0]?.id);
   const executionFolderIdRef = useRef<string | undefined>(undefined);
-  const historyTransportByIdRef = useRef(new Map<string, ApiClientTransport>());
+  const historyTransportByIdRef = useRef(new Map<string, ApiClientTransport>(initialHistoryTransports));
   const [hydrated, setHydrated] = useState(persistenceKey === false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(initialUiPreferences.sidebarCollapsed ?? false);
   const [workspaceTheme, setWorkspaceTheme] = useState<'light' | 'dark'>(initialUiPreferences.theme || theme);
@@ -166,7 +167,9 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
 
   useEffect(() => {
     if (persistenceKey === false) return;
-    historyTransportByIdRef.current = new Map();
+    const preferences = readApiClientUiPreferences(persistenceKey);
+    historyTransportByIdRef.current = new Map(Object.entries(preferences.historyTransports || {}) as Array<[string, ApiClientTransport]>);
+    setPersistHostHistoryBodies(preferences.persistHostHistoryBodies ?? true);
     let cancelled = false;
     loadApiClientWorkspace(persistenceKey)
       .then((next) => {
@@ -184,9 +187,15 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
 
   useEffect(() => {
     if (!hydrated || persistenceKey === false) return;
+    const historyIds = new Set(workspace.history.map((entry) => entry.id));
+    const transports = new Map(
+      [...historyTransportByIdRef.current].filter(([historyId]) => historyIds.has(historyId)),
+    );
+    historyTransportByIdRef.current = transports;
+    writeApiClientUiPreferences(persistenceKey, { historyTransports: Object.fromEntries(transports) });
     const snapshot = createApiClientWorkspacePersistenceSnapshot(workspace, {
       persistHostHistoryBodies,
-      transportByHistoryId: historyTransportByIdRef.current,
+      transportByHistoryId: transports,
     });
     void saveApiClientWorkspace(persistenceKey, snapshot).catch(() => undefined);
   }, [hydrated, persistHostHistoryBodies, persistenceKey, workspace]);
