@@ -41,8 +41,8 @@ edit('packages/client/src/components/ApiClient.tsx', (source) => {
     "  const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && hostCapabilities.includes(capability);",
     'API Client capability lookup');
   source = once(source,
-    "      if (outcome.response) {\n        setResponse({\n          status: outcome.response.status,\n          statusText: outcome.response.statusText,\n          headers: outcome.response.headers.map(([key, value]) => [key, value]),\n          body: outcome.response.body,\n          responseTime: outcome.response.responseTime,\n          transport: outcome.response.transport,\n        });\n      }",
-    "      if (outcome.response) setResponse(outcome.response);",
+    "      if (outcome.response) {\n        setCurlCommand(outcome.curlCommand);\n        setResponse({\n          status: outcome.response.status,\n          statusText: outcome.response.statusText,\n          headers: outcome.response.headers.map(([key, value]) => [key, value]),\n          body: outcome.response.body,\n          responseTime: outcome.response.responseTime,\n          transport: outcome.response.transport,\n        });\n      }",
+    "      if (outcome.response) { setCurlCommand(outcome.curlCommand); setResponse(outcome.response); }",
     'API Client response copy');
   return source;
 });
@@ -61,8 +61,8 @@ edit('packages/client/src/components/RequestPlayground.tsx', (source) => {
     "  const cookieRequiresHost = Object.values(values.cookies || {}).some(Boolean);",
     'Try It cookie requirement');
   source = once(source,
-    "      setResponse({\n        status: outcome.response.status,\n        statusText: outcome.response.statusText,\n        headers: outcome.response.headers.map(([key, value]) => [key, value]),\n        body: outcome.response.body,\n        responseTime: outcome.response.responseTime,\n        transport: outcome.response.transport,\n      });",
-    "      setResponse(outcome.response);",
+    "      if (outcome.response) setResponse({\n        status: outcome.response.status,\n        statusText: outcome.response.statusText,\n        headers: outcome.response.headers.map(([key, value]) => [key, value]),\n        body: outcome.response.body,\n        responseTime: outcome.response.responseTime,\n        transport: outcome.response.transport,\n      });",
+    "      if (outcome.response) setResponse(outcome.response);",
     'Try It response copy');
   return source;
 });
