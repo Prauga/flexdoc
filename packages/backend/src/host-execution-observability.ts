@@ -12,7 +12,7 @@ export interface FlexDocHostExecutionEventBase {
   executionId: string;
   /** ISO-8601 event timestamp. */
   timestamp: string;
-  /** Uppercase HTTP method, or UNKNOWN when the caller cannot determine it safely. */
+  /** Supported uppercase HTTP method, or UNKNOWN when unavailable/untrusted. */
   method: string;
 }
 
@@ -60,7 +60,18 @@ function executionId(value: string): string {
 
 function method(value: string | undefined): string {
   const normalized = String(value || '').trim().toUpperCase();
-  return normalized || 'UNKNOWN';
+  switch (normalized) {
+    case 'GET':
+    case 'POST':
+    case 'PUT':
+    case 'PATCH':
+    case 'DELETE':
+    case 'HEAD':
+    case 'OPTIONS':
+      return normalized;
+    default:
+      return 'UNKNOWN';
+  }
 }
 
 function timestamp(value: string | undefined): string {
