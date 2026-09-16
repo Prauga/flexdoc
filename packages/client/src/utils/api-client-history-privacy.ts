@@ -1,21 +1,8 @@
-import { cloneRequestDraft } from './api-client-workspace';
 import type { ApiClientWorkspaceState } from './api-client-workspace';
 import type { HttpKeyValue, HttpRequestDraft } from './http-client';
 
 const REDACTED_HISTORY_VALUE = '[REDACTED]';
-const SENSITIVE_HISTORY_HEADERS = new Set([
-  'authorization',
-  'proxy-authorization',
-  'cookie',
-  'set-cookie',
-  'api-key',
-  'x-api-key',
-  'x-auth-token',
-  'x-access-token',
-  'x-amz-security-token',
-  'x-functions-key',
-  'x-goog-api-key',
-]);
+const SENSITIVE_HISTORY_HEADER = /authorization|cookie|(?:api|functions)[-_]?key|(?:auth|access|security)[-_]?token/i;
 
 /** Privacy controls applied only to the workspace copy written to IndexedDB. */
 export interface ApiClientHistoryPersistencePrivacyOptions {
@@ -25,28 +12,30 @@ export interface ApiClientHistoryPersistencePrivacyOptions {
 
 /** Return whether a header value should never be written verbatim to request history. */
 export function isSensitiveApiClientHistoryHeader(name: string): boolean {
-  return SENSITIVE_HISTORY_HEADERS.has(name.trim().toLowerCase());
+  return SENSITIVE_HISTORY_HEADER.test(name);
 }
 
 function redactRequestHeaders(headers: HttpKeyValue[] | undefined): HttpKeyValue[] | undefined {
   return headers?.map((entry) => isSensitiveApiClientHistoryHeader(entry.key)
     ? { ...entry, value: REDACTED_HISTORY_VALUE }
-    : { ...entry });
+    : entry);
 }
 
 function redactResponseHeaders(headers: Array<[string, string]> | undefined): Array<[string, string]> | undefined {
-  return headers?.map(([name, value]) => [name, isSensitiveApiClientHistoryHeader(name) ? REDACTED_HISTORY_VALUE : value]);
+  return headers?.map((entry) => isSensitiveApiClientHistoryHeader(entry[0])
+    ? [entry[0], REDACTED_HISTORY_VALUE]
+    : entry);
 }
 
 function persistedRequest(request: HttpRequestDraft, omitBody: boolean): HttpRequestDraft {
-  const copy = cloneRequestDraft(request);
-  copy.headers = redactRequestHeaders(copy.headers);
-  if (!omitBody) return copy;
-  delete copy.body;
-  delete copy.urlencoded;
-  delete copy.formData;
-  delete copy.binary;
-  delete copy.graphql;
+  const copy = { ...request, headers: redactRequestHeaders(request.headers) };
+  if (omitBody) {
+    delete copy.body;
+    delete copy.urlencoded;
+    delete copy.formData;
+    delete copy.binary;
+    delete copy.graphql;
+  }
   return copy;
 }
 
@@ -65,21 +54,16 @@ export function createApiClientWorkspacePersistenceSnapshot(
     ...workspace,
     history: workspace.history.map((entry) => {
       const omitBody = !persistHostBodies && entry.transport !== 'browser';
-      const request = persistedRequest(entry.request, omitBody);
-      const responseHeaders = redactResponseHeaders(entry.responseHeaders);
-      if (!omitBody) return {
+      const bodyFree = {
         ...entry,
-        request,
-        ...(responseHeaders ? { responseHeaders } : {}),
+        request: persistedRequest(entry.request, omitBody),
+        responseHeaders: redactResponseHeaders(entry.responseHeaders),
       };
-      const bodyFree = { ...entry };
-      delete bodyFree.responseBody;
-      delete bodyFree.responseBodyTruncated;
-      return {
-        ...bodyFree,
-        request,
-        ...(responseHeaders ? { responseHeaders } : {}),
-      };
+      if (omitBody) {
+        delete bodyFree.responseBody;
+        delete bodyFree.responseBodyTruncated;
+      }
+      return bodyFree;
     }),
   };
 }
