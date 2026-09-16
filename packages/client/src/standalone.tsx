@@ -50,13 +50,12 @@ export function prepareSpec(source: OpenAPISpec, options: StandaloneFlexDocOptio
   const tagToGroup = new Map<string, string>();
   for (const group of options.tagGroups) for (const tag of group.tags) tagToGroup.set(tag, group.name);
   const paths: OpenAPISpec['paths'] = {};
-  const methods = new Set(['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace']);
 
   for (const [path, pathItem] of Object.entries(spec.paths)) {
     const nextPathItem: typeof pathItem = {};
     let includedOperation = false;
     for (const [key, value] of Object.entries(pathItem)) {
-      if (!methods.has(key)) { (nextPathItem as Record<string, unknown>)[key] = value; continue; }
+      if (!['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'].includes(key)) { (nextPathItem as Record<string, unknown>)[key] = value; continue; }
       const operation = value as { tags?: string[] } | undefined;
       const groupedTags = (operation?.tags || []).filter((tag) => tagToGroup.has(tag)).map((tag) => tagToGroup.get(tag) as string);
       if (!groupedTags.length || !operation) continue;
