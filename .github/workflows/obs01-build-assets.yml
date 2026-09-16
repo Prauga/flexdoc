@@ -25,6 +25,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Measure transport UX base
+        run: |
+          git fetch --no-tags --depth=1 origin feat/3.3.1-transport-ux
+          git checkout --detach FETCH_HEAD
+          npm run build:client
+          node - <<'NODE'
+          const fs = require('fs');
+          const zlib = require('zlib');
+          const file = fs.readFileSync('packages/client/dist/standalone/flexdoc.standalone.js');
+          console.log(`FLEXDOC_BASE_RAW_BYTES=${file.length}`);
+          console.log(`FLEXDOC_BASE_GZIP_BYTES=${zlib.gzipSync(file, { level: 9 }).length}`);
+          console.log(`FLEXDOC_BASE_BROTLI_BYTES=${zlib.brotliCompressSync(file, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } }).length}`);
+          NODE
+          git checkout feat/3.3.x-history-privacy
+
       - name: Build canonical renderer
         run: npm run build:client
 
@@ -39,6 +54,21 @@ jobs:
           console.log(`FLEXDOC_BUNDLE_RAW_BYTES=${file.length}`);
           console.log(`FLEXDOC_BUNDLE_GZIP_BYTES=${gzip.length}`);
           console.log(`FLEXDOC_BUNDLE_BROTLI_BYTES=${brotli.length}`);
+          NODE
+
+      - name: Report largest standalone source modules
+        continue-on-error: true
+        run: |
+          npx --yes source-map-explorer packages/client/dist/standalone/flexdoc.standalone.js --json > /tmp/flexdoc-sizes.json
+          node - <<'NODE'
+          const report = require('/tmp/flexdoc-sizes.json');
+          const bundle = Object.values(report)[0] || {};
+          const files = bundle.files || {};
+          const rows = Object.entries(files)
+            .map(([name, value]) => [name, typeof value === 'number' ? value : value.size || 0])
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 30);
+          for (const [name, size] of rows) console.log(`${size}\t${name}`);
           NODE
 
       - name: Synchronize adapter renderer assets
