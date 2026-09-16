@@ -1,0 +1,39 @@
+name: Temporary UX integration check
+
+on:
+  push:
+    branches:
+      - tmp/3.3.x-ux-integration-check
+
+permissions:
+  contents: read
+
+jobs:
+  combined:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: tmp/3.3.x-ux-integration-check
+          fetch-depth: 1
+      - name: Apply capability guidance on transport UX
+        run: |
+          git config user.name 'Vishnu R'
+          git config user.email '45818225+bluejeans117@users.noreply.github.com'
+          git fetch --no-tags --depth=1 origin cd053391cb59c1d4de9a9f04d2fa0b95a9f807d4
+          git cherry-pick cd053391cb59c1d4de9a9f04d2fa0b95a9f807d4
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22.22.3
+          cache: npm
+      - run: npm ci
+      - run: npm run build:core
+      - run: npm run build:client
+      - name: Focused combined transport tests
+        run: npm test -w packages/client -- --runInBand src/utils/api-client-host-preference.test.ts src/components/ApiClient.host-execution-copy.test.tsx src/components/RequestPlayground.test.tsx
+      - run: npm run sync:adapter-assets
+      - name: Combined bundle and performance budgets
+        run: |
+          npm run build:backend
+          node scripts/performance/benchmark.mjs --json /tmp/combined-ux-performance.json
+          npm run check:performance-budgets -- /tmp/combined-ux-performance.json
