@@ -13,7 +13,6 @@ function once(source, from, to, label) {
   return source.slice(0, index) + to + source.slice(index + from.length);
 }
 
-// Make IndexedDB persistence itself enforce OBS-01 so every workspace save shares one boundary.
 edit('packages/client/src/utils/api-client-workspace.ts', (source) => {
   source = once(source,
     "import { cloneApiClientScripts } from './api-client-scripting';\n",
@@ -38,7 +37,6 @@ edit('packages/client/src/components/ApiClientWorkspace.tsx', (source) => {
   return source;
 });
 
-// History replay enters through ApiClientWorkspace.loadSavedRequest, which clones once at the owning boundary.
 edit('packages/client/src/components/ApiClientHistoryPage.tsx', (source) => {
   source = once(source, "import { cloneApiClientScripts } from '../utils/api-client-scripting';\n", '', 'history page script clone import');
   source = once(source, "import { cloneRequestDraft } from '../utils/api-client-workspace';\n", '', 'history page request clone import');
@@ -49,13 +47,12 @@ edit('packages/client/src/components/ApiClientHistoryPage.tsx', (source) => {
   return source;
 });
 
-// Share history failure/time helpers instead of emitting duplicate implementations in the two history surfaces.
 edit('packages/client/src/utils/api-client-history.ts', (source) => {
   source = once(source,
     "function hasFailure(entry: ApiClientHistoryEntry): boolean {\n  return !!entry.error\n    || !!entry.scriptError\n    || (entry.status !== undefined && entry.status >= 400)\n    || !!entry.scriptTests?.some((test) => !test.passed);\n}\n",
     "export function apiClientHistoryHasFailure(entry: ApiClientHistoryEntry): boolean {\n  return !!entry.error || !!entry.scriptError || (entry.status !== undefined && entry.status >= 400) || !!entry.scriptTests?.some((test) => !test.passed);\n}\n\nexport function apiClientHistoryDisplayTime(value: string): string {\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();\n}\n",
     'history shared helpers');
-  source = source.replaceAll('const failed = hasFailure(entry);', 'const failed = apiClientHistoryHasFailure(entry);');
+  source = source.replaceAll('hasFailure(', 'apiClientHistoryHasFailure(');
   return source;
 });
 
@@ -68,8 +65,8 @@ edit('packages/client/src/components/ApiClientHistoryPage.tsx', (source) => {
     "function displayTime(value: string): string {\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();\n}\n\nfunction hasFailure(entry: ApiClientHistoryEntry): boolean {\n  return !!entry.error\n    || !!entry.scriptError\n    || (entry.status !== undefined && entry.status >= 400)\n    || !!entry.scriptTests?.some((test) => !test.passed);\n}\n\n",
     '',
     'history page duplicate helpers');
-  source = source.replaceAll('hasFailure(entry)', 'apiClientHistoryHasFailure(entry)');
-  source = source.replaceAll('displayTime(entry.createdAt)', 'apiClientHistoryDisplayTime(entry.createdAt)');
+  source = source.replaceAll('hasFailure(', 'apiClientHistoryHasFailure(');
+  source = source.replaceAll('displayTime(', 'apiClientHistoryDisplayTime(');
   return source;
 });
 
@@ -82,11 +79,10 @@ edit('packages/client/src/components/ApiClientHistory.tsx', (source) => {
     "function displayTime(value: string): string {\n  const date = new Date(value);\n  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();\n}\n\n",
     '',
     'recent history duplicate time helper');
-  source = source.replaceAll('displayTime(entry.createdAt)', 'apiClientHistoryDisplayTime(entry.createdAt)');
+  source = source.replaceAll('displayTime(', 'apiClientHistoryDisplayTime(');
   return source;
 });
 
-// Collapse four renderer preference writer wrappers and the second persistence helper into one typed writer.
 edit('packages/client/src/utils/renderer-preferences.ts', (source) => once(source,
 `function writePreferences(key: string, next: FlexDocViewerPreferences, storage?: Storage): void {
   const resolvedStorage = storage ?? (typeof window !== 'undefined' ? window.localStorage : undefined);
@@ -180,6 +176,15 @@ edit('packages/client/src/utils/renderer-preferences.test.ts', (source) => {
     .replaceAll("writeFlexDocViewerThemePreference(key, 'dark', storage)", "writeFlexDocViewerPreference(key, 'theme', 'dark', storage)")
     .replaceAll("writeFlexDocViewerExpandedTagsPreference(key, ['pets', 'admin', 'pets'], storage)", "writeFlexDocViewerPreference(key, 'expandedTags', ['pets', 'admin', 'pets'], storage)")
     .replaceAll('writeFlexDocViewerThemePreference(key, undefined, storage)', "writeFlexDocViewerPreference(key, 'theme', undefined, storage)");
+  return source;
+});
+
+edit('packages/client/src/components/FlexDoc.test.tsx', (source) => {
+  source = once(source,
+    "import { createFlexDocViewerPreferencesKey, writeFlexDocViewerThemePreference } from '../utils/renderer-preferences';",
+    "import { createFlexDocViewerPreferencesKey, writeFlexDocViewerPreference } from '../utils/renderer-preferences';",
+    'FlexDoc test preference import');
+  source = source.replaceAll("writeFlexDocViewerThemePreference(preferenceKey, 'dark')", "writeFlexDocViewerPreference(preferenceKey, 'theme', 'dark')");
   return source;
 });
 
