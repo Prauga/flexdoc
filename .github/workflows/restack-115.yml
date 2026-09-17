@@ -1,0 +1,44 @@
+name: Restack PR 115
+
+on:
+  push:
+    branches:
+      - tmp/3.3.x-restack-115
+
+permissions:
+  contents: write
+
+jobs:
+  restack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feat/3.3.x-execute-route-preflight
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - name: Merge corrected transport base
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin feat/3.3.1-transport-ux
+          git merge --no-commit --no-ff -X ours origin/feat/3.3.1-transport-ux
+          git diff --check
+      - name: Validate and regenerate renderer assets
+        run: |
+          npm ci
+          npm run lint
+          npm test -w packages/client -- --runInBand
+          npm run build:client
+          npm run sync:adapter-assets
+          npm run check:adapter-assets
+          npm run check:performance-budgets
+          git diff --check
+      - name: Commit and push
+        run: |
+          git add -A
+          git commit -m 'chore: api-client/preflight: restack on corrected transport policy' -m 'Integrate the preferHostExecution ceiling fix beneath UX-06, regenerate embedded renderer assets from the combined source tree, and preserve the existing bundle ceilings.'
+          git push origin HEAD:feat/3.3.x-execute-route-preflight
