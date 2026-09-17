@@ -96,8 +96,8 @@ export const Footer = ({ footerClasses, footer }: FooterProps) => {
 for path in ['packages/client/src/types/options.ts', 'packages/backend/src/interfaces.ts']:
     replace(
         path,
-        "  /** Copyright/legal text shown in the footer. */\n  copyright?: string;\n",
-        "  /** Copyright/legal text shown in the footer. */\n  copyright?: string;\n  /** Show renderer build identity when a concrete source revision is available. */\n  showBuildInfo?: boolean;\n",
+        "  /** Copyright/legal text shown in the footer. */ copyright?: string;\n",
+        "  /** Copyright/legal text shown in the footer. */ copyright?: string;\n  /** Show renderer build identity when a concrete source revision is available. */ showBuildInfo?: boolean;\n",
     )
 
 Path('packages/client/src/components/Footer.observability.test.tsx').write_text("""import React from 'react';
