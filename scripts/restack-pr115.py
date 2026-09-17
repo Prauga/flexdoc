@@ -48,3 +48,9 @@ for path in ['e2e/api-client-host-execution.spec.cjs', 'e2e/flexdoc.spec.cjs']:
     if 'expect(preflightHits).toBe(1);' not in text:
         raise SystemExit(f'missing preflight assertion in {path}')
     p.write_text(text.replace('expect(preflightHits).toBe(1);', 'expect(preflightHits).toBe(0);', 1))
+
+replace(
+    'packages/client/src/components/ApiClient.test.tsx',
+    """  it('treats capabilities: [] as available basic host transport', async () => {\n    fetchMock.mockResolvedValue({\n      status: 200,\n""",
+    """  it('treats capabilities: [] as available basic host transport', async () => {\n    fetchMock.mockResolvedValue({\n      ok: true,\n      status: 200,\n""",
+)
