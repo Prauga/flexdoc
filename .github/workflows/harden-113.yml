@@ -22,6 +22,8 @@ jobs:
           cache: npm
       - name: Restack and apply privacy fixes
         run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin feat/3.3.1-transport-ux tmp/3.3.x-review-hardening-runner2
           git merge --no-commit --no-ff origin/feat/3.3.1-transport-ux || {
             git status --short
@@ -46,8 +48,6 @@ jobs:
           npm run build:client
       - name: Commit and push
         run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A
           git commit -m 'fix: api-client/privacy: close persisted credential gaps' -m 'Restack on the corrected transport policy, redact sensitive URL/query/header fields and resolved URLs, sanitize persisted auth credentials, and leave vendored renderer assets for the final release refresh.'
           git push origin HEAD:feat/3.3.x-history-privacy
