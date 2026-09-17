@@ -454,6 +454,8 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
       onScriptTabChange={handleScriptTabChange}
       onExecutionStart={handleExecutionStart}
       onExecutionComplete={handleExecutionComplete}
+      credentialStorage={workspace.credentialStorage || 'remember'}
+      onCredentialStorageChange={(credentialStorage) => setWorkspace((current) => ({ ...current, credentialStorage }))}
       onRequestChange={handleRequestChange}
     />}
     </div>

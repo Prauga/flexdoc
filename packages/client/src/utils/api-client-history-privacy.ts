@@ -80,13 +80,20 @@ function persistedRequest(request: HttpRequestDraft, omitBody: boolean): HttpReq
 
 /**
  * Create the workspace representation written to IndexedDB without mutating live history.
- * Credentials in auth/query/URL/header fields are always redacted. When host-body persistence
- * is disabled, positively identified browser executions retain bodies while API-host and
- * legacy/unknown executions omit request and response payloads.
+ * History credentials in auth/query/URL/header fields are always redacted. Session-only and
+ * never-store workspace credentials are also stripped before persistence. When host-body
+ * persistence is disabled, positively identified browser executions retain bodies while API-host
+ * and legacy/unknown executions omit request and response payloads.
  */
 export function createApiClientWorkspacePersistenceSnapshot(workspace: ApiClientWorkspaceState): ApiClientWorkspaceState {
+  const stripCredentials = workspace.credentialStorage !== undefined && workspace.credentialStorage !== 'remember';
   return {
     ...workspace,
+    ...(stripCredentials ? {
+      collections: workspace.collections.map((collection) => ({ ...collection, auth: sanitizeApiClientAuthCredentials(collection.auth)! })),
+      folders: workspace.folders.map((folder) => ({ ...folder, auth: sanitizeApiClientAuthCredentials(folder.auth)! })),
+      requests: workspace.requests.map((saved) => ({ ...saved, request: { ...saved.request, auth: sanitizeApiClientAuthCredentials(saved.request.auth) } })),
+    } : {}),
     history: workspace.history.map((entry) => {
       const omitBody = workspace.historyBodies === false && entry.transport !== 'browser';
       const bodyFree = {

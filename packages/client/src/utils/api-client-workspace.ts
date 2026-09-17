@@ -1,6 +1,7 @@
 import type { HttpAuth, HttpBinaryBody, HttpFormDataEntry, HttpKeyValue, HttpRequestDraft } from './http-client';
 import { cloneApiClientScripts } from './api-client-scripting';
 import { createApiClientWorkspacePersistenceSnapshot } from './api-client-history-privacy';
+import type { ApiClientCredentialStorage } from './api-client-credentials';
 import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from './api-client-scripting';
 
 /** One named value stored in an API Client environment or collection variable list. */
@@ -117,6 +118,7 @@ export interface ApiClientWorkspaceState {
   /** Saved requests belonging to collections/folders. */ requests: ApiClientSavedRequest[];
   /** Named variable environments. */ environments: ApiClientEnvironment[];
   /** Currently active environment id, when one is selected. */ activeEnvironmentId?: string;
+  /** Credential persistence lifetime. Missing means legacy remember behavior. */ credentialStorage?: ApiClientCredentialStorage;
   /** Whether API-host request/response bodies may be persisted in history. Defaults to true. */ historyBodies?: boolean;
   /** Most-recent-first execution history, capped by the workspace implementation. */ history: ApiClientHistoryEntry[];
 }
@@ -188,6 +190,58 @@ function isHttpAuth(value: unknown): value is HttpAuth {
   if (value.type === 'oauth1') return hasString(value, 'consumerKey') && hasString(value, 'consumerSecret') && (value.token === undefined || typeof value.token === 'string') && (value.tokenSecret === undefined || typeof value.tokenSecret === 'string') && (value.realm === undefined || typeof value.realm === 'string') && (value.signatureMethod === undefined || ['HMAC-SHA1', 'HMAC-SHA256', 'PLAINTEXT'].includes(String(value.signatureMethod)));
   if (value.type === 'awsv4') return hasString(value, 'accessKey') && hasString(value, 'secretKey') && hasString(value, 'region') && hasString(value, 'service') && (value.sessionToken === undefined || typeof value.sessionToken === 'string');
   return false;
+}
+
+type ApiClientCredentialSessionEntry = ['c' | 'f' | 'r' | 'h', string, HttpAuth];
+
+function credentialSessionKey(key: string): string {
+  return `flexdoc:credentials:v1:${key}`;
+}
+
+function credentialSessionEntries(workspace: ApiClientWorkspaceState): ApiClientCredentialSessionEntry[] {
+  const entries: ApiClientCredentialSessionEntry[] = [];
+  for (const collection of workspace.collections) entries.push(['c', collection.id, collection.auth]);
+  for (const folder of workspace.folders) entries.push(['f', folder.id, folder.auth]);
+  for (const saved of workspace.requests) if (saved.request.auth) entries.push(['r', saved.id, saved.request.auth]);
+  for (const entry of workspace.history) if (entry.request.auth) entries.push(['h', entry.id, entry.request.auth]);
+  return entries;
+}
+
+function readCredentialSession(key: string): Map<string, HttpAuth> {
+  const result = new Map<string, HttpAuth>();
+  if (typeof sessionStorage === 'undefined') return result;
+  try {
+    const value = JSON.parse(sessionStorage.getItem(credentialSessionKey(key)) || '[]');
+    if (!Array.isArray(value)) return result;
+    for (const entry of value) {
+      if (!Array.isArray(entry) || entry.length !== 3 || !['c', 'f', 'r', 'h'].includes(entry[0]) || typeof entry[1] !== 'string' || !isHttpAuth(entry[2])) continue;
+      result.set(`${entry[0]}:${entry[1]}`, entry[2]);
+    }
+  } catch { /* best effort browser storage */ }
+  return result;
+}
+
+/** Restore session-only credential material into a sanitized workspace snapshot. */
+export function restoreApiClientSessionCredentials(key: string, workspace: ApiClientWorkspaceState): ApiClientWorkspaceState {
+  if (workspace.credentialStorage !== 'session') return workspace;
+  const credentials = readCredentialSession(key);
+  if (credentials.size === 0) return workspace;
+  return {
+    ...workspace,
+    collections: workspace.collections.map((collection) => ({ ...collection, auth: credentials.get(`c:${collection.id}`) || collection.auth })),
+    folders: workspace.folders.map((folder) => ({ ...folder, auth: credentials.get(`f:${folder.id}`) || folder.auth })),
+    requests: workspace.requests.map((saved) => ({ ...saved, request: { ...saved.request, auth: credentials.get(`r:${saved.id}`) || saved.request.auth } })),
+    history: workspace.history.map((entry) => ({ ...entry, request: { ...entry.request, auth: credentials.get(`h:${entry.id}`) || entry.request.auth } })),
+  };
+}
+
+/** Keep the current tab credential vault aligned with the selected storage lifetime. */
+export function syncApiClientSessionCredentials(key: string, workspace: ApiClientWorkspaceState): void {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    if (workspace.credentialStorage === 'session') sessionStorage.setItem(credentialSessionKey(key), JSON.stringify(credentialSessionEntries(workspace)));
+    else sessionStorage.removeItem(credentialSessionKey(key));
+  } catch { /* best effort browser storage */ }
 }
 
 function isHttpRequestDraft(value: unknown): value is HttpRequestDraft {
@@ -459,6 +513,7 @@ export function createDefaultApiClientWorkspace(): ApiClientWorkspaceState {
   const timestamp = now();
   return {
     version: 6,
+    credentialStorage: 'session',
     collections: [{ id: createApiClientId('collection'), name: DEFAULT_COLLECTION_NAME, auth: { type: 'none' }, variables: [], createdAt: timestamp, updatedAt: timestamp }],
     folders: [],
     requests: [],
@@ -526,6 +581,7 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
     requests: requestValues,
     environments: environmentValues,
     activeEnvironmentId,
+    credentialStorage: value.credentialStorage === 'session' || value.credentialStorage === 'remember' || value.credentialStorage === 'never' ? value.credentialStorage : undefined,
     historyBodies: typeof value.historyBodies === 'boolean' ? value.historyBodies : undefined,
     history: historyValues,
   };
@@ -745,6 +801,7 @@ export function deleteApiClientCollection(workspace: ApiClientWorkspaceState, co
       ...replacement,
       environments: workspace.environments,
       activeEnvironmentId: workspace.activeEnvironmentId,
+      credentialStorage: workspace.credentialStorage,
       history: workspace.history,
     };
   }
@@ -781,7 +838,7 @@ export async function loadApiClientWorkspace(key: string): Promise<ApiClientWork
     return await new Promise((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, 'readonly');
       const request = transaction.objectStore(STORE_NAME).get(key);
-      request.onsuccess = () => resolve(normalizeApiClientWorkspace(request.result));
+      request.onsuccess = () => resolve(restoreApiClientSessionCredentials(key, normalizeApiClientWorkspace(request.result)));
       request.onerror = () => reject(request.error || new Error('Unable to load FlexDoc API Client workspace'));
     });
   } finally {
@@ -795,6 +852,7 @@ export async function loadApiClientWorkspace(key: string): Promise<ApiClientWork
  * @param workspace Version-6 workspace state to store.
  */
 export async function saveApiClientWorkspace(key: string, workspace: ApiClientWorkspaceState): Promise<void> {
+  syncApiClientSessionCredentials(key, workspace);
   const database = await openDatabase();
   if (!database) return;
   try {
