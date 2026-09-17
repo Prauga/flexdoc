@@ -5,7 +5,9 @@ function workspaceWithHistory(transport?: 'browser' | 'api-host') {
   return addApiClientHistoryEntry(createDefaultApiClientWorkspace(), {
     request: {
       method: 'POST',
-      url: 'https://api.example.test/pets',
+      url: 'https://api.example.test/pets?access_token=url-secret&trace=ok',
+      query: [{ key: 'api_key', value: 'query-secret' }, { key: 'trace', value: 'ok' }],
+      auth: { type: 'bearer', token: 'auth-secret' },
       headers: [
         { key: 'Authorization', value: 'Bearer secret' },
         { key: 'X-Trace-Id', value: 'trace-123' },
@@ -19,7 +21,7 @@ function workspaceWithHistory(transport?: 'browser' | 'api-host') {
     },
     scripts: { preRequest: '', tests: '' },
     executedMethod: 'POST',
-    resolvedUrl: 'https://api.example.test/pets',
+    resolvedUrl: 'https://api.example.test/pets?private_token=resolved-secret&trace=ok',
     status: 200,
     transport,
     responseHeaders: [
@@ -35,6 +37,10 @@ describe('API Client history persistence privacy', () => {
     expect(isSensitiveApiClientHistoryHeader('Authorization')).toBe(true);
     expect(isSensitiveApiClientHistoryHeader(' x-api-key ')).toBe(true);
     expect(isSensitiveApiClientHistoryHeader('X-Amz-Security-Token')).toBe(true);
+    expect(isSensitiveApiClientHistoryHeader('X-CSRF-Token')).toBe(true);
+    expect(isSensitiveApiClientHistoryHeader('Ocp-Apim-Subscription-Key')).toBe(true);
+    expect(isSensitiveApiClientHistoryHeader('Private-Token')).toBe(true);
+    expect(isSensitiveApiClientHistoryHeader('X-Hub-Signature')).toBe(true);
     expect(isSensitiveApiClientHistoryHeader('X-Trace-Id')).toBe(false);
   });
 
@@ -56,6 +62,11 @@ describe('API Client history persistence privacy', () => {
     ]);
     expect(workspace.history[0].request.headers?.[0].value).toBe('Bearer secret');
     expect(workspace.history[0].responseHeaders?.[0][1]).toBe('sid=secret');
+    expect(snapshot.history[0].request.url).toBe('https://api.example.test/pets?access_token=%5BREDACTED%5D&trace=ok');
+    expect(snapshot.history[0].resolvedUrl).toBe('https://api.example.test/pets?private_token=%5BREDACTED%5D&trace=ok');
+    expect(snapshot.history[0].request.query).toEqual([{ key: 'api_key', value: '[REDACTED]' }, { key: 'trace', value: 'ok' }]);
+    expect(snapshot.history[0].request.auth).toEqual({ type: 'bearer', token: '' });
+    expect(workspace.history[0].request.auth).toEqual({ type: 'bearer', token: 'auth-secret' });
   });
 
   it('omits API-host request and response bodies without mutating live history', () => {

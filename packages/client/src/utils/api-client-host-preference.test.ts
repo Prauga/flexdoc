@@ -72,7 +72,7 @@ describe('serialized host execution preference', () => {
     expect(outcome.response?.transport).toBe('browser');
   });
 
-  it('lets a saved request prefer the API host over a browser-preferred server policy', async () => {
+  it('treats a browser-preferred server policy as a ceiling over saved request preference', async () => {
     const calls: string[] = [];
     const fetcher: typeof fetch = async (input) => {
       calls.push(String(input));
@@ -83,17 +83,17 @@ describe('serialized host execution preference', () => {
       hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [], preferHostExecution: false },
       fetcher,
     });
-    expect(calls).toEqual(['/docs/__flexdoc/execute']);
-    expect(outcome.response?.transport).toBe('api-host');
+    expect(calls).toEqual(['https://api.example.test/health']);
+    expect(outcome.response?.transport).toBe('browser');
   });
 
-  it('keeps explicit caller policy above saved request preference and still forces host-only requirements', async () => {
+  it('keeps an explicit server false above caller and saved-request preferences while still forcing host-only requirements', async () => {
     const directCalls: string[] = [];
     const directFetcher: typeof fetch = async (input) => { directCalls.push(String(input)); return response('direct'); };
     const direct = await executeApiClientRequest({
       request: { method: 'GET', url: 'https://api.example.test/health', hostExecution: { preferHostExecution: true } },
-      hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] },
-      preferHostExecution: false,
+      hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [], preferHostExecution: false },
+      preferHostExecution: true,
       fetcher: directFetcher,
     });
     expect(directCalls).toEqual(['https://api.example.test/health']);
