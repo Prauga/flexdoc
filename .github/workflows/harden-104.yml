@@ -1,0 +1,42 @@
+name: Harden PR 104
+
+on:
+  push:
+    branches:
+      - tmp/3.3.x-review-104
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feat/3.3-shared-host-execution-policy
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - name: Apply shared policy consumer wiring
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin tmp/3.3.x-review-104
+          git show origin/tmp/3.3.x-review-104:scripts/harden-pr104.py > /tmp/harden-pr104.py
+          python /tmp/harden-pr104.py
+          git diff --check
+      - name: Validate core and backend
+        run: |
+          npm ci
+          npm run build:core
+          npm run check:host-execution-policy -w packages/backend
+          npm test -w packages/backend -- --runInBand
+          npm run build -w packages/backend
+      - name: Commit and push
+        run: |
+          git add -A
+          git commit -m 'fix: backend/policy: consume shared host-execution contract' -m 'Make core the canonical policy source, generate a checked CommonJS-compatible backend mirror, and route Node allowlist normalization and origin matching through the shared contract.'
+          git push origin HEAD:feat/3.3-shared-host-execution-policy
