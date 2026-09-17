@@ -1,0 +1,159 @@
+name: Restack PR 116
+
+on:
+  push:
+    branches:
+      - tmp/3.3.x-restack-116
+
+permissions:
+  contents: write
+
+jobs:
+  restack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feat/3.3.x-credential-scope
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - name: Merge hardened privacy base
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin feat/3.3.x-history-privacy
+          git merge --no-commit --no-ff -X ours origin/feat/3.3.x-history-privacy
+          cat > packages/client/src/utils/api-client-history-privacy.ts <<'EOF'
+          import type { ApiClientWorkspaceState } from './api-client-workspace';
+          import { sanitizeApiClientAuthCredentials } from './api-client-credentials';
+          import type { HttpKeyValue, HttpRequestDraft } from './http-client';
+
+          const REDACTED_HISTORY_VALUE = '[REDACTED]';
+
+          function normalizedSensitiveName(name: string): string {
+            return name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          }
+
+          function isSensitiveName(name: string): boolean {
+            const normalized = normalizedSensitiveName(name);
+            return normalized.includes('authorization')
+              || normalized.includes('cookie')
+              || normalized.includes('token')
+              || normalized.includes('signature')
+              || normalized.includes('secret')
+              || normalized.includes('password')
+              || normalized.endsWith('key');
+          }
+
+          /** Return whether a header value should never be written verbatim to request history. */
+          export function isSensitiveApiClientHistoryHeader(name: string): boolean {
+            return isSensitiveName(name);
+          }
+
+          function redactRequestHeaders(headers: HttpKeyValue[] | undefined): HttpKeyValue[] | undefined {
+            return headers?.map((entry) => isSensitiveApiClientHistoryHeader(entry.key)
+              ? { ...entry, value: REDACTED_HISTORY_VALUE }
+              : entry);
+          }
+
+          function redactQueryEntries(entries: HttpKeyValue[] | undefined): HttpKeyValue[] | undefined {
+            return entries?.map((entry) => isSensitiveName(entry.key)
+              ? { ...entry, value: REDACTED_HISTORY_VALUE }
+              : entry);
+          }
+
+          function redactResponseHeaders(headers: Array<[string, string]> | undefined): Array<[string, string]> | undefined {
+            return headers?.map((entry) => isSensitiveApiClientHistoryHeader(entry[0])
+              ? [entry[0], REDACTED_HISTORY_VALUE]
+              : entry);
+          }
+
+          function redactUrlQuery(url: string): string {
+            const hashIndex = url.indexOf('#');
+            const fragment = hashIndex >= 0 ? url.slice(hashIndex) : '';
+            const withoutFragment = hashIndex >= 0 ? url.slice(0, hashIndex) : url;
+            const queryIndex = withoutFragment.indexOf('?');
+            if (queryIndex < 0) return url;
+            const base = withoutFragment.slice(0, queryIndex);
+            const query = withoutFragment.slice(queryIndex + 1).split('&').map((part) => {
+              if (!part) return part;
+              const equals = part.indexOf('=');
+              const rawName = equals >= 0 ? part.slice(0, equals) : part;
+              let name = rawName;
+              try { name = decodeURIComponent(rawName.replace(/\+/g, ' ')); } catch { /* preserve malformed query keys */ }
+              return isSensitiveName(name) ? `${rawName}=${encodeURIComponent(REDACTED_HISTORY_VALUE)}` : part;
+            }).join('&');
+            return `${base}?${query}${fragment}`;
+          }
+
+          function persistedHistoryRequest(request: HttpRequestDraft, omitBody: boolean): HttpRequestDraft {
+            const copy = {
+              ...request,
+              url: redactUrlQuery(request.url),
+              query: redactQueryEntries(request.query),
+              headers: redactRequestHeaders(request.headers),
+              auth: sanitizeApiClientAuthCredentials(request.auth),
+            };
+            if (omitBody) {
+              delete copy.body;
+              delete copy.urlencoded;
+              delete copy.formData;
+              delete copy.binary;
+              delete copy.graphql;
+            }
+            return copy;
+          }
+
+          /**
+           * Create the workspace representation written to IndexedDB without mutating live history.
+           * History credentials in auth/query/URL/header fields are always redacted. Workspace request,
+           * collection, and folder auth is additionally stripped unless the explicit scope is Remember.
+           * When host-body persistence is disabled, positively identified browser executions retain bodies
+           * while API-host and legacy/unknown executions omit request and response payloads.
+           */
+          export function createApiClientWorkspacePersistenceSnapshot(workspace: ApiClientWorkspaceState): ApiClientWorkspaceState {
+            const stripWorkspaceCredentials = workspace.credentialStorage !== undefined && workspace.credentialStorage !== 'remember';
+            return {
+              ...workspace,
+              ...(stripWorkspaceCredentials ? {
+                collections: workspace.collections.map((collection) => ({ ...collection, auth: sanitizeApiClientAuthCredentials(collection.auth)! })),
+                folders: workspace.folders.map((folder) => ({ ...folder, auth: sanitizeApiClientAuthCredentials(folder.auth)! })),
+                requests: workspace.requests.map((saved) => ({ ...saved, request: { ...saved.request, auth: sanitizeApiClientAuthCredentials(saved.request.auth) } })),
+              } : {}),
+              history: workspace.history.map((entry) => {
+                const omitBody = workspace.historyBodies === false && entry.transport !== 'browser';
+                const bodyFree = {
+                  ...entry,
+                  resolvedUrl: redactUrlQuery(entry.resolvedUrl),
+                  request: persistedHistoryRequest(entry.request, omitBody),
+                  responseHeaders: redactResponseHeaders(entry.responseHeaders),
+                };
+                if (omitBody) {
+                  delete bodyFree.responseBody;
+                  delete bodyFree.responseBodyTruncated;
+                }
+                return bodyFree;
+              }),
+            };
+          }
+          EOF
+          sed -i 's/^          //' packages/client/src/utils/api-client-history-privacy.ts
+          git diff --check
+      - name: Validate and regenerate renderer assets
+        run: |
+          npm ci
+          npm run lint
+          npm test -w packages/client -- --runInBand
+          npm run build:client
+          npm run sync:adapter-assets
+          npm run check:adapter-assets
+          npm run check:performance-budgets
+          git diff --check
+      - name: Commit and push
+        run: |
+          git add -A
+          git commit -m 'chore: api-client/credentials: restack on hardened history privacy' -m 'Preserve UX-09 session/remember/never storage semantics while inheriting OBS-01 URL, query, header, resolved-URL, and history-auth sanitization, then regenerate embedded renderer assets.'
+          git push origin HEAD:feat/3.3.x-credential-scope
