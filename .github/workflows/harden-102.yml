@@ -1,0 +1,56 @@
+name: Harden PR 102
+
+on:
+  push:
+    branches:
+      - tmp/3.3.x-review-hardening
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: fix/3.3-host-execution-protection-parity
+          fetch-depth: 0
+      - name: Correct release versioning and notes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin 3.3.x
+          git checkout origin/3.3.x -- docs/releases/3.3.md
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+
+          changed = subprocess.check_output(['git', 'diff', '--name-only', 'origin/3.3.x...HEAD'], text=True).splitlines()
+          for name in changed:
+              p = Path(name)
+              if not p.is_file() or p.suffix in {'.js', '.png', '.zip'}:
+                  continue
+              try:
+                  text = p.read_text()
+              except UnicodeDecodeError:
+                  continue
+              updated = text.replace('0.8.4', '0.9.0').replace('0.5.4', '0.6.0')
+              if updated != text:
+                  p.write_text(updated)
+
+          Path('docs/releases/3.3.1.md').write_text('''# FlexDoc 3.3.1\n\n> Unreleased maintenance release.\n\nFlexDoc 3.3.1 hardens backend-native host execution without changing the 3.3 transport contract. The primary change is HX-03 protection parity: runtimes that can expose a real host executor now require an explicit acknowledgement that the application already protects the documentation and execute surface with its own authentication/authorization boundary.\n\n## Host-execution protection parity\n\nThe following source releases carry the new fail-closed acknowledgement:\n\n- Java JVM / JAX-RS / Spring family: **0.9.0**\n- ASP.NET Core: **0.6.0**\n\nThe minor bumps are intentional because the adapters add a new required configuration acknowledgement when a real host executor is exposed. These source versions do not imply that registry artifacts are public before their release workflows complete.\n\n### Java\n\nConfigure the actual application security boundary first, then set `hostExecutionProtected(true)` (or the Spring property equivalent) before attaching a real host executor. A real executor without that acknowledgement is rejected during initialization. Advertising host-execution protocol metadata without an executor can still remain unavailable without the acknowledgement.\n\n### ASP.NET Core\n\nConfigure the application authorization boundary for the docs shell/subtree first, then set `HostExecutionProtected = true` before attaching a real `FlexDocHostExecution`. `MapFlexDoc` rejects a real executor when the acknowledgement is missing.\n\n## Security semantics\n\nThe acknowledgement is not authentication, authorization, or CSRF protection. Exact-origin allowlists and `X-FlexDoc-Execute: 1` remain execution controls only. Operators must protect the docs and execute route with the application's normal access-control boundary.\n\n## Compatibility\n\nThe browser/host execution envelope and 3.3 renderer contract remain unchanged. This maintenance release only closes the remaining initialization-time protection gaps for the Java and ASP.NET Core adapters.\n''')
+          PY
+          git diff --check
+      - name: Validate changed adapter families
+        run: |
+          grep -R --line-number --fixed-strings '0.8.4' README.md adapters/java adapters/java-jvm adapters/java-jaxrs adapters/java-spring docs scripts/performance/host-impact/spring && exit 1 || true
+          grep -R --line-number --fixed-strings '0.5.4' README.md adapters/dotnet docs scripts/performance/host-impact/dotnet && exit 1 || true
+          grep -q '<version>0.9.0</version>' adapters/java/pom.xml
+          grep -q '<Version>0.6.0</Version>' adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNetCore.csproj
+          cmp docs/releases/3.3.md <(git show origin/3.3.x:docs/releases/3.3.md)
+      - name: Commit and push
+        run: |
+          git add -A
+          git commit -m 'fix: release/hx-03: correct protection-parity versioning' -m 'Use minor adapter versions for the new fail-closed configuration contract, preserve the shipped 3.3 release note unchanged, and document HX-03 in a separate unreleased 3.3.1 note.'
+          git push origin HEAD:fix/3.3-host-execution-protection-parity
