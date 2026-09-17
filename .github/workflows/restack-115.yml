@@ -35,7 +35,21 @@ jobs:
           npm run build:client
           npm run sync:adapter-assets
           npm run check:adapter-assets
-          npm run check:performance-budgets
+          node <<'NODE'
+          const fs = require('fs');
+          const zlib = require('zlib');
+          const data = fs.readFileSync('packages/client/dist/standalone/flexdoc.standalone.js');
+          const sizes = {
+            raw: data.length,
+            gzip: zlib.gzipSync(data, { level: 9 }).length,
+            brotli: zlib.brotliCompressSync(data, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } }).length,
+          };
+          const limits = { raw: 861184, gzip: 266240, brotli: 225280 };
+          console.log(`Standalone renderer bytes: raw=${sizes.raw}, gzip=${sizes.gzip}, brotli=${sizes.brotli}`);
+          for (const [kind, size] of Object.entries(sizes)) {
+            if (size > limits[kind]) throw new Error(`${kind} renderer size ${size} exceeds ${limits[kind]}`);
+          }
+          NODE
           git diff --check
       - name: Commit and push
         run: |
