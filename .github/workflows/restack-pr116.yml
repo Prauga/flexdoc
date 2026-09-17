@@ -1,0 +1,65 @@
+name: Restack PR 116
+
+on:
+  push:
+    branches:
+      - tmp/3.3.x-restack-116
+
+permissions:
+  contents: write
+
+jobs:
+  restack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feat/3.3.x-credential-scope
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - name: Restack and reconcile privacy boundary
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin feat/3.3.x-history-privacy tmp/3.3.x-restack-116
+          git merge --no-commit --no-ff origin/feat/3.3.x-history-privacy || true
+          assets=(
+            adapters/elixir/assets/flexdoc.standalone.js
+            adapters/go/assets/flexdoc.standalone.js
+            adapters/php/assets/flexdoc.standalone.js
+            adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.js
+            adapters/ruby/assets/flexdoc.standalone.js
+            adapters/rust-actix/assets/flexdoc.standalone.js
+            adapters/rust/assets/flexdoc.standalone.js
+          )
+          for asset in "${assets[@]}"; do
+            git checkout origin/feat/3.3.x-history-privacy -- "$asset"
+            git add "$asset"
+          done
+          git checkout --ours packages/client/src/utils/api-client-credentials.ts packages/client/src/utils/api-client-history-privacy.ts
+          git add packages/client/src/utils/api-client-credentials.ts packages/client/src/utils/api-client-history-privacy.ts
+          if git diff --name-only --diff-filter=U | grep -q .; then
+            git status --short
+            exit 1
+          fi
+          git show origin/tmp/3.3.x-restack-116:scripts/restack-pr116.py > /tmp/restack-pr116.py
+          python /tmp/restack-pr116.py
+          git diff --check
+      - name: Validate credential scopes and renderer budget
+        run: |
+          npm ci
+          npm run lint
+          npm test -w packages/client -- --runInBand
+          npm run build:client
+          raw=$(stat -c%s packages/client/dist/standalone/flexdoc.standalone.js)
+          echo "standalone raw bytes: $raw"
+          test "$raw" -le 861184
+      - name: Rewrite feature branch cleanly
+        run: |
+          git reset --soft origin/feat/3.3.x-history-privacy
+          git add -A
+          git commit -m 'feat: api-client/credentials: add explicit storage scopes' -m 'Preserve Session only, Remember, and Never store semantics on the hardened OBS-01 persistence boundary, inherit URL/query/header/auth redaction, and leave vendored renderer assets to the final release refresh.'
+          git push --force-with-lease origin HEAD:feat/3.3.x-credential-scope
