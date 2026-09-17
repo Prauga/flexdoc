@@ -1,0 +1,53 @@
+name: Harden PR 113
+
+on:
+  push:
+    branches:
+      - tmp/3.3.x-review-hardening-runner2
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: feat/3.3.x-history-privacy
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+      - name: Restack and apply privacy fixes
+        run: |
+          git fetch origin feat/3.3.1-transport-ux tmp/3.3.x-review-hardening-runner2
+          git merge --no-commit --no-ff origin/feat/3.3.1-transport-ux || {
+            git status --short
+            exit 1
+          }
+          git show origin/tmp/3.3.x-review-hardening-runner2:scripts/harden-pr113.py > /tmp/harden-pr113.py
+          python /tmp/harden-pr113.py
+          git checkout origin/feat/3.3.1-transport-ux -- \
+            adapters/elixir/assets/flexdoc.standalone.js \
+            adapters/go/assets/flexdoc.standalone.js \
+            adapters/php/assets/flexdoc.standalone.js \
+            adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.js \
+            adapters/ruby/assets/flexdoc.standalone.js \
+            adapters/rust-actix/assets/flexdoc.standalone.js \
+            adapters/rust/assets/flexdoc.standalone.js
+          git diff --check
+      - name: Validate
+        run: |
+          npm ci
+          npm run lint
+          npm test -w packages/client -- --runInBand
+          npm run build:client
+      - name: Commit and push
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: api-client/privacy: close persisted credential gaps' -m 'Restack on the corrected transport policy, redact sensitive URL/query/header fields and resolved URLs, sanitize persisted auth credentials, and leave vendored renderer assets for the final release refresh.'
+          git push origin HEAD:feat/3.3.x-history-privacy
