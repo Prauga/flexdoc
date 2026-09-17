@@ -34,6 +34,7 @@ jobs:
           npm run build:core
           npm run check:host-execution-policy -w packages/backend
           npm test -w packages/backend -- --runInBand
+          npm run build:client
           npm run build -w packages/backend
       - name: Commit and push
         run: |
