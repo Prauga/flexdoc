@@ -166,6 +166,8 @@ export const TryItApiClientWorkspace: React.FC<Props> = ({
       credentials={options?.tryIt?.credentials || 'same-origin'}
       requestInterceptor={options?.tryIt?.requestInterceptor}
       hostExecution={options?.tryIt?.hostExecution}
+      credentialStorage={environmentWorkspace.credentialStorage || 'remember'}
+      onCredentialStorageChange={(credentialStorage) => setEnvironmentWorkspace((current) => ({ ...current, credentialStorage }))}
       environmentVariables={environmentVariables}
       serverOptions={servers}
       initialServerUrl={initialSession.serverUrl}
