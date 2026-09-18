@@ -15,7 +15,11 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "generate:basic": "npx ts-node src/scripts/generate-auth.ts basic",
-    "generate:bearer": "npx ts-node src/scripts/generate-auth.ts bearer"
+    "generate:bearer": "npx ts-node src/scripts/generate-auth.ts bearer",
+    "sync:host-execution-policy": "node scripts/sync-host-execution-policy.cjs",
+    "check:host-execution-policy": "node scripts/sync-host-execution-policy.cjs --check",
+    "prebuild": "npm run check:host-execution-policy",
+    "pretest": "npm run check:host-execution-policy"
   },
   "keywords": ["flexdoc", "openapi", "api-documentation", "api-docs", "api-explorer", "express", "fastify", "nestjs", "self-hosted", "swagger", "developer-tools"],
   "author": "Prauga",
