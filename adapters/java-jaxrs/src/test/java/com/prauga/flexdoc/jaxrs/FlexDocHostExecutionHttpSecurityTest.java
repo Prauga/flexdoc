@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-final class FlexDocJaxRsSecurityBoundaryTest {
+final class FlexDocHostExecutionHttpSecurityTest {
   @Test
   void executeRouteIsExternallyAbsentWithoutNativeExecutor() {
     FlexDocJaxRsResource resource = new FlexDocJaxRsResource(host(null));
