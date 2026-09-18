@@ -75,8 +75,18 @@ function resolveTheme(options: StandaloneFlexDocOptions): 'light' | 'dark' {
   return 'light';
 }
 
+function ensureFavicon(options: StandaloneFlexDocOptions): void {
+  if (typeof document === 'undefined' || !options.favicon) return;
+  const existing = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+  const link = existing || document.createElement('link');
+  link.rel = 'icon';
+  link.href = options.favicon;
+  if (!existing) document.head.appendChild(link);
+}
+
 function renderFlexDoc(element: Element, source: OpenAPISpec, options: StandaloneFlexDocOptions): () => void {
   const spec = prepareSpec(source, options);
+  ensureFavicon(options);
   const existingRoot = roots.get(element);
   if (existingRoot) existingRoot.unmount();
   const root = createRoot(element);
