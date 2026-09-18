@@ -6,7 +6,7 @@ require "rack/mock"
 require "socket"
 require_relative "../lib/prauga/flexdoc"
 
-class FlexDocRackHostExecutionHttpSecurityTest < Minitest::Test
+class FlexDocHostExecutionHttpSecurityTest < Minitest::Test
   def app_for(origin)
     executor = Prauga::FlexDoc::HostExecution.new(allowed_origins: [origin])
     host = Prauga::FlexDoc::Host.new(
