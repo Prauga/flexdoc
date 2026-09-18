@@ -25,13 +25,15 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   completion:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
       - uses: actions/setup-node@v6
         with:
           node-version: '22.22.3'
@@ -53,6 +55,26 @@ jobs:
       - run: npm ci
       - run: npm run build:client
       - run: npm run build:backend
+      - name: Synchronize canonical renderer assets onto PR branch
+        if: github.event_name == 'pull_request'
+        run: |
+          npm run sync:adapter-assets
+          if git diff --quiet -- adapters; then
+            echo "Adapter assets already canonical."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            adapters/go/assets/flexdoc.standalone.js adapters/go/assets/flexdoc.standalone.css \
+            adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.js adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.css \
+            adapters/rust/assets/flexdoc.standalone.js adapters/rust/assets/flexdoc.standalone.css \
+            adapters/php/assets/flexdoc.standalone.js adapters/php/assets/flexdoc.standalone.css \
+            adapters/ruby/assets/flexdoc.standalone.js adapters/ruby/assets/flexdoc.standalone.css \
+            adapters/rust-actix/assets/flexdoc.standalone.js adapters/rust-actix/assets/flexdoc.standalone.css \
+            adapters/elixir/assets/flexdoc.standalone.js adapters/elixir/assets/flexdoc.standalone.css
+          git commit -m "chore: renderer/parity: synchronize generated adapter assets" -m "Refresh only the exact UX-07 canonical renderer copies."
+          git push origin HEAD:"$GITHUB_HEAD_REF"
       - run: npm test -w packages/backend
 
       - name: Verify every committed adapter renderer is canonical
