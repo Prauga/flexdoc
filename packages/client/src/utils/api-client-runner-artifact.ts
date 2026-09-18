@@ -1,5 +1,6 @@
 import type { HttpAuth } from './http-client';
 import { cloneApiClientScripts } from './api-client-scripting';
+import { createApiClientWorkspacePersistenceSnapshot } from './api-client-history-privacy';
 import {
   cloneRequestDraft,
   normalizeApiClientWorkspace,
@@ -206,14 +207,15 @@ export function exportApiClientRunnerArtifact(
   scope: ApiClientRunnerArtifactScope,
   options: ExportApiClientRunnerArtifactOptions = {},
 ): ApiClientRunnerArtifact {
-  const collection = collectionForScope(workspace, scope);
-  const requests = artifactRequests(workspace, scope);
+  const source = workspace.credentialStorage !== undefined && workspace.credentialStorage !== 'remember' ? createApiClientWorkspacePersistenceSnapshot(workspace) : workspace;
+  const collection = collectionForScope(source, scope);
+  const requests = artifactRequests(source, scope);
   requireExecutableRequests(requests, scope);
-  const environment = artifactEnvironment(workspace, options.environmentId);
+  const environment = artifactEnvironment(source, options.environmentId);
   const artifactWorkspace: ApiClientWorkspaceState = {
     version: 6,
     collections: [cloneCollection(collection)],
-    folders: artifactFolders(workspace, scope),
+    folders: artifactFolders(source, scope),
     requests,
     environments: environment.environments,
     ...(environment.activeEnvironmentId ? { activeEnvironmentId: environment.activeEnvironmentId } : {}),
