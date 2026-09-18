@@ -40,5 +40,20 @@ export type {
   HttpRequestDraft,
   HttpVariables,
 } from './http-client.js';
+export {
+  HOST_EXECUTION_TARGET_POLICY_INVARIANTS,
+  createHostExecutionTargetPolicy,
+  isHostExecutionOriginAllowed,
+  normalizeHostExecutionAllowedOrigins,
+  normalizeHostExecutionOrigin,
+} from './host-execution-policy.js';
+export type {
+  HostExecutionAllowedProtocol,
+  HostExecutionEmbeddedCredentialsPolicy,
+  HostExecutionRedirectPolicy,
+  HostExecutionResolvedAddressPolicy,
+  HostExecutionTargetPolicy,
+  HostExecutionTargetPolicyInput,
+} from './host-execution-policy.js';
 export { generateCodeSample, languageLabel } from './code-samples.js';
 export type { CodeSampleLanguage } from './code-samples.js';
