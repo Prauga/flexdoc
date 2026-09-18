@@ -36,6 +36,9 @@ public sealed class FlexDocOptions
     /// <summary>Advertise host-execution protocol metadata and register the route when a real executor is configured.</summary>
     public bool TryItHostExecution { get; set; }
 
+    /// <summary>Explicitly acknowledges that application authentication/authorization protects the docs/execute surface.</summary>
+    public bool HostExecutionProtected { get; set; }
+
     /// <summary>Native ASP.NET Core executor. A null executor keeps host execution unavailable and the execute route unregistered.</summary>
     public FlexDocHostExecution? HostExecution { get; set; }
 

@@ -17,6 +17,16 @@ For production deployments that enable host execution:
 
 A multi-instance deployment should normally enforce user-aware rate limits in a shared gateway or distributed limiter. The small in-process helpers below are admission-control backstops for one process; they are not distributed quotas.
 
+### Explicit protection acknowledgements
+
+FlexDoc 3.3.x makes the application-owned auth boundary explicit before these native adapters expose a real execute endpoint:
+
+- Spring Boot: set `flexdoc.host-execution-protected=true` only after Spring Security or the deployment gateway protects the docs/execute paths.
+- JAX-RS/shared JVM: set `FlexDocConfig.builder().hostExecutionProtected(true)` only after the Jakarta/application-server/gateway policy protects the resource.
+- ASP.NET Core: set `options.HostExecutionProtected = true` only after the application authorization boundary protects both the docs shell and docs subtree.
+
+These switches are **acknowledgements, not authentication mechanisms**. They do not install auth, authorize a caller, or replace CSRF policy. Spring/JAX-RS JVM host construction and ASP.NET Core route mapping fail closed when a real native executor is attached without the corresponding acknowledgement. A protocol advertisement with no real executor can still remain unavailable without the acknowledgement.
+
 ### Ordinary-request routing knob
 
 When native host execution must remain enabled but operators do not want ordinary interactive Try It requests to take the additional browser -> API-host -> target hop, the Node host can set `tryIt.hostExecution.preferHostExecution: false`. Host-only features still require host execution; this knob only keeps ordinary requests on direct browser transport. Omitting the option keeps the 3.3 default (`true`).
@@ -78,7 +88,7 @@ The same middleware shape works with Nest when mounted on the underlying Express
 
 ## Spring reference admission control
 
-The Spring starter exports `FlexDocHostExecutionAdmissionFilter`. The shared JVM transport has its own finite worker and queue bounds as a final resource-safety layer, but applications should reject overload earlier at the HTTP boundary. Register the filter only for the execute route and keep Spring Security ahead of it for authentication/authorization.
+The Spring starter exports `FlexDocHostExecutionAdmissionFilter`. The shared JVM transport has its own finite worker and queue bounds as a final resource-safety layer, but applications should reject overload earlier at the HTTP boundary. Register the filter only for the execute route and keep Spring Security ahead of it for authentication/authorization. After that boundary exists, set `flexdoc.host-execution-protected=true` before enabling the real executor.
 
 ```java
 import com.prauga.flexdoc.spring.FlexDocHostExecutionAdmissionFilter;

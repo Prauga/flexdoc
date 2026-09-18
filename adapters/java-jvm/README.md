@@ -28,6 +28,24 @@ X-FlexDoc-Execute: 1
 
 `X-FlexDoc-Execute: 1` is a protocol marker and cross-site friction. **It is not authentication and it is not a CSRF token.** Put the documentation subtree and execute POST behind the application's normal authentication/authorization boundary and configure CSRF deliberately when cookie authentication is used.
 
+A real JVM executor now also requires an explicit server-side acknowledgement of that boundary:
+
+```java
+FlexDocConfig config = FlexDocConfig.builder()
+    .path("/docs")
+    .specUrl("/openapi.json")
+    .tryItHostExecution(true)
+    .hostExecutionProtected(true)
+    .build();
+
+FlexDocHost host = new FlexDocHost(
+    config,
+    null,
+    new FlexDocHostExecution(List.of("https://api.example.internal")));
+```
+
+`hostExecutionProtected(true)` **does not install authentication or authorization**. Set it only after the application or gateway actually protects the docs/execute surface. If a real `FlexDocHostExecution` is attached while the acknowledgement is false or omitted, `FlexDocHost` construction fails closed. Keeping `tryItHostExecution(true)` without a real executor remains valid and advertises `hostExecution.available: false`.
+
 The first JVM native slice advertises `capabilities: []`. That means ordinary host transport is available while cookie jars, client certificates, Digest, Hawk, OAuth 1.0 and SigV4 remain unsupported and fail closed; an empty list does not mean the execute route is disabled.
 
 ### Resource limits and production tuning

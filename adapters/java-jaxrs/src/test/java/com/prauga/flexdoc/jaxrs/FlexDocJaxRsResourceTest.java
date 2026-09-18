@@ -140,9 +140,14 @@ final class FlexDocJaxRsResourceTest {
   }
 
   private FlexDocJaxRsResource resource() {
-    FlexDocConfig config = new FlexDocConfig(
-        "/docs", "/openapi.json", "Test API", "light", true,
-        null, null, null, null, true);
+    FlexDocConfig config = FlexDocConfig.builder()
+        .path("/docs")
+        .specUrl("/openapi.json")
+        .title("Test API")
+        .theme("light")
+        .tryItHostExecution(true)
+        .hostExecutionProtected(true)
+        .build();
     FlexDocHost host = new FlexDocHost(config, null, new FlexDocHostExecution(List.of(origin)));
     return new FlexDocJaxRsResource(host);
   }
