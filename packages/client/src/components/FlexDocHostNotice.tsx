@@ -1,0 +1,24 @@
+import { apiClientHostCapabilityLabel } from '../utils/api-client-execution';
+import type { HttpHostExecutionCapability } from '../utils/http-client';
+
+const FlexDocMark = () => <svg aria-hidden='true' viewBox='0 0 512 512' className='h-5 w-5 shrink-0'>
+  <rect width='512' height='512' rx='115' fill='white' />
+  <path d='M397 130.546C397 136.784 392.409 141.84 386.745 141.84H196.951C191.287 141.84 186.696 146.896 186.696 153.134L186.692 239.516C186.692 245.754 191.283 250.811 196.947 250.811H315.049C320.712 250.811 325.303 255.867 325.303 262.105V317.357C325.303 323.594 320.712 328.651 315.049 328.651H196.951C191.288 328.651 186.696 333.707 186.696 339.944L186.692 436.706C186.692 442.944 182.101 448 176.438 448H125.255C119.591 448 115 442.943 115 436.706V329.566C115 323.329 119.591 318.272 125.255 318.272H171.66C177.324 318.272 181.915 313.216 181.915 306.978V272.483C181.915 266.246 177.324 261.189 171.66 261.189H125.255C119.591 261.189 115 256.133 115 249.895V142.756C115 136.518 119.591 131.461 125.255 131.461H171.66C177.324 131.461 181.915 126.405 181.915 120.167V75.2941C181.915 69.0565 186.506 64 192.169 64H386.745C392.409 64 397 69.0565 397 75.2941V130.546Z' fill='#3461E1' />
+</svg>;
+
+export function FlexDocHostNotice({ message, capabilities = [], warning = false, theme = 'light', label = 'Host execution status' }: {
+  message: string;
+  capabilities?: readonly HttpHostExecutionCapability[];
+  warning?: boolean;
+  theme?: 'light' | 'dark';
+  label?: string;
+}) {
+  const palette = warning
+    ? theme === 'dark' ? 'border-amber-800 bg-amber-950/40 text-amber-200' : 'border-amber-300 bg-amber-50 text-amber-800'
+    : theme === 'dark' ? 'border-blue-800 bg-blue-950/40 text-blue-200' : 'border-blue-300 bg-blue-50 text-blue-800';
+  return <div role={warning ? 'alert' : 'status'} aria-label={label} className={`rounded-md border p-3 text-sm ${palette}`}>
+    <div className='flex items-start gap-2'><FlexDocMark /><div><div>{message}</div>
+      {capabilities.length > 0 && <details><summary>API host capabilities</summary><small>{capabilities.map(apiClientHostCapabilityLabel).join(' · ')}</small></details>}
+    </div></div>
+  </div>;
+}

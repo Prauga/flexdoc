@@ -109,16 +109,28 @@ test('shows positive Try It copy for an available API host with no advanced capa
   expect(screen.queryByText(/Host execution is disabled/i)).not.toBeInTheDocument();
 });
 
+test('explains advertised Try It API-host capabilities', () => {
+  render(<RequestPlayground spec={spec} path='/pets' method='get' theme='light' options={{ tryIt: { enabled: true, hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: ['cookies', 'oauth1'] } } }} />);
+  const status = screen.getByRole('status');
+  expect(status).toHaveTextContent('This request runs from your API server.');
+  expect(status).toHaveTextContent('API host capabilities');
+  expect(status).toHaveTextContent('Cookie jar');
+  expect(status).toHaveTextContent('OAuth 1.0');
+});
+
 test('shows browser transport when the documentation host prefers direct execution', () => {
   render(<RequestPlayground
     spec={spec}
     path='/pets'
     method='get'
     theme='light'
-    options={{ tryIt: { enabled: true, hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [], preferHostExecution: false } } }}
+    options={{ tryIt: { enabled: true, hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: ['cookies'], preferHostExecution: false } } }}
   />);
 
   expect(screen.getByLabelText('Request transport')).toHaveTextContent('Browser');
+  const status = screen.getByRole('status');
+  expect(status).toHaveTextContent('FlexDoc API host is available.');
+  expect(status).toHaveTextContent('Cookie jar');
   expect(screen.queryByText('This request runs from your API server.')).not.toBeInTheDocument();
 });
 

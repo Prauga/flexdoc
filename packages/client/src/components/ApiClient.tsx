@@ -5,6 +5,7 @@ import { ApiClientAuthEditor } from './ApiClientAuthEditor';
 import { ApiClientBodyEditor } from './ApiClientBodyEditor';
 import { ApiClientResponseViewer } from './ApiClientResponseViewer';
 import { ApiClientScriptEditor } from './ApiClientScriptEditor';
+import { FlexDocHostNotice } from './FlexDocHostNotice';
 import { apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
 import { diagnoseApiClientHostExecutionFailure } from '../utils/api-client-host-preflight';
 import { buildHttpRequest, inferHttpBodyMode } from '../utils/http-client';
@@ -516,7 +517,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
         {hostExecution?.available && <label className={`inline-flex items-center gap-2 ${mutedClass}`}>Transport preference<select aria-label='Transport preference' disabled={hostRequired} className={`rounded-md border px-2 py-1 ${inputClass}`} value={draft.hostExecution?.preferHostExecution === undefined ? 'inherit' : draft.hostExecution.preferHostExecution ? 'host' : 'browser'} onChange={({ target: { value } }) => setDraft((current) => ({ ...current, hostExecution: { ...(current.hostExecution || {}), preferHostExecution: value === 'inherit' ? undefined : value === 'host' } }))}><option value='inherit'>Server default</option><option value='browser'>Prefer browser</option><option value='host'>Prefer API host</option></select></label>}
       </div>
 
-      {hostNotice && <div role={bodyHost ? 'status' : available ? 'status' : 'alert'} aria-label={messages?.hostExecutionStatus || 'Host execution status'} className={`rounded-md border p-3 text-sm ${available ? (theme === 'dark' ? 'border-blue-800 bg-blue-950/40 text-blue-200' : 'border-blue-300 bg-blue-50 text-blue-800') : (theme === 'dark' ? 'border-amber-800 bg-amber-950/40 text-amber-200' : 'border-amber-300 bg-amber-50 text-amber-800')}`}>{hostNotice}</div>}
+      {(hostNotice || (hostExecution?.available && (hostExecution.capabilities?.length || 0) > 0)) && <FlexDocHostNotice message={hostNotice || 'FlexDoc API host is available.'} capabilities={hostExecution?.capabilities} warning={!available && !bodyHost} theme={theme} label={messages?.hostExecutionStatus || 'Host execution status'} />}
 
       {loading ? <button type='button' onClick={cancel} className='inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-red-500 px-4 py-2 font-medium text-red-600 sm:w-auto'><Square className='h-4 w-4' />{messages?.cancelRequest || 'Cancel request'}</button> : <button type='button' data-api-client-send='true' onClick={() => { void execute(); }} disabled={!canExecute} aria-keyshortcuts='Control+Enter Meta+Enter' title={`${messages?.sendRequest || 'Send request'} (Ctrl/Cmd+Enter)`} className='inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60 sm:w-auto'><Play className='h-4 w-4' /> {messages?.sendRequest || 'Send request'} <span className='text-xs font-normal opacity-80'>Ctrl/Cmd+Enter</span></button>}
 

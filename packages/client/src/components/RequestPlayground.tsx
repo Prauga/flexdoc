@@ -12,6 +12,7 @@ import { createOpenApiApiClientSession } from '../utils/openapi-api-client-sessi
 import type { OpenApiApiClientSession } from '../utils/openapi-api-client-session';
 import { resolveServerUrl } from '../utils/server-url';
 import { ApiClientResponseViewer } from './ApiClientResponseViewer';
+import { FlexDocHostNotice } from './FlexDocHostNotice';
 
 interface Props {
   spec: OpenAPISpec;
@@ -186,7 +187,7 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
       </>}
 
       <div className='text-xs'><span aria-label='Request transport' className='rounded border px-2 py-1'>{apiClientTransportLabel(transportMode)}</span></div>
-      {hostNotice && <div role={available ? 'status' : 'alert'} className={`rounded-md border p-3 text-sm ${available ? 'border-blue-300 bg-blue-50 text-blue-800' : 'border-amber-300 bg-amber-50 text-amber-800'}`}>{hostNotice}</div>}
+      {(hostNotice || (options?.tryIt?.hostExecution?.available && (options.tryIt.hostExecution.capabilities?.length || 0) > 0)) && <FlexDocHostNotice message={hostNotice || 'FlexDoc API host is available.'} capabilities={options?.tryIt?.hostExecution?.capabilities} warning={!available} theme={theme} />}
 
       <div className='flex flex-wrap gap-2'>
         <button onClick={execute} disabled={loading || (hostRequired && !available)} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60'>
