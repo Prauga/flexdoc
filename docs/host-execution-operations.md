@@ -88,25 +88,17 @@ The same middleware shape works with Nest when mounted on the underlying Express
 
 ## Spring reference admission control
 
-The Spring starter exports `FlexDocHostExecutionAdmissionFilter`. The shared JVM transport has its own finite worker and queue bounds as a final resource-safety layer, but applications should reject overload earlier at the HTTP boundary. Register the filter only for the execute route and keep Spring Security ahead of it for authentication/authorization. After that boundary exists, set `flexdoc.host-execution-protected=true` before enabling the real executor.
+The Spring starter auto-registers `FlexDocHostExecutionAdmissionFilter` for the normalized execute route whenever native host execution is enabled. The shared JVM transport has its own finite worker and queue bounds as a final resource-safety layer, but applications should reject overload earlier at the HTTP boundary. The registration runs late in the servlet filter chain so Spring Security and ordinary application authentication/CSRF filters can run first. After that boundary exists, set `flexdoc.host-execution-protected=true` before enabling the real executor.
 
-```java
-import com.prauga.flexdoc.spring.FlexDocHostExecutionAdmissionFilter;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.core.Ordered;
+Configure the process-local ceiling directly on the starter:
 
-@Bean
-FilterRegistrationBean<FlexDocHostExecutionAdmissionFilter> flexDocHostExecutionAdmission() {
-  var registration = new FilterRegistrationBean<>(
-      new FlexDocHostExecutionAdmissionFilter(16, 1));
-  registration.addUrlPatterns("/docs/__flexdoc/execute");
-  registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 20);
-  return registration;
-}
+```yaml
+flexdoc:
+  host-execution-max-in-flight: 16
+  host-execution-retry-after-seconds: 1
 ```
 
-Adapt the mapping when `flexdoc.path`, servlet context path, or reverse-proxy path rewriting is customized. The filter returns HTTP `429` with `Retry-After` immediately when its local in-flight bound is saturated and releases capacity in a `finally` block after downstream completion or failure.
+The starter derives the execute mapping from normalized `flexdoc.path`. The filter returns HTTP `429` with `Retry-After` immediately when its local in-flight bound is saturated and releases capacity in a `finally` block after downstream completion or failure.
 
 For a multi-instance Spring deployment, use the gateway or the application's existing distributed rate limiter for per-user quotas and keep the filter as a local in-flight backstop. The JVM executor itself currently uses a bounded host-execution worker pool (**64 workers with a finite 256-request queue**) and a bounded Apache connection pool. Those internal bounds prevent unbounded executor growth; they are deliberately not exposed as caller quotas because only the surrounding application knows who the caller is and which users should share limits.
 
