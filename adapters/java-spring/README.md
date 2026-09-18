@@ -2,7 +2,7 @@
 
 Spring Boot transport for the canonical FlexDoc browser renderer. Starting with the Java `0.4.x` family, the starter delegates renderer hosting to the framework-neutral `com.prauga.flexdoc:flexdoc-jvm` package rather than maintaining a Spring-specific HTML/asset implementation.
 
-Current source version: `0.8.3`. It targets Java 17+, Spring Boot 3, renderer contract v1, and the FlexDoc renderer 3.x line.
+Current source version: `0.9.0`. It targets Java 17+, Spring Boot 3, renderer contract v1, and the FlexDoc renderer 3.x line.
 
 Coordinates:
 
@@ -10,11 +10,11 @@ Coordinates:
 <dependency>
   <groupId>com.prauga.flexdoc</groupId>
   <artifactId>flexdoc-spring-boot-starter</artifactId>
-  <version>0.8.3</version>
+  <version>0.9.0</version>
 </dependency>
 ```
 
-The Java package namespace is `com.prauga.flexdoc.spring`. The starter depends on `com.prauga.flexdoc:flexdoc-jvm:0.8.3`, whose JAR owns the version-matched `flexdoc.standalone.js` and `flexdoc.standalone.css` assets.
+The Java package namespace is `com.prauga.flexdoc.spring`. The starter depends on `com.prauga.flexdoc:flexdoc-jvm:0.9.0`, whose JAR owns the version-matched `flexdoc.standalone.js` and `flexdoc.standalone.css` assets.
 
 ## Spring Boot + springdoc
 
@@ -42,17 +42,20 @@ The renderer assets are served locally at `/docs/__flexdoc/*`, so the integratio
 
 ## Native host execution (3.3 source)
 
-Spring implements FlexDoc's existing API-host execution envelope through the shared JVM host. It is opt-in and requires an explicit exact-origin allowlist:
+Spring implements FlexDoc's existing API-host execution envelope through the shared JVM host. It is opt-in and requires an explicit exact-origin allowlist plus an acknowledgement that the application has already protected the docs/execute surface:
 
 ```yaml
 flexdoc:
   try-it-host-execution: true
+  host-execution-protected: true
   try-it-host-execution-allowed-origins:
     - https://api.example.com
     - https://staging-api.example.com
 ```
 
-When enabled, the docs page advertises `hostExecution.available: true` and Spring registers `POST <docsPath>/__flexdoc/execute`. The route requires `X-FlexDoc-Execute: 1`, strips unsafe browser/request headers, accepts only HTTP(S), rejects cross-origin redirects, revalidates each target against the exact-origin allowlist, rejects literal/link-local/cloud-metadata targets and dangerous DNS resolutions, clamps execution timeouts, limits incoming execute envelopes to 32 MiB, and streams responses through a 10 MiB bound.
+Set `host-execution-protected: true` only after Spring Security, an application filter, or an upstream gateway actually requires the intended authentication/authorization for `/docs` and `/docs/**`. The property is an assertion, not a security mechanism: it does not install authentication, authorization, or CSRF protection. If Spring would attach a real native executor while this acknowledgement is false or omitted, `FlexDocHost` construction fails closed. Merely advertising the host-execution protocol without a real executor can still represent `hostExecution.available: false` without the acknowledgement.
+
+When enabled and protected, the docs page advertises `hostExecution.available: true` and Spring registers `POST <docsPath>/__flexdoc/execute`. The route requires `X-FlexDoc-Execute: 1`, strips unsafe browser/request headers, accepts only HTTP(S), rejects cross-origin redirects, revalidates each target against the exact-origin allowlist, rejects literal/link-local/cloud-metadata targets and dangerous DNS resolutions, clamps execution timeouts, limits incoming execute envelopes to 32 MiB, and streams responses through a 10 MiB bound.
 
 The Spring transport consumes the same canonical execute protocol as Node and the 3.2 Runner: JSON descriptors, Base64 binary bodies, and multipart requests containing the `descriptor` plus indexed `formData[n]` browser file parts. Multipart files are reassembled into the canonical request draft and the JVM executor generates the outbound multipart body and boundary.
 
@@ -60,18 +63,18 @@ This first native slice intentionally advertises an empty host-only capability l
 
 The shared JVM executor resolves and validates the target for each request or redirect, then uses its Apache HttpClient transport to connect through the validated address set while preserving the original hostname for HTTP authority and TLS verification. Link-local/cloud-metadata destinations are rejected before connection, and system proxy routing is not used for host execution.
 
-Application middleware still protects the docs subtree and therefore the execute route. The exact-origin list is an execution boundary, not an authentication mechanism, and `X-FlexDoc-Execute: 1` is a protocol marker rather than a CSRF defense.
+Application middleware still protects the docs subtree and therefore the execute route. The exact-origin list is an execution boundary, not an authentication mechanism, and `X-FlexDoc-Execute: 1` is a protocol marker rather than a CSRF defense. `host-execution-protected` simply makes that application-owned responsibility explicit at startup.
 
 ### Spring Security / CSRF
 
-If Spring Security CSRF protection is enabled, the browser-owned execute POST must either participate in the application's CSRF-token mechanism or be narrowly excluded from CSRF checks. Do not disable CSRF globally just to enable FlexDoc. A typical application-owned configuration can ignore only the execute endpoint while keeping authentication/authorization on the docs subtree:
+If Spring Security CSRF protection is enabled, the browser-owned execute POST must either participate in the application's CSRF-token mechanism or be narrowly excluded from CSRF checks. Do not disable CSRF globally just to enable FlexDoc. A typical application-owned configuration can ignore only the execute endpoint while keeping authentication/authorization on the docs shell and subtree:
 
 ```java
 @Bean
 SecurityFilterChain security(HttpSecurity http) throws Exception {
   http
       .authorizeHttpRequests(auth -> auth
-          .requestMatchers("/docs/**").authenticated()
+          .requestMatchers("/docs", "/docs/**").authenticated()
           .anyRequest().permitAll())
       .csrf(csrf -> csrf
           .ignoringRequestMatchers("/docs/__flexdoc/execute"));
@@ -79,7 +82,7 @@ SecurityFilterChain security(HttpSecurity http) throws Exception {
 }
 ```
 
-Adapt the path when `flexdoc.path` is customized. The execute route still requires the FlexDoc marker and exact-origin policy, but those controls do not replace application authentication or CSRF policy.
+Adapt the path when `flexdoc.path` is customized. Configure this authentication/authorization boundary before setting `host-execution-protected: true`. The execute route still requires the FlexDoc marker and exact-origin policy, but those controls do not replace application authentication or CSRF policy.
 
 ### Admission control
 
@@ -154,7 +157,7 @@ Runtime Intelligence also requires a `FlexDocSpecProvider` so FlexDoc compares t
 
 When enabled, `GET /docs/__flexdoc/runtime` returns a `Cache-Control: no-store` snapshot containing Spring/Java runtime metadata, the request-derived server origin, live routes, implemented-but-undocumented routes, documented-but-not-observed routes, and discovery completeness. Spring route constraints such as `{id:\d+}` and capture-all parameters are normalized to OpenAPI `{id}` form. Methodless or wildcard mappings that cannot be represented as one OpenAPI operation make discovery partial instead of being expanded speculatively. The configured OpenAPI route and the FlexDoc docs subtree are excluded.
 
-Runtime discovery can reveal intentionally undocumented endpoints. The Spring adapter currently relies on Spring Security/application middleware or upstream access control rather than a FlexDoc-native docs-auth option, so protect the docs subtree before enabling Runtime Intelligence on non-private documentation.
+Runtime discovery can reveal intentionally undocumented endpoints. The Spring adapter relies on Spring Security/application middleware or upstream access control rather than a FlexDoc-native docs-auth option, so protect the docs subtree before enabling Runtime Intelligence on non-private documentation.
 
 ## Building in this repository
 
@@ -168,7 +171,7 @@ mvn -f adapters/java/pom.xml verify
 The renderer assets should be present in the neutral JVM artifact, not duplicated in the Spring starter:
 
 ```bash
-jar tf adapters/java-jvm/target/flexdoc-jvm-0.8.3.jar | grep META-INF/flexdoc
+jar tf adapters/java-jvm/target/flexdoc-jvm-0.9.0.jar | grep META-INF/flexdoc
 ```
 
 The Java release build attaches source and Javadoc JARs for `flexdoc-jvm`, `flexdoc-jaxrs`, and `flexdoc-spring-boot-starter`. CI byte-compares the renderer in `flexdoc-jvm` with the canonical browser build and regression-builds the Spring example.
