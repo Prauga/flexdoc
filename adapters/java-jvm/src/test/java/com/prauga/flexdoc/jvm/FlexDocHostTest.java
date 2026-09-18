@@ -2,6 +2,7 @@ package com.prauga.flexdoc.jvm;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -48,6 +49,29 @@ class FlexDocHostTest {
     FlexDocHost listHost = new FlexDocHost(
         FlexDocConfig.builder().expandSections(List.of("parameters", "tryIt")).build());
     assertTrue(listHost.documentation().bodyUtf8().contains("\"expand\":[\"parameters\",\"tryIt\"]"));
+  }
+
+  @Test
+  void realHostExecutionRequiresExplicitProtectionAcknowledgement() {
+    FlexDocHostExecution executor = new FlexDocHostExecution(List.of("https://api.example.test"));
+
+    IllegalStateException error = assertThrows(
+        IllegalStateException.class,
+        () -> new FlexDocHost(
+            FlexDocConfig.builder().tryItHostExecution(true).build(),
+            null,
+            executor));
+    assertTrue(error.getMessage().contains("hostExecutionProtected=true"));
+    assertTrue(error.getMessage().contains("origin allowlist is not authentication"));
+
+    FlexDocHost protectedHost = new FlexDocHost(
+        FlexDocConfig.builder()
+            .tryItHostExecution(true)
+            .hostExecutionProtected(true)
+            .build(),
+        null,
+        executor);
+    assertTrue(protectedHost.hasHostExecution());
   }
 
   @Test

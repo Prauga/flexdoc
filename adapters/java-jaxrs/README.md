@@ -6,13 +6,14 @@ Renderer settings are configured on the shared JVM `FlexDocConfig`, including `e
 
 ## Native API-host execution (3.3)
 
-Create the shared JVM host with `tryItHostExecution(true)` and a real `FlexDocHostExecution` instance:
+First put the documentation resource and execute POST behind the application's Jakarta/JAX-RS security filter, application-server authentication, or gateway authorization policy. Then create the shared JVM host with `tryItHostExecution(true)`, acknowledge that protection boundary, and attach a real `FlexDocHostExecution` instance:
 
 ```java
 FlexDocConfig config = FlexDocConfig.builder()
     .path("/docs")
     .specUrl("/openapi.json")
     .tryItHostExecution(true)
+    .hostExecutionProtected(true)
     .build();
 
 FlexDocHost host = new FlexDocHost(
@@ -20,6 +21,8 @@ FlexDocHost host = new FlexDocHost(
     null,
     new FlexDocHostExecution(List.of("https://api.example.internal")));
 ```
+
+`hostExecutionProtected(true)` is only an assertion that the application-owned authentication/authorization boundary exists; it does not install one. If a real JVM executor is attached while that acknowledgement is false or omitted, `FlexDocHost` construction fails closed. An exact-origin allowlist and `X-FlexDoc-Execute: 1` constrain execution but are not user authentication. A configuration that advertises host-execution protocol metadata without attaching a real executor can still report `hostExecution.available: false` without the acknowledgement.
 
 `FlexDocJaxRsResource` then exposes `POST /docs/__flexdoc/execute` and the renderer truthfully advertises `hostExecution.available: true`. The route consumes the same JSON or multipart envelope as the Node/Spring hosts and Runner. Multipart uses Jakarta REST 3.1's standard `List<EntityPart>` model, so the adapter does not depend on Jersey-, RESTEasy-, or Quarkus-specific multipart APIs.
 
@@ -41,4 +44,4 @@ public final class ReferenceFlexDocResource extends FlexDocJaxRsResource {
 }
 ```
 
-Configure that host with `FlexDocConfig.builder().path("/reference")...` so its generated renderer and execute URLs match the resource route. This path is suitable for Jakarta REST runtimes such as Quarkus/RESTEasy.
+Configure that host with `FlexDocConfig.builder().path("/reference")...` so its generated renderer and execute URLs match the resource route. When that host owns native execution, keep `hostExecutionProtected(true)` and ensure the same application security policy protects the custom docs and execute paths. This path is suitable for Jakarta REST runtimes such as Quarkus/RESTEasy.
