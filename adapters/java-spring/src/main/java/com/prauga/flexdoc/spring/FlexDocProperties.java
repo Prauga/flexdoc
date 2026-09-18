@@ -37,6 +37,10 @@ public class FlexDocProperties {
   private boolean hostExecutionProtected;
   /** Exact HTTP(S) origins the native host executor may target. */
   private List<String> tryItHostExecutionAllowedOrigins = List.of();
+  /** Maximum concurrently admitted host-execution requests per process. */
+  private int hostExecutionMaxInFlight = 16;
+  /** Retry-After seconds returned when process-local host-execution admission is saturated. */
+  private int hostExecutionRetryAfterSeconds = 1;
   /** Enables live Spring route discovery and OpenAPI presence drift reporting. */
   private boolean runtimeIntelligence;
 
@@ -130,6 +134,22 @@ public class FlexDocProperties {
   /** @param allowedOrigins exact HTTP(S) origins permitted for native host execution */
   public void setTryItHostExecutionAllowedOrigins(List<String> allowedOrigins) {
     this.tryItHostExecutionAllowedOrigins = allowedOrigins == null ? List.of() : List.copyOf(allowedOrigins);
+  }
+
+  /** @return process-local host-execution concurrency ceiling */
+  public int getHostExecutionMaxInFlight() { return hostExecutionMaxInFlight; }
+
+  /** @param hostExecutionMaxInFlight positive process-local host-execution concurrency ceiling */
+  public void setHostExecutionMaxInFlight(int hostExecutionMaxInFlight) {
+    this.hostExecutionMaxInFlight = hostExecutionMaxInFlight;
+  }
+
+  /** @return Retry-After seconds used by host-execution admission rejection */
+  public int getHostExecutionRetryAfterSeconds() { return hostExecutionRetryAfterSeconds; }
+
+  /** @param hostExecutionRetryAfterSeconds positive Retry-After seconds used by admission rejection */
+  public void setHostExecutionRetryAfterSeconds(int hostExecutionRetryAfterSeconds) {
+    this.hostExecutionRetryAfterSeconds = hostExecutionRetryAfterSeconds;
   }
 
   /** @return whether Runtime Intelligence is enabled */
