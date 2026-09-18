@@ -76,11 +76,8 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
 
   const filtered = useMemo(() => filterApiClientHistoryEntries(workspace, { query, method, outcome }), [method, outcome, query, workspace]);
   const blocks = useMemo(() => groupApiClientHistoryEntries(filtered), [filtered]);
-  const selectedRun = selectedRunId
-    ? blocks.find((block) => block.kind === 'run' && block.group.runId === selectedRunId)?.kind === 'run'
-      ? (blocks.find((block) => block.kind === 'run' && block.group.runId === selectedRunId) as { kind: 'run'; group: ApiClientHistoryRunGroup }).group
-      : undefined
-    : undefined;
+  const selectedRunBlock = selectedRunId ? blocks.find((block) => block.kind === 'run' && block.group.runId === selectedRunId) : undefined;
+  const selectedRun = selectedRunBlock?.kind === 'run' ? selectedRunBlock.group : undefined;
   const selected = selectedRun ? undefined : filtered.find((entry) => entry.id === selectedId) || filtered[0];
   const collection = selected?.collectionId ? workspace.collections.find((candidate) => candidate.id === selected.collectionId) : undefined;
   const folder = selected?.folderId ? workspace.folders.find((candidate) => candidate.id === selected.folderId) : undefined;

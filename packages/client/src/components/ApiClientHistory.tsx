@@ -1,8 +1,6 @@
 import React from 'react';
 import { Clock3, Trash2 } from 'lucide-react';
-import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import type { ApiClientRequestScripts } from '../utils/api-client-scripting';
-import { cloneRequestDraft } from '../utils/api-client-workspace';
 import type { ApiClientWorkspaceState } from '../utils/api-client-workspace';
 import type { HttpRequestDraft } from '../utils/http-client';
 
@@ -25,12 +23,7 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
   const loadHistory = (id: string) => {
     const entry = workspace.history.find((candidate) => candidate.id === id);
     if (!entry) return;
-    onLoadRequest(
-      cloneRequestDraft(entry.request),
-      entry.scripts ? cloneApiClientScripts(entry.scripts) : undefined,
-      entry.collectionId,
-      entry.folderId,
-    );
+    onLoadRequest(entry.request, entry.scripts, entry.collectionId, entry.folderId);
   };
 
   const removeHistory = (id: string) => {
