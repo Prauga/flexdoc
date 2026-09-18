@@ -1,7 +1,7 @@
 {
   "name": "@prauga/flexdoc-core",
-  "version": "0.5.0",
-  "description": "Framework-neutral OpenAPI engine for FlexDoc request construction, resolution, and serialization",
+  "version": "0.5.1",
+  "description": "Framework-neutral OpenAPI engine for FlexDoc request construction, resolution, serialization, and host-execution policy contracts",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -12,7 +12,7 @@
   "scripts": { "build": "tsc -p tsconfig.json", "test": "npm run build && node --test test/*.test.mjs" },
   "dependencies": { "js-yaml": "^4.1.0" },
   "devDependencies": { "@types/js-yaml": "^4.0.9", "typescript": "^5.9.2" },
-  "keywords": ["flexdoc", "openapi", "openapi-parser", "api-client", "request-builder", "serialization", "api-documentation", "developer-tools"],
+  "keywords": ["flexdoc", "openapi", "openapi-parser", "api-client", "request-builder", "serialization", "api-documentation", "developer-tools", "ssrf"],
   "author": "Prauga",
   "license": "AGPL-3.0-or-later",
   "repository": { "type": "git", "url": "https://github.com/Prauga/flexdoc", "directory": "core" },
