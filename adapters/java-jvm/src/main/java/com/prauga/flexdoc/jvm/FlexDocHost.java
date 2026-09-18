@@ -45,7 +45,9 @@ public final class FlexDocHost {
    *
    * <p>The executor is server-only state. Renderer metadata advertises it only when
    * {@link FlexDocConfig#tryItHostExecution()} is enabled. Supplying the protocol flag without
-   * a real executor continues to advertise {@code available:false}.</p>
+   * a real executor continues to advertise {@code available:false}. A real executor requires
+   * {@link FlexDocConfig#hostExecutionProtected()} so application authentication/authorization
+   * is acknowledged before the privileged outbound surface can be exposed.</p>
    *
    * @param config normalized host configuration
    * @param specSupplier optional supplier that overrides the configured spec URL
@@ -53,6 +55,10 @@ public final class FlexDocHost {
    */
   public FlexDocHost(FlexDocConfig config, FlexDocSpecSupplier specSupplier, FlexDocHostExecution hostExecution) {
     this.config = Objects.requireNonNull(config, "config");
+    if (hostExecution != null && !config.hostExecutionProtected()) {
+      throw new IllegalStateException(
+          "FlexDoc JVM host execution requires hostExecutionProtected=true after configuring application authentication/authorization; the origin allowlist is not authentication.");
+    }
     this.specSupplier = specSupplier;
     this.hostExecution = hostExecution;
     this.javaScript = readResource(JS_RESOURCE);
