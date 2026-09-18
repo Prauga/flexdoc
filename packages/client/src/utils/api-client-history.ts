@@ -24,11 +24,13 @@ export type ApiClientHistoryDisplayBlock =
   | { kind: 'entry'; entry: ApiClientHistoryEntry }
   | { kind: 'run'; group: ApiClientHistoryRunGroup };
 
-function hasFailure(entry: ApiClientHistoryEntry): boolean {
-  return !!entry.error
-    || !!entry.scriptError
-    || (entry.status !== undefined && entry.status >= 400)
-    || !!entry.scriptTests?.some((test) => !test.passed);
+export function apiClientHistoryHasFailure(entry: ApiClientHistoryEntry): boolean {
+  return !!entry.error || !!entry.scriptError || (entry.status !== undefined && entry.status >= 400) || !!entry.scriptTests?.some((test) => !test.passed);
+}
+
+export function apiClientHistoryDisplayTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
 export function filterApiClientHistoryEntries(
@@ -47,7 +49,7 @@ export function filterApiClientHistoryEntries(
       .filter((value) => value !== undefined)
       .some((value) => String(value).toLowerCase().includes(needle));
     const matchesMethod = filters.method === 'all' || entry.executedMethod.toUpperCase() === filters.method;
-    const failed = hasFailure(entry);
+    const failed = apiClientHistoryHasFailure(entry);
     const matchesOutcome = filters.outcome === 'all'
       || (filters.outcome === 'success' && !failed)
       || (filters.outcome === 'failed' && failed)
