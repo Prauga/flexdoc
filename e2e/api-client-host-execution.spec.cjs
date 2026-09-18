@@ -12,12 +12,14 @@ test('host-only auth executes through the API host and keeps the normal response
   test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop host execution coverage');
 
   let targetHits = 0;
+  let hostHits = 0;
   let hostRequest;
   await page.route('https://api.example.test/**', async (route) => {
     targetHits += 1;
     await route.fulfill({ status: 599, body: 'browser target request should not happen' });
   });
   await page.route('**/e2e/__flexdoc/execute', async (route) => {
+    hostHits += 1;
     hostRequest = {
       headers: route.request().headers(),
       envelope: route.request().postDataJSON(),
@@ -51,6 +53,7 @@ test('host-only auth executes through the API host and keeps the normal response
   await apiClient.getByRole('button', { name: 'Send request' }).click();
 
   await expect.poll(() => hostRequest?.envelope?.request?.auth?.type).toBe('digest');
+  expect(hostHits).toBe(1);
   expect(targetHits).toBe(0);
   expect(hostRequest.headers['x-flexdoc-execute']).toBe('1');
   expect(hostRequest.envelope.request.auth).toMatchObject({ type: 'digest', username: 'alice', password: 'secret' });
@@ -60,6 +63,42 @@ test('host-only auth executes through the API host and keeps the normal response
   await expect(apiClient.getByText('201 Created', { exact: true })).toBeVisible();
   await expect(apiClient.getByText(/api-host/)).toBeVisible();
   await expect(apiClient.getByText('PASS — host response')).toBeVisible();
+});
+
+test('failed host execution is diagnosed only after the real request and preserves the original failure', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop host diagnostic ordering coverage');
+
+  const calls = [];
+  const envelopes = [];
+  await page.route('**/e2e/__flexdoc/execute', async (route) => {
+    const envelope = route.request().postDataJSON();
+    envelopes.push(envelope);
+    if (envelope.request) {
+      calls.push('execute');
+      await route.fulfill({
+        status: 502,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'original host execution failure' }),
+      });
+      return;
+    }
+    calls.push('diagnostic');
+    await route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'route missing' }),
+    });
+  });
+
+  const apiClient = await openHostApiClient(page);
+  await apiClient.getByRole('button', { name: 'Send request' }).click();
+
+  await expect.poll(() => calls).toEqual(['execute', 'diagnostic']);
+  expect(envelopes[0]?.request?.url).toContain('/pets/');
+  expect(envelopes[1]).toEqual({});
+  const alert = apiClient.getByRole('alert');
+  await expect(alert).toContainText('original host execution failure');
+  await expect(alert).toContainText('execute route is not available');
 });
 
 test('host-only auth remains unavailable when the docs host exposes no executor', async ({ page }, testInfo) => {
