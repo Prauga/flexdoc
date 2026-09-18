@@ -4,6 +4,8 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Prauga.FlexDoc.AspNetCore;
 
 internal static class HostExecutionSecurityConformance
@@ -32,6 +34,18 @@ internal static class HostExecutionSecurityConformance
         });
 
         await app.StartAsync();
+
+        var executeEndpoint = app.Services
+            .GetServices<EndpointDataSource>()
+            .SelectMany(static source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Single(static endpoint => endpoint.RoutePattern.RawText == "/security/__flexdoc/execute");
+        var requestSizeLimit = executeEndpoint.Metadata
+            .GetMetadata<Microsoft.AspNetCore.Http.Metadata.IRequestSizeLimitMetadata>();
+        Check(
+            requestSizeLimit is not null && requestSizeLimit.MaxRequestBodySize is null,
+            "execute route must disable Kestrel's lower default request-body limit so FlexDoc's 32 MiB bound is authoritative");
+
         var origin = app.Urls.Single(static url => url.StartsWith("http://127.0.0.1:", StringComparison.Ordinal));
         using var client = new HttpClient { BaseAddress = new Uri(origin) };
 
