@@ -53,12 +53,13 @@ console.log('checked');
       { name: 'status is 200', passed: true },
       { name: 'body has id', passed: true },
     ]);
-    expect(outcome.response).toMatchObject({ status: 200, statusText: 'OK', body: '{"id":42}', responseTime: 25 });
+    expect(outcome.response).toMatchObject({ status: 200, statusText: 'OK', body: '{"id":42}', responseTime: 25, transport: 'browser' });
     expect(outcome.result).toMatchObject({
       executedMethod: 'GET',
       resolvedUrl: 'https://api.example.test/pets/42',
       status: 200,
       responseTime: 25,
+      transport: 'browser',
       responseBody: '{"id":42}',
     });
     expect(outcome.result?.responseHeaders).toEqual(expect.arrayContaining([['content-type', 'application/json'], ['x-trace', 'server']]));
@@ -116,7 +117,8 @@ console.log('checked');
     expect(new Headers(calls[0].init?.headers).get('x-flexdoc-execute')).toBe('1');
     expect(JSON.parse(String(calls[0].init?.body)).request.auth).toMatchObject({ type: 'digest', username: 'u', password: 'p' });
     expect(interceptorCalls).toBe(0);
-    expect(outcome.response).toMatchObject({ status: 201, responseTime: 17, body: '{"ok":true}' });
+    expect(outcome.response).toMatchObject({ status: 201, responseTime: 17, body: '{"ok":true}', transport: 'api-host' });
+    expect(outcome.result?.transport).toBe('api-host');
     expect(outcome.scriptTests).toEqual([{ name: 'host response', passed: true }]);
   });
 
@@ -151,7 +153,8 @@ console.log('checked');
       body: '{"name":"Ada"}',
     });
     expect(interceptorCalls).toBe(0);
-    expect(outcome.response).toMatchObject({ status: 200, body: '{"via":"host"}', responseTime: 6 });
+    expect(outcome.response).toMatchObject({ status: 200, body: '{"via":"host"}', responseTime: 6, transport: 'api-host' });
+    expect(outcome.result?.transport).toBe('api-host');
   });
 
   it('honors a host-advertised direct preference for ordinary requests', async () => {
@@ -175,7 +178,8 @@ console.log('checked');
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe('https://api.example.test/pets');
     expect(new Headers(calls[0].init?.headers).get('x-flexdoc-execute')).toBeNull();
-    expect(outcome.response).toMatchObject({ status: 200, body: '{"via":"direct"}' });
+    expect(outcome.response).toMatchObject({ status: 200, body: '{"via":"direct"}', transport: 'browser' });
+    expect(outcome.result?.transport).toBe('browser');
   });
 
   it('forwards an intentional GET body through API-host execution', async () => {
@@ -208,6 +212,7 @@ console.log('checked');
     expect(fetchCalls).toBe(0);
     expect(outcome.error).toBe('API-host execution is unavailable on this documentation server.');
     expect(outcome.result?.error).toBe(outcome.error);
+    expect(outcome.result?.transport).toBeUndefined();
   });
 
   it('aborts before fetch when the pre-request script fails', async () => {
@@ -245,7 +250,24 @@ console.log('checked');
       executedMethod: 'POST',
       resolvedUrl: 'https://api.example.test/pets',
       responseTime: 10,
+      transport: 'browser',
       error: 'offline',
+    });
+  });
+
+  it('retains API-host transport on a failed attempted host request', async () => {
+    const outcome = await executeApiClientRequest({
+      request: { method: 'POST', url: 'https://api.example.test/private' },
+      hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] },
+      fetcher: async () => { throw new Error('host offline'); },
+    });
+
+    expect(outcome.error).toBe('host offline');
+    expect(outcome.result).toMatchObject({
+      executedMethod: 'POST',
+      resolvedUrl: 'https://api.example.test/private',
+      transport: 'api-host',
+      error: 'host offline',
     });
   });
 });
