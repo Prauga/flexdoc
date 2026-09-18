@@ -4,6 +4,7 @@ import { OpenAPISpec, Operation } from '../types/openapi';
 import { FlexDocRendererOptions } from '../types/options';
 import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
 import { apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
+import { diagnoseApiClientHostExecutionFailure } from '../utils/api-client-host-preflight';
 import type { ApiClientExecutionResponse } from '../utils/api-client-execution';
 import { requestDraftFromBuiltRequest } from '../utils/http-client';
 import type { RequestValues } from '../utils/request-builder';
@@ -113,7 +114,13 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
         requestInterceptor: options?.tryIt?.requestInterceptor,
         hostExecution: options?.tryIt?.hostExecution,
       });
-      if (outcome.error) setError(outcome.error);
+      let displayedError = outcome.error || null;
+      const hostEndpoint = options?.tryIt?.hostExecution?.endpoint;
+      if (displayedError && outcome.result?.transport === 'api-host' && hostEndpoint) {
+        const diagnostic = await diagnoseApiClientHostExecutionFailure(hostEndpoint);
+        if (diagnostic) displayedError = `${displayedError} ${diagnostic}`;
+      }
+      if (displayedError) setError(displayedError);
       if (outcome.response) setResponse(outcome.response);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Request failed');

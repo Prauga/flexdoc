@@ -29,6 +29,8 @@ function enabledPairs(values: HttpKeyValue[] | undefined): HttpKeyValue[] {
 }
 
 const HISTORY_HEADING_CLASS = 'text-xs font-semibold uppercase tracking-wide';
+const HISTORY_METHOD_CLASS = 'font-mono font-semibold text-blue-600';
+const HISTORY_URL_CLASS = 'mt-1 truncate font-mono text-xs';
 
 function PairDetails({ title, values, mutedClass }: { title: string; values: HttpKeyValue[] | undefined; mutedClass: string }) {
   const visible = enabledPairs(values);
@@ -61,6 +63,7 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
   const panelClass = theme === 'dark' ? 'border-gray-700 bg-gray-800/60 text-gray-100' : 'border-gray-200 bg-gray-50 text-gray-900';
   const mutedClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
   const codeClass = theme === 'dark' ? 'border-gray-700 bg-gray-950 text-gray-100' : 'border-gray-200 bg-white text-gray-900';
+  const filterClass = `rounded-md border px-3 py-2 text-sm ${inputClass}`;
 
   const filtered = useMemo(() => filterApiClientHistoryEntries(workspace, { query, method, outcome }), [method, outcome, query, workspace]);
   const blocks = useMemo(() => groupApiClientHistoryEntries(filtered), [filtered]);
@@ -113,11 +116,11 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
           <Search className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${mutedClass}`} />
           <input aria-label='Search history' className={`w-full rounded-md border py-2 pl-9 pr-3 text-sm ${inputClass}`} value={query} onChange={(event) => { setQuery(event.target.value); resetSelection(); }} placeholder='Search URL, status, collection or run…' />
         </label>
-        <select aria-label='History method filter' className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} value={method} onChange={(event) => { setMethod(event.target.value); resetSelection(); }}>
+        <select aria-label='History method filter' className={filterClass} value={method} onChange={(event) => { setMethod(event.target.value); resetSelection(); }}>
           <option value='all'>All methods</option>
           {['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((value) => <option key={value} value={value}>{value}</option>)}
         </select>
-        <select aria-label='History outcome filter' className={`rounded-md border px-3 py-2 text-sm ${inputClass}`} value={outcome} onChange={(event) => { setOutcome(event.target.value as ApiClientHistoryOutcomeFilter); resetSelection(); }}>
+        <select aria-label='History outcome filter' className={filterClass} value={outcome} onChange={(event) => { setOutcome(event.target.value as ApiClientHistoryOutcomeFilter); resetSelection(); }}>
           <option value='all'>All outcomes</option>
           <option value='success'>Successful HTTP</option>
           <option value='failed'>HTTP / script failures</option>
@@ -134,8 +137,8 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
               const failed = apiClientHistoryHasFailure(entry);
               const origin = entry.collectionId ? workspace.collections.find((candidate) => candidate.id === entry.collectionId)?.name || 'Deleted collection' : undefined;
               return <button key={entry.id} type='button' className={`w-full rounded-md border px-3 py-3 text-left transition ${active ? 'border-blue-500 bg-blue-500/10' : 'border-transparent hover:bg-blue-500/5'}`} onClick={() => selectEntry(entry.id)}>
-                <div className='flex items-center justify-between gap-3 text-xs'><span className='font-mono font-semibold text-blue-600'>{entry.executedMethod.toUpperCase()}</span><span className={failed ? 'text-red-600' : mutedClass}>{resultLabel(entry)}{entry.responseTime !== undefined ? ` · ${entry.responseTime} ms` : ''}</span></div>
-                <div className='mt-1 truncate font-mono text-xs' title={entry.resolvedUrl}>{entry.resolvedUrl}</div>
+                <div className='flex items-center justify-between gap-3 text-xs'><span className={HISTORY_METHOD_CLASS}>{entry.executedMethod.toUpperCase()}</span><span className={failed ? 'text-red-600' : mutedClass}>{resultLabel(entry)}{entry.responseTime !== undefined ? ` · ${entry.responseTime} ms` : ''}</span></div>
+                <div className={HISTORY_URL_CLASS} title={entry.resolvedUrl}>{entry.resolvedUrl}</div>
                 <div className={`mt-1 flex items-center justify-between gap-2 text-[11px] ${mutedClass}`}><span className='truncate'>{origin || 'Unsaved request'}</span><span>{apiClientHistoryDisplayTime(entry.createdAt)}</span></div>
               </button>;
             }
@@ -149,7 +152,7 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
               </button>
               <div className='border-t px-2 py-1'>
                 {group.entries.map((entry) => <button key={entry.id} type='button' className={`w-full rounded-md px-2 py-2 text-left text-xs hover:bg-blue-500/10 ${selected?.id === entry.id ? 'bg-blue-500/10' : ''}`} onClick={() => selectEntry(entry.id)}>
-                  <div className='flex items-center justify-between gap-2'><span><span className='mr-2 text-[10px] text-gray-500'>{entry.runIndex || '–'}</span><span className='font-mono font-semibold text-blue-600'>{entry.executedMethod.toUpperCase()}</span></span><span className={apiClientHistoryHasFailure(entry) ? 'text-red-600' : mutedClass}>{resultLabel(entry)}</span></div>
+                  <div className='flex items-center justify-between gap-2'><span><span className='mr-2 text-[10px] text-gray-500'>{entry.runIndex || '–'}</span><span className={HISTORY_METHOD_CLASS}>{entry.executedMethod.toUpperCase()}</span></span><span className={apiClientHistoryHasFailure(entry) ? 'text-red-600' : mutedClass}>{resultLabel(entry)}</span></div>
                   <div className='mt-1 truncate font-mono' title={entry.resolvedUrl}>{entry.resolvedUrl}</div>
                 </button>)}
               </div>
@@ -169,7 +172,7 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
             <div className='space-y-2'>
               {selectedRun.entries.map((entry) => <button key={entry.id} type='button' aria-label={`Inspect history ${entry.runIndex || ''}`} className='w-full rounded-md border px-3 py-3 text-left hover:bg-blue-500/5' onClick={() => selectEntry(entry.id)}>
                 <div className='flex flex-wrap items-center justify-between gap-2 text-sm'><span><span className={`mr-2 text-xs ${mutedClass}`}>{entry.runIndex || '–'}</span><span className='font-mono font-bold text-blue-600'>{entry.executedMethod.toUpperCase()}</span></span><span className={entry.runPassed === false ? 'text-red-600' : entry.runPassed === true ? 'text-green-600' : mutedClass}>{entry.runPassed === true ? 'Runner pass' : entry.runPassed === false ? 'Runner fail' : 'Recorded'}{entry.status !== undefined ? ` · HTTP ${entry.status}` : ''}</span></div>
-                <div className='mt-1 truncate font-mono text-xs'>{entry.resolvedUrl}</div>
+                <div className={HISTORY_URL_CLASS}>{entry.resolvedUrl}</div>
               </button>)}
             </div>
           </div>}
