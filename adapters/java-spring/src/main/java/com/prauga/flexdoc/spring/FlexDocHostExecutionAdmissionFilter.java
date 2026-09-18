@@ -49,6 +49,11 @@ public final class FlexDocHostExecutionAdmissionFilter extends OncePerRequestFil
     return maxInFlight;
   }
 
+  /** @return configured Retry-After value in seconds */
+  public int retryAfterSeconds() {
+    return retryAfterSeconds;
+  }
+
   /** @return current number of admitted requests that have not completed */
   public int inFlight() {
     return maxInFlight - permits.availablePermits();

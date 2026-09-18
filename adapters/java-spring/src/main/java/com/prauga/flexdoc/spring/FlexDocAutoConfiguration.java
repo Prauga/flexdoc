@@ -7,6 +7,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.security.SecurityProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
@@ -81,6 +83,36 @@ public class FlexDocAutoConfiguration {
   @ConditionalOnProperty(prefix = "flexdoc", name = "try-it-host-execution", havingValue = "true")
   FlexDocHostExecutionController flexDocHostExecutionController(FlexDocHost host, ObjectMapper objectMapper) {
     return new FlexDocHostExecutionController(host, objectMapper);
+  }
+
+  /**
+   * Registers bounded process-local admission control for the native execute route.
+   *
+   * <p>The default order is immediately after Spring Security's default filter order so
+   * application authentication/authorization runs before admission control. Applications
+   * with custom later security filters can replace this bean and choose an appropriate order.</p>
+   *
+   * @param properties bound FlexDoc configuration properties
+   * @return execute-route admission filter registration
+   */
+  @Bean
+  @ConditionalOnMissingBean(name = "flexDocHostExecutionAdmissionFilter")
+  @ConditionalOnProperty(prefix = "flexdoc", name = "try-it-host-execution", havingValue = "true")
+  FilterRegistrationBean<FlexDocHostExecutionAdmissionFilter> flexDocHostExecutionAdmissionFilter(
+      FlexDocProperties properties) {
+    var registration = new FilterRegistrationBean<>(
+        new FlexDocHostExecutionAdmissionFilter(
+            properties.getTryItHostExecutionMaxInFlight(),
+            properties.getTryItHostExecutionRetryAfterSeconds()));
+    registration.addUrlPatterns(executePath(properties.getPath()));
+    registration.setOrder(SecurityProperties.DEFAULT_FILTER_ORDER + 10);
+    return registration;
+  }
+
+  private static String executePath(String configuredPath) {
+    String path = configuredPath == null ? "" : configuredPath.trim();
+    if (path.isEmpty() || path.equals("/")) return "/docs/__flexdoc/execute";
+    return "/" + path.replaceAll("^/+|/+$", "") + "/__flexdoc/execute";
   }
 
   /**

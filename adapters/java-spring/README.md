@@ -86,25 +86,20 @@ Adapt the path when `flexdoc.path` is customized. Configure this authentication/
 
 ### Admission control
 
-The starter exports `FlexDocHostExecutionAdmissionFilter` as a process-local in-flight safety hook. Register it only for the execute endpoint, after the application's authentication/CSRF policy and before the FlexDoc controller. A practical starting point is 16 concurrent execute requests per process:
+When native host execution is enabled, the starter now auto-registers `FlexDocHostExecutionAdmissionFilter` only for `<flexdoc.path>/__flexdoc/execute`. The default registration is ordered immediately after Spring Security's default filter order, so the normal application authentication/authorization boundary runs before process-local admission control and the FlexDoc controller runs afterward.
 
-```java
-import com.prauga.flexdoc.spring.FlexDocHostExecutionAdmissionFilter;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.core.Ordered;
+Defaults are 16 concurrent execute requests per process and `Retry-After: 1`. Both are configurable:
 
-@Bean
-FilterRegistrationBean<FlexDocHostExecutionAdmissionFilter> flexDocHostExecutionAdmission() {
-  var registration = new FilterRegistrationBean<>(
-      new FlexDocHostExecutionAdmissionFilter(16, 1));
-  registration.addUrlPatterns("/docs/__flexdoc/execute");
-  registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 20);
-  return registration;
-}
+```yaml
+flexdoc:
+  try-it-host-execution: true
+  try-it-host-execution-max-in-flight: 16
+  try-it-host-execution-retry-after-seconds: 1
 ```
 
-When saturated, the filter rejects immediately with HTTP `429 Too Many Requests`, `Retry-After: 1`, `Cache-Control: no-store`, and does not enter the execute controller. Capacity is always released after downstream completion or failure. Change the URL pattern when `flexdoc.path` is customized.
+When saturated, the filter rejects immediately with HTTP `429 Too Many Requests`, `Cache-Control: no-store`, and does not enter the execute controller. Capacity is always released after downstream completion or failure. Custom `flexdoc.path` values are reflected automatically in the filter mapping.
+
+Applications with non-standard security-filter ordering can replace the bean named `flexDocHostExecutionAdmissionFilter` with their own `FilterRegistrationBean<FlexDocHostExecutionAdmissionFilter>` and choose an order that keeps authentication/CSRF ahead of admission control.
 
 This filter is not a caller quota. Multi-replica deployments should still use the application's authenticated gateway/distributed limiter for per-user or per-session rate limits. The shared JVM executor separately has fixed last-resort safety ceilings of 64 transport workers and 256 queued executions; keep the earlier HTTP admission bound materially below those internal limits. See [`../java-jvm`](../java-jvm/README.md#resource-limits-and-production-tuning) and [`docs/host-execution-operations.md`](../../docs/host-execution-operations.md).
 
