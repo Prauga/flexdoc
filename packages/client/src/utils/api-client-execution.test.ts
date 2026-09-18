@@ -1,4 +1,4 @@
-import { executeApiClientRequest } from './api-client-execution';
+import { apiClientCorsFailureHint, executeApiClientRequest } from './api-client-execution';
 
 function mockResponse(body: string, init: { status?: number; statusText?: string; headers?: HeadersInit } = {}): Response {
   return {
@@ -270,4 +270,51 @@ console.log('checked');
       error: 'host offline',
     });
   });
+  it('marks opaque browser fetch failures for cautious CORS guidance', async () => {
+    const request = {
+      method: 'GET',
+      url: 'https://api.example.test/pets',
+      hostExecution: { preferHostExecution: false },
+    };
+    const outcome = await executeApiClientRequest({
+      request,
+      hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] },
+      fetcher: async () => { throw new TypeError('Failed to fetch'); },
+    });
+
+    expect(outcome.failureKind).toBe('browser-network');
+    expect(outcome.result?.transport).toBe('browser');
+    expect(apiClientCorsFailureHint(
+      outcome,
+      request,
+      { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] },
+    )).toContain('may be caused by CORS');
+  });
+
+  it('does not suggest host fallback when server policy keeps ordinary execution browser-direct', async () => {
+    const request = { method: 'GET', url: 'https://api.example.test/pets' };
+    const hostExecution = {
+      available: true,
+      endpoint: '/docs/__flexdoc/execute',
+      capabilities: [] as [],
+      preferHostExecution: false,
+    };
+    const outcome = await executeApiClientRequest({
+      request,
+      hostExecution,
+      fetcher: async () => { throw new TypeError('Load failed'); },
+    });
+
+    expect(outcome.failureKind).toBe('browser-network');
+    expect(apiClientCorsFailureHint(outcome, request, hostExecution)).toBeNull();
+  });
+
+  it('does not classify ordinary application errors as browser CORS failures', async () => {
+    const outcome = await executeApiClientRequest({
+      request: { method: 'GET', url: 'https://api.example.test/pets' },
+      fetcher: async () => { throw new Error('offline'); },
+    });
+    expect(outcome.failureKind).toBeUndefined();
+  });
+
 });
