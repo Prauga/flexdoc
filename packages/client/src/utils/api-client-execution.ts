@@ -70,7 +70,8 @@ export interface ApiClientExecutionResponse {
   /** HTTP status text. */ statusText: string;
   /** Ordered response headers. */ headers: Array<[string, string]>;
   /** Response body decoded as text. */ body: string;
-  /** Measured round-trip duration in milliseconds. */ responseTime: number;
+  /** Target request/response duration in milliseconds. */ responseTime: number;
+  /** Browser-to-API-host round trip in milliseconds for API-host execution. */ hostRoundTripTime?: number;
   /** Actual transport that produced this response. */ transport?: ApiClientTransport;
   /** Safe cookie metadata returned by API-host execution when available. */
   cookies?: Array<{ name: string; value: string; domain?: string; path?: string; httpOnly?: boolean }>;
@@ -206,6 +207,26 @@ export function apiClientCorsFailureHint(
   });
   if (!available || fallbackMode === 'browser') return null;
   return 'The browser could not complete this request. This may be caused by CORS. API-host execution is available; switch Transport preference to API host and retry.';
+}
+
+/** UX-10 threshold derived from the 18 Sep 2026 post-release Host Impact review. */
+export const API_CLIENT_SLOW_HOST_THRESHOLD_MS = 500;
+
+/**
+ * Explain a slow API-host round trip only when the same request can legally run browser-direct.
+ * This intentionally describes end-to-end time rather than attributing latency to the host hop.
+ */
+export function apiClientSlowHostHint(
+  response: Pick<ApiClientExecutionResponse, 'transport' | 'responseTime' | 'hostRoundTripTime'> | null | undefined,
+  request: HttpRequestDraft,
+  hostExecution: FlexDocHostExecutionPublicOptions | undefined,
+  thresholdMs = API_CLIENT_SLOW_HOST_THRESHOLD_MS,
+): string | null {
+  const roundTrip = response?.hostRoundTripTime ?? response?.responseTime;
+  if (response?.transport !== 'api-host' || roundTrip == null || roundTrip < thresholdMs) return null;
+  return resolveApiClientTransport({ request, hostExecution, preferHostExecution: false })[0] === 'browser'
+    ? `API-host round trip took ${Math.round(roundTrip)} ms. Browser transport is available and may be faster.`
+    : null;
 }
 
 export function apiClientTransportNotice(
@@ -353,6 +374,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
         ...(options.signal ? { signal: options.signal } : {}),
       });
       const raw = await hostResponse.text();
+      const hostRoundTripTime = now() - startedAt;
       let snapshot: Record<string, unknown>;
       try {
         const parsed: unknown = raw ? JSON.parse(raw) : {};
@@ -369,7 +391,8 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
         statusText: String(snapshot.statusText || ''),
         headers: responseHeaders,
         body: String(snapshot.body || ''),
-        responseTime: typeof snapshot.responseTime === 'number' ? snapshot.responseTime : now() - startedAt,
+        responseTime: typeof snapshot.responseTime === 'number' ? snapshot.responseTime : hostRoundTripTime,
+        hostRoundTripTime,
         transport: 'api-host',
         ...(cookies ? { cookies } : {}),
       };

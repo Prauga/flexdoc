@@ -7,6 +7,7 @@ export interface ApiClientResponseView {
   headers: Array<[string, string]>;
   body: string;
   responseTime: number;
+  hostRoundTripTime?: number;
   transport?: 'browser' | 'api-host';
 }
 
@@ -91,7 +92,7 @@ export const ApiClientResponseViewer: React.FC<ApiClientResponseViewerProps> = (
     <div className='flex flex-wrap items-center justify-between gap-3'>
       <div id='api-client-response-heading' className='font-semibold'>Response <span className={response.status >= 400 ? (dark ? 'text-red-300' : 'text-red-600') : (dark ? 'text-green-300' : 'text-green-600')}>{response.status} {response.statusText}</span></div>
       <div className='flex flex-wrap items-center gap-2'>
-        <div className={`flex flex-wrap gap-3 text-xs ${mutedClass}`}>{response.transport && <span aria-label='Actual transport'>{response.transport === 'api-host' ? 'API host' : 'Browser'}</span>}<span>{response.responseTime} ms</span><span>{byteSize.toLocaleString()} B</span>{contentType && <span className='font-mono'>{contentType.split(';')[0]}</span>}</div>
+        <div className={`flex flex-wrap gap-3 text-xs ${mutedClass}`}>{response.transport && <span aria-label='Actual transport'>{response.transport === 'api-host' ? 'API host' : 'Browser'}</span>}{response.transport === 'api-host' && response.hostRoundTripTime != null ? <><span>Host overhead {Math.max(0, response.hostRoundTripTime - response.responseTime)} ms</span><span>Target {response.responseTime} ms</span></> : <span>{response.responseTime} ms</span>}<span>{byteSize.toLocaleString()} B</span>{contentType && <span className='font-mono'>{contentType.split(';')[0]}</span>}</div>
         {curlCommand && <button type='button' className={`rounded-md border px-2.5 py-1.5 text-xs font-medium ${dark ? 'border-gray-700 bg-gray-900 text-gray-200 hover:bg-gray-800' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`} onClick={() => { void copyCurl(); }} aria-label='Copy request as cURL'>{curlCopied ? 'Copied cURL' : 'Copy as cURL'}</button>}
       </div>
     </div>
