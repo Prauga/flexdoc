@@ -6,7 +6,7 @@ import { ApiClientBodyEditor } from './ApiClientBodyEditor';
 import { ApiClientResponseViewer } from './ApiClientResponseViewer';
 import { ApiClientScriptEditor } from './ApiClientScriptEditor';
 import { FlexDocHostNotice } from './FlexDocHostNotice';
-import { apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
+import { apiClientCorsFailureHint, apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
 import { diagnoseApiClientHostExecutionFailure } from '../utils/api-client-host-preflight';
 import { buildHttpRequest, inferHttpBodyMode } from '../utils/http-client';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
@@ -366,6 +366,8 @@ export const ApiClient: React.FC<ApiClientProps> = ({
         if (controller.signal.aborted) { setError(messages?.requestCancelled || 'Request cancelled.'); return; }
         if (diagnostic) displayedError = `${displayedError} ${diagnostic}`;
       }
+      const corsHint = apiClientCorsFailureHint(outcome, draft, hostExecution);
+      if (displayedError && corsHint) displayedError = `${displayedError} ${corsHint}`;
 
       setError(displayedError);
       setScriptError(outcome.scriptError || null);
