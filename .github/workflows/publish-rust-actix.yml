@@ -22,29 +22,22 @@ jobs:
         run: |
           VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('adapters/rust-actix/Cargo.toml','rb'))['package']['version'])")
           test "${{ github.event.release.tag_name }}" = "rust-actix/v${VERSION}"
+      - name: Require the shared host-execution crate on crates.io
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('adapters/rust-host-execution/Cargo.toml','rb'))['package']['version'])")
+          if cargo info "prauga-flexdoc-host-execution@${HOST_VERSION}" >/dev/null 2>&1; then
+            exit 0
+          fi
+          echo "prauga-flexdoc-host-execution ${HOST_VERSION} is not on crates.io." >&2
+          echo "Publish it first by creating the rust-host/v${HOST_VERSION} release." >&2
+          exit 1
       - run: cargo test --manifest-path adapters/rust-host-execution/Cargo.toml --all-targets
       - run: cargo test --manifest-path adapters/rust-actix/Cargo.toml --all-targets
       - name: Authenticate to crates.io
         id: auth
         uses: rust-lang/crates-io-auth-action@v1
-      - name: Ensure shared host-execution crate is published
-        shell: bash
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        run: |
-          set -euo pipefail
-          HOST_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('adapters/rust-host-execution/Cargo.toml','rb'))['package']['version'])")
-          if ! cargo info "prauga-flexdoc-host-execution@${HOST_VERSION}" >/dev/null 2>&1; then
-            cargo publish --manifest-path adapters/rust-host-execution/Cargo.toml
-          fi
-          for attempt in $(seq 1 30); do
-            if cargo info "prauga-flexdoc-host-execution@${HOST_VERSION}" >/dev/null 2>&1; then
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "Shared Rust host-execution crate did not become visible on crates.io." >&2
-          exit 1
       - run: cargo package --manifest-path adapters/rust-actix/Cargo.toml
       - name: Publish prauga-flexdoc-actix
         run: cargo publish --manifest-path adapters/rust-actix/Cargo.toml
