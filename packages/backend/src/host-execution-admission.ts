@@ -1,3 +1,9 @@
+import {
+  createHostExecutionAdmissionRejectionMetricUpdate,
+  emitHostExecutionMetricUpdates,
+  type FlexDocHostExecutionMetricSink,
+} from './host-execution-metrics';
+
 /** Options for the reusable host-execution admission controller. */
 export interface FlexDocHostExecutionAdmissionOptions {
   /** Maximum concurrently admitted host-execution requests. Defaults to 32. */
@@ -28,6 +34,8 @@ export interface FlexDocHostExecutionAdmissionResponse {
 export interface FlexDocHostExecutionAdmissionMiddlewareOptions {
   /** Retry-After value returned with a saturated 429 response. Defaults to 1 second. */
   retryAfterSeconds?: number;
+  /** Best-effort OBS-04 metric sink used to count admission-layer 429 rejections. */
+  onHostExecutionMetric?: FlexDocHostExecutionMetricSink;
 }
 
 /**
@@ -76,6 +84,7 @@ export function createHostExecutionAdmissionMiddleware(
 
   return (_request, response, next) => {
     if (!admission.tryAcquire()) {
+      emitHostExecutionMetricUpdates(options.onHostExecutionMetric, [createHostExecutionAdmissionRejectionMetricUpdate()]);
       response.statusCode = 429;
       response.setHeader('Retry-After', String(retryAfterSeconds));
       response.setHeader('Content-Type', 'application/json; charset=utf-8');
