@@ -65,6 +65,8 @@ When `TryItHostExecution`, `HostExecutionProtected`, and a real `HostExecution` 
 
 The ASP.NET Core host consumes the same canonical JSON or multipart envelope used by the Node/JVM/Python/Go hosts and FlexDoc Runner. It requires `X-FlexDoc-Execute: 1`, accepts only explicitly allowlisted HTTP(S) origins, strips unsafe transport headers, revalidates same-origin redirects, bounds incoming envelopes to 32 MiB and responses to 10 MiB, and enforces a full-response deadline. Basic, Bearer, OAuth2 bearer-token, and header/query API-key request auth are supported as request-draft features.
 
+The execute endpoint disables Kestrel's lower default request-body ceiling **for that route only** so FlexDoc's own 32 MiB bounded reader remains the deterministic application limit. Reverse proxies, gateways, or application middleware may intentionally enforce a smaller limit; those remain deployment-owned boundaries.
+
 This first .NET slice intentionally advertises an empty host-only capability list. Session cookie jars, client certificates, Digest, Hawk, NTLM/Negotiate, OAuth 1.0, and AWS Signature V4 remain unavailable until implemented natively.
 
 The executor validates DNS inside `SocketsHttpHandler.ConnectCallback` and connects directly to a validated IP address while preserving the original hostname for HTTP/TLS semantics. Link-local/cloud-metadata hostnames and DNS answers are rejected before connection, avoiding a DNS-preflight/connection-time resolution gap.
