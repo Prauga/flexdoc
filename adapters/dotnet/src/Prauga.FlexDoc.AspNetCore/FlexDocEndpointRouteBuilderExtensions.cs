@@ -2,6 +2,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 
 namespace Prauga.FlexDoc.AspNetCore;
@@ -53,7 +54,11 @@ public static class FlexDocEndpointRouteBuilderExtensions
             static () => RendererAssets.CssText,
             "text/css; charset=utf-8"));
         if (options.TryItHostExecution && options.HostExecution is not null)
-            group.MapPost("/__flexdoc/execute", options.HostExecution.HandleHttpAsync);
+            group.MapPost("/__flexdoc/execute", options.HostExecution.HandleHttpAsync)
+                // Keep FlexDoc's canonical 32 MiB reader authoritative instead of Kestrel's
+                // lower default request-body ceiling. This is scoped to the privileged execute
+                // route; reverse proxies and application middleware may still enforce less.
+                .WithMetadata(new DisableRequestSizeLimitAttribute());
         if (runtimeDocument is JsonElement document)
             group.MapGet("/__flexdoc/runtime", context => WriteRuntime(
                 context,
