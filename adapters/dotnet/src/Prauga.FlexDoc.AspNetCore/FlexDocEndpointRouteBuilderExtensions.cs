@@ -232,6 +232,10 @@ public static class FlexDocEndpointRouteBuilderExtensions
             && options.Expand is not IEnumerable<string>
             && options.Expand is not JsonElement)
             throw new ArgumentException("FlexDoc Expand supports a preset string or a string list.", nameof(options));
+        if (options.TryItHostExecution && options.HostExecution is not null && !options.HostExecutionProtected)
+            throw new ArgumentException(
+                "FlexDoc ASP.NET Core host execution requires HostExecutionProtected = true after configuring application authentication/authorization; the origin allowlist is not authentication.",
+                nameof(options));
         if (options.RuntimeIntelligence && options.RuntimeOpenApiDocument is null)
             throw new ArgumentException("FlexDoc RuntimeOpenApiDocument is required when RuntimeIntelligence is enabled.", nameof(options));
     }
