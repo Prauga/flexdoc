@@ -22,9 +22,9 @@ The examples deliberately separate two kinds of capability:
 | [`java-micronaut`](./java-micronaut) | Micronaut + `flexdoc-jvm` `0.9.0` | Canonical JVM renderer hosting | No in current slice |
 | [`java-guice`](./java-guice) | Guice/JDK HTTP + `flexdoc-jvm` `0.9.0` | Framework-neutral JVM host | No — no framework route integration |
 | [`kotlin-ktor`](./kotlin-ktor) | Ktor 3.5.2 + `flexdoc-jvm` `0.9.0` | Canonical JVM renderer hosting | No in current slice |
-| [`python-fastapi`](./python-fastapi) | FastAPI/ASGI + `prauga-flexdoc` `0.7.4` | Code-first OpenAPI + hidden runtime-only route | **Yes — live FastAPI/Starlette routes** |
-| [`python-flask`](./python-flask) | Flask/WSGI + `prauga-flexdoc` `0.7.3` | Canonical renderer hosting | No — neutral WSGI host |
-| [`python-django`](./python-django) | Django + `prauga-flexdoc` `0.7.3` | Canonical renderer hosting | No — neutral Django host |
+| [`python-fastapi`](./python-fastapi) | FastAPI/ASGI + `prauga-flexdoc` `0.8.0` | Code-first OpenAPI + hidden runtime-only route | **Yes — live FastAPI/Starlette routes** |
+| [`python-flask`](./python-flask) | Flask/WSGI + `prauga-flexdoc` `0.8.0` | Canonical renderer hosting | No — neutral WSGI host |
+| [`python-django`](./python-django) | Django + `prauga-flexdoc` `0.8.0` | Canonical renderer hosting | No — neutral Django host |
 | [`php-laravel`](./php-laravel) | Laravel + `prauga/flexdoc` `0.4.6` | Canonical PHP renderer hosting | No in current slice |
 | [`php-symfony`](./php-symfony) | Symfony + `prauga/flexdoc` `0.4.5` | Canonical PHP renderer hosting | No in current slice |
 | [`ruby-rack`](./ruby-rack) | Rack + `prauga-flexdoc` gem `0.4.6` | Neutral Rack renderer hosting | No |
