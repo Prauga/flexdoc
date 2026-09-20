@@ -1,6 +1,6 @@
 # Prauga FlexDoc Python adapter
 
-`prauga-flexdoc` `0.7.3` packages one framework-neutral Python host plus ASGI and WSGI transports. The wheel is self-contained, includes the canonical renderer assets, and keeps FastAPI, Flask, and Django optional.
+`prauga-flexdoc` `0.8.0` packages one framework-neutral Python host plus ASGI and WSGI transports. The wheel is self-contained, includes the canonical renderer assets, and keeps FastAPI, Flask, and Django optional.
 
 ## FastAPI / ASGI
 
@@ -49,7 +49,7 @@ This first Python slice intentionally advertises an empty host-only capability l
 
 For every outbound request and redirect hop, the Python standard-library transport resolves the original hostname, rejects link-local/cloud-metadata answers, and then connects only to that validated address set. The request still retains the original hostname for the HTTP `Host` header and, for HTTPS, TLS SNI and certificate verification. The executor uses `http.client` directly and does not route through environment/system HTTP proxies. DNS lookup itself uses the platform's synchronous resolver; the execution deadline is checked immediately after resolution and applies to connection, response headers, and the complete response body, but Python cannot forcibly interrupt a resolver call that is already blocked inside the operating system. Keep exact-origin allowlists narrow and use network egress policy as an additional defense in depth where appropriate.
 
-Flask, Django URL-pattern, and generic WSGI helpers continue to advertise no native execute route in this slice.
+Flask, Django, and generic WSGI hosts serve the same execute route from 0.8.0. The executor is framework-neutral and synchronous, so a WSGI worker runs it directly rather than dispatching to a thread; see the sections below for the per-framework opt-in and the CSRF requirements that come with it.
 
 For a generic ASGI host that owns its execution policy explicitly:
 
@@ -93,6 +93,37 @@ setup_flask_flexdoc(app, '/docs', spec_url='/openapi.json', title='My API')
 
 For another WSGI server or framework, use `FlexDocWSGI(FlexDocConfig(...))` directly.
 
+### Native API-host execution (0.8.0)
+
+```python
+setup_flask_flexdoc(
+    app,
+    '/docs',
+    spec_url='/openapi.json',
+    try_it_host_execution=True,
+    try_it_host_execution_allowed_origins=[
+        'https://api.example.internal',
+    ],
+)
+```
+
+This registers `POST /docs/__flexdoc/execute` and advertises `hostExecution.available: true`. The same server-side allowlist, header stripping, redirect revalidation, address validation, and size/deadline bounds apply as on ASGI, because both transports call the same executor.
+
+Flask has no built-in CSRF protection. If the application authenticates with cookies, apply its CSRF model to this route and mount the docs subtree behind the same authentication boundary as other privileged developer surfaces — the `X-FlexDoc-Execute: 1` marker is protocol friction, not authentication and not a CSRF token. When Flask-WTF's `CSRFProtect` is active, send the token in the configured header rather than as a form field: reading a form token consumes a `multipart/form-data` envelope before the execute view can parse it.
+
+For a generic WSGI host that owns its execution policy explicitly:
+
+```python
+from prauga_flexdoc import FlexDocConfig, FlexDocHostExecution, FlexDocWSGI
+
+docs = FlexDocWSGI(
+    FlexDocConfig(path='/docs', spec_url='/openapi.json', try_it_host_execution=True),
+    host_execution=FlexDocHostExecution(['https://api.example.internal']),
+)
+```
+
+The WSGI transport reads at most `Content-Length` bytes, because a WSGI server is only obliged to provide readable input up to that point and an unbounded read can block. A request with no `Content-Length` is answered `411 Length Required` unless the server reports a terminated chunked stream via `wsgi.input_terminated`, and the shared 32 MiB execute ceiling applies to both paths.
+
 ## Django
 
 ```python
@@ -107,8 +138,36 @@ urlpatterns = [
 
 Django ASGI applications can also mount/use `FlexDocASGI`; Django WSGI applications can use `FlexDocWSGI`. `django_urlpatterns()` is the first-class native URL-routing helper.
 
+### Native API-host execution (0.8.0)
+
+```python
+urlpatterns = [
+    *django_urlpatterns(
+        '/docs',
+        spec_url='/openapi.json',
+        try_it_host_execution=True,
+        try_it_host_execution_allowed_origins=['https://api.example.internal'],
+    ),
+]
+```
+
+The execute view is **CSRF-enforced by default**: it is an ordinary POST view, so `CsrfViewMiddleware` protects it and a request without a valid token is rejected with 403 before the view runs. Send the token in the CSRF header (`X-CSRFToken` unless `CSRF_HEADER_NAME` is customized) rather than as a form field, because the middleware's form fallback consumes a multipart body before the view can read it.
+
+A deployment whose authentication is not cookie-based can opt out explicitly:
+
+```python
+django_urlpatterns(
+    '/docs',
+    try_it_host_execution=True,
+    try_it_host_execution_allowed_origins=['https://api.example.internal'],
+    try_it_host_execution_csrf_exempt=True,
+)
+```
+
+There is no implicit exemption and no way to reach one by accident: the argument must be passed, it is rejected unless host execution is also enabled, and omitting it leaves Django's normal protection in place. Choose it only when a CSRF token is genuinely inapplicable — for example bearer-token or mTLS authentication — never as a way to make a cookie-authenticated deployment stop returning 403.
+
 ## Architecture
 
-`FlexDocHost` synchronously owns route matching, the HTML bootstrap, renderer fingerprinting, cache policy, and packaged JS/CSS. `FlexDocASGI` translates that neutral response to ASGI and can expose a framework-supplied live runtime snapshot or a real native execute route when one is explicitly attached. `FlexDocWSGI` only translates the neutral host response. Framework helpers do not fork renderer behavior.
+`FlexDocHost` synchronously owns route matching, the HTML bootstrap, renderer fingerprinting, cache policy, and packaged JS/CSS. `FlexDocASGI` translates that neutral response to ASGI and can expose a framework-supplied live runtime snapshot or a real native execute route when one is explicitly attached. `FlexDocWSGI` translates that same response and, when an executor is explicitly attached, owns the native execute route. Framework helpers do not fork renderer behavior.
 
 Pass `assets_dir=` to `FlexDocHost`, `FlexDocASGI`, or `FlexDocWSGI` only when intentionally overriding the bundled renderer assets during development.

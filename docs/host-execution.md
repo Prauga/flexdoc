@@ -43,6 +43,7 @@ The first native 3.3 slices require an explicit exact-origin allowlist and only 
 | Java — Spring Boot | Yes | `[]` | shared JVM transport; validated-address pinning with original Host/TLS hostname |
 | Java — Jakarta REST / JAX-RS | Yes | `[]` | same shared JVM transport as Spring |
 | Python — FastAPI / ASGI | Yes | `[]` | resolve/validate once, connect only to the validated address set, preserve original Host/TLS hostname |
+| Python — Flask / Django / WSGI | Yes | `[]` | same framework-neutral synchronous executor as ASGI, run directly on the WSGI worker |
 | Go | Yes | `[]` | custom `net/http` dialer connects directly to validated IPs; proxy routing disabled |
 | ASP.NET Core | Yes | `[]` | `SocketsHttpHandler.ConnectCallback` connects only to validated addresses; proxy routing disabled |
 | Rust — Axum | Yes | `[]` | reqwest resolution overridden with validated addresses; system proxies disabled |
@@ -51,7 +52,10 @@ The first native 3.3 slices require an explicit exact-origin allowlist and only 
 | Elixir — Plug / Phoenix | Yes | `[]` | passive-mode Mint connection to validated addresses with original Host/SNI/TLS verification |
 | PHP — Laravel / Symfony | Yes | `[]` | direct socket connection to validated addresses with original Host/TLS SNI; system HTTP proxy variables are not used |
 
-Python Flask/Django/WSGI integrations remain renderer-only in this first native slice: they do not advertise host execution until they own a real native execute binding.
+Python Flask, Django, and generic WSGI integrations gained a real execute binding in `prauga-flexdoc` 0.8.0 and are no longer renderer-only. The executor is unchanged and shared with the ASGI path; only the transport differs. Two transport-specific rules apply:
+
+- **WSGI bodies are read to `Content-Length` and no further.** A WSGI server only guarantees readable input up to the declared length, so an unbounded read risks blocking. A request without `Content-Length` receives `411 Length Required` unless the server reports a terminated chunked stream.
+- **Django enforces CSRF on the execute route by default.** The view is an ordinary POST view, so `CsrfViewMiddleware` applies and an untokened request is rejected before the view runs. `try_it_host_execution_csrf_exempt=True` is the only way out, it must be passed explicitly, and it is rejected unless host execution is also enabled — there is no implicit exemption. Send the token in the CSRF header rather than a form field, since the middleware's form fallback consumes a multipart body before the view can parse it. Flask has no built-in CSRF model, so a cookie-authenticated Flask deployment must apply its own.
 
 Framework-neutral JVM hosting can be reused by other Java/Kotlin integrations, but an integration must still own and protect the execute route before it may advertise `available: true`.
 
