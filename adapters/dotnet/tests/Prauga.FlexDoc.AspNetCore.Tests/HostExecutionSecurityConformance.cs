@@ -19,6 +19,7 @@ internal static class HostExecutionSecurityConformance
             options.Path = "/security";
             options.SpecUrl = "/openapi.json";
             options.TryItHostExecution = true;
+            options.HostExecutionProtected = true;
             options.HostExecution = new FlexDocHostExecution(new[] { "https://api.example.test" });
         });
         app.MapFlexDoc(options =>
@@ -26,6 +27,7 @@ internal static class HostExecutionSecurityConformance
             options.Path = "/mapped-metadata";
             options.SpecUrl = "/openapi.json";
             options.TryItHostExecution = true;
+            options.HostExecutionProtected = true;
             options.HostExecution = new FlexDocHostExecution(new[] { "http://[::ffff:169.254.169.254]" });
         });
 

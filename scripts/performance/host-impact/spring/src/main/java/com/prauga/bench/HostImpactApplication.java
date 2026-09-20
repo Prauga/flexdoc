@@ -29,6 +29,7 @@ public class HostImpactApplication {
       System.setProperty("flexdoc.try-it-default-server", origin);
       if ("host".equals(mode)) {
         System.setProperty("flexdoc.try-it-host-execution", "true");
+        System.setProperty("flexdoc.host-execution-protected", "true");
         System.setProperty("flexdoc.try-it-host-execution-allowed-origins[0]", origin);
       }
     }

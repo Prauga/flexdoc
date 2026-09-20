@@ -7,4 +7,4 @@ mvn test
 mvn quarkus:dev
 ```
 
-The FlexDoc Java family is pinned through `<flexdoc.version>0.8.3</flexdoc.version>`, the release published for FlexDoc 3.3. The test boots Quarkus and verifies the docs shell plus both packaged renderer assets.
+The FlexDoc Java family is pinned through `<flexdoc.version>0.9.0</flexdoc.version>`, the release published for FlexDoc 3.3. The test boots Quarkus and verifies the docs shell plus both packaged renderer assets.

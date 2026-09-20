@@ -45,8 +45,8 @@ for (const [name, version] of Object.entries(sourceVersions)) {
 const published = {
   client: clientVersion,
   backend: backendVersion,
-  dotnet: '0.5.3',
-  java: '0.8.3',
+  dotnet: '0.6.0',
+  java: '0.9.0',
   python: '0.7.3',
   php: '0.4.5',
   ruby: '0.4.5',

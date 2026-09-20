@@ -81,6 +81,7 @@ class FlexDocHostExecutionControllerTest {
       String targetOrigin = "http://127.0.0.1:" + server.getAddress().getPort();
       FlexDocProperties properties = new FlexDocProperties();
       properties.setTryItHostExecution(true);
+      properties.setHostExecutionProtected(true);
       properties.setTryItHostExecutionAllowedOrigins(List.of(targetOrigin));
       FlexDocHost host = new FlexDocHost(
           properties.toConfig(), null, new FlexDocHostExecution(properties.getTryItHostExecutionAllowedOrigins()));
@@ -127,17 +128,21 @@ class FlexDocHostExecutionControllerTest {
   void springPropertiesRequireExplicitNativeExecutionConfiguration() {
     FlexDocProperties defaults = new FlexDocProperties();
     assertThat(defaults.isTryItHostExecution()).isFalse();
+    assertThat(defaults.isHostExecutionProtected()).isFalse();
     assertThat(defaults.getTryItHostExecutionAllowedOrigins()).isEmpty();
     assertThat(defaults.toConfig().tryItHostExecution()).isFalse();
+    assertThat(defaults.toConfig().hostExecutionProtected()).isFalse();
 
     FlexDocProperties configured = enabledProperties();
     assertThat(configured.toConfig().tryItHostExecution()).isTrue();
+    assertThat(configured.toConfig().hostExecutionProtected()).isTrue();
     assertThat(configured.getTryItHostExecutionAllowedOrigins()).containsExactly("https://api.example.test");
   }
 
   private FlexDocProperties enabledProperties() {
     FlexDocProperties properties = new FlexDocProperties();
     properties.setTryItHostExecution(true);
+    properties.setHostExecutionProtected(true);
     properties.setTryItHostExecutionAllowedOrigins(List.of("https://api.example.test"));
     return properties;
   }
