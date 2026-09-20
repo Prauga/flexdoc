@@ -9,9 +9,9 @@ describe.each(['advanced', 'basic'] as const)('API Client %s density host copy',
     const status = screen.getByRole('status', { name: 'Host execution status' });
     expect(status).toHaveTextContent('This request runs from your API server.');
     expect(status).toHaveTextContent('Universal');
-    expect(status).toHaveTextContent('Standard HTTP execution: method, URL, query, headers, and request body.');
+    expect(status).toHaveTextContent('Universal: HTTP method, URL, query, headers, body');
     expect(status).toHaveTextContent('Host-specific');
-    expect(status).toHaveTextContent('No additional host-specific capabilities advertised.');
+    expect(status).toHaveTextContent('None advertised.');
   });
 
   test('derives browser transport from a persisted per-request override', () => {
@@ -38,7 +38,7 @@ describe.each(['advanced', 'basic'] as const)('API Client %s density host copy',
     const status = screen.getByRole('status', { name: 'Host execution status' });
     expect(status).toHaveTextContent('FlexDoc API host is available.');
     expect(status).toHaveTextContent('Universal');
-    expect(status).toHaveTextContent('No additional host-specific capabilities advertised.');
+    expect(status).toHaveTextContent('None advertised.');
   });
 
   test('marks browser-incompatible requests as host required and locks preference overrides', () => {
@@ -58,7 +58,7 @@ describe.each(['advanced', 'basic'] as const)('API Client %s density host copy',
     expect(status).toHaveTextContent('This request runs from your API server.');
     expect(status).toHaveTextContent('API host capabilities');
     expect(status).toHaveTextContent('Universal');
-    expect(status).toHaveTextContent('Standard HTTP execution: method, URL, query, headers, and request body.');
+    expect(status).toHaveTextContent('Universal: HTTP method, URL, query, headers, body');
     expect(status).toHaveTextContent('Host-specific');
     expect(status).toHaveTextContent('Cookie jar');
     expect(status).toHaveTextContent('Client certificates (mTLS)');
