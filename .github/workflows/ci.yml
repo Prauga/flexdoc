@@ -132,6 +132,16 @@ jobs:
           cargo package --manifest-path adapters/rust-host-execution/Cargo.toml --allow-dirty
           cargo test --manifest-path adapters/rust/Cargo.toml --all-targets
           cargo metadata --manifest-path adapters/rust/Cargo.toml --no-deps >/dev/null
+          cargo check --manifest-path adapters/rust-host-execution/Cargo.toml --no-default-features
+          cargo check --manifest-path adapters/rust/Cargo.toml --no-default-features
+          if cargo tree --manifest-path adapters/rust-host-execution/Cargo.toml --no-default-features | grep -q 'reqwest v'; then
+            echo "reqwest must not be present when shared host execution is disabled"
+            exit 1
+          fi
+          if cargo tree --manifest-path adapters/rust/Cargo.toml --no-default-features | grep -q 'reqwest v'; then
+            echo "reqwest must not be present when Axum host execution is disabled"
+            exit 1
+          fi
 
       - name: Build Rust example against local release candidate
         run: |

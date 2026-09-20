@@ -14,6 +14,16 @@ let app = prauga_flexdoc_axum::router(prauga_flexdoc_axum::Config {
 
 `Config` also accepts `expand`, `try_it_default_server`, `try_it_credentials`, and `try_it_api_client_persistence_key`. The flexible renderer values use `serde_json::Value`, so `expand` can be a preset string or section array and persistence can be a string or JSON `false`.
 
+## Compile without native host execution
+
+Native host execution is enabled by default for backward compatibility. Applications that only need embedded docs/renderer routes can compile out the executor, multipart parser, and reqwest/TLS dependency graph:
+
+```toml
+prauga-flexdoc-axum = { version = "0.5.5", default-features = false }
+```
+
+In that mode the host-execution types/config fields and `POST /__flexdoc/execute` route are not compiled.
+
 ## Native API-host execution (3.3)
 
 Create a native executor with a non-empty exact-origin allowlist and attach it to the Axum docs router:

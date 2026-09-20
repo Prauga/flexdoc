@@ -95,6 +95,11 @@ jobs:
         run: |
           cargo test --manifest-path adapters/rust-actix/Cargo.toml --all-targets
           cargo metadata --manifest-path adapters/rust-actix/Cargo.toml --no-deps >/dev/null
+          cargo check --manifest-path adapters/rust-actix/Cargo.toml --no-default-features
+          if cargo tree --manifest-path adapters/rust-actix/Cargo.toml --no-default-features | grep -q 'reqwest v'; then
+            echo "reqwest must not be present when Actix host execution is disabled"
+            exit 1
+          fi
           cargo check --manifest-path examples/rust-actix/Cargo.toml --config 'patch.crates-io.prauga-flexdoc-actix.path="adapters/rust-actix"'
 
       - name: Install JVM family release candidate
