@@ -38,6 +38,12 @@ jobs:
           node-version: '22.22.3'
           cache: npm
 
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.x'
+          cache: false
+
       - name: Setup Java
         uses: actions/setup-java@v6
         with:
@@ -82,6 +88,20 @@ jobs:
 
       - name: Verify packed client package from a clean consumer
         run: node scripts/verify-client-package.mjs
+
+      - name: Verify Go formatting
+        run: |
+          files="$(git ls-files '*.go')"
+          if [ -z "$files" ]; then
+            echo "No tracked Go files found."
+            exit 1
+          fi
+          unformatted="$(printf '%s\n' "$files" | xargs gofmt -l)"
+          if [ -n "$unformatted" ]; then
+            echo "gofmt required for:"
+            printf '%s\n' "$unformatted"
+            exit 1
+          fi
 
       - name: Test Go adapter
         run: |
