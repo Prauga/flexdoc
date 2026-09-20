@@ -108,9 +108,9 @@ test('shows positive Try It copy for an available API host with no advanced capa
   const status = screen.getByRole('status');
   expect(status).toHaveTextContent('This request runs from your API server.');
   expect(status).toHaveTextContent('Universal');
-  expect(status).toHaveTextContent('Standard HTTP execution: method, URL, query, headers, and request body.');
+  expect(status).toHaveTextContent('Universal: HTTP method, URL, query, headers, body');
   expect(status).toHaveTextContent('Host-specific');
-  expect(status).toHaveTextContent('No additional host-specific capabilities advertised.');
+  expect(status).toHaveTextContent('None advertised.');
   expect(screen.queryByText(/Host execution is disabled/i)).not.toBeInTheDocument();
 });
 
@@ -120,7 +120,7 @@ test('explains advertised Try It API-host capabilities', () => {
   expect(status).toHaveTextContent('This request runs from your API server.');
   expect(status).toHaveTextContent('API host capabilities');
   expect(status).toHaveTextContent('Universal');
-  expect(status).toHaveTextContent('Standard HTTP execution: method, URL, query, headers, and request body.');
+  expect(status).toHaveTextContent('Universal: HTTP method, URL, query, headers, body');
   expect(status).toHaveTextContent('Host-specific');
   expect(status).toHaveTextContent('Cookie jar');
   expect(status).toHaveTextContent('OAuth 1.0');
