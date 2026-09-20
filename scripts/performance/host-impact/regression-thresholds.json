@@ -1,6 +1,12 @@
 {
-  "schemaVersion": 1,
-  "basis": "FlexDoc 3.3 PR #93 integrated baseline run 34869203383. Thresholds are intentionally coarse merge guardrails, not performance targets. Memory limits apply to the matched direct-vs-host attributable cooldown PSS delta, not raw managed-runtime process growth.",
+  "schemaVersion": 2,
+  "basis": "FlexDoc 3.3 PR #93 integrated baseline. Thresholds are intentionally coarse merge guardrails, not performance targets. Memory limits apply to the matched direct-vs-host attributable cooldown PSS delta, not raw managed-runtime process growth.",
+  "provenance": {
+    "baseline": "FlexDoc 3.3 PR #93 integrated baseline",
+    "representativeRunId": "34869203383",
+    "guardrailScope": "catastrophic-regression-only",
+    "memoryMetric": "matched direct-vs-host attributable cooldown PSS delta"
+  },
   "runtimes": {
     ".NET / ASP.NET Core": {
       "maxC1P95Ms": 2.5,
