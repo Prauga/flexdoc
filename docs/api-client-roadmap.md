@@ -2,7 +2,7 @@
 
 FlexDoc 2.3.0 was the last coordinated product release before the API Client workspace grew through several focused development milestones. Those milestone numbers described source-development slices; they were not separate published FlexDoc package releases. The coordinated product line moved directly from published **2.3.0** to published **2.8.0** after the 2.8 source definition of done was satisfied.
 
-The current published coordinated product line is **3.1.0**. This release-preparation tree advances **3.2.0** for the headless Runner, taking the canonical API Client request/script/collection model into CLI/CI execution while reusing the existing advertised host-execution contract rather than introducing a second request or auth engine.
+The current published coordinated product line is **3.3.0**, which moves ordinary interactive API Client execution onto the API host when a serving adapter advertises a native host executor. **3.2.0** shipped the headless Runner before it, taking the canonical API Client request/script/collection model into CLI/CI execution while reusing the existing advertised host-execution contract rather than introducing a second request or auth engine.
 
 Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and `@prauga/flexdoc-backend` carry the coordinated FlexDoc product version because they own and distribute the canonical renderer. Native adapters receive their own semantic-version increment when they package a new renderer, rather than being renamed to the product version.
 
@@ -21,7 +21,8 @@ Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and 
 | **2.9.9** | measured performance baseline, production delivery hardening, host-page caching/revalidation, and regression budgets before Runtime Intelligence | shipped |
 | **3.0.0** | Runtime Intelligence plus renderer/API Client product-quality completion | shipped |
 | **3.1.0** | operation-level backend Contract Validation plus renderer/CLI consumption | shipped |
-| **3.2** | portable headless execution of canonical API Client request/folder/collection scopes with CI reports | release prepared |
+| **3.2.0** | portable headless execution of canonical API Client request/folder/collection scopes with CI reports | shipped |
+| **3.3.0** | native API-host execution of ordinary requests across the serving adapters, with the shared renderer and workspace model unchanged | shipped |
 
 Viewer expansion defaults/settings and renderer-option parity landed before the 2.8 release and are included in the 2.8 product surface.
 
@@ -78,7 +79,7 @@ The 2.9 source release candidate is complete with the following satisfied:
 - [x] future-version example manifests and the deterministic future-tag Go checksum represent the release-candidate source tree without pretending registry artifacts already exist
 - [x] the canonical standalone renderer is rebuilt and synchronized across committed adapter assets, with parity checks passing before the release candidate is proposed
 
-2.9.0, 2.9.5, 2.9.9, 3.0.0, and 3.1.0 are published. 3.2.0 is release-prepared as the portable headless Runner milestone.
+2.9.0, 2.9.5, 2.9.9, 3.0.0, 3.1.0, 3.2.0, and 3.3.0 are published.
 
 ## 2.8.0 definition of done
 
