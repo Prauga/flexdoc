@@ -10,6 +10,11 @@ import {
   publicCookiesForSession,
 } from './host-execution';
 import type { HostExecutionState, ParsedHostExecutionEnvelope, HostExecutionUploadedFile } from './host-execution';
+import {
+  createHostExecutionCompleteMetricUpdates,
+  createHostExecutionStartMetricUpdates,
+  emitHostExecutionMetricUpdates,
+} from './host-execution-metrics';
 import { createHostExecutionCompleteEvent, createHostExecutionStartEvent } from './host-execution-observability';
 
 const MAX_EXECUTION_REQUEST_BYTES = 32 * 1024 * 1024;
@@ -232,34 +237,40 @@ export async function runHostExecutionRoute(input: RunHostExecutionRouteInput): 
       method: String(envelope.request.method || 'GET').toUpperCase(),
       startedAt: Date.now(),
     };
-    emitHostExecutionEvent(input.state.options.onHostExecutionStart, createHostExecutionStartEvent({
+    const startEvent = createHostExecutionStartEvent({
       executionId: observation.executionId,
       method: observation.method,
-    }));
+    });
+    emitHostExecutionMetricUpdates(input.state.options.onHostExecutionMetric, createHostExecutionStartMetricUpdates());
+    emitHostExecutionEvent(input.state.options.onHostExecutionStart, startEvent);
     if (envelope.cookieJar === 'session') session = ensureHostExecutionSession(input.state, headerValue(input.headers, 'Cookie'));
     const result = await executeHostRequest(input.state, envelope, {
       spec: input.spec,
       sessionId: session.sessionId,
       docsOrigin: input.docsOrigin,
     });
-    emitHostExecutionEvent(input.state.options.onHostExecutionComplete, createHostExecutionCompleteEvent({
+    const completeEvent = createHostExecutionCompleteEvent({
       executionId: observation.executionId,
       method: observation.method,
       durationMs: Date.now() - observation.startedAt,
       outcome: 'success',
       statusCode: 200,
-    }));
+    });
+    emitHostExecutionMetricUpdates(input.state.options.onHostExecutionMetric, createHostExecutionCompleteMetricUpdates(completeEvent));
+    emitHostExecutionEvent(input.state.options.onHostExecutionComplete, completeEvent);
     return response(200, result, session.setCookie);
   } catch (error) {
     const status = errorStatus(error);
     if (observation) {
-      emitHostExecutionEvent(input.state.options.onHostExecutionComplete, createHostExecutionCompleteEvent({
+      const completeEvent = createHostExecutionCompleteEvent({
         executionId: observation.executionId,
         method: observation.method,
         durationMs: Date.now() - observation.startedAt,
         outcome: status >= 500 ? 'error' : 'rejected',
         statusCode: status,
-      }));
+      });
+      emitHostExecutionMetricUpdates(input.state.options.onHostExecutionMetric, createHostExecutionCompleteMetricUpdates(completeEvent));
+      emitHostExecutionEvent(input.state.options.onHostExecutionComplete, completeEvent);
     }
     return response(status, { error: errorMessage(error) }, session.setCookie);
   }

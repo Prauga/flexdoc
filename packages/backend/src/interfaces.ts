@@ -1,3 +1,4 @@
+import type { FlexDocHostExecutionMetricSink } from './host-execution-metrics';
 import type { FlexDocHostExecutionCompleteEvent, FlexDocHostExecutionStartEvent } from './host-execution-observability';
 
 /** Separate vertical/horizontal padding values for a renderer logo container. */
@@ -163,6 +164,7 @@ export interface FlexDocHostExecutionOptions {
   /** Hook invoked before the backend sends an outbound request. */ interceptor?: (request: FlexDocHostExecutionRequest) => FlexDocHostExecutionRequest | Promise<FlexDocHostExecutionRequest>;
   /** Best-effort start hook for a validated API-host execution. Returned promises are not awaited; failures never fail the request. */ onHostExecutionStart?: (event: FlexDocHostExecutionStartEvent) => void | Promise<void>;
   /** Best-effort completion hook for that execution. Returned promises are not awaited; failures never fail the request. */ onHostExecutionComplete?: (event: FlexDocHostExecutionCompleteEvent) => void | Promise<void>;
+  /** Best-effort low-cardinality operator metric sink. Returned promises are not awaited; failures never fail the request. */ onHostExecutionMetric?: FlexDocHostExecutionMetricSink;
 }
 
 /** Public host-execution metadata serialized to the browser renderer. */
