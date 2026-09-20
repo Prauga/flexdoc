@@ -112,6 +112,46 @@ find adapters -type f | grep -Ei 'host[_A-Za-z]*execution[_A-Za-z]*http[_A-Za-z]
 
 Lower-level executor/policy tests may continue to use broader `host_execution_security` naming; the `http` stem is reserved for framework/route-boundary conformance.
 
+## Running more than one instance
+
+FlexDoc holds host-execution session state in the process that serves the request. On one instance that is correct. Behind a load balancer it is not, and the failure is quiet rather than loud, so it is worth stating plainly.
+
+The FlexDoc session cookie is an opaque id with an HMAC appended. By default the signing secret is random per process, so an instance cannot verify a cookie another instance issued — and a cookie it cannot verify is indistinguishable from a forged one, so it correctly discards it, mints a new session and allocates an empty cookie jar. Without session affinity that is the normal path, not the exceptional one: a flow that authenticates and then calls an endpoint needing the resulting cookie passes when consecutive requests land on the same instance and fails when they do not, with nothing in the error pointing at the topology.
+
+Give every instance the same secret and a shared jar store:
+
+```ts
+flexdoc(app, {
+  spec,
+  tryIt: {
+    hostExecution: {
+      enabled: true,
+      allowedOrigins: ['https://api.example.com'],
+      instances: 'multiple',
+      sessionSecret: process.env.FLEXDOC_SESSION_SECRET,
+      sessionStore: {
+        async read(sessionId) { return JSON.parse((await redis.get(`flexdoc:${sessionId}`)) ?? 'null') ?? undefined; },
+        async write(sessionId, cookies) { await redis.set(`flexdoc:${sessionId}`, JSON.stringify(cookies), { EX: 3600 }); },
+        async clear(sessionId) { await redis.del(`flexdoc:${sessionId}`); },
+      },
+    },
+  },
+});
+```
+
+FlexDoc defines the interface; the application supplies the implementation it already runs. No Redis or database dependency enters the package, and the default stays the in-process store, so a single-instance deployment needs no configuration and gains no new failure mode.
+
+`sessionSecret` must be at least 32 bytes and is rejected at startup otherwise. A weak shared secret is worse than the random default: it looks like multi-instance support while making session cookies forgeable.
+
+Declaring `instances: 'multiple'` is what turns a silent misbehaviour into a stated one. In that mode, if either the secret or the store is missing, FlexDoc **stops advertising the `cookies` capability**, logs which piece is absent, and the renderer shows the honest transport state instead of offering a jar that will reset. Withdrawing a capability the deployment cannot honour is the same rule the product applies to every other advertised feature.
+
+Two consequences are worth planning for even when jars are not used:
+
+- **The admission cap is per instance.** A cap of 8 across 4 instances admits up to 32 concurrent executions, not 8. Size it as cap × instances, or have the admission helper consult a counter the application shares.
+- **Observability is per instance.** Each process aggregates its own window, so an operator export describes one instance. Reading a fleet means collecting one document per instance; percentiles cannot be averaged across them.
+
+**Session affinity is the interim answer, not the answer.** Sticky sessions fix the symptom today with no code change. They also redistribute users on scale-down and rolling deploys, which resets jars exactly when a deployment is already changing behaviour, and they constrain load balancing to work around a product limitation. Use affinity until the secret and store are in place; do not treat it as the destination.
+
 ## CSRF and cross-site requests
 
 Authentication and rate limiting do not replace CSRF policy. If the application uses cookie-authenticated documentation, either include the execute endpoint in the application's normal CSRF-token mechanism or narrowly exempt that one endpoint only when another same-origin/application control is intentionally used. Never disable CSRF globally just to enable FlexDoc.

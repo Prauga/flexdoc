@@ -269,7 +269,7 @@ export async function runHostExecutionRoute(input: RunHostExecutionRouteInput): 
     });
     emitHostExecutionMetricUpdates(input.state.options.onHostExecutionMetric, createHostExecutionStartMetricUpdates());
     emitHostExecutionEvent(input.state.options.onHostExecutionStart, startEvent);
-    if (envelope.cookieJar === 'session') session = ensureHostExecutionSession(input.state, headerValue(input.headers, 'Cookie'));
+    if (envelope.cookieJar === 'session') session = await ensureHostExecutionSession(input.state, headerValue(input.headers, 'Cookie'));
     const result = await executeHostRequest(input.state, envelope, {
       spec: input.spec,
       sessionId: session.sessionId,
@@ -315,9 +315,9 @@ export interface RunHostCookiesRouteInput {
  * @param input Host state, incoming headers, and optional clear flag.
  * @returns JSON route response containing the session's public cookie list.
  */
-export function runHostCookiesRoute(input: RunHostCookiesRouteInput): HostExecutionRouteResult {
+export async function runHostCookiesRoute(input: RunHostCookiesRouteInput): Promise<HostExecutionRouteResult> {
   if (headerValue(input.headers, 'X-FlexDoc-Execute') !== '1') return response(403, { error: 'Missing X-FlexDoc-Execute header.' });
-  const session = ensureHostExecutionSession(input.state, headerValue(input.headers, 'Cookie'));
-  if (input.clear) clearCookiesForSession(input.state, session.sessionId);
-  return response(200, { cookies: publicCookiesForSession(input.state, session.sessionId) }, session.setCookie);
+  const session = await ensureHostExecutionSession(input.state, headerValue(input.headers, 'Cookie'));
+  if (input.clear) await clearCookiesForSession(input.state, session.sessionId);
+  return response(200, { cookies: await publicCookiesForSession(input.state, session.sessionId) }, session.setCookie);
 }
