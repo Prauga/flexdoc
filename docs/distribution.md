@@ -17,7 +17,7 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 | `prauga-flexdoc` (PyPI) | `0.7.3` | `python/v0.7.3` | ASGI/WSGI adapter + embedded renderer |
 | `prauga/flexdoc` | `0.4.5` | `Prauga/flexdoc-php` `v0.4.5` | PHP 8.2+; Composer/Packagist distribution mirrored to `Prauga/flexdoc-php` |
 | `prauga-flexdoc` (RubyGems) | `0.4.5` | `ruby/v0.4.5` | Ruby 3.2+ Rack/Rails host + embedded renderer |
-| `prauga-flexdoc-host-execution` | `0.1.0` | published by Rust adapter workflows | shared Rust native host-execution engine |
+| `prauga-flexdoc-host-execution` | `0.1.0` | `rust-host/v<version>` | shared Rust native host-execution engine |
 | `prauga-flexdoc-axum` | `0.5.5` | `rust/v0.5.5` | Axum adapter + embedded renderer |
 | `prauga-flexdoc-actix` | `0.4.5` | `rust-actix/v0.4.5` | Actix Web adapter + embedded renderer |
 | `prauga_flexdoc` (Hex) | `0.4.5` | `elixir/v0.4.5` | Plug/Phoenix adapter + embedded renderer |
@@ -94,7 +94,11 @@ The gem is `prauga-flexdoc`. Release tags use `ruby/v<version>`. `.github/workfl
 
 ## crates.io
 
-The crates are `prauga-flexdoc-host-execution`, `prauga-flexdoc-axum`, and `prauga-flexdoc-actix`. The shared host-execution crate is framework-neutral and is published first by the Axum/Actix release workflows when its encoded version is not already visible on crates.io. Axum releases use `rust/v<version>` through `publish-rust.yml`; Actix releases use `rust-actix/v<version>` through `publish-rust-actix.yml`. Both workflows test/package their adapter and use crates.io Trusted Publishing.
+The crates are `prauga-flexdoc-host-execution`, `prauga-flexdoc-axum`, and `prauga-flexdoc-actix`. Each is released by its own tag and workflow: the framework-neutral host-execution crate uses `rust-host/v<version>` through `publish-rust-host.yml`, Axum uses `rust/v<version>` through `publish-rust.yml`, and Actix uses `rust-actix/v<version>` through `publish-rust-actix.yml`. Every workflow asserts the release tag against the version it is about to publish, so no workflow publishes a crate it is not named after.
+
+The Axum and Actix crates depend on the host-execution crate, so their workflows fail fast when the version their manifest requires is not yet on crates.io, naming the `rust-host/v<version>` release to cut first. Publishing is ordered accordingly: host-execution, then the two adapters.
+
+Each crate needs its own crates.io Trusted Publishing configuration for repository `Prauga/flexdoc`, the workflow file that publishes it, and the `crates-io` GitHub environment. A configuration on one crate does not authorize any other crate.
 
 ## Hex
 
