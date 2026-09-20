@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FlexDoc } from './FlexDoc';
 import { OpenAPISpec } from '../types/openapi';
-import { createFlexDocViewerPreferencesKey, writeFlexDocViewerThemePreference } from '../utils/renderer-preferences';
+import { createFlexDocViewerPreferencesKey, writeFlexDocViewerPreference } from '../utils/renderer-preferences';
 
 jest.mock('./Sidebar', () => ({ Sidebar: () => <div data-testid='sidebar-mock'>Sidebar Mock</div> }));
 jest.mock('./EndpointDetail', () => ({ EndpointDetail: () => <div data-testid='endpoint-detail-mock'>EndpointDetail Mock</div> }));
@@ -48,7 +48,7 @@ describe('FlexDoc', () => {
 
   it('uses the same controlled theme ownership pattern as ApiClientWorkspace', () => {
     const preferenceKey = createFlexDocViewerPreferencesKey(mockSpec.info.title, window.location.host);
-    writeFlexDocViewerThemePreference(preferenceKey, 'dark');
+    writeFlexDocViewerPreference(preferenceKey, 'theme', 'dark');
     const viewerOwned = render(<FlexDoc spec={mockSpec} theme='light' />);
     expect(viewerOwned.container.firstElementChild).toHaveAttribute('data-theme', 'dark');
     viewerOwned.unmount();

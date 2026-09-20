@@ -3,6 +3,7 @@ import { Clock3, Trash2 } from 'lucide-react';
 import type { ApiClientRequestScripts } from '../utils/api-client-scripting';
 import type { ApiClientWorkspaceState } from '../utils/api-client-workspace';
 import type { HttpRequestDraft } from '../utils/http-client';
+import { apiClientHistoryDisplayTime } from '../utils/api-client-history';
 
 interface Props {
   workspace: ApiClientWorkspaceState;
@@ -10,11 +11,6 @@ interface Props {
   onLoadRequest: (request: HttpRequestDraft, scripts?: ApiClientRequestScripts, collectionId?: string, folderId?: string) => void;
   onViewAll?: () => void;
   theme: 'light' | 'dark';
-}
-
-function displayTime(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
 export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange, onLoadRequest, onViewAll, theme }) => {
@@ -42,6 +38,11 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
       {workspace.history.length > 0 && onViewAll && <button type='button' className={`text-xs underline underline-offset-2 ${mutedClass}`} onClick={onViewAll}>View all</button>}
     </div>
 
+    <label className='flex items-center gap-2 rounded-md border p-2 text-xs' title='Sensitive history headers are always redacted.'>
+      <input type='checkbox' checked={workspace.historyBodies !== false} onChange={(event) => onWorkspaceChange((current) => ({ ...current, historyBodies: event.target.checked }))} />
+      <span>Store API-host bodies</span>
+    </label>
+
     <div className='space-y-1'>
       {workspace.history.slice(0, 5).map((entry) => {
         const result = entry.status !== undefined
@@ -63,7 +64,7 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
             </div>
             <div className='truncate font-mono text-xs' title={entry.resolvedUrl}>{entry.resolvedUrl}</div>
             {testSummary && <div className={`mt-1 text-[11px] ${entry.scriptError ? 'text-red-600' : mutedClass}`}>{testSummary}</div>}
-            <div className={`mt-1 text-[11px] ${mutedClass}`}>{displayTime(entry.createdAt)}</div>
+            <div className={`mt-1 text-[11px] ${mutedClass}`}>{apiClientHistoryDisplayTime(entry.createdAt)}</div>
           </button>
           <button type='button' className='rounded-md p-2 opacity-70 hover:opacity-100' aria-label={`Delete history request ${entry.executedMethod.toUpperCase()} ${entry.resolvedUrl}`} onClick={() => removeHistory(entry.id)}>
             <Trash2 className='h-4 w-4' />
