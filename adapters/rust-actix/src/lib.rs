@@ -3,16 +3,23 @@
 //! The crate embeds the canonical browser renderer and exposes [`scope`] for
 //! mounting documentation alongside your Actix application.
 
+#[cfg(feature = "host-execution")]
 pub use prauga_flexdoc_host_execution::{HostExecution, HostExecutionFile, HostExecutionResult};
 
 use actix_web::{
     http::{header, StatusCode},
-    web, HttpRequest, HttpResponse, Scope,
+    web, HttpResponse, Scope,
 };
+#[cfg(feature = "host-execution")]
+use actix_web::HttpRequest;
+#[cfg(feature = "host-execution")]
 use futures_util::{stream, StreamExt};
 use serde_json::{json, Value};
-use std::{collections::HashMap, convert::Infallible, sync::Arc};
+use std::sync::Arc;
+#[cfg(feature = "host-execution")]
+use std::{collections::HashMap, convert::Infallible};
 
+#[cfg(feature = "host-execution")]
 use prauga_flexdoc_host_execution::MAX_EXECUTION_REQUEST_BYTES;
 
 static RENDERER_JS: &[u8] = include_bytes!("../assets/flexdoc.standalone.js");
@@ -41,7 +48,8 @@ pub struct Config {
     pub try_it_api_client_persistence_key: Option<Value>,
     /// Request native host-execution metadata and route ownership.
     pub try_it_host_execution: bool,
-    /// Real native executor. `None` keeps host execution unavailable and the route unregistered.
+    /// Real native executor. Available only with the default `host-execution` feature.
+    #[cfg(feature = "host-execution")]
     pub host_execution: Option<Arc<HostExecution>>,
 }
 
@@ -58,6 +66,7 @@ impl Default for Config {
             try_it_credentials: None,
             try_it_api_client_persistence_key: None,
             try_it_host_execution: false,
+            #[cfg(feature = "host-execution")]
             host_execution: None,
         }
     }
@@ -70,6 +79,7 @@ pub fn scope(mut cfg: Config) -> Scope {
         cfg.path = "/docs".into();
     }
     let base = cfg.path.clone();
+    #[cfg(feature = "host-execution")]
     let owns_execution = cfg.try_it_host_execution && cfg.host_execution.is_some();
     let mut scope = web::scope(&base)
         .app_data(web::Data::new(cfg))
@@ -77,6 +87,7 @@ pub fn scope(mut cfg: Config) -> Scope {
         .route("/", web::get().to(page))
         .route("/__flexdoc/renderer.js", web::get().to(js))
         .route("/__flexdoc/renderer.css", web::get().to(css));
+    #[cfg(feature = "host-execution")]
     if owns_execution {
         scope = scope.route("/__flexdoc/execute", web::post().to(execute));
     }
@@ -97,6 +108,7 @@ async fn css() -> HttpResponse {
     asset(RENDERER_CSS, "text/css; charset=utf-8")
 }
 
+#[cfg(feature = "host-execution")]
 async fn execute(
     cfg: web::Data<Config>,
     request: HttpRequest,
@@ -178,6 +190,7 @@ async fn execute(
     execution_response(executor.handle(marker.as_deref(), envelope, files).await)
 }
 
+#[cfg(feature = "host-execution")]
 async fn parse_multipart_envelope(
     content_type: &str,
     bytes: Vec<u8>,
@@ -247,6 +260,7 @@ async fn parse_multipart_envelope(
     Ok((envelope, files))
 }
 
+#[cfg(feature = "host-execution")]
 fn execution_response(result: HostExecutionResult) -> HttpResponse {
     let status = StatusCode::from_u16(result.status).unwrap_or(StatusCode::BAD_GATEWAY);
     HttpResponse::build(status)
@@ -254,6 +268,7 @@ fn execution_response(result: HostExecutionResult) -> HttpResponse {
         .json(result.body)
 }
 
+#[cfg(feature = "host-execution")]
 fn execution_error(status: StatusCode, message: &str) -> HttpResponse {
     HttpResponse::build(status)
         .insert_header((header::CACHE_CONTROL, "no-store"))
@@ -324,12 +339,13 @@ fn renderer_options(cfg: &Config) -> Value {
         try_it.insert("apiClientPersistenceKey".into(), persistence_key.clone());
     }
     if cfg.try_it_host_execution {
-        let available = cfg.host_execution.is_some();
-        let capabilities = cfg
-            .host_execution
-            .as_ref()
-            .map(|executor| executor.capabilities())
-            .unwrap_or(&[]);
+        #[cfg(feature = "host-execution")]
+        let (available, capabilities) = (
+            cfg.host_execution.is_some(),
+            cfg.host_execution.as_ref().map(|executor| executor.capabilities()).unwrap_or(&[]),
+        );
+        #[cfg(not(feature = "host-execution"))]
+        let (available, capabilities): (bool, &[&str]) = (false, &[]);
         try_it.insert(
             "hostExecution".into(),
             json!({
@@ -363,6 +379,7 @@ mod tests {
     use super::*;
     use actix_web::{test, App};
 
+    #[cfg(feature = "host-execution")]
     #[actix_rt::test]
     async fn renderer_settings_are_omitted_until_configured() {
         let default_options = renderer_options(&Config::default());
