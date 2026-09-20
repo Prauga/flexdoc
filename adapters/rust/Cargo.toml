@@ -26,3 +26,13 @@ serde_json = "1"
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time"] }
 tower = { version = "0.5", features = ["util"] }
+
+[[test]]
+name = "host_execution"
+path = "tests/host_execution.rs"
+required-features = ["host-execution"]
+
+[[test]]
+name = "host_execution_security"
+path = "tests/host_execution_security.rs"
+required-features = ["host-execution"]

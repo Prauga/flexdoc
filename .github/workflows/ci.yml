@@ -153,7 +153,7 @@ jobs:
           ! cargo tree --manifest-path adapters/rust-host-execution/Cargo.toml --no-default-features | grep -q 'reqwest v'
           cargo package --manifest-path adapters/rust-host-execution/Cargo.toml --allow-dirty
           cargo test --manifest-path adapters/rust/Cargo.toml --all-targets
-          cargo check --manifest-path adapters/rust/Cargo.toml --no-default-features --lib
+          cargo test --manifest-path adapters/rust/Cargo.toml --no-default-features --all-targets
           ! cargo tree --manifest-path adapters/rust/Cargo.toml --no-default-features | grep -q 'reqwest v'
           cargo metadata --manifest-path adapters/rust/Cargo.toml --no-deps >/dev/null
 

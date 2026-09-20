@@ -112,6 +112,7 @@ fn build_router(mut cfg: Config, spec: Option<Value>) -> Router {
         cfg: Arc::new(cfg),
         spec: spec.map(Arc::new),
     };
+    #[cfg_attr(not(feature = "host-execution"), allow(unused_mut))]
     let mut router = Router::new()
         .route(&base, get(page))
         .route(&(base.clone() + "/"), get(page))
