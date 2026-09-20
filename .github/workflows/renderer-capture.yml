@@ -1,0 +1,146 @@
+name: Renderer Asset Capture
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact 40-character source commit SHA to build
+        required: true
+        type: string
+      capture_branch:
+        description: Throwaway branch under capture/renderer/*
+        required: true
+        type: string
+
+concurrency:
+  group: renderer-capture-${{ inputs.capture_branch }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate immutable source and throwaway destination
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          CAPTURE_BRANCH: ${{ inputs.capture_branch }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "source_sha must be an exact 40-character commit SHA"
+            exit 1
+          fi
+          if ! [[ "$CAPTURE_BRANCH" =~ ^capture/renderer/[A-Za-z0-9._/-]+$ ]]; then
+            echo "capture_branch must be under capture/renderer/*"
+            exit 1
+          fi
+          if [[ "$CAPTURE_BRANCH" == *".."* || "$CAPTURE_BRANCH" == */ || "$CAPTURE_BRANCH" == *"//"* ]]; then
+            echo "capture_branch contains an unsafe ref pattern"
+            exit 1
+          fi
+
+      - name: Checkout exact source SHA
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 1
+
+      - name: Create local throwaway capture branch
+        env:
+          CAPTURE_BRANCH: ${{ inputs.capture_branch }}
+        run: git switch -C "$CAPTURE_BRANCH"
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22.22.3'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build:client
+      - run: npm run sync:adapter-assets
+
+      - name: Stage only canonical renderer copies
+        run: |
+          git add \
+            adapters/go/assets/flexdoc.standalone.js \
+            adapters/go/assets/flexdoc.standalone.css \
+            adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.js \
+            adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.css \
+            adapters/rust/assets/flexdoc.standalone.js \
+            adapters/rust/assets/flexdoc.standalone.css \
+            adapters/php/assets/flexdoc.standalone.js \
+            adapters/php/assets/flexdoc.standalone.css \
+            adapters/ruby/assets/flexdoc.standalone.js \
+            adapters/ruby/assets/flexdoc.standalone.css \
+            adapters/rust-actix/assets/flexdoc.standalone.js \
+            adapters/rust-actix/assets/flexdoc.standalone.css \
+            adapters/elixir/assets/flexdoc.standalone.js \
+            adapters/elixir/assets/flexdoc.standalone.css
+
+      - name: Enforce capture allowlist and clean source tree
+        run: |
+          set -euo pipefail
+          unexpected=0
+          while IFS= read -r file; do
+            case "$file" in
+              adapters/go/assets/flexdoc.standalone.js|\
+              adapters/go/assets/flexdoc.standalone.css|\
+              adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.js|\
+              adapters/python/src/prauga_flexdoc/_assets/flexdoc.standalone.css|\
+              adapters/rust/assets/flexdoc.standalone.js|\
+              adapters/rust/assets/flexdoc.standalone.css|\
+              adapters/php/assets/flexdoc.standalone.js|\
+              adapters/php/assets/flexdoc.standalone.css|\
+              adapters/ruby/assets/flexdoc.standalone.js|\
+              adapters/ruby/assets/flexdoc.standalone.css|\
+              adapters/rust-actix/assets/flexdoc.standalone.js|\
+              adapters/rust-actix/assets/flexdoc.standalone.css|\
+              adapters/elixir/assets/flexdoc.standalone.js|\
+              adapters/elixir/assets/flexdoc.standalone.css) ;;
+              *)
+                echo "Unexpected staged file: $file"
+                unexpected=1
+                ;;
+            esac
+          done < <(git diff --cached --name-only)
+
+          if [ "$unexpected" -ne 0 ]; then exit 1; fi
+
+          if [ -n "$(git diff --name-only)" ]; then
+            echo "Renderer capture modified tracked files outside the explicit staged allowlist:"
+            git diff --name-only
+            exit 1
+          fi
+
+      - name: Record exact source revision
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Commit canonical assets on throwaway branch only
+        run: |
+          if git diff --cached --quiet; then
+            echo "Canonical adapter assets already match this source SHA."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: renderer/capture: refresh canonical adapter assets" \
+            -m "Capture the exact standalone renderer for later transplantation into the final PR commit. This commit belongs only on a throwaway capture/renderer branch."
+
+      - name: Push only the throwaway capture branch
+        env:
+          CAPTURE_BRANCH: ${{ inputs.capture_branch }}
+        run: git push --force origin "HEAD:refs/heads/$CAPTURE_BRANCH"
+
+      - name: Upload canonical standalone renderer
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-renderer-${{ inputs.source_sha }}
+          path: |
+            packages/client/dist/standalone/flexdoc.standalone.js
+            packages/client/dist/standalone/flexdoc.standalone.css
+          if-no-files-found: error
+          retention-days: 7

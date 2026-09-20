@@ -63,6 +63,9 @@ jobs:
       - name: Verify examples use current FlexDoc versions
         run: npm run check:example-versions
 
+      - name: Verify stacked-PR renderer capture safety
+        run: npm run check:renderer-capture-safety
+
       - name: Install framework-neutral core dependencies
         run: npm install --prefix core --ignore-scripts --no-audit --no-fund
 

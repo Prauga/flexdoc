@@ -27,6 +27,7 @@
     "build:backend": "npm run build -w packages/backend",
     "sync:adapter-assets": "node scripts/sync-adapter-assets.mjs",
     "check:adapter-assets": "node scripts/sync-adapter-assets.mjs --check",
+    "check:renderer-capture-safety": "node scripts/check-renderer-capture-safety.mjs",
     "check:example-versions": "node scripts/check-example-versions.mjs",
     "benchmark:performance": "npm run build:client && npm run build:backend && node scripts/performance/benchmark.mjs",
     "check:performance-budgets": "node scripts/performance/check-budgets.mjs",
