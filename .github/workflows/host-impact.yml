@@ -6,6 +6,7 @@ on:
       - 'adapters/**'
       - 'packages/backend/**'
       - 'scripts/performance/host-impact/**'
+      - 'scripts/performance/performance-policy.json'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/host-impact.yml'
@@ -16,6 +17,7 @@ on:
       - 'adapters/**'
       - 'packages/backend/**'
       - 'scripts/performance/host-impact/**'
+      - 'scripts/performance/performance-policy.json'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/host-impact.yml'
@@ -209,8 +211,8 @@ jobs:
         run: |
           node scripts/performance/host-impact/aggregate.mjs host-impact-results host-impact-summary.md host-impact-summary.json
           cat host-impact-summary.md >> "$GITHUB_STEP_SUMMARY"
-      - name: Enforce host-impact regression guardrails
-        run: node scripts/performance/host-impact/check-regressions.mjs host-impact-summary.json scripts/performance/host-impact/regression-thresholds.json
+      - name: Enforce host-impact regression guardrails and governance
+        run: node scripts/performance/host-impact/check-regressions.mjs host-impact-summary.json scripts/performance/host-impact/regression-thresholds.json scripts/performance/performance-policy.json
       - name: Upload combined baseline
         uses: actions/upload-artifact@v6
         with:

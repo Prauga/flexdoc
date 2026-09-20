@@ -47,6 +47,24 @@ Check(hostExecution.GetProperty("capabilities").GetArrayLength() == 0, "native h
 Check(!configuredHtml.Contains("</script><script>alert(1)</script>", StringComparison.Ordinal), "title must remain script-safe");
 Check(!configuredHtml.Contains("\"/openapi.json?x=</script>\"", StringComparison.Ordinal), "spec URL must remain script-safe");
 
+var protectionBuilder = WebApplication.CreateBuilder();
+await using var protectionApp = protectionBuilder.Build();
+var protectionRejected = false;
+try
+{
+    protectionApp.MapFlexDoc(protectionOptions =>
+    {
+        protectionOptions.TryItHostExecution = true;
+        protectionOptions.HostExecution = new FlexDocHostExecution(new[] { "https://api.example.test" });
+    });
+}
+catch (ArgumentException error)
+{
+    protectionRejected = error.Message.Contains("HostExecutionProtected", StringComparison.Ordinal)
+        && error.Message.Contains("origin allowlist is not authentication", StringComparison.Ordinal);
+}
+Check(protectionRejected, "real ASP.NET Core host execution must fail closed without HostExecutionProtected");
+
 var runtimeSpec = new
 {
     openapi = "3.0.3",
@@ -114,6 +132,6 @@ finally
 }
 
 await HostExecutionConformance.RunAsync();
-await HostExecutionSecurityConformance.RunAsync();
+await HostExecutionHttpSecurityConformance.RunAsync();
 
 Console.WriteLine(".NET FlexDoc renderer, Runtime Intelligence, and host-execution contracts passed.");

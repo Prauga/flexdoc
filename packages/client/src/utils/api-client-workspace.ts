@@ -1,5 +1,7 @@
 import type { HttpAuth, HttpBinaryBody, HttpFormDataEntry, HttpKeyValue, HttpRequestDraft } from './http-client';
 import { cloneApiClientScripts } from './api-client-scripting';
+import { createApiClientWorkspacePersistenceSnapshot } from './api-client-history-privacy';
+import type { ApiClientCredentialStorage } from './api-client-credentials';
 import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from './api-client-scripting';
 
 /** One named value stored in an API Client environment or collection variable list. */
@@ -64,9 +66,11 @@ export interface ApiClientHistoryEntry {
   /** HTTP response status when available. */ status?: number;
   /** HTTP response status text when available. */ statusText?: string;
   /** Measured response time in milliseconds. */ responseTime?: number;
+  /** Actual transport used for the execution when known. */ transport?: 'browser' | 'api-host';
   /** Ordered response headers retained in history. */ responseHeaders?: Array<[string, string]>;
   /** Response body retained up to the workspace history size cap. */ responseBody?: string;
   /** Whether the stored response body was truncated to the history size cap. */ responseBodyTruncated?: boolean;
+  /** Whether the stored request body was truncated to the history size cap. */ requestBodyTruncated?: boolean;
   /** Collection-run id when the entry was produced by a runner. */ runId?: string;
   /** Collection-run display name. */ runName?: string;
   /** One-based request index within the run. */ runIndex?: number;
@@ -91,6 +95,7 @@ export interface ApiClientHistoryInput {
   /** HTTP response status when available. */ status?: number;
   /** HTTP response status text when available. */ statusText?: string;
   /** Measured response time in milliseconds. */ responseTime?: number;
+  /** Actual transport used for the execution when known. */ transport?: 'browser' | 'api-host';
   /** Ordered response headers to retain. */ responseHeaders?: Array<[string, string]>;
   /** Response body to retain subject to the history size cap. */ responseBody?: string;
   /** Explicitly mark the supplied response body as already truncated. */ responseBodyTruncated?: boolean;
@@ -114,6 +119,8 @@ export interface ApiClientWorkspaceState {
   /** Saved requests belonging to collections/folders. */ requests: ApiClientSavedRequest[];
   /** Named variable environments. */ environments: ApiClientEnvironment[];
   /** Currently active environment id, when one is selected. */ activeEnvironmentId?: string;
+  /** Credential persistence lifetime. Missing means legacy remember behavior. */ credentialStorage?: ApiClientCredentialStorage;
+  /** Whether API-host request/response bodies may be persisted in history. Defaults to true. */ historyBodies?: boolean;
   /** Most-recent-first execution history, capped by the workspace implementation. */ history: ApiClientHistoryEntry[];
 }
 
@@ -123,6 +130,7 @@ const STORE_NAME = 'workspaces';
 const DEFAULT_COLLECTION_NAME = 'My Collection';
 const HISTORY_LIMIT = 100;
 const HISTORY_RESPONSE_BODY_LIMIT = 256 * 1024;
+const HISTORY_REQUEST_BODY_LIMIT = 256 * 1024;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -172,8 +180,7 @@ function isHttpAuth(value: unknown): value is HttpAuth {
   if (value.type === 'bearer') return hasString(value, 'token');
   if (value.type === 'oauth2') {
     if (!hasString(value, 'accessToken')) return false;
-    const grantTypes = new Set(['accessToken', 'authorizationCode', 'clientCredentials', 'password', 'implicit']);
-    if (value.grantType !== undefined && (typeof value.grantType !== 'string' || !grantTypes.has(value.grantType))) return false;
+    if (value.grantType !== undefined && (typeof value.grantType !== 'string' || !['accessToken', 'authorizationCode', 'clientCredentials', 'password', 'implicit'].includes(value.grantType))) return false;
     if (value.clientAuthentication !== undefined && value.clientAuthentication !== 'body' && value.clientAuthentication !== 'basic') return false;
     for (const key of ['authorizationUrl', 'tokenUrl', 'clientId', 'clientSecret', 'redirectUri', 'username', 'password', 'refreshToken']) if (value[key] !== undefined && typeof value[key] !== 'string') return false;
     return value.scopes === undefined || (Array.isArray(value.scopes) && value.scopes.every((scope) => typeof scope === 'string'));
@@ -187,6 +194,58 @@ function isHttpAuth(value: unknown): value is HttpAuth {
   return false;
 }
 
+type ApiClientCredentialSessionEntry = ['c' | 'f' | 'r' | 'h', string, HttpAuth];
+
+function credentialSessionKey(key: string): string {
+  return `flexdoc:credentials:v1:${key}`;
+}
+
+function credentialSessionEntries(workspace: ApiClientWorkspaceState): ApiClientCredentialSessionEntry[] {
+  const entries: ApiClientCredentialSessionEntry[] = [];
+  for (const collection of workspace.collections) entries.push(['c', collection.id, collection.auth]);
+  for (const folder of workspace.folders) entries.push(['f', folder.id, folder.auth]);
+  for (const saved of workspace.requests) if (saved.request.auth) entries.push(['r', saved.id, saved.request.auth]);
+  for (const entry of workspace.history) if (entry.request.auth) entries.push(['h', entry.id, entry.request.auth]);
+  return entries;
+}
+
+function readCredentialSession(key: string): Map<string, HttpAuth> {
+  const result = new Map<string, HttpAuth>();
+  if (typeof sessionStorage === 'undefined') return result;
+  try {
+    const value = JSON.parse(sessionStorage.getItem(credentialSessionKey(key)) || '[]');
+    if (!Array.isArray(value)) return result;
+    for (const entry of value) {
+      if (!Array.isArray(entry) || entry.length !== 3 || !['c', 'f', 'r', 'h'].includes(entry[0]) || typeof entry[1] !== 'string' || !isHttpAuth(entry[2])) continue;
+      result.set(`${entry[0]}:${entry[1]}`, entry[2]);
+    }
+  } catch { /* best effort browser storage */ }
+  return result;
+}
+
+/** Restore session-only credential material into a sanitized workspace snapshot. */
+export function restoreApiClientSessionCredentials(key: string, workspace: ApiClientWorkspaceState): ApiClientWorkspaceState {
+  if (workspace.credentialStorage !== 'session') return workspace;
+  const credentials = readCredentialSession(key);
+  if (credentials.size === 0) return workspace;
+  return {
+    ...workspace,
+    collections: workspace.collections.map((collection) => ({ ...collection, auth: credentials.get(`c:${collection.id}`) || collection.auth })),
+    folders: workspace.folders.map((folder) => ({ ...folder, auth: credentials.get(`f:${folder.id}`) || folder.auth })),
+    requests: workspace.requests.map((saved) => ({ ...saved, request: { ...saved.request, auth: credentials.get(`r:${saved.id}`) || saved.request.auth } })),
+    history: workspace.history.map((entry) => ({ ...entry, request: { ...entry.request, auth: credentials.get(`h:${entry.id}`) || entry.request.auth } })),
+  };
+}
+
+/** Keep the current tab credential vault aligned with the selected storage lifetime. */
+export function syncApiClientSessionCredentials(key: string, workspace: ApiClientWorkspaceState): void {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    if (workspace.credentialStorage === 'session') sessionStorage.setItem(credentialSessionKey(key), JSON.stringify(credentialSessionEntries(workspace)));
+    else sessionStorage.removeItem(credentialSessionKey(key));
+  } catch { /* best effort browser storage */ }
+}
+
 function isHttpRequestDraft(value: unknown): value is HttpRequestDraft {
   if (!isRecord(value) || !hasString(value, 'method') || !hasString(value, 'url')) return false;
   if (value.query !== undefined && (!Array.isArray(value.query) || !value.query.every(isHttpKeyValue))) return false;
@@ -198,7 +257,7 @@ function isHttpRequestDraft(value: unknown): value is HttpRequestDraft {
   if (value.formData !== undefined && (!Array.isArray(value.formData) || !value.formData.every(isHttpFormDataEntry))) return false;
   if (value.binary !== undefined && !isHttpBinaryBody(value.binary)) return false;
   if (value.graphql !== undefined && (!isRecord(value.graphql) || !hasString(value.graphql, 'query') || !hasString(value.graphql, 'variables'))) return false;
-  if (value.hostExecution !== undefined && (!isRecord(value.hostExecution) || (value.hostExecution.certificateId !== undefined && typeof value.hostExecution.certificateId !== 'string') || (value.hostExecution.cookieJar !== undefined && value.hostExecution.cookieJar !== 'session'))) return false;
+  if (value.hostExecution !== undefined && (!isRecord(value.hostExecution) || (value.hostExecution.certificateId !== undefined && typeof value.hostExecution.certificateId !== 'string') || (value.hostExecution.cookieJar !== undefined && value.hostExecution.cookieJar !== 'session') || (value.hostExecution.preferHostExecution !== undefined && typeof value.hostExecution.preferHostExecution !== 'boolean'))) return false;
   return value.auth === undefined || isHttpAuth(value.auth);
 }
 
@@ -351,6 +410,7 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     || (value.responseHeaders !== undefined && (!Array.isArray(value.responseHeaders) || !value.responseHeaders.every(isResponseHeader)))
     || (value.responseBody !== undefined && typeof value.responseBody !== 'string')
     || (value.responseBodyTruncated !== undefined && typeof value.responseBodyTruncated !== 'boolean')
+    || (value.requestBodyTruncated !== undefined && typeof value.requestBodyTruncated !== 'boolean')
     || (value.runId !== undefined && typeof value.runId !== 'string')
     || (value.runName !== undefined && typeof value.runName !== 'string')
     || !isOptionalFiniteNumber(value, 'runIndex')
@@ -377,9 +437,11 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     status: value.status as number | undefined,
     statusText: value.statusText as string | undefined,
     responseTime: value.responseTime as number | undefined,
+    transport: value.transport === 'browser' || value.transport === 'api-host' ? value.transport : undefined,
     responseHeaders: Array.isArray(value.responseHeaders) ? value.responseHeaders.map(([key, headerValue]) => [key, headerValue] as [string, string]) : undefined,
     responseBody: typeof value.responseBody === 'string' ? value.responseBody : undefined,
     responseBodyTruncated: value.responseBodyTruncated === true ? true : undefined,
+    requestBodyTruncated: value.requestBodyTruncated === true ? true : undefined,
     runId: typeof value.runId === 'string' ? value.runId : undefined,
     runName: typeof value.runName === 'string' ? value.runName : undefined,
     runIndex: typeof value.runIndex === 'number' ? value.runIndex : undefined,
@@ -455,6 +517,7 @@ export function createDefaultApiClientWorkspace(): ApiClientWorkspaceState {
   const timestamp = now();
   return {
     version: 6,
+    credentialStorage: 'session',
     collections: [{ id: createApiClientId('collection'), name: DEFAULT_COLLECTION_NAME, auth: { type: 'none' }, variables: [], createdAt: timestamp, updatedAt: timestamp }],
     folders: [],
     requests: [],
@@ -522,8 +585,41 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
     requests: requestValues,
     environments: environmentValues,
     activeEnvironmentId,
+    credentialStorage: value.credentialStorage === 'session' || value.credentialStorage === 'remember' || value.credentialStorage === 'never' ? value.credentialStorage : undefined,
+    historyBodies: typeof value.historyBodies === 'boolean' ? value.historyBodies : undefined,
     history: historyValues,
   };
+}
+
+/**
+ * Trim a cloned request draft's editable body fields to the history request-body budget.
+ *
+ * The budget is shared across every body field rather than applied per field, so a request
+ * cannot persist several times the cap by spreading payload across raw text, form rows and
+ * GraphQL variables. Host execution accepts 32 MiB envelopes, so an uncapped draft would
+ * otherwise reach IndexedDB verbatim. `binary` carries no payload here: `cloneRequestDraft`
+ * drops the `File`, leaving only bounded file-name/content-type metadata.
+ */
+function capHistoryRequestBody(request: HttpRequestDraft): { request: HttpRequestDraft; truncated: boolean } {
+  let remaining = HISTORY_REQUEST_BODY_LIMIT;
+  let truncated = false;
+  const take = (value: string): string => {
+    if (value.length <= remaining) {
+      remaining -= value.length;
+      return value;
+    }
+    const kept = value.slice(0, remaining);
+    remaining = 0;
+    truncated = true;
+    return kept;
+  };
+
+  const capped = { ...request };
+  if (capped.body !== undefined) capped.body = take(capped.body);
+  if (capped.graphql) capped.graphql = { query: take(capped.graphql.query), variables: take(capped.graphql.variables) };
+  if (capped.urlencoded) capped.urlencoded = capped.urlencoded.map((entry) => ({ ...entry, value: take(entry.value) }));
+  if (capped.formData) capped.formData = capped.formData.map((entry) => ({ ...entry, value: take(entry.value) }));
+  return { request: capped, truncated };
 }
 
 /**
@@ -535,17 +631,20 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
 export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, input: ApiClientHistoryInput): ApiClientWorkspaceState {
   const responseBody = input.responseBody === undefined ? undefined : input.responseBody.slice(0, HISTORY_RESPONSE_BODY_LIMIT);
   const responseBodyTruncated = input.responseBodyTruncated === true || (input.responseBody?.length || 0) > HISTORY_RESPONSE_BODY_LIMIT;
+  const cappedRequest = capHistoryRequestBody(cloneRequestDraft(input.request));
   const entry: ApiClientHistoryEntry = {
     id: createApiClientId('history'),
     collectionId: input.collectionId,
     folderId: input.folderId,
-    request: cloneRequestDraft(input.request),
+    request: cappedRequest.request,
+    ...(cappedRequest.truncated ? { requestBodyTruncated: true } : {}),
     ...(input.scripts ? { scripts: cloneApiClientScripts(input.scripts) } : {}),
     executedMethod: input.executedMethod,
     resolvedUrl: input.resolvedUrl,
     status: input.status,
     statusText: input.statusText,
     responseTime: input.responseTime,
+    transport: input.transport,
     ...(input.responseHeaders?.length ? { responseHeaders: input.responseHeaders.map(([key, value]) => [key, value] as [string, string]) } : {}),
     ...(responseBody !== undefined ? { responseBody, ...(responseBodyTruncated ? { responseBodyTruncated: true } : {}) } : {}),
     runId: input.runId,
@@ -739,6 +838,7 @@ export function deleteApiClientCollection(workspace: ApiClientWorkspaceState, co
       ...replacement,
       environments: workspace.environments,
       activeEnvironmentId: workspace.activeEnvironmentId,
+      credentialStorage: workspace.credentialStorage,
       history: workspace.history,
     };
   }
@@ -775,7 +875,7 @@ export async function loadApiClientWorkspace(key: string): Promise<ApiClientWork
     return await new Promise((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, 'readonly');
       const request = transaction.objectStore(STORE_NAME).get(key);
-      request.onsuccess = () => resolve(normalizeApiClientWorkspace(request.result));
+      request.onsuccess = () => resolve(restoreApiClientSessionCredentials(key, normalizeApiClientWorkspace(request.result)));
       request.onerror = () => reject(request.error || new Error('Unable to load FlexDoc API Client workspace'));
     });
   } finally {
@@ -789,12 +889,13 @@ export async function loadApiClientWorkspace(key: string): Promise<ApiClientWork
  * @param workspace Version-6 workspace state to store.
  */
 export async function saveApiClientWorkspace(key: string, workspace: ApiClientWorkspaceState): Promise<void> {
+  syncApiClientSessionCredentials(key, workspace);
   const database = await openDatabase();
   if (!database) return;
   try {
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, 'readwrite');
-      transaction.objectStore(STORE_NAME).put(workspace, key);
+      transaction.objectStore(STORE_NAME).put(createApiClientWorkspacePersistenceSnapshot(workspace), key);
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error || new Error('Unable to save FlexDoc API Client workspace'));
       transaction.onabort = () => reject(transaction.error || new Error('Unable to save FlexDoc API Client workspace'));

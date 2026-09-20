@@ -14,8 +14,9 @@ import {
   applyApiClientEnvironmentChanges,
   createDefaultApiClientWorkspace,
   loadApiClientWorkspace,
-  saveApiClientWorkspace,
 } from '../utils/api-client-workspace';
+import { useApiClientWorkspacePersistence } from '../utils/use-api-client-workspace-persistence';
+import { FlexDocHostNotice } from './FlexDocHostNotice';
 import { createDefaultApiClientPersistenceKey } from '../utils/api-client-workspace';
 import type { ApiClientWorkspaceState } from '../utils/api-client-workspace';
 import type { ApiClientRequestTab, ApiClientScriptTab } from './ApiClient';
@@ -104,10 +105,7 @@ export const TryItApiClientWorkspace: React.FC<Props> = ({
     return () => { cancelled = true; };
   }, [persistenceKey]);
 
-  useEffect(() => {
-    if (!environmentHydrated || persistenceKey === false) return;
-    void saveApiClientWorkspace(persistenceKey, environmentWorkspace).catch(() => undefined);
-  }, [environmentHydrated, environmentWorkspace, persistenceKey]);
+  const persistenceFailed = useApiClientWorkspacePersistence(persistenceKey, environmentWorkspace, environmentHydrated);
 
   const environmentVariables = useMemo(() => activeApiClientEnvironmentVariables(environmentWorkspace), [environmentWorkspace]);
   const dirty = fingerprint(draft, scripts) !== fingerprint(initialSession.request, initialScripts);
@@ -129,6 +127,13 @@ export const TryItApiClientWorkspace: React.FC<Props> = ({
   });
 
   return <div className='space-y-3' data-try-it-session>
+    {persistenceFailed && <FlexDocHostNotice
+      message='FlexDoc could not save environment changes to browser storage. They will be lost when the page is closed.'
+      showCapabilities={false}
+      warning
+      theme={theme}
+      label='API Client storage status'
+    />}
     <div className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-2 ${panel}`}>
       <div className='flex rounded-md border p-1' role='group' aria-label='Try It density'>
         <button type='button' aria-pressed={!advanced} className={`rounded px-3 py-1.5 text-sm ${!advanced ? 'bg-blue-600 text-white' : ''}`} onClick={() => setDensityAndUrl('basic')}>{messages?.tryItBasic || 'Basic'}</button>
@@ -166,6 +171,8 @@ export const TryItApiClientWorkspace: React.FC<Props> = ({
       credentials={options?.tryIt?.credentials || 'same-origin'}
       requestInterceptor={options?.tryIt?.requestInterceptor}
       hostExecution={options?.tryIt?.hostExecution}
+      credentialStorage={environmentWorkspace.credentialStorage || 'remember'}
+      onCredentialStorageChange={(credentialStorage) => setEnvironmentWorkspace((current) => ({ ...current, credentialStorage }))}
       environmentVariables={environmentVariables}
       serverOptions={servers}
       initialServerUrl={initialSession.serverUrl}

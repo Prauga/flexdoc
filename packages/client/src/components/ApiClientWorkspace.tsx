@@ -22,8 +22,9 @@ import {
   createDefaultApiClientWorkspace,
   loadApiClientWorkspace,
   resolveApiClientAuth,
-  saveApiClientWorkspace,
 } from '../utils/api-client-workspace';
+import { useApiClientWorkspacePersistence } from '../utils/use-api-client-workspace-persistence';
+import { FlexDocHostNotice } from './FlexDocHostNotice';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import { readApiClientUiPreferences, writeApiClientUiPreferences } from '../utils/api-client-ui-preferences';
 import type { ApiClientWorkspaceState } from '../utils/api-client-workspace';
@@ -177,10 +178,7 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
     return () => { cancelled = true; };
   }, [persistenceKey]);
 
-  useEffect(() => {
-    if (!hydrated || persistenceKey === false) return;
-    void saveApiClientWorkspace(persistenceKey, workspace).catch(() => undefined);
-  }, [hydrated, persistenceKey, workspace]);
+  const persistenceFailed = useApiClientWorkspacePersistence(persistenceKey, workspace, hydrated);
 
   const collectionVariables = useMemo(
     () => apiClientCollectionVariables(workspace, selectedCollectionId),
@@ -349,6 +347,13 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
         </button>
       </div>
       {!sidebarCollapsed && <div className='space-y-5'>
+      {persistenceFailed && <FlexDocHostNotice
+        message='FlexDoc could not save this workspace to browser storage. Recent changes and history will be lost when the page is closed. Clearing stored history usually frees enough space.'
+        showCapabilities={false}
+        warning
+        theme={activeTheme}
+        label='API Client storage status'
+      />}
       <ApiClientImport
         onWorkspaceChange={setWorkspace}
         onSelectedCollectionChange={handleSelectedCollectionChange}
@@ -454,6 +459,8 @@ export const ApiClientWorkspace: React.FC<ApiClientWorkspaceProps> = ({
       onScriptTabChange={handleScriptTabChange}
       onExecutionStart={handleExecutionStart}
       onExecutionComplete={handleExecutionComplete}
+      credentialStorage={workspace.credentialStorage || 'remember'}
+      onCredentialStorageChange={(credentialStorage) => setWorkspace((current) => ({ ...current, credentialStorage }))}
       onRequestChange={handleRequestChange}
     />}
     </div>

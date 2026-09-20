@@ -82,6 +82,7 @@ internal static class HostExecutionConformance
             options.Path = "/docs";
             options.SpecUrl = "/openapi.json";
             options.TryItHostExecution = true;
+            options.HostExecutionProtected = true;
             options.HostExecution = hostExecution;
         });
         docs.MapFlexDoc(options =>
@@ -95,6 +96,7 @@ internal static class HostExecutionConformance
             options.Path = "/metadata";
             options.SpecUrl = "/openapi.json";
             options.TryItHostExecution = true;
+            options.HostExecutionProtected = true;
             options.HostExecution = metadataExecution;
         });
 

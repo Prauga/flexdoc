@@ -1,4 +1,4 @@
-defmodule PraugaFlexDoc.PlugHostExecutionHttpSecurityTest do
+defmodule PraugaFlexDoc.HostExecutionHttpSecurityTest do
   use ExUnit.Case, async: false
   use Plug.Test
 

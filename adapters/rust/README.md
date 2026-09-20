@@ -16,6 +16,15 @@ let app = prauga_flexdoc_axum::router(prauga_flexdoc_axum::Config {
 
 ## Native API-host execution (3.3)
 
+Native host execution is enabled by default. For docs/rendering without the native executor or reqwest dependency graph:
+
+```toml
+prauga-flexdoc-axum = { version = "0.5.5", default-features = false }
+```
+
+With default features disabled, docs and renderer routes remain available, host execution is advertised unavailable, and the execute route/`HostExecution` type are not compiled.
+
+
 Create a native executor with a non-empty exact-origin allowlist and attach it to the Axum docs router:
 
 ```rust

@@ -2,10 +2,7 @@ import {
   createFlexDocViewerPreferencesKey,
   readFlexDocViewerPreferences,
   resolveExpandSections,
-  writeFlexDocViewerExpandPreference,
-  writeFlexDocViewerExpandedTagsPreference,
-  writeFlexDocViewerSidebarPreference,
-  writeFlexDocViewerThemePreference,
+  writeFlexDocViewerPreference,
 } from './renderer-preferences';
 
 function memoryStorage(): Storage {
@@ -44,19 +41,19 @@ describe('renderer expansion preferences', () => {
     const storage = memoryStorage();
     const key = createFlexDocViewerPreferencesKey('Pets API', 'docs.example.test');
     expect(key).not.toBe(createFlexDocViewerPreferencesKey('Billing API', 'docs.example.test'));
-    writeFlexDocViewerExpandPreference(key, ['responses'], storage);
+    writeFlexDocViewerPreference(key, 'expand', ['responses'], storage);
     expect(readFlexDocViewerPreferences(key, storage).expand).toEqual(['responses']);
-    writeFlexDocViewerExpandPreference(key, undefined, storage);
+    writeFlexDocViewerPreference(key, 'expand', undefined, storage);
     expect(readFlexDocViewerPreferences(key, storage).expand).toBeUndefined();
   });
 
   test('persists viewer controls independently without clobbering fields', () => {
     const storage = memoryStorage();
     const key = createFlexDocViewerPreferencesKey('Pets API', 'docs.example.test');
-    writeFlexDocViewerExpandPreference(key, ['responses'], storage);
-    writeFlexDocViewerSidebarPreference(key, true, storage);
-    writeFlexDocViewerThemePreference(key, 'dark', storage);
-    writeFlexDocViewerExpandedTagsPreference(key, ['pets', 'admin', 'pets'], storage);
+    writeFlexDocViewerPreference(key, 'expand', ['responses'], storage);
+    writeFlexDocViewerPreference(key, 'sidebarCollapsed', true, storage);
+    writeFlexDocViewerPreference(key, 'theme', 'dark', storage);
+    writeFlexDocViewerPreference(key, 'expandedTags', ['pets', 'admin', 'pets'], storage);
     expect(readFlexDocViewerPreferences(key, storage)).toEqual({
       version: 1,
       expand: ['responses'],
@@ -64,9 +61,9 @@ describe('renderer expansion preferences', () => {
       theme: 'dark',
       expandedTags: ['pets', 'admin'],
     });
-    writeFlexDocViewerExpandPreference(key, undefined, storage);
+    writeFlexDocViewerPreference(key, 'expand', undefined, storage);
     expect(readFlexDocViewerPreferences(key, storage)).toMatchObject({ version: 1, sidebarCollapsed: true, theme: 'dark', expandedTags: ['pets', 'admin'] });
-    writeFlexDocViewerThemePreference(key, undefined, storage);
+    writeFlexDocViewerPreference(key, 'theme', undefined, storage);
     expect(readFlexDocViewerPreferences(key, storage).theme).toBeUndefined();
   });
 

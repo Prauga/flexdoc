@@ -621,16 +621,13 @@ name = "prauga-flexdoc-axum"
 version = "0.5.5"
 dependencies = [
  "axum",
- "base64",
  "futures-util",
  "multer",
  "prauga-flexdoc-host-execution",
- "reqwest",
  "serde",
  "serde_json",
  "tokio",
  "tower",
- "url",
 ]
 
 [[package]]

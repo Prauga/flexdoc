@@ -22,8 +22,10 @@ public record FlexDocConfig(
     String tryItCredentials,
     /** API Client persistence key, or {@code false} to disable IndexedDB workspace persistence. */
     Object tryItApiClientPersistenceKey,
-    /** Advertise the host-execution protocol shape in renderer options. Host execution is not implemented yet. */
+    /** Whether to advertise host-execution protocol metadata in renderer options. */
     boolean tryItHostExecution,
+    /** Server-only acknowledgement that application authentication/authorization protects the docs/execute surface. */
+    boolean hostExecutionProtected,
     /** Framework identifier exposed to Runtime Intelligence, or {@code null} when disabled. */
     String runtimeIntelligenceFramework) {
   /**
@@ -36,7 +38,7 @@ public record FlexDocConfig(
    * @param tryItEnabled whether Try It and the API Client handoff are enabled
    */
   public FlexDocConfig(String path, String specUrl, String title, String theme, boolean tryItEnabled) {
-    this(path, specUrl, title, theme, tryItEnabled, null, null, null, null, false, null);
+    this(path, specUrl, title, theme, tryItEnabled, null, null, null, null, false, false, null);
   }
 
   /**
@@ -62,11 +64,11 @@ public record FlexDocConfig(
       String tryItDefaultServer,
       String tryItCredentials,
       Object tryItApiClientPersistenceKey) {
-    this(path, specUrl, title, theme, tryItEnabled, expand, tryItDefaultServer, tryItCredentials, tryItApiClientPersistenceKey, false, null);
+    this(path, specUrl, title, theme, tryItEnabled, expand, tryItDefaultServer, tryItCredentials, tryItApiClientPersistenceKey, false, false, null);
   }
 
   /**
-   * Creates configuration with host-execution advertisement enabled; Runtime Intelligence remains disabled.
+   * Creates configuration with host-execution advertisement enabled; protection acknowledgement and Runtime Intelligence remain unset.
    *
    * @param path route where FlexDoc is mounted
    * @param specUrl OpenAPI JSON URL loaded by the browser
@@ -90,7 +92,25 @@ public record FlexDocConfig(
       String tryItCredentials,
       Object tryItApiClientPersistenceKey,
       boolean tryItHostExecution) {
-    this(path, specUrl, title, theme, tryItEnabled, expand, tryItDefaultServer, tryItCredentials, tryItApiClientPersistenceKey, tryItHostExecution, null);
+    this(path, specUrl, title, theme, tryItEnabled, expand, tryItDefaultServer, tryItCredentials, tryItApiClientPersistenceKey, tryItHostExecution, false, null);
+  }
+
+  /**
+   * Preserves the pre-HX-03 constructor shape; host-execution protection acknowledgement remains false.
+   */
+  public FlexDocConfig(
+      String path,
+      String specUrl,
+      String title,
+      String theme,
+      boolean tryItEnabled,
+      Object expand,
+      String tryItDefaultServer,
+      String tryItCredentials,
+      Object tryItApiClientPersistenceKey,
+      boolean tryItHostExecution,
+      String runtimeIntelligenceFramework) {
+    this(path, specUrl, title, theme, tryItEnabled, expand, tryItDefaultServer, tryItCredentials, tryItApiClientPersistenceKey, tryItHostExecution, false, runtimeIntelligenceFramework);
   }
 
   /** Creates validated configuration and normalizes the documentation path. */
@@ -156,6 +176,7 @@ public record FlexDocConfig(
     private String tryItCredentials;
     private Object tryItApiClientPersistenceKey;
     private boolean tryItHostExecution;
+    private boolean hostExecutionProtected;
     private String runtimeIntelligenceFramework;
 
     /** Creates a builder initialized with FlexDoc defaults. */
@@ -197,6 +218,9 @@ public record FlexDocConfig(
     /** Advertises the host-execution protocol shape in renderer options. */
     public Builder tryItHostExecution(boolean value) { tryItHostExecution = value; return this; }
 
+    /** Acknowledges that application authentication/authorization protects the docs/execute surface. */
+    public Builder hostExecutionProtected(boolean value) { hostExecutionProtected = value; return this; }
+
     /** Enables Runtime Intelligence for the given framework identifier. */
     public Builder runtimeIntelligenceFramework(String value) { runtimeIntelligenceFramework = value; return this; }
 
@@ -213,6 +237,7 @@ public record FlexDocConfig(
           tryItCredentials,
           tryItApiClientPersistenceKey,
           tryItHostExecution,
+          hostExecutionProtected,
           runtimeIntelligenceFramework);
     }
   }

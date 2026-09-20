@@ -1,5 +1,9 @@
-import React, { useEffect } from 'react';
-import Prism from 'prismjs';
+import React, { useEffect, useRef } from 'react';
+// prism-core rather than the `prismjs` default bundle: the default ships markup,
+// css and a second copy of the javascript grammar that nothing here highlights.
+// clike must be registered before the grammars that extend it.
+import Prism from 'prismjs/components/prism-core';
+import 'prismjs/components/prism-clike';
 import 'prismjs/components/prism-json';
 import 'prismjs/components/prism-yaml';
 import 'prismjs/components/prism-javascript';
@@ -27,10 +31,13 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   wrap = false,
 }) => {
   const [copied, setCopied] = React.useState(false);
+  const codeRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    Prism.highlightAll();
-  }, [code, theme]);
+    // Scoped to this block: highlightAll() rescans and re-highlights every code
+    // block in the document whenever any single block mounts or changes.
+    if (codeRef.current) Prism.highlightElement(codeRef.current);
+  }, [code, language, theme]);
 
   const copyToClipboard = async () => {
     try {
@@ -82,7 +89,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
       )}
       <div className={`p-3 sm:p-4 overflow-x-auto ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}`}>
         <pre className={`m-0 text-xs sm:text-sm ${wrap ? 'whitespace-pre-wrap break-words' : ''} ${theme === 'dark' ? 'text-gray-100' : 'text-gray-800'}`}>
-          <code className={`language-${language} bg-transparent`}>{code}</code>
+          <code ref={codeRef} className={`language-${language} bg-transparent`}>{code}</code>
         </pre>
       </div>
     </div>

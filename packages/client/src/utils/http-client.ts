@@ -45,6 +45,7 @@ export type HttpHostExecutionCapability = 'cookies' | 'clientCertificates' | 'di
 export interface HttpHostExecutionSelection {
   /** Id of a server-side client certificate configured by the documentation host. */ certificateId?: string;
   /** Use FlexDoc's server-side session cookie jar for the request. */ cookieJar?: 'session';
+  /** Override the documentation host's ordinary-request transport preference for this request. */ preferHostExecution?: boolean;
 }
 
 /** Explicitly disable authentication for one request. */

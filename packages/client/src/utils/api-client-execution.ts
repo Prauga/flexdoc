@@ -1,7 +1,7 @@
 import { buildHttpRequest, httpHostExecutionRequirements, inferHttpBodyMode, resolveHttpRequestDraftVariables } from './http-client';
 import { cloneApiClientScripts, runApiClientScript } from './api-client-scripting';
 import type { FlexDocHostExecutionPublicOptions } from '../types/options';
-import type { HttpAuth, HttpRequestDraft, HttpVariables } from './http-client';
+import type { HttpAuth, HttpHostExecutionCapability, HttpRequestDraft, HttpVariables } from './http-client';
 import type {
   ApiClientRequestScripts,
   ApiClientScriptCollectionChange,
@@ -10,6 +10,42 @@ import type {
 } from './api-client-scripting';
 import type { BuiltRequest } from './request-builder';
 
+/** Actual request transport used after policy and host requirements are resolved. */
+export type ApiClientTransport = 'browser' | 'api-host';
+
+const API_CLIENT_HOST_CAPABILITY_LABELS: Record<HttpHostExecutionCapability, string> = {
+  cookies: 'Cookie jar',
+  clientCertificates: 'Client certificates (mTLS)',
+  digest: 'Digest auth',
+  hawk: 'Hawk auth',
+  ntlm: 'NTLM auth',
+  oauth1: 'OAuth 1.0',
+  awsv4: 'AWS Signature V4',
+};
+
+/** User-facing label for one advertised API-host capability. */
+export function apiClientHostCapabilityLabel(capability: HttpHostExecutionCapability): string {
+  return API_CLIENT_HOST_CAPABILITY_LABELS[capability];
+}
+/** Effective transport state shown before execution; host-required means browser execution is not valid. */
+export type ApiClientTransportMode = ApiClientTransport | 'host-required';
+
+/** Effective transport decision shared by API Client, Try It, and the executor. */
+export type ApiClientTransportDecision = readonly [
+  mode: ApiClientTransportMode,
+  available: boolean,
+  bodyHost: boolean,
+  missing: HttpHostExecutionCapability[],
+];
+
+/** Inputs used to resolve one request's effective transport. */
+export interface ResolveApiClientTransportOptions {
+  request: HttpRequestDraft;
+  hostExecution?: FlexDocHostExecutionPublicOptions;
+  preferHostExecution?: boolean;
+  additionalRequirements?: HttpHostExecutionCapability[];
+}
+
 /** Result of one API Client execution, including scripts, tests, and transport details. */
 export interface ApiClientExecutionResult {
   /** Original editable request recorded in history for this execution. */ request: HttpRequestDraft;
@@ -17,8 +53,9 @@ export interface ApiClientExecutionResult {
   /** HTTP method actually sent after scripts and variable resolution. */ executedMethod: string;
   /** Absolute URL actually sent after scripts, variables, and interceptors. */ resolvedUrl: string;
   /** HTTP status code when a response was received. */ status?: number;
-  /** HTTP status text when a response was received. */ statusText?: string;
+  /** HTTP response status text when available. */ statusText?: string;
   /** Measured request/response duration in milliseconds. */ responseTime?: number;
+  /** Actual transport used once a request attempt began. */ transport?: ApiClientTransport;
   /** Ordered response header entries. */ responseHeaders?: Array<[string, string]>;
   /** Response body text retained by the execution result. */ responseBody?: string;
   /** Transport/build error when execution failed. */ error?: string;
@@ -33,13 +70,17 @@ export interface ApiClientExecutionResponse {
   /** HTTP status text. */ statusText: string;
   /** Ordered response headers. */ headers: Array<[string, string]>;
   /** Response body decoded as text. */ body: string;
-  /** Measured round-trip duration in milliseconds. */ responseTime: number;
+  /** Target request/response duration in milliseconds. */ responseTime: number;
+  /** Browser-to-API-host round trip in milliseconds for API-host execution. */ hostRoundTripTime?: number;
+  /** Actual transport that produced this response. */ transport?: ApiClientTransport;
   /** Safe cookie metadata returned by API-host execution when available. */
   cookies?: Array<{ name: string; value: string; domain?: string; path?: string; httpOnly?: boolean }>;
 }
 
 /** Complete programmatic outcome of `executeApiClientRequest`. */
 export interface ApiClientExecutionOutcome {
+  /** Opaque browser transport failure classification used for cautious CORS guidance. */
+  failureKind?: 'browser-network';
   /** History-ready execution result when a request was attempted or a host requirement failed. */ result?: ApiClientExecutionResult;
   /** Normalized HTTP response when transport completed successfully. */ response?: ApiClientExecutionResponse;
   /** Transport/build error preventing a successful response. */ error?: string;
@@ -120,9 +161,77 @@ function curlCommandForTransport(url: string, init: RequestInit): string | undef
   return parts.join(' \\\n');
 }
 
-function hostUnavailableMessage(missing: string[], hostExecution: FlexDocHostExecutionPublicOptions | undefined): string {
+function hostUnavailableMessage(missing: HttpHostExecutionCapability[], hostExecution: FlexDocHostExecutionPublicOptions | undefined): string {
   if (!hostExecution?.available) return 'API-host execution is unavailable on this documentation server.';
-  return `The API host does not support the required capability${missing.length === 1 ? '' : 'ies'}: ${missing.join(', ')}.`;
+  return `The API host does not support: ${missing.map(apiClientHostCapabilityLabel).join(', ')}.`;
+}
+
+/** Resolve ordinary preference plus hard browser-incompatible requirements into one transport decision. */
+export function resolveApiClientTransport(options: ResolveApiClientTransportOptions): ApiClientTransportDecision {
+  const method = (options.request.method || 'GET').toUpperCase();
+  const requirements = [...new Set([...httpHostExecutionRequirements(options.request), ...(options.additionalRequirements || [])])];
+  const bodyHost = ['GET', 'HEAD'].includes(method) && inferHttpBodyMode(options.request) !== 'none';
+  const requestPreference = options.request.hostExecution?.preferHostExecution;
+  const serverPreference = options.hostExecution?.preferHostExecution;
+  const preferHostExecution = serverPreference === false
+    ? false
+    : options.preferHostExecution ?? requestPreference ?? serverPreference ?? true;
+  const capabilities = new Set(options.hostExecution?.capabilities || []);
+  const missing = requirements.filter((requirement) => !capabilities.has(requirement));
+  const hostRequired = requirements.length > 0 || bodyHost;
+  const available = options.hostExecution?.available === true && missing.length === 0;
+  return [
+    hostRequired ? 'host-required' : preferHostExecution && options.hostExecution?.available === true ? 'api-host' : 'browser',
+    available, bodyHost, missing,
+  ];
+}
+
+export function apiClientTransportLabel(mode: ApiClientTransportMode): string {
+  return mode === 'host-required' ? 'Host required' : mode === 'api-host' ? 'API host' : 'Browser';
+}
+
+/**
+ * Return cautious CORS guidance only when a failed browser request can actually fall back to
+ * API-host execution under the current server/host capability policy.
+ */
+export function apiClientCorsFailureHint(
+  outcome: Pick<ApiClientExecutionOutcome, 'failureKind' | 'result'>,
+  request: HttpRequestDraft,
+  hostExecution: FlexDocHostExecutionPublicOptions | undefined,
+): string | null {
+  if (outcome.failureKind !== 'browser-network' || outcome.result?.transport !== 'browser') return null;
+  return resolveApiClientTransport({ request, hostExecution, preferHostExecution: true })[0] === 'api-host'
+    ? 'Browser request failed (possibly CORS). Try API host.'
+    : null;
+}
+
+export const API_CLIENT_SLOW_HOST_THRESHOLD_MS = 500;
+
+export function apiClientSlowHostHint(
+  response: Pick<ApiClientExecutionResponse, 'transport' | 'responseTime' | 'hostRoundTripTime'> | null | undefined,
+  request: HttpRequestDraft,
+  hostExecution: FlexDocHostExecutionPublicOptions | undefined,
+): string | null {
+  const roundTrip = response?.hostRoundTripTime ?? response?.responseTime;
+  if (response?.transport !== 'api-host' || roundTrip == null || roundTrip < API_CLIENT_SLOW_HOST_THRESHOLD_MS) return null;
+  return resolveApiClientTransport({ request, hostExecution, preferHostExecution: false })[0] === 'browser'
+    ? `API-host round trip took ${Math.round(roundTrip)} ms. Browser may be faster.`
+    : null;
+}
+
+export function apiClientTransportNotice(
+  decision: ApiClientTransportDecision,
+  hostExecution: FlexDocHostExecutionPublicOptions | undefined,
+  unsupported?: string,
+  disabled?: string,
+): string | null {
+  const [mode, available, , missing] = decision;
+  if (mode === 'host-required') {
+    if (available) return unsupported || 'The browser cannot send this request. FlexDoc will execute it from the API host.';
+    if (!hostExecution?.available) return disabled || 'API-host execution is unavailable on this documentation server.';
+    return hostUnavailableMessage(missing, hostExecution);
+  }
+  return mode === 'api-host' ? 'This request runs from your API server.' : null;
 }
 
 function base64FromBytes(bytes: Uint8Array): string {
@@ -188,6 +297,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
   let resolvedUrl = '';
   let startedAt = 0;
   let requestAttempted = false;
+  let attemptedTransport: ApiClientTransport | undefined;
   let curlCommand: string | undefined;
 
   try {
@@ -221,16 +331,10 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
     executionDraft = resolveHttpRequestDraftVariables(executionDraft, executionVariables);
     executedMethod = (executionDraft.method || 'GET').toUpperCase();
     resolvedUrl = executionDraft.url;
-    const requirements = httpHostExecutionRequirements(executionDraft);
-    const bodyNeedsHostTransport = ['GET', 'HEAD'].includes(executedMethod) && inferHttpBodyMode(executionDraft) !== 'none';
-    const serializedPreference = (options.hostExecution as (FlexDocHostExecutionPublicOptions & { preferHostExecution?: boolean }) | undefined)?.preferHostExecution;
-    const preferHostExecution = options.preferHostExecution ?? serializedPreference ?? true;
-    const shouldUseHost = (preferHostExecution && options.hostExecution?.available === true) || requirements.length > 0 || bodyNeedsHostTransport;
+    const [transportMode, , , missing] = resolveApiClientTransport({ request: executionDraft, hostExecution: options.hostExecution, preferHostExecution: options.preferHostExecution });
     let apiResponse: ApiClientExecutionResponse;
 
-    if (shouldUseHost) {
-      const capabilities = new Set(options.hostExecution?.capabilities || []);
-      const missing = requirements.filter((requirement) => !capabilities.has(requirement));
+    if (transportMode !== 'browser') {
       if (!options.hostExecution?.available || missing.length > 0) {
         const error = hostUnavailableMessage(missing, options.hostExecution);
         return {
@@ -251,6 +355,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
       const payload = await hostExecutionBody(executionDraft);
       startedAt = now();
       requestAttempted = true;
+      attemptedTransport = 'api-host';
       const hostResponse = await fetcher(options.hostExecution.endpoint, {
         method: 'POST',
         credentials: 'same-origin',
@@ -259,6 +364,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
         ...(options.signal ? { signal: options.signal } : {}),
       });
       const raw = await hostResponse.text();
+      const hostRoundTripTime = now() - startedAt;
       let snapshot: Record<string, unknown>;
       try {
         const parsed: unknown = raw ? JSON.parse(raw) : {};
@@ -275,7 +381,9 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
         statusText: String(snapshot.statusText || ''),
         headers: responseHeaders,
         body: String(snapshot.body || ''),
-        responseTime: typeof snapshot.responseTime === 'number' ? snapshot.responseTime : now() - startedAt,
+        responseTime: typeof snapshot.responseTime === 'number' ? snapshot.responseTime : hostRoundTripTime,
+        hostRoundTripTime,
+        transport: 'api-host',
         ...(cookies ? { cookies } : {}),
       };
     } else {
@@ -297,6 +405,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
       curlCommand = curlCommandForTransport(url, init);
       startedAt = now();
       requestAttempted = true;
+      attemptedTransport = 'browser';
       if (!fetcher) throw new Error('Fetch API is not available');
       const response = await fetcher(url, init);
       const body = await response.text();
@@ -306,6 +415,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
         headers: [...response.headers.entries()],
         body,
         responseTime: now() - startedAt,
+        transport: 'browser',
       };
     }
 
@@ -335,6 +445,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
       status: apiResponse.status,
       statusText: apiResponse.statusText,
       responseTime: apiResponse.responseTime,
+      transport: apiResponse.transport,
       responseHeaders: apiResponse.headers.map(([key, value]) => [key, value]),
       responseBody: apiResponse.body,
       ...(scriptTests.length ? { scriptTests } : {}),
@@ -355,6 +466,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
       error,
       scriptTests,
       scriptLogs: logs,
+      ...(attemptedTransport === 'browser' && cause instanceof TypeError ? { failureKind: 'browser-network' as const } : {}),
     };
     if (!requestAttempted) return outcome;
     outcome.result = {
@@ -363,6 +475,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
       executedMethod,
       resolvedUrl,
       responseTime: startedAt ? now() - startedAt : undefined,
+      transport: attemptedTransport,
       error,
       ...(logs.length ? { scriptLogs: [...logs] } : {}),
     };

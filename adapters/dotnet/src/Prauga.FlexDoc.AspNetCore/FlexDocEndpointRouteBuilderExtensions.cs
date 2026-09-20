@@ -2,6 +2,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 
 namespace Prauga.FlexDoc.AspNetCore;
@@ -53,7 +54,11 @@ public static class FlexDocEndpointRouteBuilderExtensions
             static () => RendererAssets.CssText,
             "text/css; charset=utf-8"));
         if (options.TryItHostExecution && options.HostExecution is not null)
-            group.MapPost("/__flexdoc/execute", options.HostExecution.HandleHttpAsync);
+            group.MapPost("/__flexdoc/execute", options.HostExecution.HandleHttpAsync)
+                // Keep FlexDoc's canonical 32 MiB reader authoritative instead of Kestrel's
+                // lower default request-body ceiling. This is scoped to the privileged execute
+                // route; reverse proxies and application middleware may still enforce less.
+                .WithMetadata(new DisableRequestSizeLimitAttribute());
         if (runtimeDocument is JsonElement document)
             group.MapGet("/__flexdoc/runtime", context => WriteRuntime(
                 context,
@@ -232,6 +237,10 @@ public static class FlexDocEndpointRouteBuilderExtensions
             && options.Expand is not IEnumerable<string>
             && options.Expand is not JsonElement)
             throw new ArgumentException("FlexDoc Expand supports a preset string or a string list.", nameof(options));
+        if (options.TryItHostExecution && options.HostExecution is not null && !options.HostExecutionProtected)
+            throw new ArgumentException(
+                "FlexDoc ASP.NET Core host execution requires HostExecutionProtected = true after configuring application authentication/authorization; the origin allowlist is not authentication.",
+                nameof(options));
         if (options.RuntimeIntelligence && options.RuntimeOpenApiDocument is null)
             throw new ArgumentException("FlexDoc RuntimeOpenApiDocument is required when RuntimeIntelligence is enabled.", nameof(options));
     }

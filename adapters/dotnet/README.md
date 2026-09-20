@@ -5,7 +5,7 @@ Self-contained ASP.NET Core integration for FlexDoc. The NuGet package embeds th
 ## Package
 
 ```text
-Prauga.FlexDoc.AspNetCore 0.5.3
+Prauga.FlexDoc.AspNetCore 0.6.0
 ```
 
 The library targets `net8.0`, so it can be consumed by supported ASP.NET Core applications on .NET 8 and later runtimes.
@@ -40,7 +40,7 @@ The basic docs integration only needs an OpenAPI JSON URL and deliberately has n
 
 ## Native API-host execution (3.3)
 
-ASP.NET Core can execute the existing FlexDoc request envelope natively instead of falling back to browser transport. Configure an explicit exact-origin allowlist and attach the executor to the existing docs mapping:
+ASP.NET Core can execute the existing FlexDoc request envelope natively instead of falling back to browser transport. First configure application authentication/authorization middleware or an upstream policy so both the docs shell and docs subtree are protected. Then configure an explicit exact-origin allowlist, acknowledge that protection boundary, and attach the executor to the existing docs mapping:
 
 ```csharp
 var hostExecution = new FlexDocHostExecution(new[]
@@ -54,13 +54,18 @@ app.MapFlexDoc(options =>
     options.SpecUrl = "/openapi/v1.json";
     options.TryItEnabled = true;
     options.TryItHostExecution = true;
+    options.HostExecutionProtected = true;
     options.HostExecution = hostExecution;
 });
 ```
 
-When both `TryItHostExecution` and a real `HostExecution` are configured, FlexDoc registers `POST /docs/__flexdoc/execute` and truthfully advertises `hostExecution.available: true`. Setting `TryItHostExecution = true` without an executor preserves `available: false` and leaves the execute route unregistered (`404`).
+`HostExecutionProtected = true` is only an assertion that the application-owned authentication/authorization boundary exists; it does not install one. `MapFlexDoc` fails closed with `ArgumentException` when `TryItHostExecution` and a real `HostExecution` are configured without the acknowledgement. Setting `TryItHostExecution = true` without an executor remains valid, preserves `hostExecution.available: false`, and leaves the execute route unregistered (`404`).
+
+When `TryItHostExecution`, `HostExecutionProtected`, and a real `HostExecution` are configured, FlexDoc registers `POST /docs/__flexdoc/execute` and truthfully advertises `hostExecution.available: true`. Protect both `/docs` and `/docs/**` with the application's normal authorization policy before setting the acknowledgement. The exact-origin allowlist and `X-FlexDoc-Execute: 1` are execution controls, not user authentication.
 
 The ASP.NET Core host consumes the same canonical JSON or multipart envelope used by the Node/JVM/Python/Go hosts and FlexDoc Runner. It requires `X-FlexDoc-Execute: 1`, accepts only explicitly allowlisted HTTP(S) origins, strips unsafe transport headers, revalidates same-origin redirects, bounds incoming envelopes to 32 MiB and responses to 10 MiB, and enforces a full-response deadline. Basic, Bearer, OAuth2 bearer-token, and header/query API-key request auth are supported as request-draft features.
+
+The execute endpoint disables Kestrel's lower default request-body ceiling **for that route only** so FlexDoc's own 32 MiB bounded reader remains the deterministic application limit. Reverse proxies, gateways, or application middleware may intentionally enforce a smaller limit; those remain deployment-owned boundaries.
 
 This first .NET slice intentionally advertises an empty host-only capability list. Session cookie jars, client certificates, Digest, Hawk, NTLM/Negotiate, OAuth 1.0, and AWS Signature V4 remain unavailable until implemented natively.
 
@@ -86,4 +91,4 @@ app.MapFlexDoc(options =>
 
 The runtime endpoint is `GET /docs/__flexdoc/runtime`, returns `Cache-Control: no-store`, and reports ASP.NET Core/.NET metadata, request-derived server origin, implemented-but-undocumented routes, documented-but-not-observed routes, and discovery completeness.
 
-Runtime discovery can expose intentionally undocumented endpoints. The ASP.NET Core adapter currently relies on application authorization middleware or upstream access control rather than a FlexDoc-native docs-auth option, so protect the docs subtree before enabling Runtime Intelligence on non-private documentation.
+Runtime discovery can expose intentionally undocumented endpoints. The ASP.NET Core adapter relies on application authorization middleware or upstream access control rather than a FlexDoc-native docs-auth option, so protect the docs subtree before enabling Runtime Intelligence on non-private documentation.
