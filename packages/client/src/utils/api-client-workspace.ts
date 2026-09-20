@@ -70,6 +70,7 @@ export interface ApiClientHistoryEntry {
   /** Ordered response headers retained in history. */ responseHeaders?: Array<[string, string]>;
   /** Response body retained up to the workspace history size cap. */ responseBody?: string;
   /** Whether the stored response body was truncated to the history size cap. */ responseBodyTruncated?: boolean;
+  /** Whether the stored request body was truncated to the history size cap. */ requestBodyTruncated?: boolean;
   /** Collection-run id when the entry was produced by a runner. */ runId?: string;
   /** Collection-run display name. */ runName?: string;
   /** One-based request index within the run. */ runIndex?: number;
@@ -129,6 +130,7 @@ const STORE_NAME = 'workspaces';
 const DEFAULT_COLLECTION_NAME = 'My Collection';
 const HISTORY_LIMIT = 100;
 const HISTORY_RESPONSE_BODY_LIMIT = 256 * 1024;
+const HISTORY_REQUEST_BODY_LIMIT = 256 * 1024;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -408,6 +410,7 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     || (value.responseHeaders !== undefined && (!Array.isArray(value.responseHeaders) || !value.responseHeaders.every(isResponseHeader)))
     || (value.responseBody !== undefined && typeof value.responseBody !== 'string')
     || (value.responseBodyTruncated !== undefined && typeof value.responseBodyTruncated !== 'boolean')
+    || (value.requestBodyTruncated !== undefined && typeof value.requestBodyTruncated !== 'boolean')
     || (value.runId !== undefined && typeof value.runId !== 'string')
     || (value.runName !== undefined && typeof value.runName !== 'string')
     || !isOptionalFiniteNumber(value, 'runIndex')
@@ -438,6 +441,7 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     responseHeaders: Array.isArray(value.responseHeaders) ? value.responseHeaders.map(([key, headerValue]) => [key, headerValue] as [string, string]) : undefined,
     responseBody: typeof value.responseBody === 'string' ? value.responseBody : undefined,
     responseBodyTruncated: value.responseBodyTruncated === true ? true : undefined,
+    requestBodyTruncated: value.requestBodyTruncated === true ? true : undefined,
     runId: typeof value.runId === 'string' ? value.runId : undefined,
     runName: typeof value.runName === 'string' ? value.runName : undefined,
     runIndex: typeof value.runIndex === 'number' ? value.runIndex : undefined,
@@ -588,6 +592,37 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
 }
 
 /**
+ * Trim a cloned request draft's editable body fields to the history request-body budget.
+ *
+ * The budget is shared across every body field rather than applied per field, so a request
+ * cannot persist several times the cap by spreading payload across raw text, form rows and
+ * GraphQL variables. Host execution accepts 32 MiB envelopes, so an uncapped draft would
+ * otherwise reach IndexedDB verbatim. `binary` carries no payload here: `cloneRequestDraft`
+ * drops the `File`, leaving only bounded file-name/content-type metadata.
+ */
+function capHistoryRequestBody(request: HttpRequestDraft): { request: HttpRequestDraft; truncated: boolean } {
+  let remaining = HISTORY_REQUEST_BODY_LIMIT;
+  let truncated = false;
+  const take = (value: string): string => {
+    if (value.length <= remaining) {
+      remaining -= value.length;
+      return value;
+    }
+    const kept = value.slice(0, remaining);
+    remaining = 0;
+    truncated = true;
+    return kept;
+  };
+
+  const capped = { ...request };
+  if (capped.body !== undefined) capped.body = take(capped.body);
+  if (capped.graphql) capped.graphql = { query: take(capped.graphql.query), variables: take(capped.graphql.variables) };
+  if (capped.urlencoded) capped.urlencoded = capped.urlencoded.map((entry) => ({ ...entry, value: take(entry.value) }));
+  if (capped.formData) capped.formData = capped.formData.map((entry) => ({ ...entry, value: take(entry.value) }));
+  return { request: capped, truncated };
+}
+
+/**
  * Prepend one execution to history while cloning inputs and enforcing response/history caps.
  * @param workspace Workspace to update.
  * @param input History payload without generated id/timestamp.
@@ -596,11 +631,13 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
 export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, input: ApiClientHistoryInput): ApiClientWorkspaceState {
   const responseBody = input.responseBody === undefined ? undefined : input.responseBody.slice(0, HISTORY_RESPONSE_BODY_LIMIT);
   const responseBodyTruncated = input.responseBodyTruncated === true || (input.responseBody?.length || 0) > HISTORY_RESPONSE_BODY_LIMIT;
+  const cappedRequest = capHistoryRequestBody(cloneRequestDraft(input.request));
   const entry: ApiClientHistoryEntry = {
     id: createApiClientId('history'),
     collectionId: input.collectionId,
     folderId: input.folderId,
-    request: cloneRequestDraft(input.request),
+    request: cappedRequest.request,
+    ...(cappedRequest.truncated ? { requestBodyTruncated: true } : {}),
     ...(input.scripts ? { scripts: cloneApiClientScripts(input.scripts) } : {}),
     executedMethod: input.executedMethod,
     resolvedUrl: input.resolvedUrl,
