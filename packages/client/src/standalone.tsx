@@ -50,12 +50,13 @@ export function prepareSpec(source: OpenAPISpec, options: StandaloneFlexDocOptio
   const tagToGroup = new Map<string, string>();
   for (const group of options.tagGroups) for (const tag of group.tags) tagToGroup.set(tag, group.name);
   const paths: OpenAPISpec['paths'] = {};
+  const methods = new Set(['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace']);
 
   for (const [path, pathItem] of Object.entries(spec.paths)) {
     const nextPathItem: typeof pathItem = {};
     let includedOperation = false;
     for (const [key, value] of Object.entries(pathItem)) {
-      if (!['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'].includes(key)) { (nextPathItem as Record<string, unknown>)[key] = value; continue; }
+      if (!methods.has(key)) { (nextPathItem as Record<string, unknown>)[key] = value; continue; }
       const operation = value as { tags?: string[] } | undefined;
       const groupedTags = (operation?.tags || []).filter((tag) => tagToGroup.has(tag)).map((tag) => tagToGroup.get(tag) as string);
       if (!groupedTags.length || !operation) continue;
@@ -75,6 +76,15 @@ function resolveTheme(options: StandaloneFlexDocOptions): 'light' | 'dark' {
   return 'light';
 }
 
+function ensureFavicon(options: StandaloneFlexDocOptions): void {
+  if (typeof document === 'undefined' || !options.favicon) return;
+  const existing = document.querySelector<HTMLLinkElement>('link[rel~="icon"]');
+  const link = existing || document.createElement('link');
+  link.rel = 'icon';
+  link.href = options.favicon;
+  if (!existing) document.head.appendChild(link);
+}
+
 function mountRoot(element: Element, child: ReactNode): () => void {
   const existingRoot = roots.get(element);
   if (existingRoot) existingRoot.unmount();
@@ -85,6 +95,7 @@ function mountRoot(element: Element, child: ReactNode): () => void {
 }
 
 function renderFlexDoc(element: Element, source: OpenAPISpec, options: StandaloneFlexDocOptions): () => void {
+  ensureFavicon(options);
   return mountRoot(element, <FlexDoc spec={prepareSpec(source, options)} theme={resolveTheme(options)} options={options} />);
 }
 

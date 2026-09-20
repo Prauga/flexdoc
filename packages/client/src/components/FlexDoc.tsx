@@ -23,6 +23,7 @@ import { createDefaultApiClientPersistenceKey } from '../utils/api-client-worksp
 import { FlexDocCommandPalette } from './FlexDocCommandPalette';
 import { FlexDocSettings } from './FlexDocSettings';
 import { RuntimeIntelligencePanel } from './RuntimeIntelligencePanel';
+import { FlexDocMark } from './FlexDocMark';
 import { ApiClientWorkspace } from './ApiClientWorkspace';
 import type { ApiClientWorkspaceChromeState, ApiClientWorkspaceHandoff } from './ApiClientWorkspace';
 import type { TryItApiClientHandoff } from './TryItApiClientWorkspace';
@@ -421,7 +422,7 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
           </> : <>
             {mobileNavButton()}
             <button type='button' className='hidden h-11 w-11 items-center justify-center rounded-md border lg:inline-flex' aria-label={desktopSidebarCollapsed ? 'Expand API navigation sidebar' : 'Collapse API navigation sidebar'} aria-expanded={!desktopSidebarCollapsed} onClick={toggleDesktopSidebar}>{desktopSidebarCollapsed ? <PanelLeftOpen className='h-5 w-5' /> : <PanelLeftClose className='h-5 w-5' />}</button>
-            {options.logo && <Logo logo={options.logo} onHome={handleHome} />}
+            {options.logo ? <Logo logo={options.logo} onHome={handleHome} /> : <button type='button' aria-label='Documentation home' onClick={handleHome}><FlexDocMark /></button>}
             <div className='min-w-0 flex-1'>
               <div className='truncate font-semibold'>{spec.info.title}</div>
               {!options.hideHostname && spec.servers?.[0]?.url && <div className='truncate text-xs opacity-60'>{spec.servers[0].url}</div>}
