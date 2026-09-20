@@ -3,7 +3,7 @@ import { ExternalLink, Play, Loader2, AlertCircle } from 'lucide-react';
 import { OpenAPISpec, Operation } from '../types/openapi';
 import { FlexDocRendererOptions } from '../types/options';
 import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
-import { apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
+import { apiClientCorsFailureHint, apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
 import { diagnoseApiClientHostExecutionFailure } from '../utils/api-client-host-preflight';
 import type { ApiClientExecutionResponse } from '../utils/api-client-execution';
 import { requestDraftFromBuiltRequest } from '../utils/http-client';
@@ -109,8 +109,9 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
     setLoading(true); setError(null); setResponse(null);
     try {
       const request = buildRequest(spec, path, method, valuesRef.current);
+      const executionDraft = requestDraftFromBuiltRequest(request);
       const outcome = await executeApiClientRequest({
-        request: requestDraftFromBuiltRequest(request),
+        request: executionDraft,
         credentials: options?.tryIt?.credentials || 'same-origin',
         requestInterceptor: options?.tryIt?.requestInterceptor,
         hostExecution: options?.tryIt?.hostExecution,
@@ -121,6 +122,8 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
         const diagnostic = await diagnoseApiClientHostExecutionFailure(hostEndpoint);
         if (diagnostic) displayedError = `${displayedError} ${diagnostic}`;
       }
+      const corsHint = apiClientCorsFailureHint(outcome, executionDraft, options?.tryIt?.hostExecution);
+      if (displayedError && corsHint) displayedError = `${displayedError} ${corsHint}`;
       if (displayedError) setError(displayedError);
       if (outcome.response) setResponse(outcome.response);
     } catch (cause) {
