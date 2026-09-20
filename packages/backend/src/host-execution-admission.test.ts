@@ -64,7 +64,7 @@ describe('host-execution admission', () => {
       name: 'flexdoc_execute_rejections_total',
       kind: 'counter',
       value: 1,
-      labels: { source: 'admission', statusCode: 429 },
+      labels: { source: 'admission', statusCode: 429, reason: 'admission-saturated' },
     }]);
 
     first.emit('finish');

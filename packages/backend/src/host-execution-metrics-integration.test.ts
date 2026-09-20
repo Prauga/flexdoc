@@ -33,7 +33,7 @@ describe('host execution metric isolation', () => {
       name: 'flexdoc_execute_rejections_total',
       kind: 'counter',
       value: 1,
-      labels: { source: 'route', statusCode: 403 },
+      labels: { source: 'route', statusCode: 403, reason: 'destination-forbidden' },
     });
     expect(JSON.stringify(metrics)).not.toContain('secret-derived-label');
   });
