@@ -13,11 +13,17 @@ import (
 
 func main() {
 	mode := os.Getenv("FLEXDOC_BENCH_MODE")
-	if mode == "" { mode = "baseline" }
+	if mode == "" {
+		mode = "baseline"
+	}
 	port, _ := strconv.Atoi(os.Getenv("FLEXDOC_BENCH_PORT"))
-	if port == 0 { port = 5810 }
+	if port == 0 {
+		port = 5810
+	}
 	origin := os.Getenv("FLEXDOC_BENCH_ORIGIN")
-	if origin == "" { origin = fmt.Sprintf("http://127.0.0.1:%d", port) }
+	if origin == "" {
+		origin = fmt.Sprintf("http://127.0.0.1:%d", port)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
@@ -32,22 +38,24 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"openapi": "3.0.3",
-			"info": map[string]any{"title": "FlexDoc host-impact benchmark", "version": "1.0.0"},
-			"paths": map[string]any{"/target": map[string]any{"get": map[string]any{"responses": map[string]any{"200": map[string]any{"description": "ok"}}}}},
+			"info":    map[string]any{"title": "FlexDoc host-impact benchmark", "version": "1.0.0"},
+			"paths":   map[string]any{"/target": map[string]any{"get": map[string]any{"responses": map[string]any{"200": map[string]any{"description": "ok"}}}}},
 		})
 	})
 
 	if mode != "baseline" {
 		config := flexdoc.Config{
-			Path: "/docs",
-			SpecURL: "/openapi.json",
-			Title: "FlexDoc host-impact benchmark",
-			TryItEnabled: true,
+			Path:               "/docs",
+			SpecURL:            "/openapi.json",
+			Title:              "FlexDoc host-impact benchmark",
+			TryItEnabled:       true,
 			TryItDefaultServer: origin,
 		}
 		if mode == "host" {
 			executor, err := flexdoc.NewHostExecution([]string{origin})
-			if err != nil { log.Fatal(err) }
+			if err != nil {
+				log.Fatal(err)
+			}
 			config.TryItHostExecution = true
 			config.HostExecutionProtected = true
 			config.HostExecution = executor
@@ -58,5 +66,7 @@ func main() {
 	}
 
 	server := &http.Server{Addr: fmt.Sprintf("127.0.0.1:%d", port), Handler: mux}
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed { log.Fatal(err) }
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatal(err)
+	}
 }
