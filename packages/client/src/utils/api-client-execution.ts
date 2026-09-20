@@ -1,5 +1,6 @@
 import { buildHttpRequest, httpHostExecutionRequirements, inferHttpBodyMode, resolveHttpRequestDraftVariables } from './http-client';
 import { cloneApiClientScripts, runApiClientScript } from './api-client-scripting';
+import { recordApiClientTransportOutcome } from './api-client-transport-observation';
 import type { FlexDocHostExecutionPublicOptions } from '../types/options';
 import type { HttpAuth, HttpHostExecutionCapability, HttpRequestDraft, HttpVariables } from './http-client';
 import type {
@@ -281,6 +282,14 @@ async function hostExecutionBody(draft: HttpRequestDraft): Promise<{ body: BodyI
  * @returns Execution outcome containing transport data, script results, and a history-ready result when applicable.
  */
 export async function executeApiClientRequest(options: ExecuteApiClientRequestOptions): Promise<ApiClientExecutionOutcome> {
+  const outcome = await runApiClientExecution(options);
+  // Single choke point: every exit of the execution below returns through here,
+  // including the failure paths, so the aggregate cannot silently undercount.
+  recordApiClientTransportOutcome(outcome);
+  return outcome;
+}
+
+async function runApiClientExecution(options: ExecuteApiClientRequestOptions): Promise<ApiClientExecutionOutcome> {
   const historyRequest = cloneDraft(options.request);
   const scripts = cloneApiClientScripts(options.scripts);
   const fetcher = options.fetcher || globalThis.fetch;
