@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Prauga.FlexDoc.AspNetCore;
 
-internal static class HostExecutionSecurityConformance
+internal static class HostExecutionHttpSecurityConformance
 {
     public static async Task RunAsync()
     {
