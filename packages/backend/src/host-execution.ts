@@ -4,6 +4,7 @@ import * as http from 'http';
 import * as https from 'https';
 import * as net from 'net';
 import { getPublicSuffix } from 'tldts';
+import { createHostExecutionTargetPolicy, isHostExecutionOriginAllowed, normalizeHostExecutionOrigin } from './shared/host-execution-policy';
 import type {
   FlexDocHostExecutionCapability,
   FlexDocHostExecutionOptions,
@@ -377,10 +378,10 @@ function collectOpenApiServerUrls(spec: any): string[] {
   return values;
 }
 
-function normalizedOrigin(value: string, base?: string): string | undefined {
+function resolvedHostExecutionOrigin(value: string, base?: string): string | undefined {
   try {
-    const url = base ? new URL(value, base) : new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:' ? url.origin : undefined;
+    const absolute = base ? new URL(value, base).toString() : value;
+    return normalizeHostExecutionOrigin(absolute);
   } catch { return undefined; }
 }
 
@@ -393,22 +394,17 @@ function normalizedOrigin(value: string, base?: string): string | undefined {
  */
 export function allowedHostExecutionOrigins(state: HostExecutionState, spec: any, docsOrigin?: string): Set<string> {
   const configured = state.options.allowedOrigins?.filter(Boolean);
-  const result = new Set<string>();
   if (configured?.length) {
-    for (const value of configured) {
-      const origin = normalizedOrigin(value);
-      if (origin) result.add(origin);
-    }
-    return result;
+    return new Set(createHostExecutionTargetPolicy({ allowedOrigins: configured }).allowedOrigins);
   }
 
   const servers = collectOpenApiServerUrls(spec);
   const values = servers.length ? servers : ['/'];
-  for (const value of values) {
-    const origin = normalizedOrigin(value, docsOrigin);
-    if (origin) result.add(origin);
-  }
-  return result;
+  const resolved = values.flatMap((value) => {
+    const origin = resolvedHostExecutionOrigin(value, docsOrigin);
+    return origin ? [origin] : [];
+  });
+  return new Set(createHostExecutionTargetPolicy({ allowedOrigins: resolved }).allowedOrigins);
 }
 
 function isMetadataAddress(hostname: string): boolean {
@@ -429,10 +425,11 @@ function isMetadataAddress(hostname: string): boolean {
  * @throws `HostExecutionForbiddenError` when the target violates host-execution policy.
  */
 export function assertHostExecutionUrlAllowed(url: URL, allowedOrigins: Set<string>): void {
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new HostExecutionForbiddenError(`Host execution only allows HTTP(S) URLs.`);
+  const policy = createHostExecutionTargetPolicy({ allowedOrigins: [...allowedOrigins] });
+  if (!policy.allowedProtocols.includes(url.protocol as 'http:' | 'https:')) throw new HostExecutionForbiddenError(`Host execution only allows HTTP(S) URLs.`);
   if (url.username || url.password) throw new HostExecutionForbiddenError('Host execution URLs cannot contain embedded credentials.');
   if (isMetadataAddress(url.hostname)) throw new HostExecutionForbiddenError('Host execution blocks link-local and cloud metadata endpoints.');
-  if (!allowedOrigins.has(url.origin)) throw new HostExecutionForbiddenError(`Origin ${url.origin} is not allowed for host execution.`);
+  if (!isHostExecutionOriginAllowed(url, policy)) throw new HostExecutionForbiddenError(`Origin ${url.origin} is not allowed for host execution.`);
 }
 
 /**
