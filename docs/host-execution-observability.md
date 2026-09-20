@@ -42,7 +42,8 @@ A completion event carries the same correlation fields plus:
 
 - `durationMs`;
 - `outcome: 'success' | 'rejected' | 'error'`;
-- optional FlexDoc execute-route `statusCode`.
+- optional FlexDoc execute-route `statusCode`;
+- optional `reason`, the stable category of a rejection or upstream failure.
 
 The canonical event type has **no URL, target hostname, query string, headers, request body, response body, cookies, certificate material, auth configuration, tokens, or arbitrary metadata bag**. Method metadata is restricted to FlexDoc's supported HTTP verb set; arbitrary method strings collapse to `UNKNOWN` rather than becoming telemetry. Deployment, service, environment, tenant, or fleet labels should be attached by the application/collector outside the FlexDoc event rather than expanding the default OSS payload.
 
@@ -58,7 +59,29 @@ Once a start event is emitted, FlexDoc emits one completion event:
 
 The completion `statusCode` is the **FlexDoc execute-route status**, not the target API's response status. A target API returning HTTP 404 or 500 can still be a successful host execution: FlexDoc reached the target and returns that target response inside the normal host-execution payload.
 
-Requests rejected before a valid execution exists—for example a missing `X-FlexDoc-Execute: 1` marker or an invalid envelope—do not emit the execution lifecycle pair. HTTP/access-layer monitoring can count those route-level rejections separately.
+Requests rejected before a valid execution exists—for example a missing `X-FlexDoc-Execute: 1` marker or an invalid envelope—do not emit the execution lifecycle pair, because no execution ever began. A missing marker is counted by its own metric instead (see below).
+
+## Reason categories
+
+Rejection messages interpolate request values such as target origins, form-field names and HTTP methods, so they are unbounded and unsafe as aggregation keys. `reason` gives every non-successful execution a stable, low-cardinality category instead:
+
+| Reason | Outcome | Meaning |
+|---|---|---|
+| `marker-missing` | — | Execute request without `X-FlexDoc-Execute: 1`; never enters the lifecycle. |
+| `execution-disabled` | `rejected` | Host execution is switched off for this mount. |
+| `admission-saturated` | — | Rejected by admission capacity before lifecycle start. |
+| `destination-forbidden` | `rejected` | Target scheme, embedded credentials, allowlist, or link-local/metadata policy. |
+| `redirect-forbidden` | `rejected` | Redirect depth exceeded, or a cross-origin redirect. |
+| `body-malformed` | `rejected` | Envelope or multipart structure could not be parsed. |
+| `body-too-large` | `rejected` | Request exceeded the 32 MiB safety limit. |
+| `unsupported-media-type` | `rejected` | Content type was neither JSON nor multipart. |
+| `request-invalid` | `rejected` | Envelope parsed but the request was unusable, such as an unsupported method or unknown certificate id. |
+| `auth-unsupported` | `rejected` | Requested auth scheme or challenge variant is not implemented. |
+| `upstream-timeout` | `error` | Target did not answer within the request timeout. |
+| `upstream-unreachable` | `error` | Connection to the target failed at the socket level. |
+| `upstream-error` | `error` | Any other failure in the validated upstream path. |
+
+The categories are a closed set. `isHostExecutionReason` validates a value and `hostExecutionReasons` returns them in reporting order.
 
 ## Operator metric contract
 
@@ -71,7 +94,9 @@ The contract currently uses these Prometheus-style names:
 | `flexdoc_execute_requests_total` | counter | Validated host executions that entered the lifecycle. Derive QPS with `rate(...)`/equivalent. |
 | `flexdoc_execute_in_flight` | gauge delta | `+1` at validated execution start and `-1` exactly once at completion. |
 | `flexdoc_execute_completions_total{outcome}` | counter | Completed executions split only by `success`, `rejected`, or `error`. |
-| `flexdoc_execute_rejections_total{source,statusCode}` | counter | Validated route rejections (`400`/`403`) and admission-capacity rejections (`429`). |
+| `flexdoc_execute_rejections_total{source,statusCode,reason}` | counter | Validated route rejections (`400`/`403`) and admission-capacity rejections (`429`), categorized. |
+| `flexdoc_execute_errors_total{reason}` | counter | Validated executions that failed upstream, split by timeout, unreachable, or other. |
+| `flexdoc_execute_unmarked_total{reason}` | counter | Execute requests missing the marker header. Deliberately outside the lifecycle. |
 | `flexdoc_execute_duration_seconds{outcome}` | histogram observation | End-to-end validated host-execution duration in seconds. |
 
 The metric contract intentionally contains **no `executionId`, HTTP method, URL/host, route path, target status, headers, body, credential, user, tenant, or arbitrary label bag**. This keeps the default cardinality bounded and avoids turning operator metrics into a side channel for request data. Applications may add deployment/service identity in their own collector when those labels are already controlled and bounded.
@@ -102,7 +127,29 @@ setupFlexDoc(app, '/docs', {
 });
 ```
 
-`flexdoc_execute_requests_total` starts only after the execution marker and envelope are valid. Admission `429` is therefore represented by the separate rejection counter and is not double-counted as a validated execution. Missing markers and malformed pre-envelope requests remain HTTP/access-layer signals rather than lifecycle metrics.
+`flexdoc_execute_requests_total` starts only after the execution marker and envelope are valid. Admission `429` is therefore represented by the separate rejection counter and is not double-counted as a validated execution. Unmarked requests are counted by `flexdoc_execute_unmarked_total` and move no lifecycle metric: they produced no validated envelope, so counting them as executions would report work that never happened and would let unvalidated traffic distort execution rates. Malformed pre-envelope requests remain HTTP/access-layer signals.
+
+## Aggregate observation export
+
+Bridging to Prometheus is the right answer for a deployment that already runs one. Where no metrics stack exists — or where a post-release review needs a single artifact rather than a live scrape — `createHostExecutionObservationRecorder` aggregates the same metric updates in-process, and `createHostExecutionObservationReport` turns a snapshot into a stable document.
+
+```ts
+const recorder = createHostExecutionObservationRecorder();
+
+setupFlexDoc(app, '/docs', {
+  spec,
+  options: { tryIt: { hostExecution: { allowedOrigins, onHostExecutionMetric: recorder.sink } } },
+});
+
+// Whenever an operator asks for evidence:
+const report = createHostExecutionObservationReport(recorder.snapshot());
+```
+
+The snapshot reports the window bounds, started executions, unmarked requests, completions by outcome, current and peak concurrency, rejection and upstream-failure counts per reason, and the duration distribution as min/p50/p95/p99/max.
+
+Durations are retained up to `durationSampleCapacity` (8192 by default) and then replaced by reservoir sampling, so memory stays bounded on a host that runs indefinitely while percentiles still describe the whole window rather than only its opening. `sampled` says which of the two happened; counts are always exact.
+
+The report carries only counts, timestamps and category names, so it is safe to write to disk or hand to an operator as-is. It also declares what an API host structurally cannot observe: browser-direct executions never reach the host, so the browser / API-host / host-required transport mix cannot be derived here, and the document says so in `gaps` rather than omitting it silently. FlexDoc neither writes nor transmits this document; producing and storing it is entirely the application's decision.
 
 Metric delivery follows the same safety rule as lifecycle hooks: it is **best effort and non-fatal**. Returned promises are not awaited, synchronous throws/rejections are ignored by the request path, and synchronous collector work still runs inline. Keep the sink short and delegate expensive export work to the application's normal telemetry path.
 

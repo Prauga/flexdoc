@@ -13,9 +13,11 @@ import type { HostExecutionState, ParsedHostExecutionEnvelope, HostExecutionUplo
 import {
   createHostExecutionCompleteMetricUpdates,
   createHostExecutionStartMetricUpdates,
+  createHostExecutionUnmarkedMetricUpdate,
   emitHostExecutionMetricUpdates,
 } from './host-execution-metrics';
-import { createHostExecutionCompleteEvent, createHostExecutionStartEvent } from './host-execution-observability';
+import { createHostExecutionCompleteEvent, createHostExecutionStartEvent, isHostExecutionReason } from './host-execution-observability';
+import type { FlexDocHostExecutionReason } from './host-execution-observability';
 
 const MAX_EXECUTION_REQUEST_BYTES = 32 * 1024 * 1024;
 
@@ -73,21 +75,21 @@ function asBuffer(value: unknown): Buffer {
 }
 
 function jsonObject(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new HostExecutionBadRequestError('Host execution body must be a JSON object.');
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new HostExecutionBadRequestError('Host execution body must be a JSON object.', 'body-malformed');
   return value as Record<string, unknown>;
 }
 
 function validateEnvelope(value: unknown): ParsedHostExecutionEnvelope {
   const object = jsonObject(value);
-  if (!object.request || typeof object.request !== 'object' || Array.isArray(object.request)) throw new HostExecutionBadRequestError('Host execution body requires a canonical request draft.');
+  if (!object.request || typeof object.request !== 'object' || Array.isArray(object.request)) throw new HostExecutionBadRequestError('Host execution body requires a canonical request draft.', 'body-malformed');
   return object as unknown as ParsedHostExecutionEnvelope;
 }
 
 function multipartBoundary(contentType: string): string {
   const match = /(?:^|;)\s*boundary=(?:"([^"]+)"|([^;\s]+))/i.exec(contentType);
   const boundary = match?.[1] || match?.[2];
-  if (!boundary) throw new HostExecutionBadRequestError('Multipart host execution is missing a boundary.');
-  if (boundary.length > 200) throw new HostExecutionBadRequestError('Multipart boundary is too long.');
+  if (!boundary) throw new HostExecutionBadRequestError('Multipart host execution is missing a boundary.', 'body-malformed');
+  if (boundary.length > 200) throw new HostExecutionBadRequestError('Multipart boundary is too long.', 'body-malformed');
   return boundary;
 }
 
@@ -115,13 +117,13 @@ export function parseHostExecutionRequestBody(contentType: string | undefined, i
   if (mediaType === 'application/json') {
     if (incoming && typeof incoming === 'object' && !Buffer.isBuffer(incoming) && !(incoming instanceof Uint8Array)) return validateEnvelope(incoming);
     const raw = asBuffer(incoming).toString('utf8').trim();
-    if (!raw) throw new HostExecutionBadRequestError('Host execution request body is empty.');
+    if (!raw) throw new HostExecutionBadRequestError('Host execution request body is empty.', 'body-malformed');
     try { return validateEnvelope(JSON.parse(raw)); } catch (error) {
       if (error instanceof HostExecutionBadRequestError) throw error;
-      throw new HostExecutionBadRequestError('Host execution request body is not valid JSON.');
+      throw new HostExecutionBadRequestError('Host execution request body is not valid JSON.', 'body-malformed');
     }
   }
-  if (mediaType !== 'multipart/form-data') throw new HostExecutionBadRequestError('Host execution requires application/json or multipart/form-data.');
+  if (mediaType !== 'multipart/form-data') throw new HostExecutionBadRequestError('Host execution requires application/json or multipart/form-data.', 'unsupported-media-type');
 
   const body = asBuffer(incoming);
   const boundary = Buffer.from(`--${multipartBoundary(contentType || '')}`, 'utf8');
@@ -138,14 +140,14 @@ export function parseHostExecutionRequestBody(contentType: string | undefined, i
     if (body.subarray(end - 2, end).toString('ascii') === '\r\n') end -= 2;
     const part = body.subarray(start, end);
     const headerEnd = part.indexOf(Buffer.from('\r\n\r\n', 'ascii'));
-    if (headerEnd < 0) throw new HostExecutionBadRequestError('Malformed multipart host execution part.');
+    if (headerEnd < 0) throw new HostExecutionBadRequestError('Malformed multipart host execution part.', 'body-malformed');
     const headers = part.subarray(0, headerEnd).toString('utf8');
     const data = part.subarray(headerEnd + 4);
     const name = dispositionValue(headers, 'name');
     if (name === 'descriptor') {
       try { descriptor = validateEnvelope(JSON.parse(data.toString('utf8'))); } catch (error) {
         if (error instanceof HostExecutionBadRequestError) throw error;
-        throw new HostExecutionBadRequestError('Multipart host execution descriptor is not valid JSON.');
+        throw new HostExecutionBadRequestError('Multipart host execution descriptor is not valid JSON.', 'body-malformed');
       }
     } else {
       const match = /^formData\[(\d+)\]$/.exec(name || '');
@@ -157,7 +159,7 @@ export function parseHostExecutionRequestBody(contentType: string | undefined, i
     }
     cursor = next;
   }
-  if (!descriptor) throw new HostExecutionBadRequestError('Multipart host execution requires a descriptor part.');
+  if (!descriptor) throw new HostExecutionBadRequestError('Multipart host execution requires a descriptor part.', 'body-malformed');
   descriptor.formDataFiles = files;
   return descriptor;
 }
@@ -174,7 +176,7 @@ export async function readNodeRequestBody(request: IncomingMessage): Promise<Buf
   for await (const chunk of request) {
     const buffer = Buffer.from(chunk);
     size += buffer.length;
-    if (size > MAX_EXECUTION_REQUEST_BYTES) throw new HostExecutionBadRequestError('Host execution request exceeded the 32 MiB safety limit.');
+    if (size > MAX_EXECUTION_REQUEST_BYTES) throw new HostExecutionBadRequestError('Host execution request exceeded the 32 MiB safety limit.', 'body-too-large');
     chunks.push(buffer);
   }
   return Buffer.concat(chunks);
@@ -203,6 +205,17 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'API host execution failed.';
 }
 
+/** Socket-level failures that mean the target was never reached. */
+const UNREACHABLE_CODES = new Set(['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'EHOSTUNREACH', 'ENETUNREACH', 'ECONNRESET', 'EPIPE']);
+
+function errorReason(error: unknown): FlexDocHostExecutionReason {
+  const declared = (error as { reason?: unknown } | null)?.reason;
+  if (isHostExecutionReason(declared)) return declared;
+  const code = (error as { code?: unknown } | null)?.code;
+  if (typeof code === 'string' && UNREACHABLE_CODES.has(code)) return 'upstream-unreachable';
+  return 'upstream-error';
+}
+
 function emitHostExecutionEvent<T>(hook: ((event: T) => void | Promise<void>) | undefined, event: T): void {
   if (!hook) return;
   try {
@@ -210,6 +223,19 @@ function emitHostExecutionEvent<T>(hook: ((event: T) => void | Promise<void>) | 
   } catch {
     // Observability hooks are best-effort and must never alter request execution.
   }
+}
+
+/**
+ * Reject an execute attempt that is missing the required marker header.
+ *
+ * Counted, but kept outside the execution lifecycle: the request never produced
+ * a validated envelope, so emitting start/completion hooks or moving in-flight
+ * totals here would report work that never happened and would let unvalidated
+ * traffic distort execution metrics. Only the standalone unmarked counter moves.
+ */
+function rejectUnmarkedExecution(state: HostExecutionState): HostExecutionRouteResult {
+  emitHostExecutionMetricUpdates(state.options.onHostExecutionMetric, [createHostExecutionUnmarkedMetricUpdate()]);
+  return response(403, { error: 'Missing X-FlexDoc-Execute header.' });
 }
 
 /** Input accepted by the framework-neutral host-execution POST route helper. */
@@ -227,7 +253,7 @@ export interface RunHostExecutionRouteInput {
  * @returns JSON route response. Known execution errors are translated to 400/403; upstream failures become 502.
  */
 export async function runHostExecutionRoute(input: RunHostExecutionRouteInput): Promise<HostExecutionRouteResult> {
-  if (headerValue(input.headers, 'X-FlexDoc-Execute') !== '1') return response(403, { error: 'Missing X-FlexDoc-Execute header.' });
+  if (headerValue(input.headers, 'X-FlexDoc-Execute') !== '1') return rejectUnmarkedExecution(input.state);
   let session: { sessionId: string; setCookie?: string } = { sessionId: '' };
   let observation: { executionId: string; method: string; startedAt: number } | undefined;
   try {
@@ -268,6 +294,7 @@ export async function runHostExecutionRoute(input: RunHostExecutionRouteInput): 
         durationMs: Date.now() - observation.startedAt,
         outcome: status >= 500 ? 'error' : 'rejected',
         statusCode: status,
+        reason: errorReason(error),
       });
       emitHostExecutionMetricUpdates(input.state.options.onHostExecutionMetric, createHostExecutionCompleteMetricUpdates(completeEvent));
       emitHostExecutionEvent(input.state.options.onHostExecutionComplete, completeEvent);

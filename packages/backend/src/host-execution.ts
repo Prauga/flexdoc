@@ -5,6 +5,7 @@ import * as https from 'https';
 import * as net from 'net';
 import { getPublicSuffix } from 'tldts';
 import { createHostExecutionTargetPolicy, isHostExecutionOriginAllowed, normalizeHostExecutionOrigin } from './shared/host-execution-policy';
+import type { FlexDocHostExecutionReason } from './host-execution-observability';
 import type {
   FlexDocHostExecutionCapability,
   FlexDocHostExecutionOptions,
@@ -120,11 +121,29 @@ interface CookieRecord {
 }
 
 /** Error raised when a host-execution request violates SSRF/origin/redirect safety policy. */
-export class HostExecutionForbiddenError extends Error {}
+export class HostExecutionForbiddenError extends Error {
+  constructor(message: string, readonly reason: FlexDocHostExecutionReason = 'destination-forbidden') {
+    super(message);
+  }
+}
 /** Error raised when a requested host-execution capability or protocol variant is not implemented. */
-export class HostExecutionUnsupportedError extends Error {}
+export class HostExecutionUnsupportedError extends Error {
+  constructor(message: string, readonly reason: FlexDocHostExecutionReason = 'auth-unsupported') {
+    super(message);
+  }
+}
 /** Error raised when the browser supplied an invalid host-execution request envelope. */
-export class HostExecutionBadRequestError extends Error {}
+export class HostExecutionBadRequestError extends Error {
+  constructor(message: string, readonly reason: FlexDocHostExecutionReason = 'request-invalid') {
+    super(message);
+  }
+}
+/** Error raised when the upstream target did not answer, or did not answer in time. */
+export class HostExecutionUpstreamError extends Error {
+  constructor(message: string, readonly reason: FlexDocHostExecutionReason = 'upstream-error') {
+    super(message);
+  }
+}
 
 /** Mutable server-side state shared by host-execution routes for one FlexDoc mount. */
 export interface HostExecutionState {
@@ -511,7 +530,7 @@ function prepareBody(draft: HostExecutionRequestDraft, envelope: ParsedHostExecu
   const mode = inferBodyMode(draft);
   if (mode === 'none') return {};
   if (mode === 'binary') {
-    if (!envelope.bodyBase64) throw new HostExecutionBadRequestError('Binary host execution requires bodyBase64.');
+    if (!envelope.bodyBase64) throw new HostExecutionBadRequestError('Binary host execution requires bodyBase64.', 'body-malformed');
     return { body: Buffer.from(envelope.bodyBase64, 'base64'), contentType: draft.contentType || draft.binary?.contentType || 'application/octet-stream' };
   }
   if (mode === 'formdata') return multipartBody(draft, envelope.formDataFiles);
@@ -720,7 +739,7 @@ function requestOnce(url: URL, method: string, headers: HeaderEntry[], body: Buf
       response.on('error', reject);
     });
     request.on('error', reject);
-    request.setTimeout(timeoutMs, () => request.destroy(new Error(`Host request timed out after ${timeoutMs} ms.`)));
+    request.setTimeout(timeoutMs, () => request.destroy(new HostExecutionUpstreamError(`Host request timed out after ${timeoutMs} ms.`, 'upstream-timeout')));
     if (body) request.write(body);
     request.end();
     void started;
@@ -819,9 +838,9 @@ async function sendPrepared(
     if (envelope.cookieJar === 'session' && raw.setCookies.length) storeSetCookies(state, sessionId, interceptedUrl, raw.setCookies);
 
     if (raw.status >= 300 && raw.status < 400 && raw.location) {
-      if (redirectCount >= MAX_REDIRECTS) throw new HostExecutionForbiddenError('Host execution stopped after too many redirects.');
+      if (redirectCount >= MAX_REDIRECTS) throw new HostExecutionForbiddenError('Host execution stopped after too many redirects.', 'redirect-forbidden');
       const redirectUrl = new URL(raw.location, interceptedUrl);
-      if (redirectUrl.origin !== interceptedUrl.origin) throw new HostExecutionForbiddenError('Host execution does not follow cross-origin redirects.');
+      if (redirectUrl.origin !== interceptedUrl.origin) throw new HostExecutionForbiddenError('Host execution does not follow cross-origin redirects.', 'redirect-forbidden');
       assertHostExecutionUrlAllowed(redirectUrl, allowedOrigins);
       const redirectMethod = raw.status === 303 ? 'GET' : finalMethod;
       return executeAt(redirectUrl, redirectMethod, redirectCount + 1);
@@ -866,6 +885,6 @@ export async function executeHostRequest(
   envelope: ParsedHostExecutionEnvelope,
   context: HostExecutionRequestContext,
 ): Promise<HostExecutionResponse> {
-  if (!state.enabled) throw new HostExecutionUnsupportedError('Host execution is disabled on this documentation server.');
+  if (!state.enabled) throw new HostExecutionUnsupportedError('Host execution is disabled on this documentation server.', 'execution-disabled');
   return sendPrepared(state, envelope, context.spec, context.sessionId, context.docsOrigin);
 }

@@ -96,7 +96,7 @@ describe('host execution lifecycle hooks', () => {
       name: 'flexdoc_execute_rejections_total',
       kind: 'counter',
       value: 1,
-      labels: { source: 'route', statusCode: 403 },
+      labels: { source: 'route', statusCode: 403, reason: 'destination-forbidden' },
     });
     expect(JSON.stringify([...starts, ...completes, ...metrics])).not.toContain('blocked.example.test');
     expect(JSON.stringify([...starts, ...completes, ...metrics])).not.toContain('secret');
@@ -123,7 +123,65 @@ describe('host execution lifecycle hooks', () => {
     expect(result.status).toBe(403);
     expect(onHostExecutionStart).not.toHaveBeenCalled();
     expect(onHostExecutionComplete).not.toHaveBeenCalled();
-    expect(onHostExecutionMetric).not.toHaveBeenCalled();
+    expect(onHostExecutionMetric).toHaveBeenCalledTimes(1);
+    expect(onHostExecutionMetric).toHaveBeenCalledWith({
+      name: 'flexdoc_execute_unmarked_total',
+      kind: 'counter',
+      value: 1,
+      labels: { reason: 'marker-missing' },
+    });
+  });
+
+  it('categorizes a malformed envelope separately from a policy rejection', async () => {
+    const completes: FlexDocHostExecutionCompleteEvent[] = [];
+    const metrics: FlexDocHostExecutionMetricUpdate[] = [];
+    const state = createHostExecutionState({
+      allowedOrigins: ['https://api.example.test'],
+      onHostExecutionComplete: (event) => {
+        completes.push(event);
+      },
+      onHostExecutionMetric: (update) => {
+        metrics.push(update);
+      },
+    });
+
+    const result = await runHostExecutionRoute({ state, spec: {}, headers, body: { request: 'not-an-object' } });
+
+    expect(result.status).toBe(400);
+    expect(completes).toHaveLength(0);
+    expect(metrics).toHaveLength(0);
+  });
+
+  it('reports an unreachable target as an upstream failure rather than a rejection', async () => {
+    const completes: FlexDocHostExecutionCompleteEvent[] = [];
+    const metrics: FlexDocHostExecutionMetricUpdate[] = [];
+    // Port 1 on loopback refuses connections deterministically without network access.
+    const origin = 'http://127.0.0.1:1';
+    const state = createHostExecutionState({
+      allowedOrigins: [origin],
+      onHostExecutionComplete: (event) => {
+        completes.push(event);
+      },
+      onHostExecutionMetric: (update) => {
+        metrics.push(update);
+      },
+    });
+
+    const result = await runHostExecutionRoute({
+      state,
+      spec: {},
+      headers,
+      body: { request: { method: 'GET', url: origin } },
+    });
+
+    expect(result.status).toBe(502);
+    expect(completes[0]).toMatchObject({ outcome: 'error', statusCode: 502, reason: 'upstream-unreachable' });
+    expect(metrics).toContainEqual({
+      name: 'flexdoc_execute_errors_total',
+      kind: 'counter',
+      value: 1,
+      labels: { reason: 'upstream-unreachable' },
+    });
   });
 
   it('keeps observer and metric failures off the execution path', async () => {
