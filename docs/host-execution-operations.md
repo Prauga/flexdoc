@@ -102,6 +102,16 @@ The starter derives the execute mapping from normalized `flexdoc.path`. The filt
 
 For a multi-instance Spring deployment, use the gateway or the application's existing distributed rate limiter for per-user quotas and keep the filter as a local in-flight backstop. The JVM executor itself currently uses a bounded host-execution worker pool (**64 workers with a finite 256-request queue**) and a bounded Apache connection pool. Those internal bounds prevent unbounded executor growth; they are deliberately not exposed as caller quotas because only the surrounding application knows who the caller is and which users should share limits.
 
+## Security-suite discovery
+
+HTTP-boundary host-execution security suites use one cross-runtime naming stem: `HostExecutionHttpSecurity` (or the ecosystem's snake_case equivalent). A maintainer can discover one HTTP-boundary suite per supported adapter family with:
+
+```sh
+find adapters -type f | grep -Ei 'host[_A-Za-z]*execution[_A-Za-z]*http[_A-Za-z]*security'
+```
+
+Lower-level executor/policy tests may continue to use broader `host_execution_security` naming; the `http` stem is reserved for framework/route-boundary conformance.
+
 ## CSRF and cross-site requests
 
 Authentication and rate limiting do not replace CSRF policy. If the application uses cookie-authenticated documentation, either include the execute endpoint in the application's normal CSRF-token mechanism or narrowly exempt that one endpoint only when another same-origin/application control is intentionally used. Never disable CSRF globally just to enable FlexDoc.
