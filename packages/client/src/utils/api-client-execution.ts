@@ -1,7 +1,7 @@
 import { buildHttpRequest, httpHostExecutionRequirements, inferHttpBodyMode, resolveHttpRequestDraftVariables } from './http-client';
 import { cloneApiClientScripts, runApiClientScript } from './api-client-scripting';
 import type { FlexDocHostExecutionPublicOptions } from '../types/options';
-import type { HttpAuth, HttpRequestDraft, HttpVariables } from './http-client';
+import type { HttpAuth, HttpHostExecutionCapability, HttpRequestDraft, HttpVariables } from './http-client';
 import type {
   ApiClientRequestScripts,
   ApiClientScriptCollectionChange,
@@ -9,6 +9,27 @@ import type {
   ApiClientScriptTestResult,
 } from './api-client-scripting';
 import type { BuiltRequest } from './request-builder';
+
+/** Actual request transport used after policy and host requirements are resolved. */
+export type ApiClientTransport = 'browser' | 'api-host';
+/** Effective transport state shown before execution; host-required means browser execution is not valid. */
+export type ApiClientTransportMode = ApiClientTransport | 'host-required';
+
+/** Effective transport decision shared by API Client, Try It, and the executor. */
+export type ApiClientTransportDecision = readonly [
+  mode: ApiClientTransportMode,
+  available: boolean,
+  bodyHost: boolean,
+  missing: HttpHostExecutionCapability[],
+];
+
+/** Inputs used to resolve one request's effective transport. */
+export interface ResolveApiClientTransportOptions {
+  request: HttpRequestDraft;
+  hostExecution?: FlexDocHostExecutionPublicOptions;
+  preferHostExecution?: boolean;
+  additionalRequirements?: HttpHostExecutionCapability[];
+}
 
 /** Result of one API Client execution, including scripts, tests, and transport details. */
 export interface ApiClientExecutionResult {
@@ -34,6 +55,7 @@ export interface ApiClientExecutionResponse {
   /** Ordered response headers. */ headers: Array<[string, string]>;
   /** Response body decoded as text. */ body: string;
   /** Measured round-trip duration in milliseconds. */ responseTime: number;
+  /** Actual transport that produced this response. */ transport?: ApiClientTransport;
   /** Safe cookie metadata returned by API-host execution when available. */
   cookies?: Array<{ name: string; value: string; domain?: string; path?: string; httpOnly?: boolean }>;
 }
@@ -123,6 +145,45 @@ function curlCommandForTransport(url: string, init: RequestInit): string | undef
 function hostUnavailableMessage(missing: string[], hostExecution: FlexDocHostExecutionPublicOptions | undefined): string {
   if (!hostExecution?.available) return 'API-host execution is unavailable on this documentation server.';
   return `The API host does not support the required capability${missing.length === 1 ? '' : 'ies'}: ${missing.join(', ')}.`;
+}
+
+/** Resolve ordinary preference plus hard browser-incompatible requirements into one transport decision. */
+export function resolveApiClientTransport(options: ResolveApiClientTransportOptions): ApiClientTransportDecision {
+  const method = (options.request.method || 'GET').toUpperCase();
+  const requirements = [...new Set([...httpHostExecutionRequirements(options.request), ...(options.additionalRequirements || [])])];
+  const bodyHost = ['GET', 'HEAD'].includes(method) && inferHttpBodyMode(options.request) !== 'none';
+  const requestPreference = options.request.hostExecution?.preferHostExecution;
+  const serverPreference = options.hostExecution?.preferHostExecution;
+  const preferHostExecution = serverPreference === false
+    ? false
+    : options.preferHostExecution ?? requestPreference ?? serverPreference ?? true;
+  const capabilities = new Set(options.hostExecution?.capabilities || []);
+  const missing = requirements.filter((requirement) => !capabilities.has(requirement));
+  const hostRequired = requirements.length > 0 || bodyHost;
+  const available = options.hostExecution?.available === true && missing.length === 0;
+  return [
+    hostRequired ? 'host-required' : preferHostExecution && options.hostExecution?.available === true ? 'api-host' : 'browser',
+    available, bodyHost, missing,
+  ];
+}
+
+export function apiClientTransportLabel(mode: ApiClientTransportMode): string {
+  return mode === 'host-required' ? 'Host required' : mode === 'api-host' ? 'API host' : 'Browser';
+}
+
+export function apiClientTransportNotice(
+  decision: ApiClientTransportDecision,
+  hostExecution: FlexDocHostExecutionPublicOptions | undefined,
+  unsupported?: string,
+  disabled?: string,
+): string | null {
+  const [mode, available, , missing] = decision;
+  if (mode === 'host-required') {
+    if (available) return unsupported || 'The browser cannot send this request. FlexDoc will execute it from the API host.';
+    if (!hostExecution?.available) return disabled || 'API-host execution is unavailable on this documentation server.';
+    return hostUnavailableMessage(missing, hostExecution);
+  }
+  return mode === 'api-host' ? 'This request runs from your API server.' : null;
 }
 
 function base64FromBytes(bytes: Uint8Array): string {
@@ -221,16 +282,10 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
     executionDraft = resolveHttpRequestDraftVariables(executionDraft, executionVariables);
     executedMethod = (executionDraft.method || 'GET').toUpperCase();
     resolvedUrl = executionDraft.url;
-    const requirements = httpHostExecutionRequirements(executionDraft);
-    const bodyNeedsHostTransport = ['GET', 'HEAD'].includes(executedMethod) && inferHttpBodyMode(executionDraft) !== 'none';
-    const serializedPreference = (options.hostExecution as (FlexDocHostExecutionPublicOptions & { preferHostExecution?: boolean }) | undefined)?.preferHostExecution;
-    const preferHostExecution = options.preferHostExecution ?? serializedPreference ?? true;
-    const shouldUseHost = (preferHostExecution && options.hostExecution?.available === true) || requirements.length > 0 || bodyNeedsHostTransport;
+    const [transportMode, , , missing] = resolveApiClientTransport({ request: executionDraft, hostExecution: options.hostExecution, preferHostExecution: options.preferHostExecution });
     let apiResponse: ApiClientExecutionResponse;
 
-    if (shouldUseHost) {
-      const capabilities = new Set(options.hostExecution?.capabilities || []);
-      const missing = requirements.filter((requirement) => !capabilities.has(requirement));
+    if (transportMode !== 'browser') {
       if (!options.hostExecution?.available || missing.length > 0) {
         const error = hostUnavailableMessage(missing, options.hostExecution);
         return {
@@ -276,6 +331,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
         headers: responseHeaders,
         body: String(snapshot.body || ''),
         responseTime: typeof snapshot.responseTime === 'number' ? snapshot.responseTime : now() - startedAt,
+        transport: 'api-host',
         ...(cookies ? { cookies } : {}),
       };
     } else {
@@ -306,6 +362,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
         headers: [...response.headers.entries()],
         body,
         responseTime: now() - startedAt,
+        transport: 'browser',
       };
     }
 
