@@ -1098,26 +1098,22 @@ checksum = "439ee305def115ba05938db6eb1644ff94165c5ab5e9420d1c1bcedbba909391"
 
 [[package]]
 name = "prauga-flexdoc-actix"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9774e3ce37d0d263abe58e77ab9a5b0bfbd8f56a9e8e98df4efa0d14848591f1"
+checksum = "9dc37d0970503a10897c948f469ebefba59364fbff600eed9b5922a7101cc111"
 dependencies = [
  "actix-web",
- "base64",
  "futures-util",
  "multer",
  "prauga-flexdoc-host-execution",
- "reqwest",
  "serde_json",
- "tokio",
- "url",
 ]
 
 [[package]]
 name = "prauga-flexdoc-host-execution"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa5c34bd47d213afc63ca8fbe6cbe6b53945a5271ea6c3781509cb98da17fc68"
+checksum = "14cabac08ed933a26fb67b55634c3acc3cadae424dcf35e4a1154d25524c51be"
 dependencies = [
  "base64",
  "futures-util",
