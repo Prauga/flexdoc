@@ -12,6 +12,21 @@ import type { BuiltRequest } from './request-builder';
 
 /** Actual request transport used after policy and host requirements are resolved. */
 export type ApiClientTransport = 'browser' | 'api-host';
+
+const API_CLIENT_HOST_CAPABILITY_LABELS: Record<HttpHostExecutionCapability, string> = {
+  cookies: 'Cookie jar',
+  clientCertificates: 'Client certificates (mTLS)',
+  digest: 'Digest auth',
+  hawk: 'Hawk auth',
+  ntlm: 'NTLM auth',
+  oauth1: 'OAuth 1.0',
+  awsv4: 'AWS Signature V4',
+};
+
+/** User-facing label for one advertised API-host capability. */
+export function apiClientHostCapabilityLabel(capability: HttpHostExecutionCapability): string {
+  return API_CLIENT_HOST_CAPABILITY_LABELS[capability];
+}
 /** Effective transport state shown before execution; host-required means browser execution is not valid. */
 export type ApiClientTransportMode = ApiClientTransport | 'host-required';
 
@@ -143,9 +158,9 @@ function curlCommandForTransport(url: string, init: RequestInit): string | undef
   return parts.join(' \\\n');
 }
 
-function hostUnavailableMessage(missing: string[], hostExecution: FlexDocHostExecutionPublicOptions | undefined): string {
+function hostUnavailableMessage(missing: HttpHostExecutionCapability[], hostExecution: FlexDocHostExecutionPublicOptions | undefined): string {
   if (!hostExecution?.available) return 'API-host execution is unavailable on this documentation server.';
-  return `The API host does not support the required capability${missing.length === 1 ? '' : 'ies'}: ${missing.join(', ')}.`;
+  return `The API host does not support: ${missing.map(apiClientHostCapabilityLabel).join(', ')}.`;
 }
 
 /** Resolve ordinary preference plus hard browser-incompatible requirements into one transport decision. */
