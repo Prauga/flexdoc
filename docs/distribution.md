@@ -14,7 +14,7 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 | `com.prauga.flexdoc:flexdoc-jvm` | `0.9.0` | `java/v0.9.0` | Java 17+ framework-neutral renderer host; HX-03 protection acknowledgement |
 | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.9.0` | `java/v0.9.0` | Jakarta REST/JAX-RS transport over `flexdoc-jvm` |
 | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.9.0` | `java/v0.9.0` | Spring Boot 3 transport over `flexdoc-jvm`; HX-03 property binding |
-| `prauga-flexdoc` (PyPI) | `0.7.4` | `python/v0.7.4` | ASGI/WSGI adapter + embedded renderer |
+| `prauga-flexdoc` (PyPI) | `0.8.0` | `python/v0.8.0` | ASGI/WSGI adapter + embedded renderer |
 | `prauga/flexdoc` | `0.4.6` | `Prauga/flexdoc-php` `v0.4.6` | PHP 8.2+; Composer/Packagist distribution mirrored to `Prauga/flexdoc-php` |
 | `prauga-flexdoc` (RubyGems) | `0.4.6` | `ruby/v0.4.6` | Ruby 3.2+ Rack/Rails host + embedded renderer |
 | `prauga-flexdoc-host-execution` | `0.1.1` | `rust-host/v0.1.1` | shared Rust native host-execution engine |
@@ -25,7 +25,7 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 
 The table describes the versions encoded by the current source tree. A new source version is not considered published merely because it appears here; publication still requires its matching release workflow to complete successfully.
 
-Versions are intentionally independent across ecosystems. FlexDoc 3.3 advanced client/backend to `3.3.0`, the Java family to `0.9.0` and ASP.NET Core to `0.6.0`. The 3.3.1 coordinated patch release then advanced every package carrying a shipped change since its last tag: client/backend to `3.3.1`, `@prauga/flexdoc-core` to `0.5.2`, Python to `0.7.4`, PHP/Ruby/Elixir to `0.4.6`, Go to `0.5.6`, Axum to `0.5.6`, Actix to `0.4.6` and the shared Rust host-execution crate to `0.1.1`. The Java family, ASP.NET Core and `@prauga/flexdoc-cli` were unchanged and remain at `0.9.0`, `0.6.0` and `0.7.0`. The renderer contract, not matching package numbers, remains the cross-ecosystem compatibility boundary.
+Versions are intentionally independent across ecosystems. FlexDoc 3.3 advanced client/backend to `3.3.0`, the Java family to `0.9.0` and ASP.NET Core to `0.6.0`. The 3.3.1 coordinated patch release then advanced every package carrying a shipped change since its last tag: client/backend to `3.3.1`, `@prauga/flexdoc-core` to `0.5.2`, Python to `0.7.4`, PHP/Ruby/Elixir to `0.4.6`, Go to `0.5.6`, Axum to `0.5.6`, Actix to `0.4.6` and the shared Rust host-execution crate to `0.1.1`. The Java family, ASP.NET Core and `@prauga/flexdoc-cli` were unchanged and remain at `0.9.0`, `0.6.0` and `0.7.0`. Python then advanced again to `0.8.0` on its own track, which added host execution to the Flask, Django and generic WSGI transports. The renderer contract, not matching package numbers, remains the cross-ecosystem compatibility boundary.
 
 ## Self-contained adapter artifacts
 
