@@ -6,6 +6,7 @@ import { ApiClientBodyEditor } from './ApiClientBodyEditor';
 import { ApiClientResponseViewer } from './ApiClientResponseViewer';
 import { ApiClientScriptEditor } from './ApiClientScriptEditor';
 import { apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
+import { diagnoseApiClientHostExecutionFailure } from '../utils/api-client-host-preflight';
 import { buildHttpRequest, inferHttpBodyMode } from '../utils/http-client';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import { replaceRequestServer, requestUsesServer, resolveServerUrl } from '../utils/server-url';
@@ -357,7 +358,15 @@ export const ApiClient: React.FC<ApiClientProps> = ({
         onEnvironmentChanges,
       });
       if (controller.signal.aborted) { setError(messages?.requestCancelled || 'Request cancelled.'); return; }
-      setError(outcome.error || null);
+
+      let displayedError = outcome.error || null;
+      if (displayedError && outcome.result?.transport === 'api-host' && hostExecution?.endpoint) {
+        const diagnostic = await diagnoseApiClientHostExecutionFailure(hostExecution.endpoint, globalThis.fetch, controller.signal);
+        if (controller.signal.aborted) { setError(messages?.requestCancelled || 'Request cancelled.'); return; }
+        if (diagnostic) displayedError = `${displayedError} ${diagnostic}`;
+      }
+
+      setError(displayedError);
       setScriptError(outcome.scriptError || null);
       setScriptTests(outcome.scriptTests);
       setScriptLogs(outcome.scriptLogs);
