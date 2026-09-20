@@ -151,6 +151,32 @@ Durations are retained up to `durationSampleCapacity` (8192 by default) and then
 
 The report carries only counts, timestamps and category names, so it is safe to write to disk or hand to an operator as-is. It also declares what an API host structurally cannot observe: browser-direct executions never reach the host, so the browser / API-host / host-required transport mix cannot be derived here, and the document says so in `gaps` rather than omitting it silently. FlexDoc neither writes nor transmits this document; producing and storing it is entirely the application's decision.
 
+## The browser half: transport mix
+
+The gap the host document declares is closed from the browser, not the host. A browser-direct request goes straight from the tab to the target API, so no amount of host instrumentation can count it. `@prauga/flexdoc-client` therefore keeps a matching aggregate for the executions it performs:
+
+```ts
+import { apiClientTransportObservation, createApiClientTransportReport } from '@prauga/flexdoc-client';
+
+const report = createApiClientTransportReport(apiClientTransportObservation());
+```
+
+Every API Client and Try It execution is recorded through one choke point, so the aggregate counts failure paths as well as successes. Per transport it reports attempts, responses, failures, browser network/CORS failures, responses by status class, and duration percentiles. Executions that never reached a transport are counted separately under `unexecuted` as `host-unavailable`, `script-error` or `request-invalid`, which keeps a blocked request from being mistaken for a transport that misbehaved.
+
+API-host executions carry three duration series rather than one:
+
+| Series | Meaning |
+| --- | --- |
+| `totalDurations` | Elapsed time observed in the browser, including the hop to the API host |
+| `targetDurations` | The host's own measurement of the target request |
+| `hostOverhead` | `totalDurations` minus `targetDurations`, the cost of routing through the host |
+
+Keeping them separate is what makes a slow API-host execution attributable. A high target time means the upstream API is slow and moving the request to the browser would not help; a high overhead means the hop to the host is the cost, which is the only case where browser transport is genuinely faster advice. This is the same decomposition the response viewer already shows as "Host" and "Target" for a single request, aggregated across a window.
+
+Operators reach it without writing code from the API Client history panel, where **Transport observation** copies the report and resets the window. The document is aggregate-only, is produced on operator action, and is never transmitted by FlexDoc.
+
+The two halves are deliberately separate documents rather than one merged file, because they are produced by different processes with different lifetimes. Each names the other: the browser report carries `pairsWith: 'flexdoc.host-execution.observation/1'` and declares `host-side-rejection-reasons` in its own `gaps`. Read together they cover a review; read alone, each says what it is missing.
+
 Metric delivery follows the same safety rule as lifecycle hooks: it is **best effort and non-fatal**. Returned promises are not awaited, synchronous throws/rejections are ignored by the request path, and synchronous collector work still runs inline. Keep the sink short and delegate expensive export work to the application's normal telemetry path.
 
 FlexDoc does not export these events or metrics to Prauga or any hosted service. The hooks and metric sink run only inside the customer's application process and remain entirely application-controlled.
