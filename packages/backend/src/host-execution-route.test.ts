@@ -1,6 +1,7 @@
 import * as http from 'http';
 import { allowedHostExecutionOrigins, assertHostExecutionResolvedAddressAllowed, createHostExecutionState, ensureHostExecutionSession, isCookieDomainAllowed } from './host-execution';
 import { hostExecutionRequestOrigin, parseHostExecutionRequestBody, runHostExecutionRoute } from './host-execution-route';
+import { createHostExecutionTargetPolicy } from './shared/host-execution-policy';
 
 function headers(contentType = 'application/json'): Record<string, string> {
   return { 'content-type': contentType, 'x-flexdoc-execute': '1' };
@@ -53,6 +54,18 @@ describe('host execution HTTP protocol', () => {
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     }
+  });
+
+  it('uses the shared target policy for explicit origin normalization', () => {
+    const configured = [
+      'https://API.EXAMPLE.TEST/v1?token=ignored',
+      'https://api.example.test/other',
+      'ftp://api.example.test/not-allowed',
+    ];
+    const state = createHostExecutionState({ allowedOrigins: configured });
+    const expected = createHostExecutionTargetPolicy({ allowedOrigins: configured }).allowedOrigins;
+    expect([...allowedHostExecutionOrigins(state, {}, 'https://docs.example.test')]).toEqual(expected);
+    expect(expected).toEqual(['https://api.example.test']);
   });
 
   it('derives the docs origin without trusting an arbitrary renderer draft header', () => {

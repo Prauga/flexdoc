@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.Ordered;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -86,4 +87,44 @@ class FlexDocHostExecutionAdmissionFilterTest {
     assertTrue(downstreamRan.get());
     assertEquals(0, filter.inFlight());
   }
+  @Test
+  void autoConfigurationRegistersAdmissionForNormalizedExecutePath() {
+    FlexDocProperties properties = new FlexDocProperties();
+    properties.setPath("internal/docs/");
+    properties.setTryItHostExecution(true);
+    properties.setHostExecutionProtected(true);
+
+    var registration = new FlexDocAutoConfiguration().flexDocHostExecutionAdmission(properties);
+
+    assertEquals(16, registration.getFilter().maxInFlight());
+    assertEquals(Ordered.LOWEST_PRECEDENCE - 100, registration.getOrder());
+    assertTrue(registration.isMatchAfter());
+    assertEquals(java.util.Set.of("/internal/docs/__flexdoc/execute"), registration.getUrlPatterns());
+  }
+
+  @Test
+  void autoConfigurationUsesConfiguredAdmissionLimits() {
+    FlexDocProperties properties = new FlexDocProperties();
+    properties.setTryItHostExecution(true);
+    properties.setHostExecutionProtected(true);
+    properties.setHostExecutionMaxInFlight(7);
+    properties.setHostExecutionRetryAfterSeconds(4);
+
+    var registration = new FlexDocAutoConfiguration().flexDocHostExecutionAdmission(properties);
+    FlexDocHostExecutionAdmissionFilter filter = registration.getFilter();
+
+    assertEquals(7, filter.maxInFlight());
+
+    MockHttpServletResponse saturated = new MockHttpServletResponse();
+    // Constructor validation is also exercised through auto-configuration.
+    properties.setHostExecutionMaxInFlight(0);
+    assertThrows(IllegalArgumentException.class,
+        () -> new FlexDocAutoConfiguration().flexDocHostExecutionAdmission(properties));
+    properties.setHostExecutionMaxInFlight(7);
+    properties.setHostExecutionRetryAfterSeconds(0);
+    assertThrows(IllegalArgumentException.class,
+        () -> new FlexDocAutoConfiguration().flexDocHostExecutionAdmission(properties));
+    assertEquals(200, saturated.getStatus());
+  }
+
 }

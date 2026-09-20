@@ -1,6 +1,7 @@
 package com.prauga.flexdoc.jaxrs;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.prauga.flexdoc.jvm.FlexDocConfig;
@@ -21,7 +22,7 @@ import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
-final class FlexDocJaxRsSecurityBoundaryTest {
+final class FlexDocHostExecutionHttpSecurityTest {
   @Test
   void executeRouteIsExternallyAbsentWithoutNativeExecutor() {
     FlexDocJaxRsResource resource = new FlexDocJaxRsResource(host(null));
@@ -33,6 +34,21 @@ final class FlexDocJaxRsSecurityBoundaryTest {
     assertEquals(404, multipart.getStatus());
     assertEquals("no-store", json.getHeaderString("Cache-Control"));
     assertEquals("no-store", multipart.getHeaderString("Cache-Control"));
+  }
+
+  @Test
+  void nativeExecutionRequiresProtectionAcknowledgementBeforeResourceRegistration() {
+    FlexDocHostExecution execution = new FlexDocHostExecution(List.of("https://api.example.test"));
+
+    IllegalStateException error = assertThrows(
+        IllegalStateException.class,
+        () -> new FlexDocHost(
+            FlexDocConfig.builder().tryItHostExecution(true).build(),
+            null,
+            execution));
+
+    assertTrue(error.getMessage().contains("hostExecutionProtected=true"));
+    assertTrue(error.getMessage().contains("origin allowlist is not authentication"));
   }
 
   @Test
@@ -63,10 +79,14 @@ final class FlexDocJaxRsSecurityBoundaryTest {
   }
 
   private static FlexDocHost host(FlexDocHostExecution execution) {
-    FlexDocConfig config = new FlexDocConfig(
-        "/docs", "/openapi.json", "Test API", "light", true,
-        null, null, null, null, true);
-    return new FlexDocHost(config, null, execution);
+    FlexDocConfig.Builder builder = FlexDocConfig.builder()
+        .path("/docs")
+        .specUrl("/openapi.json")
+        .title("Test API")
+        .theme("light")
+        .tryItHostExecution(true);
+    if (execution != null) builder.hostExecutionProtected(true);
+    return new FlexDocHost(builder.build(), null, execution);
   }
 
   private static final class TestEntityPart implements EntityPart {

@@ -7,8 +7,10 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.Ordered;
 import org.springframework.core.env.Environment;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -81,6 +83,31 @@ public class FlexDocAutoConfiguration {
   @ConditionalOnProperty(prefix = "flexdoc", name = "try-it-host-execution", havingValue = "true")
   FlexDocHostExecutionController flexDocHostExecutionController(FlexDocHost host, ObjectMapper objectMapper) {
     return new FlexDocHostExecutionController(host, objectMapper);
+  }
+
+  /**
+   * Registers process-local admission control for the privileged host-execution route.
+   *
+   * <p>The registration is deliberately late in the servlet filter chain so Spring Security and
+   * ordinary application authentication/CSRF filters can run first. The execute controller remains
+   * downstream of this filter.</p>
+   *
+   * @param properties bound FlexDoc configuration properties
+   * @return execute-route-only admission filter registration
+   */
+  @Bean
+  @ConditionalOnProperty(prefix = "flexdoc", name = "try-it-host-execution", havingValue = "true")
+  FilterRegistrationBean<FlexDocHostExecutionAdmissionFilter> flexDocHostExecutionAdmission(
+      FlexDocProperties properties) {
+    var registration = new FilterRegistrationBean<>(
+        new FlexDocHostExecutionAdmissionFilter(
+            properties.getHostExecutionMaxInFlight(),
+            properties.getHostExecutionRetryAfterSeconds()));
+    String docsPath = properties.toConfig().path();
+    registration.addUrlPatterns(docsPath + "/__flexdoc/execute");
+    registration.setOrder(Ordered.LOWEST_PRECEDENCE - 100);
+    registration.setMatchAfter(true);
+    return registration;
   }
 
   /**

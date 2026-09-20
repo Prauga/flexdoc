@@ -17,10 +17,37 @@ For production deployments that enable host execution:
 
 A multi-instance deployment should normally enforce user-aware rate limits in a shared gateway or distributed limiter. The small in-process helpers below are admission-control backstops for one process; they are not distributed quotas.
 
+### Explicit protection acknowledgements
+
+FlexDoc 3.3.x makes the application-owned auth boundary explicit before these native adapters expose a real execute endpoint:
+
+- Spring Boot: set `flexdoc.host-execution-protected=true` only after Spring Security or the deployment gateway protects the docs/execute paths.
+- JAX-RS/shared JVM: set `FlexDocConfig.builder().hostExecutionProtected(true)` only after the Jakarta/application-server/gateway policy protects the resource.
+- ASP.NET Core: set `options.HostExecutionProtected = true` only after the application authorization boundary protects both the docs shell and docs subtree.
+
+These switches are **acknowledgements, not authentication mechanisms**. They do not install auth, authorize a caller, or replace CSRF policy. Spring/JAX-RS JVM host construction and ASP.NET Core route mapping fail closed when a real native executor is attached without the corresponding acknowledgement. A protocol advertisement with no real executor can still remain unavailable without the acknowledgement.
+
 ### Ordinary-request routing knob
 
 When native host execution must remain enabled but operators do not want ordinary interactive Try It requests to take the additional browser -> API-host -> target hop, the Node host can set `tryIt.hostExecution.preferHostExecution: false`. Host-only features still require host execution; this knob only keeps ordinary requests on direct browser transport. Omitting the option keeps the 3.3 default (`true`).
 
+## Execute-route failure diagnostics
+
+FlexDoc does **not** probe the API-host execute route before a normal request. The interactive API Client and Try It surface send the real request first. Only after an actual API-host transport attempt fails may the browser issue a supplemental diagnostic POST to the same configured execute endpoint.
+
+The diagnostic request deliberately sends an empty JSON envelope (`{}`) with the FlexDoc protocol marker. It does not contain the failed target URL, target headers, target body, API credentials, signing material, or other target secrets. Same-origin documentation credentials may still be included by the browser so the probe crosses the same application authentication boundary as the execute route.
+
+Diagnostic results are supplemental; the original execution failure remains authoritative:
+
+- FlexDoc's canonical `400` validation response, or admission-control `429`, confirms that the execute route is reachable. No extra warning is added, and recognized routes may be cached for the browser page lifetime.
+- `404`, `501`, or `405` without `POST` in `Allow` indicates that the configured endpoint does not expose the FlexDoc execute route; the UI adds deployment/URL guidance.
+- `401` and `403` add authentication, authorization, same-origin, or CSRF guidance.
+- An unexpected successful response warns that the configured endpoint may not be FlexDoc's hardened execute route.
+- A generic middleware `400` is not treated as proof of the FlexDoc route and adds request-body/CSRF guidance.
+- A diagnostic network failure does not replace or obscure the original execution error.
+- Cancellation stops the flow without starting a new diagnostic when the request was already aborted. If cancellation happens during the diagnostic, the interactive API Client reports the request as cancelled.
+
+Direct browser execution is unaffected by these diagnostics, and successful API-host requests incur no diagnostic request or extra network hop.
 
 ## Node / Express / Nest reference admission control
 
@@ -61,27 +88,29 @@ The same middleware shape works with Nest when mounted on the underlying Express
 
 ## Spring reference admission control
 
-The Spring starter exports `FlexDocHostExecutionAdmissionFilter`. The shared JVM transport has its own finite worker and queue bounds as a final resource-safety layer, but applications should reject overload earlier at the HTTP boundary. Register the filter only for the execute route and keep Spring Security ahead of it for authentication/authorization.
+The Spring starter auto-registers `FlexDocHostExecutionAdmissionFilter` for the normalized execute route whenever native host execution is enabled. The shared JVM transport has its own finite worker and queue bounds as a final resource-safety layer, but applications should reject overload earlier at the HTTP boundary. The registration runs late in the servlet filter chain so Spring Security and ordinary application authentication/CSRF filters can run first. After that boundary exists, set `flexdoc.host-execution-protected=true` before enabling the real executor.
 
-```java
-import com.prauga.flexdoc.spring.FlexDocHostExecutionAdmissionFilter;
-import org.springframework.boot.web.servlet.FilterRegistrationBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.core.Ordered;
+Configure the process-local ceiling directly on the starter:
 
-@Bean
-FilterRegistrationBean<FlexDocHostExecutionAdmissionFilter> flexDocHostExecutionAdmission() {
-  var registration = new FilterRegistrationBean<>(
-      new FlexDocHostExecutionAdmissionFilter(16, 1));
-  registration.addUrlPatterns("/docs/__flexdoc/execute");
-  registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 20);
-  return registration;
-}
+```yaml
+flexdoc:
+  host-execution-max-in-flight: 16
+  host-execution-retry-after-seconds: 1
 ```
 
-Adapt the mapping when `flexdoc.path`, servlet context path, or reverse-proxy path rewriting is customized. The filter returns HTTP `429` with `Retry-After` immediately when its local in-flight bound is saturated and releases capacity in a `finally` block after downstream completion or failure.
+The starter derives the execute mapping from normalized `flexdoc.path`. The filter returns HTTP `429` with `Retry-After` immediately when its local in-flight bound is saturated and releases capacity in a `finally` block after downstream completion or failure.
 
 For a multi-instance Spring deployment, use the gateway or the application's existing distributed rate limiter for per-user quotas and keep the filter as a local in-flight backstop. The JVM executor itself currently uses a bounded host-execution worker pool (**64 workers with a finite 256-request queue**) and a bounded Apache connection pool. Those internal bounds prevent unbounded executor growth; they are deliberately not exposed as caller quotas because only the surrounding application knows who the caller is and which users should share limits.
+
+## Security-suite discovery
+
+HTTP-boundary host-execution security suites use one cross-runtime naming stem: `HostExecutionHttpSecurity` (or the ecosystem's snake_case equivalent). A maintainer can discover one HTTP-boundary suite per supported adapter family with:
+
+```sh
+find adapters -type f | grep -Ei 'host[_A-Za-z]*execution[_A-Za-z]*http[_A-Za-z]*security'
+```
+
+Lower-level executor/policy tests may continue to use broader `host_execution_security` naming; the `http` stem is reserved for framework/route-boundary conformance.
 
 ## CSRF and cross-site requests
 

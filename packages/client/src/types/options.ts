@@ -356,6 +356,7 @@ export interface FlexDocFooterLink {
 /** Footer content rendered below documentation. */
 export interface FlexDocFooterOptions {
   /** Copyright/legal text shown in the footer. */ copyright?: string;
+  /** Show renderer build identity when a concrete source revision is available. */ showBuildInfo?: boolean;
   /** Footer links displayed in their configured order. */ link?: FlexDocFooterLink[];
 }
 

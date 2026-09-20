@@ -57,6 +57,30 @@ export type {
   FlexDocHostExecutionAdmissionOptions,
   FlexDocHostExecutionAdmissionResponse,
 } from './host-execution-admission';
+export {
+  createHostExecutionAdmissionRejectionMetricUpdate,
+  createHostExecutionCompleteMetricUpdates,
+  createHostExecutionStartMetricUpdates,
+} from './host-execution-metrics';
+export type {
+  FlexDocHostExecutionMetricKind,
+  FlexDocHostExecutionMetricName,
+  FlexDocHostExecutionMetricSink,
+  FlexDocHostExecutionMetricUpdate,
+  FlexDocHostExecutionRejectionSource,
+} from './host-execution-metrics';
+export { createHostExecutionCompleteEvent, createHostExecutionStartEvent } from './host-execution-observability';
+export type {
+  CreateHostExecutionCompleteEventInput,
+  CreateHostExecutionStartEventInput,
+  FlexDocHostExecutionCompleteEvent,
+  FlexDocHostExecutionEvent,
+  FlexDocHostExecutionEventBase,
+  FlexDocHostExecutionEventName,
+  FlexDocHostExecutionEventSink,
+  FlexDocHostExecutionOutcome,
+  FlexDocHostExecutionStartEvent,
+} from './host-execution-observability';
 export { validateRuntimeContract } from './contract-validation';
 export type {
   FlexDocContractDuplicateRuntimeRoute,

@@ -2,7 +2,7 @@
 
 FlexDoc 2.3.0 was the last coordinated product release before the API Client workspace grew through several focused development milestones. Those milestone numbers described source-development slices; they were not separate published FlexDoc package releases. The coordinated product line moved directly from published **2.3.0** to published **2.8.0** after the 2.8 source definition of done was satisfied.
 
-The current published coordinated product line is **3.1.0**. This release-preparation tree advances **3.2.0** for the headless Runner, taking the canonical API Client request/script/collection model into CLI/CI execution while reusing the existing advertised host-execution contract rather than introducing a second request or auth engine.
+The current published coordinated product line is **3.3.0**, which moves ordinary interactive API Client execution onto the API host when a serving adapter advertises a native host executor. **3.2.0** shipped the headless Runner before it, taking the canonical API Client request/script/collection model into CLI/CI execution while reusing the existing advertised host-execution contract rather than introducing a second request or auth engine.
 
 Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and `@prauga/flexdoc-backend` carry the coordinated FlexDoc product version because they own and distribute the canonical renderer. Native adapters receive their own semantic-version increment when they package a new renderer, rather than being renamed to the product version.
 
@@ -21,7 +21,8 @@ Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and 
 | **2.9.9** | measured performance baseline, production delivery hardening, host-page caching/revalidation, and regression budgets before Runtime Intelligence | shipped |
 | **3.0.0** | Runtime Intelligence plus renderer/API Client product-quality completion | shipped |
 | **3.1.0** | operation-level backend Contract Validation plus renderer/CLI consumption | shipped |
-| **3.2** | portable headless execution of canonical API Client request/folder/collection scopes with CI reports | release prepared |
+| **3.2.0** | portable headless execution of canonical API Client request/folder/collection scopes with CI reports | shipped |
+| **3.3.0** | native API-host execution of ordinary requests across the serving adapters, with the shared renderer and workspace model unchanged | shipped |
 
 Viewer expansion defaults/settings and renderer-option parity landed before the 2.8 release and are included in the 2.8 product surface.
 
@@ -41,7 +42,8 @@ The published 2.9.0 line surfaces the collection runner in `ApiClientWorkspace` 
 - Runner `passed`/`failed` counts describe execution health: transport errors, script errors, or failed tests make an item fail. An HTTP status by itself does not, so an expected `4xx` response can pass a collection run. History continues to use inspector-oriented HTTP failure semantics, and grouped run history preserves the separate runner pass/fail result for clarity.
 - Each collection/folder run receives a run ID and stable run label. History entries produced by that run persist the run ID, position, total, and runner outcome, allowing History to group the requests as one collection run while retaining per-request inspection and replay.
 - User-initiated Stop aborts the active **fetch** through `AbortController`, marks that request cancelled, leaves later requests not run, and does not persist an incomplete cancelled request as a history row. Script execution itself is not interrupted by the Stop signal: a long-running pre-request or post-response test script continues until that script phase returns, and any collection/environment mutations it performs remain applied.
-- New history entries persist response headers and response bodies locally in IndexedDB. History is bounded to 100 entries, and each stored response body is capped at 256 KiB. Response payloads can contain tokens, PII, or other sensitive data; users can remove individual entries or clear History to remove that persisted request data.
+- New history entries persist response headers and response bodies locally in IndexedDB. History is bounded to 100 entries, and each stored response body is capped at 256 KiB. Request bodies share a separate 256 KiB per-entry budget across the raw, urlencoded, form-data and GraphQL fields, so a large API-host envelope cannot be written to storage verbatim; both caps mark the entry as truncated in the History inspector. Response payloads can contain tokens, PII, or other sensitive data; users can remove individual entries or clear History to remove that persisted request data.
+- Workspace writes are debounced, so editing an environment variable does not rebuild the redaction snapshot and rewrite the whole workspace on every keystroke. When a write fails, for example when the browser storage quota is exhausted, the workspace shows a non-blocking warning rather than silently dropping history.
 - A pre-request script error that occurs before a request result exists still does not append a history row. This matches the current single-request Send path; grouped history may therefore capture fewer rows than the run total and reports captured/total explicitly.
 - While scripting IntelliSense suggestions are open, `Tab` or `Enter` accepts the active suggestion. `Escape` closes the popup and restores normal indentation/newline behavior.
 
@@ -77,7 +79,7 @@ The 2.9 source release candidate is complete with the following satisfied:
 - [x] future-version example manifests and the deterministic future-tag Go checksum represent the release-candidate source tree without pretending registry artifacts already exist
 - [x] the canonical standalone renderer is rebuilt and synchronized across committed adapter assets, with parity checks passing before the release candidate is proposed
 
-2.9.0, 2.9.5, 2.9.9, 3.0.0, and 3.1.0 are published. 3.2.0 is release-prepared as the portable headless Runner milestone.
+2.9.0, 2.9.5, 2.9.9, 3.0.0, 3.1.0, 3.2.0, and 3.3.0 are published.
 
 ## 2.8.0 definition of done
 

@@ -104,8 +104,42 @@ test('shows positive Try It copy for an available API host with no advanced capa
     options={{ tryIt: { enabled: true, hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] } } }}
   />);
 
-  expect(screen.getByRole('status')).toHaveTextContent('This request runs from your API server.');
+  expect(screen.getByLabelText('Request transport')).toHaveTextContent('API host');
+  const status = screen.getByRole('status');
+  expect(status).toHaveTextContent('This request runs from your API server.');
+  expect(status).toHaveTextContent('Universal');
+  expect(status).toHaveTextContent('Universal: HTTP method, URL, query, headers, body');
+  expect(status).toHaveTextContent('Host-specific');
+  expect(status).toHaveTextContent('None advertised.');
   expect(screen.queryByText(/Host execution is disabled/i)).not.toBeInTheDocument();
+});
+
+test('explains advertised Try It API-host capabilities', () => {
+  render(<RequestPlayground spec={spec} path='/pets' method='get' theme='light' options={{ tryIt: { enabled: true, hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: ['cookies', 'oauth1'] } } }} />);
+  const status = screen.getByRole('status');
+  expect(status).toHaveTextContent('This request runs from your API server.');
+  expect(status).toHaveTextContent('API host capabilities');
+  expect(status).toHaveTextContent('Universal');
+  expect(status).toHaveTextContent('Universal: HTTP method, URL, query, headers, body');
+  expect(status).toHaveTextContent('Host-specific');
+  expect(status).toHaveTextContent('Cookie jar');
+  expect(status).toHaveTextContent('OAuth 1.0');
+});
+
+test('shows browser transport when the documentation host prefers direct execution', () => {
+  render(<RequestPlayground
+    spec={spec}
+    path='/pets'
+    method='get'
+    theme='light'
+    options={{ tryIt: { enabled: true, hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: ['cookies'], preferHostExecution: false } } }}
+  />);
+
+  expect(screen.getByLabelText('Request transport')).toHaveTextContent('Browser');
+  const status = screen.getByRole('status');
+  expect(status).toHaveTextContent('FlexDoc API host is available.');
+  expect(status).toHaveTextContent('Cookie jar');
+  expect(screen.queryByText('This request runs from your API server.')).not.toBeInTheDocument();
 });
 
 test('blocks host-only Try It requests before Send when host execution is unavailable', () => {
@@ -116,6 +150,7 @@ test('blocks host-only Try It requests before Send when host execution is unavai
   render(<RequestPlayground spec={cookieSpec} path='/pets' method='get' theme='light' />);
 
   expect(screen.getByLabelText('cookie session')).toHaveValue('session-42');
+  expect(screen.getByLabelText('Request transport')).toHaveTextContent('Host required');
   expect(screen.getByRole('alert')).toHaveTextContent('API-host execution is unavailable on this documentation server.');
   expect(screen.getByRole('button', { name: 'Send request' })).toBeDisabled();
 });

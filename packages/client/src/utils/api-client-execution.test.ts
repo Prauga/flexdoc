@@ -1,4 +1,4 @@
-import { executeApiClientRequest } from './api-client-execution';
+import { API_CLIENT_SLOW_HOST_THRESHOLD_MS, apiClientCorsFailureHint, apiClientSlowHostHint, executeApiClientRequest } from './api-client-execution';
 
 function mockResponse(body: string, init: { status?: number; statusText?: string; headers?: HeadersInit } = {}): Response {
   return {
@@ -53,12 +53,13 @@ console.log('checked');
       { name: 'status is 200', passed: true },
       { name: 'body has id', passed: true },
     ]);
-    expect(outcome.response).toMatchObject({ status: 200, statusText: 'OK', body: '{"id":42}', responseTime: 25 });
+    expect(outcome.response).toMatchObject({ status: 200, statusText: 'OK', body: '{"id":42}', responseTime: 25, transport: 'browser' });
     expect(outcome.result).toMatchObject({
       executedMethod: 'GET',
       resolvedUrl: 'https://api.example.test/pets/42',
       status: 200,
       responseTime: 25,
+      transport: 'browser',
       responseBody: '{"id":42}',
     });
     expect(outcome.result?.responseHeaders).toEqual(expect.arrayContaining([['content-type', 'application/json'], ['x-trace', 'server']]));
@@ -104,19 +105,22 @@ console.log('checked');
       }));
     };
     let interceptorCalls = 0;
+    let hostClock = 0;
     const outcome = await executeApiClientRequest({
       request: { method: 'POST', url: 'https://api.example.test/private', auth: { type: 'digest', username: 'u', password: 'p' } },
       scripts: { tests: "flex.test('host response', () => flex.expect(flex.response.code).to.equal(201));" },
       requestInterceptor: (request) => { interceptorCalls += 1; return request; },
       hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: ['digest'] },
       fetcher,
+      now: () => { hostClock += 40; return hostClock; },
     });
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe('/docs/__flexdoc/execute');
     expect(new Headers(calls[0].init?.headers).get('x-flexdoc-execute')).toBe('1');
     expect(JSON.parse(String(calls[0].init?.body)).request.auth).toMatchObject({ type: 'digest', username: 'u', password: 'p' });
     expect(interceptorCalls).toBe(0);
-    expect(outcome.response).toMatchObject({ status: 201, responseTime: 17, body: '{"ok":true}' });
+    expect(outcome.response).toMatchObject({ status: 201, responseTime: 17, hostRoundTripTime: 40, body: '{"ok":true}', transport: 'api-host' });
+    expect(outcome.result?.transport).toBe('api-host');
     expect(outcome.scriptTests).toEqual([{ name: 'host response', passed: true }]);
   });
 
@@ -151,7 +155,8 @@ console.log('checked');
       body: '{"name":"Ada"}',
     });
     expect(interceptorCalls).toBe(0);
-    expect(outcome.response).toMatchObject({ status: 200, body: '{"via":"host"}', responseTime: 6 });
+    expect(outcome.response).toMatchObject({ status: 200, body: '{"via":"host"}', responseTime: 6, transport: 'api-host' });
+    expect(outcome.result?.transport).toBe('api-host');
   });
 
   it('honors a host-advertised direct preference for ordinary requests', async () => {
@@ -175,7 +180,8 @@ console.log('checked');
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe('https://api.example.test/pets');
     expect(new Headers(calls[0].init?.headers).get('x-flexdoc-execute')).toBeNull();
-    expect(outcome.response).toMatchObject({ status: 200, body: '{"via":"direct"}' });
+    expect(outcome.response).toMatchObject({ status: 200, body: '{"via":"direct"}', transport: 'browser' });
+    expect(outcome.result?.transport).toBe('browser');
   });
 
   it('forwards an intentional GET body through API-host execution', async () => {
@@ -208,6 +214,7 @@ console.log('checked');
     expect(fetchCalls).toBe(0);
     expect(outcome.error).toBe('API-host execution is unavailable on this documentation server.');
     expect(outcome.result?.error).toBe(outcome.error);
+    expect(outcome.result?.transport).toBeUndefined();
   });
 
   it('aborts before fetch when the pre-request script fails', async () => {
@@ -245,7 +252,87 @@ console.log('checked');
       executedMethod: 'POST',
       resolvedUrl: 'https://api.example.test/pets',
       responseTime: 10,
+      transport: 'browser',
       error: 'offline',
     });
   });
+
+  it('retains API-host transport on a failed attempted host request', async () => {
+    const outcome = await executeApiClientRequest({
+      request: { method: 'POST', url: 'https://api.example.test/private' },
+      hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] },
+      fetcher: async () => { throw new Error('host offline'); },
+    });
+
+    expect(outcome.error).toBe('host offline');
+    expect(outcome.result).toMatchObject({
+      executedMethod: 'POST',
+      resolvedUrl: 'https://api.example.test/private',
+      transport: 'api-host',
+      error: 'host offline',
+    });
+  });
+  it('marks opaque browser fetch failures for cautious CORS guidance', async () => {
+    const request = {
+      method: 'GET',
+      url: 'https://api.example.test/pets',
+      hostExecution: { preferHostExecution: false },
+    };
+    const outcome = await executeApiClientRequest({
+      request,
+      hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] },
+      fetcher: async () => { throw new TypeError('Failed to fetch'); },
+    });
+
+    expect(outcome.failureKind).toBe('browser-network');
+    expect(outcome.result?.transport).toBe('browser');
+    expect(apiClientCorsFailureHint(
+      outcome,
+      request,
+      { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] },
+    )).toContain('possibly CORS');
+  });
+
+  it('does not suggest host fallback when server policy keeps ordinary execution browser-direct', async () => {
+    const request = { method: 'GET', url: 'https://api.example.test/pets' };
+    const hostExecution = {
+      available: true,
+      endpoint: '/docs/__flexdoc/execute',
+      capabilities: [] as [],
+      preferHostExecution: false,
+    };
+    const outcome = await executeApiClientRequest({
+      request,
+      hostExecution,
+      fetcher: async () => { throw new TypeError('Load failed'); },
+    });
+
+    expect(outcome.failureKind).toBe('browser-network');
+    expect(apiClientCorsFailureHint(outcome, request, hostExecution)).toBeNull();
+  });
+
+  it('does not classify ordinary application errors as browser CORS failures', async () => {
+    const outcome = await executeApiClientRequest({
+      request: { method: 'GET', url: 'https://api.example.test/pets' },
+      fetcher: async () => { throw new Error('offline'); },
+    });
+    expect(outcome.failureKind).toBeUndefined();
+  });
+
+  it('guides slow optional host execution using total host round trip', () => {
+    const request = { method: 'GET', url: 'https://api.example.test/pets' };
+    const host = { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] as [] };
+    expect(API_CLIENT_SLOW_HOST_THRESHOLD_MS).toBe(500);
+    expect(apiClientSlowHostHint({ transport: 'api-host', responseTime: 44, hostRoundTripTime: 731 }, request, host)).toContain('731 ms');
+    expect(apiClientSlowHostHint({ transport: 'api-host', responseTime: 44, hostRoundTripTime: 499 }, request, host)).toBeNull();
+  });
+
+  it('does not suggest browser transport when host execution is required', () => {
+    expect(apiClientSlowHostHint(
+      { transport: 'api-host', responseTime: 44, hostRoundTripTime: 900 },
+      { method: 'GET', url: 'https://api.example.test/private', auth: { type: 'digest', username: 'u', password: 'p' } },
+      { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: ['digest'] },
+    )).toBeNull();
+  });
+
 });

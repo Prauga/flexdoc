@@ -1,3 +1,6 @@
+import type { FlexDocHostExecutionMetricSink } from './host-execution-metrics';
+import type { FlexDocHostExecutionCompleteEvent, FlexDocHostExecutionStartEvent } from './host-execution-observability';
+
 /** Separate vertical/horizontal padding values for a renderer logo container. */
 export interface LogoPaddingOptions {
   /** Vertical CSS padding. Numeric values are interpreted as pixels. */ vertical?: string | number;
@@ -115,7 +118,7 @@ export interface MethodColors {
 export interface ThemeConfig {
   /** Color-token overrides. */ colors?: ThemeColors;
   /** Typography-token overrides. */ typography?: ThemeTypography;
-  /** Sidebar-token overrides. */ sidebar?: ThemeSidebar;
+  /** Sidebar-token overrides accepted by backend integrations. */ sidebar?: ThemeSidebar;
   /** Per-method badge colors. */ methodColors?: MethodColors;
 }
 
@@ -159,6 +162,9 @@ export interface FlexDocHostExecutionOptions {
   /** Target origins the host is allowed to call; omitted values use the host's safe default policy. */ allowedOrigins?: string[];
   /** Client certificates that may be selected by id for outbound requests. */ clientCertificates?: FlexDocHostExecutionCertificate[];
   /** Hook invoked before the backend sends an outbound request. */ interceptor?: (request: FlexDocHostExecutionRequest) => FlexDocHostExecutionRequest | Promise<FlexDocHostExecutionRequest>;
+  /** Best-effort start hook for a validated API-host execution. Returned promises are not awaited; failures never fail the request. */ onHostExecutionStart?: (event: FlexDocHostExecutionStartEvent) => void | Promise<void>;
+  /** Best-effort completion hook for that execution. Returned promises are not awaited; failures never fail the request. */ onHostExecutionComplete?: (event: FlexDocHostExecutionCompleteEvent) => void | Promise<void>;
+  /** Best-effort low-cardinality operator metric sink. Returned promises are not awaited; failures never fail the request. */ onHostExecutionMetric?: FlexDocHostExecutionMetricSink;
 }
 
 /** Public host-execution metadata serialized to the browser renderer. */
@@ -223,6 +229,7 @@ export interface FlexDocFooterLink {
 /** Footer content rendered below documentation. */
 export interface FlexDocFooterOptions {
   /** Copyright/legal text shown in the footer. */ copyright?: string;
+  /** Show renderer build identity when a concrete source revision is available. */ showBuildInfo?: boolean;
   /** Footer links displayed in their configured order. */ link?: FlexDocFooterLink[];
 }
 
