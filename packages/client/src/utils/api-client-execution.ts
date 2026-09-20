@@ -70,7 +70,8 @@ export interface ApiClientExecutionResponse {
   /** HTTP status text. */ statusText: string;
   /** Ordered response headers. */ headers: Array<[string, string]>;
   /** Response body decoded as text. */ body: string;
-  /** Measured round-trip duration in milliseconds. */ responseTime: number;
+  /** Target request/response duration in milliseconds. */ responseTime: number;
+  /** Browser-to-API-host round trip in milliseconds for API-host execution. */ hostRoundTripTime?: number;
   /** Actual transport that produced this response. */ transport?: ApiClientTransport;
   /** Safe cookie metadata returned by API-host execution when available. */
   cookies?: Array<{ name: string; value: string; domain?: string; path?: string; httpOnly?: boolean }>;
@@ -201,6 +202,20 @@ export function apiClientCorsFailureHint(
   if (outcome.failureKind !== 'browser-network' || outcome.result?.transport !== 'browser') return null;
   return resolveApiClientTransport({ request, hostExecution, preferHostExecution: true })[0] === 'api-host'
     ? 'Browser request failed (possibly CORS). Try API host.'
+    : null;
+}
+
+export const API_CLIENT_SLOW_HOST_THRESHOLD_MS = 500;
+
+export function apiClientSlowHostHint(
+  response: Pick<ApiClientExecutionResponse, 'transport' | 'responseTime' | 'hostRoundTripTime'> | null | undefined,
+  request: HttpRequestDraft,
+  hostExecution: FlexDocHostExecutionPublicOptions | undefined,
+): string | null {
+  const roundTrip = response?.hostRoundTripTime ?? response?.responseTime;
+  if (response?.transport !== 'api-host' || roundTrip == null || roundTrip < API_CLIENT_SLOW_HOST_THRESHOLD_MS) return null;
+  return resolveApiClientTransport({ request, hostExecution, preferHostExecution: false })[0] === 'browser'
+    ? `API-host round trip took ${Math.round(roundTrip)} ms. Browser may be faster.`
     : null;
 }
 
@@ -349,6 +364,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
         ...(options.signal ? { signal: options.signal } : {}),
       });
       const raw = await hostResponse.text();
+      const hostRoundTripTime = now() - startedAt;
       let snapshot: Record<string, unknown>;
       try {
         const parsed: unknown = raw ? JSON.parse(raw) : {};
@@ -365,7 +381,8 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
         statusText: String(snapshot.statusText || ''),
         headers: responseHeaders,
         body: String(snapshot.body || ''),
-        responseTime: typeof snapshot.responseTime === 'number' ? snapshot.responseTime : now() - startedAt,
+        responseTime: typeof snapshot.responseTime === 'number' ? snapshot.responseTime : hostRoundTripTime,
+        hostRoundTripTime,
         transport: 'api-host',
         ...(cookies ? { cookies } : {}),
       };
