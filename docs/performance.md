@@ -17,7 +17,9 @@ The baseline records:
 
 Workflow results are uploaded as `performance-results.json`. Wall-clock measurements remain evidence rather than hard CI budgets because shared runners are noisy. Deterministic bundle sizes are stable enough to gate, so CI enforces explicit raw/gzip/Brotli ceilings plus the JavaScript raw-headroom policy through `npm run check:performance-budgets -- performance-results.json`.
 
-The machine-readable policy is [`scripts/performance/performance-policy.json`](../scripts/performance/performance-policy.json). The `Performance Baseline` workflow runs for `main`, `3.3`, and `3.3.x` pull requests so maintenance work cannot bypass the bundle gate simply because it targets the patch line.
+The machine-readable policy is [`scripts/performance/performance-policy.json`](../scripts/performance/performance-policy.json). The `Performance Baseline` workflow runs for every pull request. It deliberately carries no base-branch allowlist: stacked release work targets intermediate feature branches, and an allowlist silently skips the budget gate for all of them.
+
+The same policy file also governs how much API Client state the renderer may persist per browser workspace. `HISTORY_LIMIT`, `HISTORY_RESPONSE_BODY_LIMIT`, and `HISTORY_REQUEST_BODY_LIMIT` are compared against `clientWorkspace.history` by `npm run check:client-workspace-limits`, including the worst-case `entries x (response + request)` payload written to IndexedDB. Those caps are trim-first and evidence-gated exactly like the bundle ceilings, so persisted-state growth is a reviewed decision rather than two unrelated literals drifting in client source.
 
 ## Regression budgets
 
