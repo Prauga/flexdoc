@@ -35,6 +35,7 @@ const sourceVersions = {
   rustActix: read('adapters/rust-actix/Cargo.toml').match(/\[package\][\s\S]*?\nversion\s*=\s*"([^"]+)"/)?.[1],
   go: read('adapters/go/VERSION').trim(),
   elixir: read('adapters/elixir/mix.exs').match(/@version\s+"([^"]+)"/)?.[1],
+  rustHost: read('adapters/rust-host-execution/Cargo.toml').match(/\[package\][\s\S]*?\nversion\s*=\s*"([^"]+)"/)?.[1],
 };
 for (const [name, version] of Object.entries(sourceVersions)) {
   if (!version) fail(`Unable to read ${name} version`);
@@ -43,8 +44,10 @@ for (const [name, version] of Object.entries(sourceVersions)) {
 // Standalone examples track the immutable registry artifacts published for FlexDoc 3.3.
 // Repository CI may substitute packages built from the current commit when validating source changes.
 const published = {
-  client: clientVersion,
-  backend: backendVersion,
+  client: '3.3.0',
+  backend: '3.3.0',
+  core: '0.5.1',
+  cli: '0.7.0',
   dotnet: '0.6.0',
   java: '0.9.0',
   python: '0.7.3',
@@ -57,8 +60,50 @@ const published = {
   elixir: '0.4.5',
 };
 
+// A release cannot be prepared and pinned in one commit: registries only serve an
+// artifact after its tag is published, and go.sum/Cargo.lock/package-lock entries
+// need those artifacts to exist. `pending` names the version being prepared, which
+// is the only value a source tree may hold other than the published baseline.
+// Examples stay pinned to `published` until the artifacts ship and a follow-up
+// commit repins them and clears the entry here.
+const pending = {
+  client: '3.3.1',
+  backend: '3.3.1',
+  core: '0.5.2',
+  python: '0.7.4',
+  php: '0.4.6',
+  ruby: '0.4.6',
+  rustAxum: '0.5.6',
+  rustActix: '0.4.6',
+  go: '0.5.6',
+  elixir: '0.4.6',
+  rustHost: '0.1.1',
+};
+
+for (const name of Object.keys(pending)) {
+  if (!(name in published)) fail(`pending lists unknown package ${name}`);
+  if (pending[name] === published[name]) fail(`pending ${name} ${pending[name]} is already published; drop the entry`);
+}
+
 for (const [name, version] of Object.entries(sourceVersions)) {
-  if (version !== published[name]) fail(`Published 3.3 ${name} baseline ${published[name]} does not match source version ${version}`);
+  const expected = pending[name] ?? published[name];
+  if (version !== expected) {
+    fail(pending[name]
+      ? `Pending 3.3 ${name} release ${expected} does not match source version ${version}`
+      : `Published 3.3 ${name} baseline ${expected} does not match source version ${version}`);
+  }
+}
+
+// The npm packages are not in sourceVersions because they are read above for the
+// lockfile checks, so hold them to the same baseline rule here.
+for (const [name, version] of Object.entries({
+  client: clientVersion,
+  backend: backendVersion,
+  core: coreVersion,
+  cli: cliVersion,
+})) {
+  const expected = pending[name] ?? published[name];
+  if (version !== expected) fail(`${name} baseline ${expected} does not match source version ${version}`);
 }
 
 for (const path of [
@@ -131,25 +176,27 @@ const checks = [
   ['examples/README.md', `| [\`rust-actix\`](./rust-actix) | \`prauga-flexdoc-actix\` \`${published.rustActix}\` |`],
   ['examples/README.md', `| [\`elixir-phoenix\`](./elixir-phoenix) | Phoenix forwarding \`prauga_flexdoc\` Plug \`${published.elixir}\` |`],
 
-  ['README.md', `| npm | \`@prauga/flexdoc-client\` | \`${clientVersion}\` |`],
-  ['README.md', `| npm | \`@prauga/flexdoc-backend\` | \`${backendVersion}\` |`],
-  ['README.md', `| npm | \`@prauga/flexdoc-core\` | \`${coreVersion}\` |`],
-  ['README.md', `| npm | \`@prauga/flexdoc-cli\` | \`${cliVersion}\` |`],
-  ['README.md', `| NuGet | \`Prauga.FlexDoc.AspNetCore\` | \`${sourceVersions.dotnet}\` |`],
-  ['README.md', `| Maven | \`com.prauga.flexdoc:flexdoc-jvm\` | \`${sourceVersions.java}\` |`],
-  ['README.md', `| PyPI | \`prauga-flexdoc\` | \`${sourceVersions.python}\` |`],
-  ['README.md', `| Composer | \`prauga/flexdoc\` | \`${sourceVersions.php}\` |`],
-  ['README.md', `| RubyGems | \`prauga-flexdoc\` | \`${sourceVersions.ruby}\` |`],
-  ['README.md', `| crates.io | \`prauga-flexdoc-axum\` | \`${sourceVersions.rustAxum}\` |`],
-  ['README.md', `| crates.io | \`prauga-flexdoc-actix\` | \`${sourceVersions.rustActix}\` |`],
-  ['README.md', `| Hex | \`prauga_flexdoc\` | \`${sourceVersions.elixir}\` |`],
-  ['README.md', `| Go | \`github.com/prauga/flexdoc/adapters/go\` | \`${sourceVersions.go}\` |`],
+  // Registry tables describe what a user can install today, so they track the
+  // published baselines rather than the source tree, which may be a release ahead.
+  ['README.md', `| npm | \`@prauga/flexdoc-client\` | \`${published.client}\` |`],
+  ['README.md', `| npm | \`@prauga/flexdoc-backend\` | \`${published.backend}\` |`],
+  ['README.md', `| npm | \`@prauga/flexdoc-core\` | \`${published.core}\` |`],
+  ['README.md', `| npm | \`@prauga/flexdoc-cli\` | \`${published.cli}\` |`],
+  ['README.md', `| NuGet | \`Prauga.FlexDoc.AspNetCore\` | \`${published.dotnet}\` |`],
+  ['README.md', `| Maven | \`com.prauga.flexdoc:flexdoc-jvm\` | \`${published.java}\` |`],
+  ['README.md', `| PyPI | \`prauga-flexdoc\` | \`${published.python}\` |`],
+  ['README.md', `| Composer | \`prauga/flexdoc\` | \`${published.php}\` |`],
+  ['README.md', `| RubyGems | \`prauga-flexdoc\` | \`${published.ruby}\` |`],
+  ['README.md', `| crates.io | \`prauga-flexdoc-axum\` | \`${published.rustAxum}\` |`],
+  ['README.md', `| crates.io | \`prauga-flexdoc-actix\` | \`${published.rustActix}\` |`],
+  ['README.md', `| Hex | \`prauga_flexdoc\` | \`${published.elixir}\` |`],
+  ['README.md', `| Go | \`github.com/prauga/flexdoc/adapters/go\` | \`${published.go}\` |`],
 
-  ['docs/distribution.md', `| \`Prauga.FlexDoc.AspNetCore\` | \`${sourceVersions.dotnet}\` | \`dotnet/v${sourceVersions.dotnet}\` |`],
-  ['docs/distribution.md', `| \`prauga-flexdoc\` (RubyGems) | \`${sourceVersions.ruby}\` | \`ruby/v${sourceVersions.ruby}\` |`],
-  ['docs/distribution.md', `| \`prauga-flexdoc-axum\` | \`${sourceVersions.rustAxum}\` | \`rust/v${sourceVersions.rustAxum}\` |`],
-  ['docs/distribution.md', `| \`prauga-flexdoc-actix\` | \`${sourceVersions.rustActix}\` | \`rust-actix/v${sourceVersions.rustActix}\` |`],
-  ['docs/distribution.md', `| \`prauga_flexdoc\` (Hex) | \`${sourceVersions.elixir}\` | \`elixir/v${sourceVersions.elixir}\` |`],
+  ['docs/distribution.md', `| \`Prauga.FlexDoc.AspNetCore\` | \`${published.dotnet}\` | \`dotnet/v${published.dotnet}\` |`],
+  ['docs/distribution.md', `| \`prauga-flexdoc\` (RubyGems) | \`${published.ruby}\` | \`ruby/v${published.ruby}\` |`],
+  ['docs/distribution.md', `| \`prauga-flexdoc-axum\` | \`${published.rustAxum}\` | \`rust/v${published.rustAxum}\` |`],
+  ['docs/distribution.md', `| \`prauga-flexdoc-actix\` | \`${published.rustActix}\` | \`rust-actix/v${published.rustActix}\` |`],
+  ['docs/distribution.md', `| \`prauga_flexdoc\` (Hex) | \`${published.elixir}\` | \`elixir/v${published.elixir}\` |`],
 ];
 
 for (const [path, expected] of checks) expect(path, expected);
@@ -171,4 +218,9 @@ if (read('examples/go-net-http/showcase-openapi.json') !== read('examples/showca
   fail('examples/go-net-http/showcase-openapi.json is stale; copy examples/showcase-openapi.json so the embedded Go showcase stays in sync');
 }
 
-console.log(`Examples and generated dependency metadata match FlexDoc 3.3 published versions: client ${clientVersion}, backend ${backendVersion}, .NET ${published.dotnet}, Java ${published.java}, Python ${published.python}, PHP/Ruby/Elixir ${published.php}/${published.ruby}/${published.elixir}, Go ${published.go}, Rust ${published.rustAxum}/${published.rustActix} + host ${published.rustHost}`);
+console.log(`Examples and generated dependency metadata match FlexDoc 3.3 published versions: client ${published.client}, backend ${published.backend}, .NET ${published.dotnet}, Java ${published.java}, Python ${published.python}, PHP/Ruby/Elixir ${published.php}/${published.ruby}/${published.elixir}, Go ${published.go}, Rust ${published.rustAxum}/${published.rustActix} + host ${published.rustHost}`);
+
+const pendingList = Object.entries(pending).map(([name, version]) => `${name} ${published[name]} -> ${version}`);
+if (pendingList.length) {
+  console.log(`Releases in flight (examples repin once published): ${pendingList.join(', ')}`);
+}
