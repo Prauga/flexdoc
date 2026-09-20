@@ -13,4 +13,10 @@ describe('ApiClientResponseViewer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy request as cURL' }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('curl -X GET https://api.example.test/pets'));
   });
+  it('splits host overhead from target timing', () => {
+    render(<ApiClientResponseViewer response={{ status: 200, statusText: 'OK', headers: [], body: '{}', responseTime: 44, hostRoundTripTime: 731, transport: 'api-host' }} />);
+    expect(screen.getByText('Host 687 ms')).toBeInTheDocument();
+    expect(screen.getByText('Target 44 ms')).toBeInTheDocument();
+  });
+
 });
