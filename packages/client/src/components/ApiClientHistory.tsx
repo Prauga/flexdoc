@@ -4,6 +4,7 @@ import type { ApiClientRequestScripts } from '../utils/api-client-scripting';
 import type { ApiClientWorkspaceState } from '../utils/api-client-workspace';
 import type { HttpRequestDraft } from '../utils/http-client';
 import { apiClientHistoryDisplayTime } from '../utils/api-client-history';
+import { apiClientTransportObservation, createApiClientTransportReport, resetApiClientTransportObservation } from '../utils/api-client-transport-observation';
 
 interface Props {
   workspace: ApiClientWorkspaceState;
@@ -15,6 +16,18 @@ interface Props {
 
 export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange, onLoadRequest, onViewAll, theme }) => {
   const mutedClass = theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
+  const [observationCopied, setObservationCopied] = React.useState(false);
+
+  const copyObservation = async () => {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(createApiClientTransportReport(apiClientTransportObservation()), null, 2));
+      setObservationCopied(true);
+      window.setTimeout(() => setObservationCopied(false), 1500);
+    } catch {
+      setObservationCopied(false);
+    }
+  };
 
   const loadHistory = (id: string) => {
     const entry = workspace.history.find((candidate) => candidate.id === id);
@@ -42,6 +55,14 @@ export const ApiClientHistory: React.FC<Props> = ({ workspace, onWorkspaceChange
       <input type='checkbox' checked={workspace.historyBodies !== false} onChange={(event) => onWorkspaceChange((current) => ({ ...current, historyBodies: event.target.checked }))} />
       <span>Store API-host bodies</span>
     </label>
+
+    <div className='flex items-center justify-between gap-2 rounded-md border p-2 text-xs'>
+      <span className={mutedClass} title='Counts and duration percentiles for this tab. No URLs, headers, bodies or credentials.'>Transport observation</span>
+      <span className='flex items-center gap-2'>
+        <button type='button' className='underline underline-offset-2' onClick={copyObservation}>{observationCopied ? 'Copied' : 'Copy'}</button>
+        <button type='button' className={`underline underline-offset-2 ${mutedClass}`} onClick={() => { resetApiClientTransportObservation(); setObservationCopied(false); }}>Reset</button>
+      </span>
+    </div>
 
     <div className='space-y-1'>
       {workspace.history.slice(0, 5).map((entry) => {

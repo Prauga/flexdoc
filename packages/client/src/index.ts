@@ -80,6 +80,12 @@ export type { OpenApiApiClientSession } from './utils/openapi-api-client-session
 export { buildHttpRequest, inferHttpBodyMode, requestDraftFromBuiltRequest, resolveHttpRequestDraftVariables } from './utils/http-client';
 export { executeApiClientRequest } from './utils/api-client-execution';
 export {
+  apiClientTransportObservation,
+  createApiClientTransportRecorder,
+  createApiClientTransportReport,
+  resetApiClientTransportObservation,
+} from './utils/api-client-transport-observation';
+export {
   API_CLIENT_RUNNER_ARTIFACT_KIND,
   API_CLIENT_RUNNER_ARTIFACT_VERSION,
   exportApiClientRunnerArtifact,
@@ -94,6 +100,15 @@ export type {
 export { apiClientCollectionRunName, apiClientCollectionRunRequests, runApiClientCollection } from './utils/api-client-runner';
 export type { ApiClientCollectionRunItem, ApiClientCollectionRunResult, RunApiClientCollectionOptions } from './utils/api-client-runner';
 export type { ApiClientExecutionOutcome, ApiClientExecutionResponse, ExecuteApiClientRequestOptions } from './utils/api-client-execution';
+export type {
+  ApiClientDurationSummary,
+  ApiClientObservedTransport,
+  ApiClientTransportObservation,
+  ApiClientTransportObservationReport,
+  ApiClientTransportRecorder,
+  ApiClientTransportSummary,
+  ApiClientUnexecutedReason,
+} from './utils/api-client-transport-observation';
 export type {
   HttpApiKeyAuth,
   HttpAuth,
