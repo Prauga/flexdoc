@@ -3,7 +3,7 @@ import { ExternalLink, Play, Loader2, AlertCircle } from 'lucide-react';
 import { OpenAPISpec, Operation } from '../types/openapi';
 import { FlexDocRendererOptions } from '../types/options';
 import { buildRequest, initialRequestValues, parametersFor } from '../utils/request-builder';
-import { apiClientCorsFailureHint, apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
+import { apiClientCorsFailureHint, apiClientSlowHostHint, apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
 import { diagnoseApiClientHostExecutionFailure } from '../utils/api-client-host-preflight';
 import type { ApiClientExecutionResponse } from '../utils/api-client-execution';
 import { requestDraftFromBuiltRequest } from '../utils/http-client';
@@ -86,6 +86,8 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
   const [transportMode, available] = transport;
   const hostRequired = transportMode === 'host-required';
   const hostNotice = apiClientTransportNotice(transport, options?.tryIt?.hostExecution);
+
+  const slowHostHint = currentDraft ? apiClientSlowHostHint(response, currentDraft, options?.tryIt?.hostExecution) : null;
 
   const commitValues = (next: RequestValues) => {
     valuesRef.current = next;
@@ -190,7 +192,7 @@ const RequestPlaygroundStateful: React.FC<Props> = ({ spec, path, method, theme,
       </>}
 
       <div className='text-xs'><span aria-label='Request transport' className='rounded border px-2 py-1'>{apiClientTransportLabel(transportMode)}</span></div>
-      {(hostNotice || options?.tryIt?.hostExecution?.available) && <FlexDocHostNotice message={hostNotice || 'FlexDoc API host is available.'} capabilities={options?.tryIt?.hostExecution?.capabilities} warning={!available} theme={theme} />}
+      {(slowHostHint || hostNotice || options?.tryIt?.hostExecution?.available) && <FlexDocHostNotice message={slowHostHint || hostNotice || 'FlexDoc API host is available.'} capabilities={options?.tryIt?.hostExecution?.capabilities} warning={!!slowHostHint || !available} theme={theme} />}
 
       <div className='flex flex-wrap gap-2'>
         <button onClick={execute} disabled={loading || (hostRequired && !available)} className='inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60'>
