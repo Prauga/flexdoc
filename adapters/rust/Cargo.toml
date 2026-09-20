@@ -13,7 +13,12 @@ include = ["src/**", "assets/**", "README.md", "Cargo.toml"]
 
 [features]
 default = ["host-execution"]
-host-execution = ["dep:prauga-flexdoc-host-execution", "prauga-flexdoc-host-execution/host-execution", "dep:futures-util", "dep:multer"]
+host-execution = [
+  "dep:prauga-flexdoc-host-execution",
+  "prauga-flexdoc-host-execution/host-execution",
+  "dep:futures-util",
+  "dep:multer",
+]
 
 [dependencies]
 prauga-flexdoc-host-execution = { version = "0.1.0", path = "../rust-host-execution", optional = true, default-features = false }
