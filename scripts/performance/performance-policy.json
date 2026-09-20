@@ -30,5 +30,17 @@
         "minimumRawHeadroomBytes": 0
       }
     }
+  },
+  "clientWorkspace": {
+    "governance": {
+      "increasePolicy": "trim-first",
+      "increaseRequiresEvidence": true
+    },
+    "history": {
+      "maxEntries": 100,
+      "maxResponseBodyBytes": 262144,
+      "maxRequestBodyBytes": 262144,
+      "maxPersistedBytes": 52428800
+    }
   }
 }
