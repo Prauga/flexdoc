@@ -16,12 +16,12 @@ The examples deliberately separate two kinds of capability:
 | [`javascript-express`](./javascript-express) | Express + `@prauga/flexdoc-backend` `3.3.0` | Primary backend-native showcase with intentional route drift | **Yes — live Express router** |
 | [`javascript-fastify`](./javascript-fastify) | Fastify + `@prauga/flexdoc-backend` `3.3.0` | Shared OpenAPI showcase + intentional runtime-only route | **Yes — live Fastify route tree** |
 | [`javascript-hono`](./javascript-hono) | Hono + `@prauga/flexdoc-backend` `3.3.0` | Small inline contract + intentional runtime-only route | **Yes — live Hono route inventory** |
-| [`dotnet-aspnetcore`](./dotnet-aspnetcore) | `Prauga.FlexDoc.AspNetCore` `0.5.3` | Exact server-side contract + runtime-only minimal API route | **Yes — `EndpointDataSource`** |
-| [`java-spring`](./java-spring) | Spring Boot + `flexdoc-spring-boot-starter` `0.8.3` | Exact `FlexDocSpecProvider` contract + runtime-only MVC route | **Yes — `RequestMappingHandlerMapping`** |
-| [`java-quarkus`](./java-quarkus) | Quarkus/Jakarta REST + `flexdoc-jaxrs` `0.8.3` | Canonical JVM renderer hosting | No in current slice |
-| [`java-micronaut`](./java-micronaut) | Micronaut + `flexdoc-jvm` `0.8.3` | Canonical JVM renderer hosting | No in current slice |
-| [`java-guice`](./java-guice) | Guice/JDK HTTP + `flexdoc-jvm` `0.8.3` | Framework-neutral JVM host | No — no framework route integration |
-| [`kotlin-ktor`](./kotlin-ktor) | Ktor 3.5.2 + `flexdoc-jvm` `0.8.3` | Canonical JVM renderer hosting | No in current slice |
+| [`dotnet-aspnetcore`](./dotnet-aspnetcore) | `Prauga.FlexDoc.AspNetCore` `0.6.0` | Exact server-side contract + runtime-only minimal API route | **Yes — `EndpointDataSource`** |
+| [`java-spring`](./java-spring) | Spring Boot + `flexdoc-spring-boot-starter` `0.9.0` | Exact `FlexDocSpecProvider` contract + runtime-only MVC route | **Yes — `RequestMappingHandlerMapping`** |
+| [`java-quarkus`](./java-quarkus) | Quarkus/Jakarta REST + `flexdoc-jaxrs` `0.9.0` | Canonical JVM renderer hosting | No in current slice |
+| [`java-micronaut`](./java-micronaut) | Micronaut + `flexdoc-jvm` `0.9.0` | Canonical JVM renderer hosting | No in current slice |
+| [`java-guice`](./java-guice) | Guice/JDK HTTP + `flexdoc-jvm` `0.9.0` | Framework-neutral JVM host | No — no framework route integration |
+| [`kotlin-ktor`](./kotlin-ktor) | Ktor 3.5.2 + `flexdoc-jvm` `0.9.0` | Canonical JVM renderer hosting | No in current slice |
 | [`python-fastapi`](./python-fastapi) | FastAPI/ASGI + `prauga-flexdoc` `0.7.3` | Code-first OpenAPI + hidden runtime-only route | **Yes — live FastAPI/Starlette routes** |
 | [`python-flask`](./python-flask) | Flask/WSGI + `prauga-flexdoc` `0.7.3` | Canonical renderer hosting | No — neutral WSGI host |
 | [`python-django`](./python-django) | Django + `prauga-flexdoc` `0.7.3` | Canonical renderer hosting | No — neutral Django host |

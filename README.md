@@ -84,10 +84,10 @@ node tools/flexdoc-cli/bin/flexdoc.js run ./pets.flexdoc.json --json
 | npm | `@prauga/flexdoc-backend` | `3.3.0` |
 | npm | `@prauga/flexdoc-core` | `0.5.0` |
 | npm | `@prauga/flexdoc-cli` | `0.7.0` |
-| NuGet | `Prauga.FlexDoc.AspNetCore` | `0.5.3` |
-| Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.8.3` |
-| Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.8.3` |
-| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.8.3` |
+| NuGet | `Prauga.FlexDoc.AspNetCore` | `0.6.0` |
+| Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.9.0` |
+| Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.9.0` |
+| Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.9.0` |
 | PyPI | `prauga-flexdoc` | `0.7.3` |
 | Composer | `prauga/flexdoc` | `0.4.5` |
 | RubyGems | `prauga-flexdoc` | `0.4.5` |

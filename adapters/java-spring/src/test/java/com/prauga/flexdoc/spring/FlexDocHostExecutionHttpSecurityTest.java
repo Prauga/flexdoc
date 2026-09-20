@@ -26,6 +26,7 @@ class FlexDocHostExecutionHttpSecurityTest {
   void setUp() {
     FlexDocProperties properties = new FlexDocProperties();
     properties.setTryItHostExecution(true);
+    properties.setHostExecutionProtected(true);
     properties.setTryItHostExecutionAllowedOrigins(List.of(
         "https://api.example.test",
         "http://169.254.169.254"));

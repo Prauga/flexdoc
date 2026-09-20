@@ -45,6 +45,7 @@ if (mode != "baseline")
         if (executor is not null)
         {
             options.TryItHostExecution = true;
+            options.HostExecutionProtected = true;
             options.HostExecution = executor;
         }
     });
