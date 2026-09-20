@@ -76,6 +76,7 @@ describe('ApiClient', () => {
     fetchMock.mockResolvedValue({
       status: 200,
       statusText: 'OK',
+      ok: true,
       headers: new Headers({ 'content-type': 'application/json' }),
       text: async () => JSON.stringify({
         status: 200,
