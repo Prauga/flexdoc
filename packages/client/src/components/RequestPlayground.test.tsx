@@ -104,8 +104,22 @@ test('shows positive Try It copy for an available API host with no advanced capa
     options={{ tryIt: { enabled: true, hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] } } }}
   />);
 
+  expect(screen.getByLabelText('Request transport')).toHaveTextContent('API host');
   expect(screen.getByRole('status')).toHaveTextContent('This request runs from your API server.');
   expect(screen.queryByText(/Host execution is disabled/i)).not.toBeInTheDocument();
+});
+
+test('shows browser transport when the documentation host prefers direct execution', () => {
+  render(<RequestPlayground
+    spec={spec}
+    path='/pets'
+    method='get'
+    theme='light'
+    options={{ tryIt: { enabled: true, hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [], preferHostExecution: false } } }}
+  />);
+
+  expect(screen.getByLabelText('Request transport')).toHaveTextContent('Browser');
+  expect(screen.queryByText('This request runs from your API server.')).not.toBeInTheDocument();
 });
 
 test('blocks host-only Try It requests before Send when host execution is unavailable', () => {
@@ -116,6 +130,7 @@ test('blocks host-only Try It requests before Send when host execution is unavai
   render(<RequestPlayground spec={cookieSpec} path='/pets' method='get' theme='light' />);
 
   expect(screen.getByLabelText('cookie session')).toHaveValue('session-42');
+  expect(screen.getByLabelText('Request transport')).toHaveTextContent('Host required');
   expect(screen.getByRole('alert')).toHaveTextContent('API-host execution is unavailable on this documentation server.');
   expect(screen.getByRole('button', { name: 'Send request' })).toBeDisabled();
 });

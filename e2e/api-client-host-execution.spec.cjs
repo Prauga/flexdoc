@@ -73,3 +73,41 @@ test('host-only auth remains unavailable when the docs host exposes no executor'
   await expect(auth.locator('option[value="oauth1"]')).toHaveAttribute('disabled', '');
   await expect(auth.locator('option[value="awsv4"]')).toHaveAttribute('disabled', '');
 });
+
+test('per-request transport preference switches ordinary execution to the browser', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop transport preference coverage');
+
+  let targetHits = 0;
+  let hostHits = 0;
+  await page.route('https://api.example.test/**', async (route) => {
+    targetHits += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true, transport: 'browser' }),
+    });
+  });
+  await page.route('**/e2e/__flexdoc/execute', async (route) => {
+    hostHits += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 200, statusText: 'OK', headers: [['Content-Type', 'application/json']], body: JSON.stringify({ ok: true, transport: 'api-host' }), responseTime: 4 }),
+    });
+  });
+
+  const apiClient = await openHostApiClient(page);
+  await apiClient.getByLabel('Request URL').fill('https://api.example.test/health');
+  await expect(apiClient.getByLabel('Request transport')).toHaveText('API host');
+
+  const preference = apiClient.getByLabel('Transport preference');
+  await expect(preference).toBeEnabled();
+  await preference.selectOption('browser');
+  await expect(preference).toHaveValue('browser');
+  await expect(apiClient.getByLabel('Request transport')).toHaveText('Browser');
+
+  await apiClient.getByRole('button', { name: 'Send request' }).click();
+  await expect.poll(() => targetHits).toBe(1);
+  expect(hostHits).toBe(0);
+  await expect(apiClient.getByLabel('Actual transport')).toHaveText('Browser');
+});
