@@ -1,4 +1,4 @@
-# FastAPI + FlexDoc 3.0
+# FastAPI + FlexDoc 3.3
 
 FastAPI generates the OpenAPI 3.1 document from route declarations and Pydantic models, while `setup_fastapi_flexdoc` mounts FlexDoc inside the same running application and enables the native FastAPI/Starlette Runtime Intelligence integration.
 
@@ -14,4 +14,4 @@ uvicorn app:app --reload
 
 Open `http://127.0.0.1:8000/docs`.
 
-`prauga-flexdoc` is pinned to `0.7.1` until the coordinated 3.0 release versioning pass. Repository CI installs the wheel built from the current commit when validating source changes.
+`prauga-flexdoc` is pinned to `0.7.3`, the Python package published for FlexDoc 3.3. Repository CI installs the wheel built from the current commit when validating source changes.
