@@ -1,3 +1,5 @@
+#![cfg(feature = "native-host-execution")]
+
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use futures_util::StreamExt;
 use reqwest::{

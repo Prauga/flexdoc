@@ -3,6 +3,7 @@
 //! The crate embeds the canonical browser renderer and exposes [`router`] or
 //! [`router_with_openapi`] for mounting documentation alongside your API.
 
+#[cfg(feature = "native-host-execution")]
 pub use prauga_flexdoc_host_execution::{HostExecution, HostExecutionFile, HostExecutionResult};
 
 use axum::{
@@ -13,11 +14,13 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+#[cfg(feature = "native-host-execution")]
 use futures_util::stream;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::{collections::HashMap, convert::Infallible, sync::Arc};
 
+#[cfg(feature = "native-host-execution")]
 use prauga_flexdoc_host_execution::MAX_EXECUTION_REQUEST_BYTES;
 
 static RENDERER_JS: &[u8] = include_bytes!("../assets/flexdoc.standalone.js");
@@ -47,6 +50,7 @@ pub struct Config {
     /// Request native host-execution metadata and route ownership.
     pub try_it_host_execution: bool,
     /// Real native executor. `None` keeps host execution unavailable and the route unregistered.
+    #[cfg(feature = "native-host-execution")]
     pub host_execution: Option<Arc<HostExecution>>,
 }
 
@@ -63,6 +67,7 @@ impl Default for Config {
             try_it_credentials: None,
             try_it_api_client_persistence_key: None,
             try_it_host_execution: false,
+            #[cfg(feature = "native-host-execution")]
             host_execution: None,
         }
     }
@@ -98,6 +103,7 @@ fn build_router(mut cfg: Config, spec: Option<Value>) -> Router {
     if spec.is_some() {
         cfg.spec_url = format!("{}/__flexdoc/openapi.json", base);
     }
+    #[cfg(feature = "native-host-execution")]
     let owns_execution = cfg.try_it_host_execution && cfg.host_execution.is_some();
     let state = AppState {
         cfg: Arc::new(cfg),
@@ -109,6 +115,7 @@ fn build_router(mut cfg: Config, spec: Option<Value>) -> Router {
         .route(&(base.clone() + "/__flexdoc/renderer.js"), get(js))
         .route(&(base.clone() + "/__flexdoc/renderer.css"), get(css))
         .route(&(base.clone() + "/__flexdoc/openapi.json"), get(openapi));
+    #[cfg(feature = "native-host-execution")]
     if owns_execution {
         router = router.route(&(base + "/__flexdoc/execute"), post(execute));
     }
@@ -135,6 +142,7 @@ async fn openapi(State(state): State<AppState>) -> Response {
     }
 }
 
+#[cfg(feature = "native-host-execution")]
 async fn execute(State(state): State<AppState>, request: Request) -> Response {
     let Some(executor) = state.cfg.host_execution.as_ref() else {
         return StatusCode::NOT_FOUND.into_response();
@@ -199,6 +207,7 @@ async fn execute(State(state): State<AppState>, request: Request) -> Response {
     execution_response(executor.handle(marker.as_deref(), envelope, files).await)
 }
 
+#[cfg(feature = "native-host-execution")]
 async fn parse_multipart_envelope(
     content_type: &str,
     bytes: axum::body::Bytes,
@@ -268,6 +277,7 @@ async fn parse_multipart_envelope(
     Ok((envelope, files))
 }
 
+#[cfg(feature = "native-host-execution")]
 fn execution_response(result: HostExecutionResult) -> Response {
     let status = StatusCode::from_u16(result.status).unwrap_or(StatusCode::BAD_GATEWAY);
     let mut response = (status, Json(result.body)).into_response();
@@ -277,6 +287,7 @@ fn execution_response(result: HostExecutionResult) -> Response {
     response
 }
 
+#[cfg(feature = "native-host-execution")]
 fn execution_error(status: StatusCode, message: &str) -> Response {
     let mut response = (status, Json(json!({"error":message}))).into_response();
     response
@@ -352,20 +363,19 @@ fn renderer_options(cfg: &Config) -> Value {
         try_it.insert("apiClientPersistenceKey".into(), persistence_key.clone());
     }
     if cfg.try_it_host_execution {
-        let available = cfg.host_execution.is_some();
-        let capabilities = cfg
-            .host_execution
-            .as_ref()
-            .map(|executor| executor.capabilities())
-            .unwrap_or(&[]);
-        try_it.insert(
-            "hostExecution".into(),
-            json!({
-                "available": available,
-                "endpoint": format!("{}/__flexdoc/execute", cfg.path),
-                "capabilities": capabilities
-            }),
-        );
+        #[cfg(feature = "native-host-execution")]
+        let host_execution = json!({
+            "available": cfg.host_execution.is_some(),
+            "endpoint": format!("{}/__flexdoc/execute", cfg.path),
+            "capabilities": cfg.host_execution.as_ref().map(|executor| executor.capabilities()).unwrap_or(&[])
+        });
+        #[cfg(not(feature = "native-host-execution"))]
+        let host_execution = json!({
+            "available": false,
+            "endpoint": format!("{}/__flexdoc/execute", cfg.path),
+            "capabilities": []
+        });
+        try_it.insert("hostExecution".into(), host_execution);
     }
     options
 }
@@ -412,6 +422,7 @@ mod tests {
         assert!(!RENDERER_CSS.is_empty());
     }
 
+    #[cfg(feature = "native-host-execution")]
     #[test]
     fn renderer_host_execution_is_truthful() {
         let configured = Config {
