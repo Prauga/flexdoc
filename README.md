@@ -1,10 +1,51 @@
-# FlexDoc
+<div align="center">
+  <a href="https://flexdoc.prauga.com">
+    <img src="https://flexdoc.prauga.com/brand/flexdoc/favicon.svg" alt="FlexDoc logomark" width="88" height="88" />
+  </a>
+  <br /><br />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://flexdoc.prauga.com/brand/flexdoc/wordmark-dark.svg" />
+    <img src="https://flexdoc.prauga.com/brand/flexdoc/wordmark-light.svg" alt="FlexDoc" width="300" />
+  </picture>
+
+  <p><strong>Backend-native OpenAPI documentation, API exploration, and execution.</strong></p>
+  <p>One canonical renderer. Thin native adapters. No FlexDoc control plane required.</p>
+
+  <p>
+    <a href="https://github.com/Prauga/flexdoc/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Prauga/flexdoc/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
+    <a href="https://github.com/Prauga/flexdoc/actions/workflows/e2e.yml"><img alt="Browser E2E" src="https://github.com/Prauga/flexdoc/actions/workflows/e2e.yml/badge.svg?branch=main" /></a>
+    <a href="https://github.com/Prauga/flexdoc/actions/workflows/host-impact.yml"><img alt="Host Impact" src="https://github.com/Prauga/flexdoc/actions/workflows/host-impact.yml/badge.svg?branch=main" /></a>
+    <a href="https://github.com/Prauga/flexdoc/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/Prauga/flexdoc" /></a>
+    <a href="https://flexdoc.prauga.com"><img alt="Website" src="https://img.shields.io/badge/website-flexdoc.prauga.com-3461E1" /></a>
+    <img alt="OpenAPI 3.x" src="https://img.shields.io/badge/OpenAPI-3.x-6BA539" />
+    <img alt="Self-hosted" src="https://img.shields.io/badge/deployment-self--hosted-555" />
+  </p>
+</div>
 
 FlexDoc is Prauga's open-source, self-hosted OpenAPI documentation renderer and API explorer. It ships one canonical browser renderer and thin ecosystem adapters so supported backends expose the same documentation, Try It, API Client, Runtime Intelligence, and backend-produced Contract Validation behavior where the host can genuinely observe it.
 
 No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is required.
 
-## Backend coverage through FlexDoc 2.3.0
+## Published packages
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@prauga/flexdoc-client"><img alt="npm client" src="https://img.shields.io/npm/v/%40prauga%2Fflexdoc-client?label=npm%20client" /></a>
+  <a href="https://www.npmjs.com/package/@prauga/flexdoc-backend"><img alt="npm backend" src="https://img.shields.io/npm/v/%40prauga%2Fflexdoc-backend?label=npm%20backend" /></a>
+  <a href="https://www.npmjs.com/package/@prauga/flexdoc-cli"><img alt="npm CLI" src="https://img.shields.io/npm/v/%40prauga%2Fflexdoc-cli?label=npm%20CLI" /></a>
+  <a href="https://www.npmjs.com/package/@prauga/flexdoc-core"><img alt="npm core" src="https://img.shields.io/npm/v/%40prauga%2Fflexdoc-core?label=npm%20core" /></a>
+</p>
+<p align="center">
+  <a href="https://central.sonatype.com/artifact/com.prauga.flexdoc/flexdoc-jvm"><img alt="Maven Central" src="https://img.shields.io/maven-central/v/com.prauga.flexdoc/flexdoc-jvm?label=Maven%20Central" /></a>
+  <a href="https://www.nuget.org/packages/Prauga.FlexDoc.AspNetCore"><img alt="NuGet" src="https://img.shields.io/nuget/v/Prauga.FlexDoc.AspNetCore?label=NuGet" /></a>
+  <a href="https://pypi.org/project/prauga-flexdoc/"><img alt="PyPI" src="https://img.shields.io/pypi/v/prauga-flexdoc?label=PyPI" /></a>
+  <a href="https://packagist.org/packages/prauga/flexdoc"><img alt="Packagist" src="https://img.shields.io/packagist/v/prauga/flexdoc?label=Packagist" /></a>
+  <a href="https://rubygems.org/gems/prauga-flexdoc"><img alt="RubyGems" src="https://img.shields.io/gem/v/prauga-flexdoc?label=RubyGems" /></a>
+  <a href="https://crates.io/crates/prauga-flexdoc-axum"><img alt="crates.io" src="https://img.shields.io/crates/v/prauga-flexdoc-axum?label=crates.io" /></a>
+  <a href="https://hex.pm/packages/prauga_flexdoc"><img alt="Hex" src="https://img.shields.io/hexpm/v/prauga_flexdoc?label=Hex" /></a>
+  <a href="https://pkg.go.dev/github.com/prauga/flexdoc/adapters/go"><img alt="Go Reference" src="https://pkg.go.dev/badge/github.com/prauga/flexdoc/adapters/go.svg" /></a>
+</p>
+
+## Backend coverage
 
 - **JavaScript/TypeScript:** Express, Fastify, NestJS, Hono
 - **C#/.NET:** ASP.NET Core
