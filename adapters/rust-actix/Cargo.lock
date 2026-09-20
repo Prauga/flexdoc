@@ -1154,14 +1154,11 @@ dependencies = [
  "actix-rt",
  "actix-web",
  "axum",
- "base64",
  "futures-util",
  "multer",
  "prauga-flexdoc-host-execution",
- "reqwest",
  "serde_json",
  "tokio",
- "url",
 ]
 
 [[package]]

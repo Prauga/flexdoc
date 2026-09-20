@@ -18,6 +18,15 @@ HttpServer::new(|| App::new().service(scope(Config {
 
 ## Native API-host execution (3.3)
 
+Native host execution is enabled by default. For docs/rendering without the native executor or reqwest dependency graph:
+
+```toml
+prauga-flexdoc-actix = { version = "0.4.5", default-features = false }
+```
+
+With default features disabled, docs and renderer routes remain available, host execution is advertised unavailable, and the execute route/`HostExecution` type are not compiled.
+
+
 Create a native executor with a non-empty exact-origin allowlist and attach it to the same Actix scope:
 
 ```rust
