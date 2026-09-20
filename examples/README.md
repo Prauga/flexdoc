@@ -22,21 +22,21 @@ The examples deliberately separate two kinds of capability:
 | [`java-micronaut`](./java-micronaut) | Micronaut + `flexdoc-jvm` `0.9.0` | Canonical JVM renderer hosting | No in current slice |
 | [`java-guice`](./java-guice) | Guice/JDK HTTP + `flexdoc-jvm` `0.9.0` | Framework-neutral JVM host | No — no framework route integration |
 | [`kotlin-ktor`](./kotlin-ktor) | Ktor 3.5.2 + `flexdoc-jvm` `0.9.0` | Canonical JVM renderer hosting | No in current slice |
-| [`python-fastapi`](./python-fastapi) | FastAPI/ASGI + `prauga-flexdoc` `0.7.3` | Code-first OpenAPI + hidden runtime-only route | **Yes — live FastAPI/Starlette routes** |
+| [`python-fastapi`](./python-fastapi) | FastAPI/ASGI + `prauga-flexdoc` `0.7.4` | Code-first OpenAPI + hidden runtime-only route | **Yes — live FastAPI/Starlette routes** |
 | [`python-flask`](./python-flask) | Flask/WSGI + `prauga-flexdoc` `0.7.3` | Canonical renderer hosting | No — neutral WSGI host |
 | [`python-django`](./python-django) | Django + `prauga-flexdoc` `0.7.3` | Canonical renderer hosting | No — neutral Django host |
-| [`php-laravel`](./php-laravel) | Laravel + `prauga/flexdoc` `0.4.5` | Canonical PHP renderer hosting | No in current slice |
+| [`php-laravel`](./php-laravel) | Laravel + `prauga/flexdoc` `0.4.6` | Canonical PHP renderer hosting | No in current slice |
 | [`php-symfony`](./php-symfony) | Symfony + `prauga/flexdoc` `0.4.5` | Canonical PHP renderer hosting | No in current slice |
-| [`ruby-rack`](./ruby-rack) | Rack + `prauga-flexdoc` gem `0.4.5` | Neutral Rack renderer hosting | No |
+| [`ruby-rack`](./ruby-rack) | Rack + `prauga-flexdoc` gem `0.4.6` | Neutral Rack renderer hosting | No |
 | [`ruby-rails`](./ruby-rails) | Rails + `prauga-flexdoc` gem `0.4.5` | Canonical Ruby renderer hosting | No in current slice |
-| [`go-net-http`](./go-net-http) | Go `net/http` adapter `v0.5.5` | Neutral Go renderer hosting | No — neutral router boundary |
+| [`go-net-http`](./go-net-http) | Go `net/http` adapter `v0.5.6` | Neutral Go renderer hosting | No — neutral router boundary |
 | [`go-gin`](./go-gin) | Gin over the `net/http` adapter `v0.5.5` | Framework example over neutral host | No in current slice |
 | [`go-chi`](./go-chi) | Chi over the `net/http` adapter `v0.5.5` | Framework example over neutral host | No in current slice |
 | [`go-echo`](./go-echo) | Echo v5 over the `net/http` adapter `v0.5.5` | Framework example over neutral host | No in current slice |
 | [`go-fiber`](./go-fiber) | Fiber v3 direct `net/http` adaptation, adapter `v0.5.5` | Framework example over neutral host | No in current slice |
-| [`rust-axum`](./rust-axum) | `prauga-flexdoc-axum` `0.5.5` | Canonical Rust renderer hosting | No in current slice |
-| [`rust-actix`](./rust-actix) | `prauga-flexdoc-actix` `0.4.5` | Canonical Rust renderer hosting | No in current slice |
-| [`elixir-phoenix`](./elixir-phoenix) | Phoenix forwarding `prauga_flexdoc` Plug `0.4.5` | Canonical Plug renderer hosting | No in current slice |
+| [`rust-axum`](./rust-axum) | `prauga-flexdoc-axum` `0.5.6` | Canonical Rust renderer hosting | No in current slice |
+| [`rust-actix`](./rust-actix) | `prauga-flexdoc-actix` `0.4.6` | Canonical Rust renderer hosting | No in current slice |
+| [`elixir-phoenix`](./elixir-phoenix) | Phoenix forwarding `prauga_flexdoc` Plug `0.4.6` | Canonical Plug renderer hosting | No in current slice |
 
 ## What to run for the current surface
 

@@ -6,26 +6,26 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 
 | Artifact | Version represented by source | Release tag | Compatibility |
 | --- | --- | --- | --- |
-| `@prauga/flexdoc-client` | `3.3.0` | `js/v3.3.0` | canonical renderer; renderer contract v1 |
-| `@prauga/flexdoc-backend` | `3.3.0` | `js/v3.3.0` | matching renderer; contract v1 |
-| `@prauga/flexdoc-core` | `0.5.1` | `core/v0.5.1` | framework-neutral OpenAPI engine + host-execution target-policy contract |
+| `@prauga/flexdoc-client` | `3.3.1` | `js/v3.3.1` | canonical renderer; renderer contract v1 |
+| `@prauga/flexdoc-backend` | `3.3.1` | `js/v3.3.1` | matching renderer; contract v1 |
+| `@prauga/flexdoc-core` | `0.5.2` | `core/v0.5.2` | framework-neutral OpenAPI engine + host-execution target-policy contract |
 | `@prauga/flexdoc-cli` | `0.7.0` | `cli/v0.7.0` | Contract Validation + headless Runner consumer; compatible Prauga renderer |
 | `Prauga.FlexDoc.AspNetCore` | `0.6.0` | `dotnet/v0.6.0` | ASP.NET Core 8+; renderer contract v1; HX-03 protection acknowledgement |
 | `com.prauga.flexdoc:flexdoc-jvm` | `0.9.0` | `java/v0.9.0` | Java 17+ framework-neutral renderer host; HX-03 protection acknowledgement |
 | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.9.0` | `java/v0.9.0` | Jakarta REST/JAX-RS transport over `flexdoc-jvm` |
 | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.9.0` | `java/v0.9.0` | Spring Boot 3 transport over `flexdoc-jvm`; HX-03 property binding |
-| `prauga-flexdoc` (PyPI) | `0.7.3` | `python/v0.7.3` | ASGI/WSGI adapter + embedded renderer |
-| `prauga/flexdoc` | `0.4.5` | `Prauga/flexdoc-php` `v0.4.5` | PHP 8.2+; Composer/Packagist distribution mirrored to `Prauga/flexdoc-php` |
-| `prauga-flexdoc` (RubyGems) | `0.4.5` | `ruby/v0.4.5` | Ruby 3.2+ Rack/Rails host + embedded renderer |
-| `prauga-flexdoc-host-execution` | `0.1.0` | `rust-host/v<version>` | shared Rust native host-execution engine |
-| `prauga-flexdoc-axum` | `0.5.5` | `rust/v0.5.5` | Axum adapter + embedded renderer |
-| `prauga-flexdoc-actix` | `0.4.5` | `rust-actix/v0.4.5` | Actix Web adapter + embedded renderer |
-| `prauga_flexdoc` (Hex) | `0.4.5` | `elixir/v0.4.5` | Plug/Phoenix adapter + embedded renderer |
-| `github.com/prauga/flexdoc/adapters/go` | `0.5.5` | `adapters/go/v0.5.5` | net/http adapter + embedded renderer |
+| `prauga-flexdoc` (PyPI) | `0.7.4` | `python/v0.7.4` | ASGI/WSGI adapter + embedded renderer |
+| `prauga/flexdoc` | `0.4.6` | `Prauga/flexdoc-php` `v0.4.6` | PHP 8.2+; Composer/Packagist distribution mirrored to `Prauga/flexdoc-php` |
+| `prauga-flexdoc` (RubyGems) | `0.4.6` | `ruby/v0.4.6` | Ruby 3.2+ Rack/Rails host + embedded renderer |
+| `prauga-flexdoc-host-execution` | `0.1.1` | `rust-host/v0.1.1` | shared Rust native host-execution engine |
+| `prauga-flexdoc-axum` | `0.5.6` | `rust/v0.5.6` | Axum adapter + embedded renderer |
+| `prauga-flexdoc-actix` | `0.4.6` | `rust-actix/v0.4.6` | Actix Web adapter + embedded renderer |
+| `prauga_flexdoc` (Hex) | `0.4.6` | `elixir/v0.4.6` | Plug/Phoenix adapter + embedded renderer |
+| `github.com/prauga/flexdoc/adapters/go` | `0.5.6` | `adapters/go/v0.5.6` | net/http adapter + embedded renderer |
 
 The table describes the versions encoded by the current source tree. A new source version is not considered published merely because it appears here; publication still requires its matching release workflow to complete successfully.
 
-Versions are intentionally independent across ecosystems. FlexDoc 3.3 advances client/backend to `3.3.0`; the HX-03 3.3.x security-parity follow-up advances the Java family to `0.9.0` and ASP.NET Core to `0.6.0`, while HX-10 advances `@prauga/flexdoc-core` to `0.5.1` for the framework-neutral host-execution target-policy contract. Other native adapters retain the versions already published for the 3.3 release, and `@prauga/flexdoc-cli` remains `0.7.0`. The renderer contract, not matching package numbers, remains the cross-ecosystem compatibility boundary.
+Versions are intentionally independent across ecosystems. FlexDoc 3.3 advanced client/backend to `3.3.0`, the Java family to `0.9.0` and ASP.NET Core to `0.6.0`. The 3.3.1 coordinated patch release then advanced every package carrying a shipped change since its last tag: client/backend to `3.3.1`, `@prauga/flexdoc-core` to `0.5.2`, Python to `0.7.4`, PHP/Ruby/Elixir to `0.4.6`, Go to `0.5.6`, Axum to `0.5.6`, Actix to `0.4.6` and the shared Rust host-execution crate to `0.1.1`. The Java family, ASP.NET Core and `@prauga/flexdoc-cli` were unchanged and remain at `0.9.0`, `0.6.0` and `0.7.0`. The renderer contract, not matching package numbers, remains the cross-ecosystem compatibility boundary.
 
 ## Self-contained adapter artifacts
 
@@ -84,7 +84,7 @@ The distribution name is `prauga-flexdoc`; the import package is `prauga_flexdoc
 
 The Composer package is `prauga/flexdoc`. Its canonical source remains under `adapters/php` in `Prauga/flexdoc`; [`Prauga/flexdoc-php`](https://github.com/Prauga/flexdoc-php) is the standalone distribution repository intended for Composer/Packagist consumption and is synchronized from the monorepo.
 
-PHP does not use a `php/v<version>` release in the monorepo. After the sync workflow copies `adapters/php` to `Prauga/flexdoc-php`, the standalone distribution repository publishes `v<version>` (for the 3.3 release, `v0.4.5`).
+PHP does not use a `php/v<version>` release in the monorepo. After the sync workflow copies `adapters/php` to `Prauga/flexdoc-php`, the standalone distribution repository publishes `v<version>` (for the 3.3.1 release, `v0.4.6`).
 
 The distribution repository owns its standalone Composer validation/CI surface. Product development continues in `Prauga/flexdoc`, so fixes should be made in the monorepo first and then mirrored to `Prauga/flexdoc-php` rather than edited independently in the distribution copy.
 
