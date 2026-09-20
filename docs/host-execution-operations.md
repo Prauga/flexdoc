@@ -21,6 +21,23 @@ A multi-instance deployment should normally enforce user-aware rate limits in a 
 
 When native host execution must remain enabled but operators do not want ordinary interactive Try It requests to take the additional browser -> API-host -> target hop, the Node host can set `tryIt.hostExecution.preferHostExecution: false`. Host-only features still require host execution; this knob only keeps ordinary requests on direct browser transport. Omitting the option keeps the 3.3 default (`true`).
 
+## Execute-route failure diagnostics
+
+FlexDoc does **not** probe the API-host execute route before a normal request. The interactive API Client and Try It surface send the real request first. Only after an actual API-host transport attempt fails may the browser issue a supplemental diagnostic POST to the same configured execute endpoint.
+
+The diagnostic request deliberately sends an empty JSON envelope (`{}`) with the FlexDoc protocol marker. It does not contain the failed target URL, target headers, target body, API credentials, signing material, or other target secrets. Same-origin documentation credentials may still be included by the browser so the probe crosses the same application authentication boundary as the execute route.
+
+Diagnostic results are supplemental; the original execution failure remains authoritative:
+
+- FlexDoc's canonical `400` validation response, or admission-control `429`, confirms that the execute route is reachable. No extra warning is added, and recognized routes may be cached for the browser page lifetime.
+- `404`, `501`, or `405` without `POST` in `Allow` indicates that the configured endpoint does not expose the FlexDoc execute route; the UI adds deployment/URL guidance.
+- `401` and `403` add authentication, authorization, same-origin, or CSRF guidance.
+- An unexpected successful response warns that the configured endpoint may not be FlexDoc's hardened execute route.
+- A generic middleware `400` is not treated as proof of the FlexDoc route and adds request-body/CSRF guidance.
+- A diagnostic network failure does not replace or obscure the original execution error.
+- Cancellation stops the flow without starting a new diagnostic when the request was already aborted. If cancellation happens during the diagnostic, the interactive API Client reports the request as cancelled.
+
+Direct browser execution is unaffected by these diagnostics, and successful API-host requests incur no diagnostic request or extra network hop.
 
 ## Node / Express / Nest reference admission control
 
