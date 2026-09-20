@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { FlexDoc } from './components/FlexDoc';
 import { ApiClientWorkspace } from './components/ApiClientWorkspace';
@@ -49,13 +50,12 @@ export function prepareSpec(source: OpenAPISpec, options: StandaloneFlexDocOptio
   const tagToGroup = new Map<string, string>();
   for (const group of options.tagGroups) for (const tag of group.tags) tagToGroup.set(tag, group.name);
   const paths: OpenAPISpec['paths'] = {};
-  const methods = new Set(['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace']);
 
   for (const [path, pathItem] of Object.entries(spec.paths)) {
     const nextPathItem: typeof pathItem = {};
     let includedOperation = false;
     for (const [key, value] of Object.entries(pathItem)) {
-      if (!methods.has(key)) { (nextPathItem as Record<string, unknown>)[key] = value; continue; }
+      if (!['get', 'post', 'put', 'delete', 'patch', 'options', 'head', 'trace'].includes(key)) { (nextPathItem as Record<string, unknown>)[key] = value; continue; }
       const operation = value as { tags?: string[] } | undefined;
       const groupedTags = (operation?.tags || []).filter((tag) => tagToGroup.has(tag)).map((tag) => tagToGroup.get(tag) as string);
       if (!groupedTags.length || !operation) continue;
@@ -75,14 +75,17 @@ function resolveTheme(options: StandaloneFlexDocOptions): 'light' | 'dark' {
   return 'light';
 }
 
-function renderFlexDoc(element: Element, source: OpenAPISpec, options: StandaloneFlexDocOptions): () => void {
-  const spec = prepareSpec(source, options);
+function mountRoot(element: Element, child: ReactNode): () => void {
   const existingRoot = roots.get(element);
   if (existingRoot) existingRoot.unmount();
   const root = createRoot(element);
   roots.set(element, root);
-  root.render(<FlexDoc spec={spec} theme={resolveTheme(options)} options={options} />);
+  root.render(child);
   return () => { if (roots.get(element) === root) roots.delete(element); root.unmount(); };
+}
+
+function renderFlexDoc(element: Element, source: OpenAPISpec, options: StandaloneFlexDocOptions): () => void {
+  return mountRoot(element, <FlexDoc spec={prepareSpec(source, options)} theme={resolveTheme(options)} options={options} />);
 }
 
 /**
@@ -103,12 +106,7 @@ export function mountFlexDoc(element: Element, config: StandaloneFlexDocConfig):
  * @returns Cleanup function that unmounts the React root.
  */
 export function mountApiClient(element: Element, config: StandaloneApiClientConfig = {}): () => void {
-  const existingRoot = roots.get(element);
-  if (existingRoot) existingRoot.unmount();
-  const root = createRoot(element);
-  roots.set(element, root);
-  root.render(<ApiClientWorkspace {...config} />);
-  return () => { if (roots.get(element) === root) roots.delete(element); root.unmount(); };
+  return mountRoot(element, <ApiClientWorkspace {...config} />);
 }
 
 /**

@@ -5,11 +5,11 @@ import { OAuthEditor } from './ApiClientAuthEditor';
 import { ApiClientBodyEditor } from './ApiClientBodyEditor';
 import { ApiClientResponseViewer } from './ApiClientResponseViewer';
 import { ApiClientScriptEditor } from './ApiClientScriptEditor';
-import { executeApiClientRequest } from '../utils/api-client-execution';
-import { buildHttpRequest, httpHostExecutionRequirements, inferHttpBodyMode } from '../utils/http-client';
+import { apiClientTransportLabel, apiClientTransportNotice, executeApiClientRequest, resolveApiClientTransport } from '../utils/api-client-execution';
+import { buildHttpRequest, inferHttpBodyMode } from '../utils/http-client';
 import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import { replaceRequestServer, requestUsesServer, resolveServerUrl } from '../utils/server-url';
-import type { ApiClientExecutionResult } from '../utils/api-client-execution';
+import type { ApiClientExecutionResponse, ApiClientExecutionResult } from '../utils/api-client-execution';
 import type { HttpAuth, HttpHostExecutionCapability, HttpKeyValue, HttpRequestDraft, HttpVariables } from '../utils/http-client';
 import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from '../utils/api-client-scripting';
 import type { BuiltRequest } from '../utils/request-builder';
@@ -202,7 +202,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   const [customServerUrl, setCustomServerUrl] = useState(initialCustomServer);
   const serverUrlRef = useRef(initialEffectiveServer);
   const originalServerUrlRef = useRef(initialEffectiveServer);
-  const [response, setResponse] = useState<{ status: number; statusText: string; headers: Array<[string, string]>; body: string; responseTime: number } | null>(null);
+  const [response, setResponse] = useState<ApiClientExecutionResponse | null>(null);
   const [curlCommand, setCurlCommand] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [scriptError, setScriptError] = useState<string | null>(null);
@@ -326,26 +326,15 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   };
 
   const resolvedAuth = resolveAuth ? resolveAuth(draft.auth) : draft.auth;
-  const hostRequirements = httpHostExecutionRequirements({ ...draft, auth: resolvedAuth });
-  const hostCapabilities = new Set(hostExecution?.capabilities || []);
-  const missingHostCapabilities = hostRequirements.filter((requirement) => !hostCapabilities.has(requirement));
-  const bodyNeedsHostTransport = bodyUnusual && hasBody;
-  const hostRequired = hostRequirements.length > 0;
-  const hostAvailable = hostExecution?.available === true && missingHostCapabilities.length === 0;
-  const hostNotice = bodyNeedsHostTransport
+  const transport = resolveApiClientTransport({ request: { ...draft, auth: resolvedAuth }, hostExecution });
+  const [transportMode, available, bodyHost] = transport;
+  const hostRequired = transportMode === 'host-required';
+  const hostNotice = bodyHost
     ? hostExecution?.available
       ? messages?.unusualBodyHostExecution || `${method} request bodies are unusual. FlexDoc will use API-host execution so the body can be sent.`
       : messages?.unusualBodyBrowserWarning || `${method} request bodies are unusual. Browser fetch may reject this request; enable API-host execution to send it reliably.`
-    : hostRequired
-    ? hostAvailable
-      ? messages?.hostBrowserUnsupported || 'The browser cannot send this request. FlexDoc will execute it from the API host.'
-      : hostExecution?.available
-        ? `The API host does not support the required capability${missingHostCapabilities.length === 1 ? '' : 'ies'}: ${missingHostCapabilities.join(', ')}.`
-        : messages?.hostExecutionDisabled || 'API-host execution is unavailable on this documentation server.'
-    : hostExecution?.available && hostCapabilities.size === 0
-      ? 'This request runs from your API server.'
-      : null;
-  const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && hostCapabilities.has(capability);
+    : apiClientTransportNotice(transport, hostExecution, messages?.hostBrowserUnsupported, messages?.hostExecutionDisabled);
+  const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && (hostExecution.capabilities || []).includes(capability);
 
   const execute = async () => {
     if (loading) return;
@@ -381,16 +370,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
       setScriptError(outcome.scriptError || null);
       setScriptTests(outcome.scriptTests);
       setScriptLogs(outcome.scriptLogs);
-      if (outcome.response) {
-        setCurlCommand(outcome.curlCommand);
-        setResponse({
-          status: outcome.response.status,
-          statusText: outcome.response.statusText,
-          headers: outcome.response.headers.map(([key, value]) => [key, value]),
-          body: outcome.response.body,
-          responseTime: outcome.response.responseTime,
-        });
-      }
+      if (outcome.response) { setCurlCommand(outcome.curlCommand); setResponse(outcome.response); }
       if (outcome.result) onExecutionComplete?.(outcome.result);
     } finally {
       if (abortControllerRef.current === controller) abortControllerRef.current = null;
@@ -401,7 +381,7 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   const cancel = () => abortControllerRef.current?.abort();
 
   const passedTests = scriptTests.filter((test) => test.passed).length;
-  const canExecute = !loading && !(hostRequired && !hostAvailable);
+  const canExecute = !loading && !(hostRequired && !available);
 
   return <div
     className={`min-w-0 rounded-xl border p-4 md:p-5 ${panelClass}`}
@@ -547,7 +527,12 @@ export const ApiClient: React.FC<ApiClientProps> = ({
         </div>}
       </section>}
 
-      {hostNotice && <div role={bodyNeedsHostTransport ? 'status' : hostAvailable ? 'status' : 'alert'} aria-label={messages?.hostExecutionStatus || 'Host execution status'} className={`rounded-md border p-3 text-sm ${hostAvailable ? (theme === 'dark' ? 'border-blue-800 bg-blue-950/40 text-blue-200' : 'border-blue-300 bg-blue-50 text-blue-800') : (theme === 'dark' ? 'border-amber-800 bg-amber-950/40 text-amber-200' : 'border-amber-300 bg-amber-50 text-amber-800')}`}>{hostNotice}</div>}
+      <div className='flex flex-wrap items-center gap-2 text-xs'>
+        <span aria-label='Request transport' className={`rounded border px-2 py-1 ${mutedClass}`}>{apiClientTransportLabel(transportMode)}</span>
+        {hostExecution?.available && <label className={`inline-flex items-center gap-2 ${mutedClass}`}>Transport preference<select aria-label='Transport preference' disabled={hostRequired} className={`rounded-md border px-2 py-1 ${inputClass}`} value={draft.hostExecution?.preferHostExecution === undefined ? 'inherit' : draft.hostExecution.preferHostExecution ? 'host' : 'browser'} onChange={({ target: { value } }) => setDraft((current) => ({ ...current, hostExecution: { ...(current.hostExecution || {}), preferHostExecution: value === 'inherit' ? undefined : value === 'host' } }))}><option value='inherit'>Server default</option><option value='browser'>Prefer browser</option><option value='host'>Prefer API host</option></select></label>}
+      </div>
+
+      {hostNotice && <div role={bodyHost ? 'status' : available ? 'status' : 'alert'} aria-label={messages?.hostExecutionStatus || 'Host execution status'} className={`rounded-md border p-3 text-sm ${available ? (theme === 'dark' ? 'border-blue-800 bg-blue-950/40 text-blue-200' : 'border-blue-300 bg-blue-50 text-blue-800') : (theme === 'dark' ? 'border-amber-800 bg-amber-950/40 text-amber-200' : 'border-amber-300 bg-amber-50 text-amber-800')}`}>{hostNotice}</div>}
 
       {loading ? <button type='button' onClick={cancel} className='inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-red-500 px-4 py-2 font-medium text-red-600 sm:w-auto'><Square className='h-4 w-4' />{messages?.cancelRequest || 'Cancel request'}</button> : <button type='button' data-api-client-send='true' onClick={() => { void execute(); }} disabled={!canExecute} aria-keyshortcuts='Control+Enter Meta+Enter' title={`${messages?.sendRequest || 'Send request'} (Ctrl/Cmd+Enter)`} className='inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60 sm:w-auto'><Play className='h-4 w-4' /> {messages?.sendRequest || 'Send request'} <span className='text-xs font-normal opacity-80'>Ctrl/Cmd+Enter</span></button>}
 
