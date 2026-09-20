@@ -1,6 +1,6 @@
 # Django + FlexDoc
 
-This example uses `prauga-flexdoc` `0.7.4` and `django_urlpatterns()` to expose `/docs`, `/docs/__flexdoc/renderer.js`, and `/docs/__flexdoc/renderer.css` through Django's native URL routing. The same package also exposes `FlexDocWSGI` for direct middleware-style WSGI hosting and `FlexDocASGI` for Django ASGI deployments.
+This example uses `prauga-flexdoc` `0.8.0` and `django_urlpatterns()` to expose `/docs`, `/docs/__flexdoc/renderer.js`, and `/docs/__flexdoc/renderer.css` through Django's native URL routing. The same package also exposes `FlexDocWSGI` for direct middleware-style WSGI hosting and `FlexDocASGI` for Django ASGI deployments.
 
 ```bash
 python -m venv .venv

@@ -50,7 +50,7 @@ const published = {
   cli: '0.7.0',
   dotnet: '0.6.0',
   java: '0.9.0',
-  python: '0.7.4',
+  python: '0.8.0',
   php: '0.4.6',
   ruby: '0.4.6',
   rustAxum: '0.5.6',
@@ -66,10 +66,7 @@ const published = {
 // is the only value a source tree may hold other than the published baseline.
 // Examples stay pinned to `published` until the artifacts ship and a follow-up
 // commit repins them and clears the entry here.
-const pending = {
-  // 0.8.0 adds WSGI/Flask/Django host execution. Examples stay on 0.7.4 until it publishes.
-  python: '0.8.0',
-};
+const pending = {};
 
 for (const name of Object.keys(pending)) {
   if (!(name in published)) fail(`pending lists unknown package ${name}`);
