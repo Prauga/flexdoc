@@ -8,15 +8,14 @@ permissions:
   contents: read
   id-token: write
 
-concurrency:
-  group: flexdoc-rust-crates-publish
-  cancel-in-progress: false
-
 jobs:
   publish:
     if: startsWith(github.event.release.tag_name, 'rust/v')
     runs-on: ubuntu-latest
     environment: crates-io
+    concurrency:
+      group: flexdoc-rust-crates-publish
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v6
       - name: Verify release tag
