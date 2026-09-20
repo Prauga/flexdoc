@@ -1,11 +1,9 @@
 
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Clock3, RotateCcw, Search, Trash2 } from 'lucide-react';
-import { cloneApiClientScripts } from '../utils/api-client-scripting';
 import type { ApiClientRequestScripts } from '../utils/api-client-scripting';
-import { cloneRequestDraft } from '../utils/api-client-workspace';
 import type { ApiClientHistoryEntry, ApiClientWorkspaceState } from '../utils/api-client-workspace';
-import { filterApiClientHistoryEntries, groupApiClientHistoryEntries } from '../utils/api-client-history';
+import { apiClientHistoryDisplayTime, apiClientHistoryHasFailure, filterApiClientHistoryEntries, groupApiClientHistoryEntries } from '../utils/api-client-history';
 import type { ApiClientHistoryOutcomeFilter, ApiClientHistoryRunGroup } from '../utils/api-client-history';
 import type { HttpKeyValue, HttpRequestDraft } from '../utils/http-client';
 
@@ -20,18 +18,6 @@ export interface ApiClientHistoryPageProps {
   /** Collection-run group selected when the page first mounts; takes precedence over `initialEntryId`. */ initialRunId?: string;
 }
 
-function displayTime(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-}
-
-function hasFailure(entry: ApiClientHistoryEntry): boolean {
-  return !!entry.error
-    || !!entry.scriptError
-    || (entry.status !== undefined && entry.status >= 400)
-    || !!entry.scriptTests?.some((test) => !test.passed);
-}
-
 function resultLabel(entry: ApiClientHistoryEntry): string {
   if (entry.error) return 'Request failed';
   if (entry.status !== undefined) return `${entry.status}${entry.statusText ? ` ${entry.statusText}` : ''}`;
@@ -42,11 +28,13 @@ function enabledPairs(values: HttpKeyValue[] | undefined): HttpKeyValue[] {
   return (values || []).filter((value) => value.enabled !== false && (value.key.trim() || value.value.trim()));
 }
 
+const HISTORY_HEADING_CLASS = 'text-xs font-semibold uppercase tracking-wide';
+
 function PairDetails({ title, values, mutedClass }: { title: string; values: HttpKeyValue[] | undefined; mutedClass: string }) {
   const visible = enabledPairs(values);
   if (visible.length === 0) return null;
   return <section className='space-y-2'>
-    <h4 className='text-xs font-semibold uppercase tracking-wide'>{title}</h4>
+    <h4 className={HISTORY_HEADING_CLASS}>{title}</h4>
     <div className='overflow-hidden rounded-md border'>
       {visible.map((entry, index) => <div key={`${entry.key}:${index}`} className='grid grid-cols-[minmax(8rem,0.35fr)_minmax(0,1fr)] gap-3 border-b px-3 py-2 text-xs last:border-b-0'>
         <span className='break-all font-mono font-medium'>{entry.key || '—'}</span>
@@ -87,7 +75,7 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
   const selectRun = (runId: string) => { setSelectedRunId(runId); setSelectedId(undefined); };
 
   const openInClient = (entry: ApiClientHistoryEntry) => {
-    onLoadRequest(cloneRequestDraft(entry.request), entry.scripts ? cloneApiClientScripts(entry.scripts) : undefined, entry.collectionId, entry.folderId);
+    onLoadRequest(entry.request, entry.scripts, entry.collectionId, entry.folderId);
     onBack();
   };
 
@@ -143,12 +131,12 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
             if (block.kind === 'entry') {
               const entry = block.entry;
               const active = selected?.id === entry.id;
-              const failed = hasFailure(entry);
+              const failed = apiClientHistoryHasFailure(entry);
               const origin = entry.collectionId ? workspace.collections.find((candidate) => candidate.id === entry.collectionId)?.name || 'Deleted collection' : undefined;
               return <button key={entry.id} type='button' className={`w-full rounded-md border px-3 py-3 text-left transition ${active ? 'border-blue-500 bg-blue-500/10' : 'border-transparent hover:bg-blue-500/5'}`} onClick={() => selectEntry(entry.id)}>
                 <div className='flex items-center justify-between gap-3 text-xs'><span className='font-mono font-semibold text-blue-600'>{entry.executedMethod.toUpperCase()}</span><span className={failed ? 'text-red-600' : mutedClass}>{resultLabel(entry)}{entry.responseTime !== undefined ? ` · ${entry.responseTime} ms` : ''}</span></div>
                 <div className='mt-1 truncate font-mono text-xs' title={entry.resolvedUrl}>{entry.resolvedUrl}</div>
-                <div className={`mt-1 flex items-center justify-between gap-2 text-[11px] ${mutedClass}`}><span className='truncate'>{origin || 'Unsaved request'}</span><span>{displayTime(entry.createdAt)}</span></div>
+                <div className={`mt-1 flex items-center justify-between gap-2 text-[11px] ${mutedClass}`}><span className='truncate'>{origin || 'Unsaved request'}</span><span>{apiClientHistoryDisplayTime(entry.createdAt)}</span></div>
               </button>;
             }
             const group = block.group;
@@ -161,7 +149,7 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
               </button>
               <div className='border-t px-2 py-1'>
                 {group.entries.map((entry) => <button key={entry.id} type='button' className={`w-full rounded-md px-2 py-2 text-left text-xs hover:bg-blue-500/10 ${selected?.id === entry.id ? 'bg-blue-500/10' : ''}`} onClick={() => selectEntry(entry.id)}>
-                  <div className='flex items-center justify-between gap-2'><span><span className='mr-2 text-[10px] text-gray-500'>{entry.runIndex || '–'}</span><span className='font-mono font-semibold text-blue-600'>{entry.executedMethod.toUpperCase()}</span></span><span className={hasFailure(entry) ? 'text-red-600' : mutedClass}>{resultLabel(entry)}</span></div>
+                  <div className='flex items-center justify-between gap-2'><span><span className='mr-2 text-[10px] text-gray-500'>{entry.runIndex || '–'}</span><span className='font-mono font-semibold text-blue-600'>{entry.executedMethod.toUpperCase()}</span></span><span className={apiClientHistoryHasFailure(entry) ? 'text-red-600' : mutedClass}>{resultLabel(entry)}</span></div>
                   <div className='mt-1 truncate font-mono' title={entry.resolvedUrl}>{entry.resolvedUrl}</div>
                 </button>)}
               </div>
@@ -191,9 +179,9 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
             <div className='space-y-2 border-b pb-4'>
               <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
                 <div className='min-w-0'>
-                  <div className='flex flex-wrap items-center gap-2 text-sm'><span className='font-mono font-bold text-blue-600'>{selected.executedMethod.toUpperCase()}</span><span className={hasFailure(selected) ? 'text-red-600' : mutedClass}>{resultLabel(selected)}</span>{selected.responseTime !== undefined && <span className={mutedClass}>{selected.responseTime} ms</span>}{selected.runPassed !== undefined && <span className={selected.runPassed ? 'text-green-600' : 'text-red-600'}>{selected.runPassed ? 'Runner pass' : 'Runner fail'}</span>}</div>
+                  <div className='flex flex-wrap items-center gap-2 text-sm'><span className='font-mono font-bold text-blue-600'>{selected.executedMethod.toUpperCase()}</span><span className={apiClientHistoryHasFailure(selected) ? 'text-red-600' : mutedClass}>{resultLabel(selected)}</span>{selected.responseTime !== undefined && <span className={mutedClass}>{selected.responseTime} ms</span>}{selected.runPassed !== undefined && <span className={selected.runPassed ? 'text-green-600' : 'text-red-600'}>{selected.runPassed ? 'Runner pass' : 'Runner fail'}</span>}</div>
                   <div className='mt-1 break-all font-mono text-sm'>{selected.resolvedUrl}</div>
-                  <div className={`mt-1 text-xs ${mutedClass}`}>{displayTime(selected.createdAt)}{selected.collectionId ? ` · ${collection?.name || 'Deleted collection'}` : ''}{selected.folderId ? ` / ${folder?.name || 'Deleted folder'}` : ''}{selected.runName ? ` · Run: ${selected.runName}` : ''}</div>
+                  <div className={`mt-1 text-xs ${mutedClass}`}>{apiClientHistoryDisplayTime(selected.createdAt)}{selected.collectionId ? ` · ${collection?.name || 'Deleted collection'}` : ''}{selected.folderId ? ` / ${folder?.name || 'Deleted folder'}` : ''}{selected.runName ? ` · Run: ${selected.runName}` : ''}</div>
                 </div>
                 <div className='flex shrink-0 gap-2'>
                   <button type='button' className='inline-flex min-h-10 items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium hover:bg-blue-500/10' onClick={() => openInClient(selected)}><RotateCcw className='h-4 w-4' /> Open in client</button>
@@ -208,13 +196,13 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
               <div className='grid gap-3 text-xs sm:grid-cols-2'><div><span className={mutedClass}>Original URL</span><div className='mt-1 break-all font-mono'>{selected.request.url}</div></div><div><span className={mutedClass}>Content type</span><div className='mt-1 font-mono'>{selected.request.contentType || '—'}</div></div></div>
               <PairDetails title='Query parameters' values={selected.request.query} mutedClass={mutedClass} />
               <PairDetails title='Headers' values={selected.request.headers} mutedClass={mutedClass} />
-              {selected.request.body && <div className='space-y-2'><h4 className='text-xs font-semibold uppercase tracking-wide'>Body</h4><pre className={`max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md border p-3 text-xs ${codeClass}`}>{selected.request.body}</pre></div>}
+              {selected.request.body && <div className='space-y-2'><h4 className={HISTORY_HEADING_CLASS}>Body</h4><pre className={`max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-md border p-3 text-xs ${codeClass}`}>{selected.request.body}</pre></div>}
             </section>
 
             <section className='space-y-3 border-t pt-4'>
               <div className='flex items-center justify-between gap-2'><h3 className='font-semibold'>Response</h3>{selected.responseBodyTruncated && <span className='text-xs text-amber-600'>Body truncated in history</span>}</div>
-              {responseHeaders.length > 0 && <div className='space-y-2'><h4 className='text-xs font-semibold uppercase tracking-wide'>Headers</h4><div className='overflow-hidden rounded-md border'>{responseHeaders.map(([key, value], index) => <div key={`${key}:${index}`} className='grid grid-cols-[minmax(8rem,0.35fr)_minmax(0,1fr)] gap-3 border-b px-3 py-2 text-xs last:border-b-0'><span className='break-all font-mono font-medium'>{key}</span><span className={`break-all font-mono ${mutedClass}`}>{value}</span></div>)}</div></div>}
-              {selected.responseBody !== undefined ? <div className='space-y-2'><h4 className='text-xs font-semibold uppercase tracking-wide'>Body</h4><pre className={`max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md border p-3 text-xs ${codeClass}`}>{selected.responseBody || '(empty response body)'}</pre></div> : <p className={`text-sm ${mutedClass}`}>Response payload was not captured for this older history entry.</p>}
+              {responseHeaders.length > 0 && <div className='space-y-2'><h4 className={HISTORY_HEADING_CLASS}>Headers</h4><div className='overflow-hidden rounded-md border'>{responseHeaders.map(([key, value], index) => <div key={`${key}:${index}`} className='grid grid-cols-[minmax(8rem,0.35fr)_minmax(0,1fr)] gap-3 border-b px-3 py-2 text-xs last:border-b-0'><span className='break-all font-mono font-medium'>{key}</span><span className={`break-all font-mono ${mutedClass}`}>{value}</span></div>)}</div></div>}
+              {selected.responseBody !== undefined ? <div className='space-y-2'><h4 className={HISTORY_HEADING_CLASS}>Body</h4><pre className={`max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-md border p-3 text-xs ${codeClass}`}>{selected.responseBody || '(empty response body)'}</pre></div> : <p className={`text-sm ${mutedClass}`}>Response payload was not captured for this older history entry.</p>}
             </section>
 
             {(selected.scriptTests?.length || selected.scriptError || selected.scriptLogs?.length) && <section className='space-y-3 border-t pt-4'>
@@ -226,8 +214,8 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
 
             {(selected.scripts?.preRequest.trim() || selected.scripts?.tests.trim()) && <section className='space-y-3 border-t pt-4'>
               <h3 className='font-semibold'>Scripts used</h3>
-              {selected.scripts?.preRequest.trim() && <div className='space-y-2'><h4 className='text-xs font-semibold uppercase tracking-wide'>Pre-request</h4><pre className={`max-h-56 overflow-auto whitespace-pre-wrap rounded-md border p-3 text-xs ${codeClass}`}>{selected.scripts.preRequest}</pre></div>}
-              {selected.scripts?.tests.trim() && <div className='space-y-2'><h4 className='text-xs font-semibold uppercase tracking-wide'>Tests</h4><pre className={`max-h-56 overflow-auto whitespace-pre-wrap rounded-md border p-3 text-xs ${codeClass}`}>{selected.scripts.tests}</pre></div>}
+              {selected.scripts?.preRequest.trim() && <div className='space-y-2'><h4 className={HISTORY_HEADING_CLASS}>Pre-request</h4><pre className={`max-h-56 overflow-auto whitespace-pre-wrap rounded-md border p-3 text-xs ${codeClass}`}>{selected.scripts.preRequest}</pre></div>}
+              {selected.scripts?.tests.trim() && <div className='space-y-2'><h4 className={HISTORY_HEADING_CLASS}>Tests</h4><pre className={`max-h-56 overflow-auto whitespace-pre-wrap rounded-md border p-3 text-xs ${codeClass}`}>{selected.scripts.tests}</pre></div>}
             </section>}
           </div>}
         </div>

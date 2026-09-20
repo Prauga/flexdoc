@@ -68,41 +68,22 @@ export function readFlexDocViewerPreferences(key: string, storage?: Storage): Fl
   }
 }
 
-function writePreferences(key: string, next: FlexDocViewerPreferences, storage?: Storage): void {
-  const resolvedStorage = storage ?? (typeof window !== 'undefined' ? window.localStorage : undefined);
-  if (!resolvedStorage) return;
-  try {
-    if (next.expand === undefined && next.sidebarCollapsed === undefined && next.theme === undefined && next.expandedTags === undefined) resolvedStorage.removeItem(key);
-    else resolvedStorage.setItem(key, JSON.stringify(next));
-  } catch {
-    // Viewer preferences are best-effort and must never prevent documentation rendering.
-  }
-}
-
-function writePreference<K extends Exclude<keyof FlexDocViewerPreferences, 'version'>>(
+export function writeFlexDocViewerPreference<K extends Exclude<keyof FlexDocViewerPreferences, 'version'>>(
   key: string,
   field: K,
   value: FlexDocViewerPreferences[K],
   storage?: Storage,
 ): void {
-  const next = { ...readFlexDocViewerPreferences(key, storage) };
-  if (value === undefined) delete next[field];
-  else next[field] = value;
-  writePreferences(key, next, storage);
-}
-
-export function writeFlexDocViewerExpandPreference(key: string, expand?: ExpandOption, storage?: Storage): void {
-  writePreference(key, 'expand', expand, storage);
-}
-
-export function writeFlexDocViewerSidebarPreference(key: string, sidebarCollapsed?: boolean, storage?: Storage): void {
-  writePreference(key, 'sidebarCollapsed', sidebarCollapsed, storage);
-}
-
-export function writeFlexDocViewerThemePreference(key: string, theme?: FlexDocViewerTheme, storage?: Storage): void {
-  writePreference(key, 'theme', theme, storage);
-}
-
-export function writeFlexDocViewerExpandedTagsPreference(key: string, expandedTags?: string[], storage?: Storage): void {
-  writePreference(key, 'expandedTags', expandedTags ? [...new Set(expandedTags)] : undefined, storage);
+  const resolvedStorage = storage ?? (typeof window !== 'undefined' ? window.localStorage : undefined);
+  if (!resolvedStorage) return;
+  try {
+    const next = { ...readFlexDocViewerPreferences(key, resolvedStorage) };
+    const stored = field === 'expandedTags' && Array.isArray(value) ? [...new Set(value)] : value;
+    if (stored === undefined) delete next[field];
+    else next[field] = stored as FlexDocViewerPreferences[K];
+    if (next.expand === undefined && next.sidebarCollapsed === undefined && next.theme === undefined && next.expandedTags === undefined) resolvedStorage.removeItem(key);
+    else resolvedStorage.setItem(key, JSON.stringify(next));
+  } catch {
+    // Viewer preferences are best-effort and must never prevent documentation rendering.
+  }
 }

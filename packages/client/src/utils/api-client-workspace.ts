@@ -1,5 +1,6 @@
 import type { HttpAuth, HttpBinaryBody, HttpFormDataEntry, HttpKeyValue, HttpRequestDraft } from './http-client';
 import { cloneApiClientScripts } from './api-client-scripting';
+import { createApiClientWorkspacePersistenceSnapshot } from './api-client-history-privacy';
 import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from './api-client-scripting';
 
 /** One named value stored in an API Client environment or collection variable list. */
@@ -64,6 +65,7 @@ export interface ApiClientHistoryEntry {
   /** HTTP response status when available. */ status?: number;
   /** HTTP response status text when available. */ statusText?: string;
   /** Measured response time in milliseconds. */ responseTime?: number;
+  /** Actual transport used for the execution when known. */ transport?: 'browser' | 'api-host';
   /** Ordered response headers retained in history. */ responseHeaders?: Array<[string, string]>;
   /** Response body retained up to the workspace history size cap. */ responseBody?: string;
   /** Whether the stored response body was truncated to the history size cap. */ responseBodyTruncated?: boolean;
@@ -91,6 +93,7 @@ export interface ApiClientHistoryInput {
   /** HTTP response status when available. */ status?: number;
   /** HTTP response status text when available. */ statusText?: string;
   /** Measured response time in milliseconds. */ responseTime?: number;
+  /** Actual transport used for the execution when known. */ transport?: 'browser' | 'api-host';
   /** Ordered response headers to retain. */ responseHeaders?: Array<[string, string]>;
   /** Response body to retain subject to the history size cap. */ responseBody?: string;
   /** Explicitly mark the supplied response body as already truncated. */ responseBodyTruncated?: boolean;
@@ -114,6 +117,7 @@ export interface ApiClientWorkspaceState {
   /** Saved requests belonging to collections/folders. */ requests: ApiClientSavedRequest[];
   /** Named variable environments. */ environments: ApiClientEnvironment[];
   /** Currently active environment id, when one is selected. */ activeEnvironmentId?: string;
+  /** Whether API-host request/response bodies may be persisted in history. Defaults to true. */ historyBodies?: boolean;
   /** Most-recent-first execution history, capped by the workspace implementation. */ history: ApiClientHistoryEntry[];
 }
 
@@ -376,6 +380,7 @@ function normalizeHistoryEntry(value: unknown): ApiClientHistoryEntry | null {
     status: value.status as number | undefined,
     statusText: value.statusText as string | undefined,
     responseTime: value.responseTime as number | undefined,
+    transport: value.transport === 'browser' || value.transport === 'api-host' ? value.transport : undefined,
     responseHeaders: Array.isArray(value.responseHeaders) ? value.responseHeaders.map(([key, headerValue]) => [key, headerValue] as [string, string]) : undefined,
     responseBody: typeof value.responseBody === 'string' ? value.responseBody : undefined,
     responseBodyTruncated: value.responseBodyTruncated === true ? true : undefined,
@@ -521,6 +526,7 @@ export function normalizeApiClientWorkspace(value: unknown): ApiClientWorkspaceS
     requests: requestValues,
     environments: environmentValues,
     activeEnvironmentId,
+    historyBodies: typeof value.historyBodies === 'boolean' ? value.historyBodies : undefined,
     history: historyValues,
   };
 }
@@ -545,6 +551,7 @@ export function addApiClientHistoryEntry(workspace: ApiClientWorkspaceState, inp
     status: input.status,
     statusText: input.statusText,
     responseTime: input.responseTime,
+    transport: input.transport,
     ...(input.responseHeaders?.length ? { responseHeaders: input.responseHeaders.map(([key, value]) => [key, value] as [string, string]) } : {}),
     ...(responseBody !== undefined ? { responseBody, ...(responseBodyTruncated ? { responseBodyTruncated: true } : {}) } : {}),
     runId: input.runId,
@@ -793,7 +800,7 @@ export async function saveApiClientWorkspace(key: string, workspace: ApiClientWo
   try {
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(STORE_NAME, 'readwrite');
-      transaction.objectStore(STORE_NAME).put(workspace, key);
+      transaction.objectStore(STORE_NAME).put(createApiClientWorkspacePersistenceSnapshot(workspace), key);
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error || new Error('Unable to save FlexDoc API Client workspace'));
       transaction.onabort = () => reject(transaction.error || new Error('Unable to save FlexDoc API Client workspace'));
