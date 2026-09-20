@@ -4,6 +4,54 @@ export type FlexDocHostExecutionEventName = 'flexdoc.execute.start' | 'flexdoc.e
 /** High-level completion outcome without exposing response content or credentials. */
 export type FlexDocHostExecutionOutcome = 'success' | 'rejected' | 'error';
 
+/**
+ * Stable low-cardinality category for a non-successful execution.
+ *
+ * Rejection messages interpolate request values such as origins, field names and
+ * methods, so they are unbounded and cannot be aggregated or used as a metric
+ * label. These categories can.
+ */
+export type FlexDocHostExecutionReason =
+  | 'marker-missing'
+  | 'execution-disabled'
+  | 'admission-saturated'
+  | 'destination-forbidden'
+  | 'redirect-forbidden'
+  | 'body-malformed'
+  | 'body-too-large'
+  | 'unsupported-media-type'
+  | 'request-invalid'
+  | 'auth-unsupported'
+  | 'upstream-timeout'
+  | 'upstream-unreachable'
+  | 'upstream-error';
+
+const REASONS: readonly FlexDocHostExecutionReason[] = [
+  'marker-missing',
+  'execution-disabled',
+  'admission-saturated',
+  'destination-forbidden',
+  'redirect-forbidden',
+  'body-malformed',
+  'body-too-large',
+  'unsupported-media-type',
+  'request-invalid',
+  'auth-unsupported',
+  'upstream-timeout',
+  'upstream-unreachable',
+  'upstream-error',
+];
+
+/** Whether a value is one of the stable execution reason categories. */
+export function isHostExecutionReason(value: unknown): value is FlexDocHostExecutionReason {
+  return typeof value === 'string' && (REASONS as readonly string[]).includes(value);
+}
+
+/** The stable reason categories, ordered for deterministic reporting. */
+export function hostExecutionReasons(): readonly FlexDocHostExecutionReason[] {
+  return REASONS;
+}
+
 /** Shared safe fields present on every host-execution event. */
 export interface FlexDocHostExecutionEventBase {
   /** Stable event name suitable for logs, metrics bridges, and future fleet collectors. */
@@ -30,6 +78,8 @@ export interface FlexDocHostExecutionCompleteEvent extends FlexDocHostExecutionE
   outcome: FlexDocHostExecutionOutcome;
   /** HTTP status exposed by the FlexDoc execute route when available. */
   statusCode?: number;
+  /** Stable category for a rejection or upstream failure; absent on success. */
+  reason?: FlexDocHostExecutionReason;
 }
 
 /** Body-free, credential-free host-execution event contract. */
@@ -50,6 +100,7 @@ export interface CreateHostExecutionCompleteEventInput extends CreateHostExecuti
   durationMs: number;
   outcome: FlexDocHostExecutionOutcome;
   statusCode?: number;
+  reason?: FlexDocHostExecutionReason;
 }
 
 function executionId(value: string): string {
@@ -105,6 +156,9 @@ export function createHostExecutionStartEvent(input: CreateHostExecutionStartEve
 /** Create the canonical completion event without accepting URL, headers, body, cookies, or auth material. */
 export function createHostExecutionCompleteEvent(input: CreateHostExecutionCompleteEventInput): FlexDocHostExecutionCompleteEvent {
   const normalizedStatus = statusCode(input.statusCode);
+  if (input.reason !== undefined && !isHostExecutionReason(input.reason)) {
+    throw new Error('Host execution observability requires a known reason category.');
+  }
   return {
     name: 'flexdoc.execute.complete',
     executionId: executionId(input.executionId),
@@ -113,5 +167,6 @@ export function createHostExecutionCompleteEvent(input: CreateHostExecutionCompl
     durationMs: duration(input.durationMs),
     outcome: input.outcome,
     ...(normalizedStatus === undefined ? {} : { statusCode: normalizedStatus }),
+    ...(input.reason === undefined ? {} : { reason: input.reason }),
   };
 }

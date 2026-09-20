@@ -3,10 +3,14 @@ from __future__ import annotations
 import re
 from typing import Literal
 
+import json
+
 from .asgi import FlexDocASGI
 from .host import FlexDocConfig, FlexDocHost, FlexDocResponse
 from .host_execution import FlexDocHostExecution
+from .host_execution_envelope import parse_execute_envelope, validate_declared_length
 from .runtime_intelligence import build_fastapi_runtime_snapshot
+from .wsgi import LengthRequired, read_bounded_wsgi_body
 
 
 def _normalized_path(path: str) -> str:
@@ -122,6 +126,8 @@ def setup_flask_flexdoc(
     try_it_default_server: str | None = None,
     try_it_credentials: Literal["omit", "same-origin", "include"] | None = None,
     try_it_api_client_persistence_key: str | Literal[False] | None = None,
+    try_it_host_execution: bool = False,
+    try_it_host_execution_allowed_origins: list[str] | tuple[str, ...] | None = None,
 ) -> FlexDocHost:
     """Register FlexDoc routes on a Flask application without making Flask a hard dependency.
 
@@ -136,23 +142,41 @@ def setup_flask_flexdoc(
         try_it_default_server: Optional default server URL for Try It requests.
         try_it_credentials: Optional fetch credentials mode for Try It requests.
         try_it_api_client_persistence_key: Optional persistence key, or ``False``.
+        try_it_host_execution: When ``True``, register the native API-host execution route.
+        try_it_host_execution_allowed_origins: Required exact HTTP(S) origins for native
+            execution. Wildcards and paths are not accepted.
 
     Returns:
         The :class:`~prauga_flexdoc.host.FlexDocHost` backing the registered routes.
+
+    Note:
+        Flask has no built-in CSRF protection. When the application uses cookie-based
+        authentication, protect this route with the application's own CSRF model and mount it
+        behind the same authentication boundary as other privileged developer surfaces.
     """
+    host_execution = None
+    if try_it_host_execution:
+        if not try_it_host_execution_allowed_origins:
+            raise ValueError("Flask host execution requires try_it_host_execution_allowed_origins with at least one exact origin.")
+        host_execution = FlexDocHostExecution(try_it_host_execution_allowed_origins)
+
     host = FlexDocHost(FlexDocConfig(
         path=path,
         spec_url=spec_url,
         title=title,
         theme=theme,
         try_it_enabled=try_it_enabled,
+        try_it_host_execution=try_it_host_execution,
         **_config_options(
             expand=expand,
             try_it_default_server=try_it_default_server,
             try_it_credentials=try_it_credentials,
             try_it_api_client_persistence_key=try_it_api_client_persistence_key,
         ),
-    ))
+    ),
+        host_execution_available=host_execution is not None,
+        host_execution_capabilities=host_execution.capabilities if host_execution is not None else (),
+    )
     normalized = host.path
     endpoint_prefix = "flexdoc_" + re.sub(r"[^a-zA-Z0-9_]", "_", normalized).strip("_")
 
@@ -165,7 +189,40 @@ def setup_flask_flexdoc(
     app.add_url_rule(normalized, endpoint=f"{endpoint_prefix}_index", view_func=lambda: to_flask(host.route(normalized)), strict_slashes=False)
     app.add_url_rule(normalized + "/__flexdoc/renderer.js", endpoint=f"{endpoint_prefix}_js", view_func=lambda: to_flask(host.route(normalized + "/__flexdoc/renderer.js")))
     app.add_url_rule(normalized + "/__flexdoc/renderer.css", endpoint=f"{endpoint_prefix}_css", view_func=lambda: to_flask(host.route(normalized + "/__flexdoc/renderer.css")))
+
+    if host_execution is not None:
+        def execute_view():
+            from flask import request
+
+            marker = request.headers.get("X-FlexDoc-Execute")
+            if marker != "1":
+                result = host_execution.handle(marker, {})
+                return _to_flask_json(app, result.status, result.body)
+            try:
+                chunks = read_bounded_wsgi_body(request.environ)
+                envelope, files = parse_execute_envelope(request.content_type or "", chunks)
+            except LengthRequired as error:
+                return _to_flask_json(app, 411, {"error": str(error)})
+            except ValueError as error:
+                return _to_flask_json(app, 400, {"error": str(error)})
+            result = host_execution.handle(marker, envelope, files)
+            return _to_flask_json(app, result.status, result.body)
+
+        app.add_url_rule(
+            normalized + "/__flexdoc/execute",
+            endpoint=f"{endpoint_prefix}_execute",
+            view_func=execute_view,
+            methods=["POST"],
+        )
+
     return host
+
+
+def _to_flask_json(app, status: int, payload: object):
+    body = json.dumps(payload, separators=(",", ":")).encode()
+    response = app.response_class(body, status=status, content_type="application/json; charset=utf-8")
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 def django_urlpatterns(
@@ -179,6 +236,9 @@ def django_urlpatterns(
     try_it_default_server: str | None = None,
     try_it_credentials: Literal["omit", "same-origin", "include"] | None = None,
     try_it_api_client_persistence_key: str | Literal[False] | None = None,
+    try_it_host_execution: bool = False,
+    try_it_host_execution_allowed_origins: list[str] | tuple[str, ...] | None = None,
+    try_it_host_execution_csrf_exempt: bool = False,
 ):
     """Return Django URL patterns for FlexDoc. Django is imported lazily and remains optional.
 
@@ -192,15 +252,33 @@ def django_urlpatterns(
         try_it_default_server: Optional default server URL for Try It requests.
         try_it_credentials: Optional fetch credentials mode for Try It requests.
         try_it_api_client_persistence_key: Optional persistence key, or ``False``.
+        try_it_host_execution: When ``True``, add the native API-host execution route.
+        try_it_host_execution_allowed_origins: Required exact HTTP(S) origins for native
+            execution. Wildcards and paths are not accepted.
+        try_it_host_execution_csrf_exempt: Opt out of Django's CSRF enforcement on the execute
+            route. Defaults to ``False``, so ``CsrfViewMiddleware`` protects the route like any
+            other POST view. Set this only for a deployment whose authentication is not
+            cookie-based, because the ``X-FlexDoc-Execute`` marker is protocol friction and is
+            neither authentication nor a CSRF token.
 
     Returns:
-        A list of Django ``re_path`` patterns for the docs shell and renderer assets.
+        A list of Django ``re_path`` patterns for the docs shell, renderer assets, and — when
+        host execution is enabled — the execute route.
     """
     try:
-        from django.http import HttpResponse
+        from django.http import HttpResponse, RawPostDataException
         from django.urls import re_path
+        from django.views.decorators.csrf import csrf_exempt
     except ImportError as error:
         raise RuntimeError("Django is required to use django_urlpatterns(); install prauga-flexdoc[django]") from error
+
+    host_execution = None
+    if try_it_host_execution:
+        if not try_it_host_execution_allowed_origins:
+            raise ValueError("Django host execution requires try_it_host_execution_allowed_origins with at least one exact origin.")
+        host_execution = FlexDocHostExecution(try_it_host_execution_allowed_origins)
+    elif try_it_host_execution_csrf_exempt:
+        raise ValueError("try_it_host_execution_csrf_exempt requires try_it_host_execution=True.")
 
     host = FlexDocHost(FlexDocConfig(
         path=path,
@@ -208,13 +286,17 @@ def django_urlpatterns(
         title=title,
         theme=theme,
         try_it_enabled=try_it_enabled,
+        try_it_host_execution=try_it_host_execution,
         **_config_options(
             expand=expand,
             try_it_default_server=try_it_default_server,
             try_it_credentials=try_it_credentials,
             try_it_api_client_persistence_key=try_it_api_client_persistence_key,
         ),
-    ))
+    ),
+        host_execution_available=host_execution is not None,
+        host_execution_capabilities=host_execution.capabilities if host_execution is not None else (),
+    )
     route = host.path.strip("/")
 
     def to_django(request, request_path: str):
@@ -224,8 +306,44 @@ def django_urlpatterns(
             result["Cache-Control"] = response.cache_control
         return result
 
-    return [
+    patterns = [
         re_path(rf"^{re.escape(route)}/?$", lambda request: to_django(request, host.path), name="flexdoc-index"),
         re_path(rf"^{re.escape(route)}/__flexdoc/renderer\.js$", lambda request: to_django(request, host.path + "/__flexdoc/renderer.js"), name="flexdoc-js"),
         re_path(rf"^{re.escape(route)}/__flexdoc/renderer\.css$", lambda request: to_django(request, host.path + "/__flexdoc/renderer.css"), name="flexdoc-css"),
     ]
+
+    if host_execution is None:
+        return patterns
+
+    def json_response(status: int, payload: object):
+        result = HttpResponse(
+            json.dumps(payload, separators=(",", ":")).encode(),
+            status=status,
+            content_type="application/json; charset=utf-8",
+        )
+        result["Cache-Control"] = "no-store"
+        return result
+
+    def execute(request):
+        if request.method != "POST":
+            return json_response(405, {"error": "Method not allowed."})
+        marker = request.headers.get("X-FlexDoc-Execute")
+        if marker != "1":
+            result = host_execution.handle(marker, {})
+            return json_response(result.status, result.body)
+        try:
+            validate_declared_length(request.META.get("CONTENT_LENGTH"))
+            envelope, files = parse_execute_envelope(request.META.get("CONTENT_TYPE", ""), [request.body])
+        except RawPostDataException:
+            # CsrfViewMiddleware falls back to reading the POST body for a form token, which
+            # consumes a multipart execute envelope before the view can parse it. Send the CSRF
+            # token in the header instead so the middleware never touches the body.
+            return json_response(400, {"error": "Host execution body was already consumed; send the CSRF token as a header rather than a form field."})
+        except ValueError as error:
+            return json_response(400, {"error": str(error)})
+        result = host_execution.handle(marker, envelope, files)
+        return json_response(result.status, result.body)
+
+    view = csrf_exempt(execute) if try_it_host_execution_csrf_exempt else execute
+    patterns.append(re_path(rf"^{re.escape(route)}/__flexdoc/execute$", view, name="flexdoc-execute"))
+    return patterns

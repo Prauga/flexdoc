@@ -66,7 +66,10 @@ const published = {
 // is the only value a source tree may hold other than the published baseline.
 // Examples stay pinned to `published` until the artifacts ship and a follow-up
 // commit repins them and clears the entry here.
-const pending = {};
+const pending = {
+  // 0.8.0 adds WSGI/Flask/Django host execution. Examples stay on 0.7.4 until it publishes.
+  python: '0.8.0',
+};
 
 for (const name of Object.keys(pending)) {
   if (!(name in published)) fail(`pending lists unknown package ${name}`);
