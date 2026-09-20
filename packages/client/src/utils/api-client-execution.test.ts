@@ -1,4 +1,4 @@
-import { apiClientCorsFailureHint, executeApiClientRequest } from './api-client-execution';
+import { API_CLIENT_SLOW_HOST_THRESHOLD_MS, apiClientCorsFailureHint, apiClientSlowHostHint, executeApiClientRequest } from './api-client-execution';
 
 function mockResponse(body: string, init: { status?: number; statusText?: string; headers?: HeadersInit } = {}): Response {
   return {
@@ -105,19 +105,21 @@ console.log('checked');
       }));
     };
     let interceptorCalls = 0;
+    let hostClock = 0;
     const outcome = await executeApiClientRequest({
       request: { method: 'POST', url: 'https://api.example.test/private', auth: { type: 'digest', username: 'u', password: 'p' } },
       scripts: { tests: "flex.test('host response', () => flex.expect(flex.response.code).to.equal(201));" },
       requestInterceptor: (request) => { interceptorCalls += 1; return request; },
       hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: ['digest'] },
       fetcher,
+      now: () => { hostClock += 40; return hostClock; },
     });
     expect(calls).toHaveLength(1);
     expect(calls[0].url).toBe('/docs/__flexdoc/execute');
     expect(new Headers(calls[0].init?.headers).get('x-flexdoc-execute')).toBe('1');
     expect(JSON.parse(String(calls[0].init?.body)).request.auth).toMatchObject({ type: 'digest', username: 'u', password: 'p' });
     expect(interceptorCalls).toBe(0);
-    expect(outcome.response).toMatchObject({ status: 201, responseTime: 17, body: '{"ok":true}', transport: 'api-host' });
+    expect(outcome.response).toMatchObject({ status: 201, responseTime: 17, hostRoundTripTime: 40, body: '{"ok":true}', transport: 'api-host' });
     expect(outcome.result?.transport).toBe('api-host');
     expect(outcome.scriptTests).toEqual([{ name: 'host response', passed: true }]);
   });
@@ -315,6 +317,22 @@ console.log('checked');
       fetcher: async () => { throw new Error('offline'); },
     });
     expect(outcome.failureKind).toBeUndefined();
+  });
+
+  it('guides slow optional host execution using total host round trip', () => {
+    const request = { method: 'GET', url: 'https://api.example.test/pets' };
+    const host = { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] as [] };
+    expect(API_CLIENT_SLOW_HOST_THRESHOLD_MS).toBe(500);
+    expect(apiClientSlowHostHint({ transport: 'api-host', responseTime: 44, hostRoundTripTime: 731 }, request, host)).toContain('731 ms');
+    expect(apiClientSlowHostHint({ transport: 'api-host', responseTime: 44, hostRoundTripTime: 499 }, request, host)).toBeNull();
+  });
+
+  it('does not suggest browser transport when host execution is required', () => {
+    expect(apiClientSlowHostHint(
+      { transport: 'api-host', responseTime: 44, hostRoundTripTime: 900 },
+      { method: 'GET', url: 'https://api.example.test/private', auth: { type: 'digest', username: 'u', password: 'p' } },
+      { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: ['digest'] },
+    )).toBeNull();
   });
 
 });
