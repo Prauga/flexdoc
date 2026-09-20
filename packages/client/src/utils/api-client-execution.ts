@@ -78,6 +78,8 @@ export interface ApiClientExecutionResponse {
 
 /** Complete programmatic outcome of `executeApiClientRequest`. */
 export interface ApiClientExecutionOutcome {
+  /** Opaque browser transport failure classification used for cautious CORS guidance. */
+  failureKind?: 'browser-network';
   /** History-ready execution result when a request was attempted or a host requirement failed. */ result?: ApiClientExecutionResult;
   /** Normalized HTTP response when transport completed successfully. */ response?: ApiClientExecutionResponse;
   /** Transport/build error preventing a successful response. */ error?: string;
@@ -185,6 +187,21 @@ export function resolveApiClientTransport(options: ResolveApiClientTransportOpti
 
 export function apiClientTransportLabel(mode: ApiClientTransportMode): string {
   return mode === 'host-required' ? 'Host required' : mode === 'api-host' ? 'API host' : 'Browser';
+}
+
+/**
+ * Return cautious CORS guidance only when a failed browser request can actually fall back to
+ * API-host execution under the current server/host capability policy.
+ */
+export function apiClientCorsFailureHint(
+  outcome: Pick<ApiClientExecutionOutcome, 'failureKind' | 'result'>,
+  request: HttpRequestDraft,
+  hostExecution: FlexDocHostExecutionPublicOptions | undefined,
+): string | null {
+  if (outcome.failureKind !== 'browser-network' || outcome.result?.transport !== 'browser') return null;
+  return resolveApiClientTransport({ request, hostExecution, preferHostExecution: true })[0] === 'api-host'
+    ? 'Browser request failed (possibly CORS). Try API host.'
+    : null;
 }
 
 export function apiClientTransportNotice(
@@ -432,6 +449,7 @@ export async function executeApiClientRequest(options: ExecuteApiClientRequestOp
       error,
       scriptTests,
       scriptLogs: logs,
+      ...(attemptedTransport === 'browser' && cause instanceof TypeError ? { failureKind: 'browser-network' as const } : {}),
     };
     if (!requestAttempted) return outcome;
     outcome.result = {
