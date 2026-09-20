@@ -45,7 +45,7 @@ import { ApiClientWorkspace } from '@prauga/flexdoc-client';
 />
 ```
 
-Set `persistenceKey={false}` to disable IndexedDB persistence. Request credentials and scripts are stored as entered and are not encrypted. `ApiClientWorkspace` follows the same theme-ownership convention as `FlexDoc`: `manageTheme` defaults to `true`, while `manageTheme={false}` leaves the supplied theme under host control. FlexDoc's embedded API Client uses externally managed theme mode so the surrounding documentation renderer remains the single owner.
+Set `persistenceKey={false}` to disable IndexedDB persistence. Explicit request, folder, and collection credentials follow the workspace credential-storage scope, which defaults to session-only for new workspaces and keeps credential material out of IndexedDB unless **Remember on this browser** is chosen. Scripts, collection variables, environment values, and secrets placed in raw headers are outside that scope and are stored as entered. Nothing persisted is encrypted. `ApiClientWorkspace` follows the same theme-ownership convention as `FlexDoc`: `manageTheme` defaults to `true`, while `manageTheme={false}` leaves the supplied theme under host control. FlexDoc's embedded API Client uses externally managed theme mode so the surrounding documentation renderer remains the single owner.
 
 ### OpenAPI and request utilities
 
