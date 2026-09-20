@@ -70,6 +70,40 @@ function persistedRequest(request: HttpRequestDraft, omitBody: boolean): HttpReq
   return copy;
 }
 
+type PersistedHistory = ApiClientWorkspaceState['history'];
+
+/**
+ * Redacted history keyed on the live history array identity.
+ *
+ * Editing an environment variable replaces the workspace object but keeps the same history
+ * array, and redaction re-parses every entry's URL query. Caching on that identity keeps
+ * unrelated edits from paying for up to `HISTORY_LIMIT` entries of redaction work.
+ */
+const redactedHistoryCache = new WeakMap<PersistedHistory, { historyBodies: boolean | undefined; entries: PersistedHistory }>();
+
+function persistedHistory(workspace: ApiClientWorkspaceState): PersistedHistory {
+  const cached = redactedHistoryCache.get(workspace.history);
+  if (cached && cached.historyBodies === workspace.historyBodies) return cached.entries;
+
+  const entries = workspace.history.map((entry) => {
+    const omitBody = workspace.historyBodies === false && entry.transport !== 'browser';
+    const bodyFree = {
+      ...entry,
+      resolvedUrl: redactUrlQuery(entry.resolvedUrl),
+      request: persistedRequest(entry.request, omitBody),
+      responseHeaders: redactResponseHeaders(entry.responseHeaders),
+    };
+    if (omitBody) {
+      delete bodyFree.responseBody;
+      delete bodyFree.responseBodyTruncated;
+      delete bodyFree.requestBodyTruncated;
+    }
+    return bodyFree;
+  });
+  redactedHistoryCache.set(workspace.history, { historyBodies: workspace.historyBodies, entries });
+  return entries;
+}
+
 /**
  * Create the workspace representation written to IndexedDB without mutating live history.
  * History credentials in auth/query/URL/header fields are always redacted. Session-only and
@@ -86,19 +120,6 @@ export function createApiClientWorkspacePersistenceSnapshot(workspace: ApiClient
       folders: workspace.folders.map((folder) => ({ ...folder, auth: sanitizeApiClientAuthCredentials(folder.auth)! })),
       requests: workspace.requests.map((saved) => ({ ...saved, request: { ...saved.request, auth: sanitizeApiClientAuthCredentials(saved.request.auth) } })),
     } : {}),
-    history: workspace.history.map((entry) => {
-      const omitBody = workspace.historyBodies === false && entry.transport !== 'browser';
-      const bodyFree = {
-        ...entry,
-        resolvedUrl: redactUrlQuery(entry.resolvedUrl),
-        request: persistedRequest(entry.request, omitBody),
-        responseHeaders: redactResponseHeaders(entry.responseHeaders),
-      };
-      if (omitBody) {
-        delete bodyFree.responseBody;
-        delete bodyFree.responseBodyTruncated;
-      }
-      return bodyFree;
-    }),
+    history: persistedHistory(workspace),
   };
 }
