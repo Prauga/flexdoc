@@ -35,23 +35,22 @@ function readConstant(name) {
 const limits = policy.clientWorkspace.history;
 const failures = [];
 
-const entries = readConstant('HISTORY_LIMIT');
-const responseBytes = readConstant('HISTORY_RESPONSE_BODY_LIMIT');
-// Added by the history request-body cap. Governed as soon as it exists so the
-// two caps cannot drift apart, and required once the cap has landed.
-const requestBytes = readConstant('HISTORY_REQUEST_BODY_LIMIT');
-
-if (entries === undefined) failures.push('HISTORY_LIMIT: not found in client workspace source');
-if (responseBytes === undefined) failures.push('HISTORY_RESPONSE_BODY_LIMIT: not found in client workspace source');
-
 const governed = [
-  ['HISTORY_LIMIT', entries, limits.maxEntries, 'entries'],
-  ['HISTORY_RESPONSE_BODY_LIMIT', responseBytes, limits.maxResponseBodyBytes, 'bytes'],
-  ['HISTORY_REQUEST_BODY_LIMIT', requestBytes, limits.maxRequestBodyBytes, 'bytes'],
+  ['HISTORY_LIMIT', limits.maxEntries, 'entries'],
+  ['HISTORY_RESPONSE_BODY_LIMIT', limits.maxResponseBodyBytes, 'bytes'],
+  ['HISTORY_REQUEST_BODY_LIMIT', limits.maxRequestBodyBytes, 'bytes'],
 ];
 
-for (const [name, value, ceiling, unit] of governed) {
-  if (value === undefined) continue;
+// Every governed constant is mandatory. Treating a missing one as "nothing to
+// check" would let deleting a cap silently pass the gate it exists to enforce.
+const values = new Map();
+for (const [name, ceiling, unit] of governed) {
+  const value = readConstant(name);
+  if (value === undefined) {
+    failures.push(`${name}: not found in ${sourcePath}`);
+    continue;
+  }
+  values.set(name, value);
   if (!Number.isFinite(ceiling) || ceiling <= 0) {
     failures.push(`${name}: invalid configured ceiling`);
     continue;
@@ -59,13 +58,17 @@ for (const [name, value, ceiling, unit] of governed) {
   if (value > ceiling) failures.push(`${name}: ${value} ${unit} exceeds the governed ${ceiling} ${unit}`);
 }
 
-if (entries !== undefined && responseBytes !== undefined) {
-  const worstCase = entries * (responseBytes + (requestBytes ?? 0));
-  if (worstCase > limits.maxPersistedBytes) {
-    failures.push(
-      `worst-case persisted workspace ${(worstCase / 1024 / 1024).toFixed(1)} MiB exceeds the governed ${(limits.maxPersistedBytes / 1024 / 1024).toFixed(1)} MiB`,
-    );
-  }
+const entries = values.get('HISTORY_LIMIT');
+const responseBytes = values.get('HISTORY_RESPONSE_BODY_LIMIT');
+const requestBytes = values.get('HISTORY_REQUEST_BODY_LIMIT');
+const worstCase = entries === undefined || responseBytes === undefined || requestBytes === undefined
+  ? undefined
+  : entries * (responseBytes + requestBytes);
+
+if (worstCase !== undefined && worstCase > limits.maxPersistedBytes) {
+  failures.push(
+    `worst-case persisted workspace ${(worstCase / 1024 / 1024).toFixed(1)} MiB exceeds the governed ${(limits.maxPersistedBytes / 1024 / 1024).toFixed(1)} MiB`,
+  );
 }
 
 if (failures.length) {
@@ -75,9 +78,7 @@ if (failures.length) {
   process.exit(1);
 }
 
-const worstCase = (entries ?? 0) * ((responseBytes ?? 0) + (requestBytes ?? 0));
 console.log(
-  `FlexDoc client workspace limits passed: ${entries} entries x (${responseBytes} response` +
-    `${requestBytes === undefined ? '' : ` + ${requestBytes} request`} bytes) = ` +
+  `FlexDoc client workspace limits passed: ${entries} entries x (${responseBytes} response + ${requestBytes} request bytes) = ` +
     `${(worstCase / 1024 / 1024).toFixed(1)}/${(limits.maxPersistedBytes / 1024 / 1024).toFixed(1)} MiB worst case`,
 );

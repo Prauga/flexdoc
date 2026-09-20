@@ -195,7 +195,7 @@ export const ApiClientHistoryPage: React.FC<ApiClientHistoryPageProps> = ({ work
             </div>
 
             <section className='space-y-3'>
-              <h3 className='font-semibold'>Request</h3>
+              <div className='flex items-center justify-between gap-2'><h3 className='font-semibold'>Request</h3>{selected.requestBodyTruncated && <span className='text-xs text-amber-600'>Body truncated in history</span>}</div>
               <div className='grid gap-3 text-xs sm:grid-cols-2'><div><span className={mutedClass}>Original URL</span><div className='mt-1 break-all font-mono'>{selected.request.url}</div></div><div><span className={mutedClass}>Content type</span><div className='mt-1 font-mono'>{selected.request.contentType || '—'}</div></div></div>
               <PairDetails title='Query parameters' values={selected.request.query} mutedClass={mutedClass} />
               <PairDetails title='Headers' values={selected.request.headers} mutedClass={mutedClass} />
