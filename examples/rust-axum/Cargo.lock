@@ -628,27 +628,23 @@ dependencies = [
 
 [[package]]
 name = "prauga-flexdoc-axum"
-version = "0.5.5"
+version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c317a215ce60b20259d791d10b552323b51e42f41c4119e61a44d984dd9e296"
+checksum = "ee43a43f7dd0ae7ea0285c36d340bd3fd4cc7bfac5d8071a1ba7fe180f375ade"
 dependencies = [
  "axum",
- "base64",
  "futures-util",
  "multer",
  "prauga-flexdoc-host-execution",
- "reqwest",
  "serde",
  "serde_json",
- "tokio",
- "url",
 ]
 
 [[package]]
 name = "prauga-flexdoc-host-execution"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa5c34bd47d213afc63ca8fbe6cbe6b53945a5271ea6c3781509cb98da17fc68"
+checksum = "14cabac08ed933a26fb67b55634c3acc3cadae424dcf35e4a1154d25524c51be"
 dependencies = [
  "base64",
  "futures-util",

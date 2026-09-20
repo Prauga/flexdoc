@@ -44,20 +44,20 @@ for (const [name, version] of Object.entries(sourceVersions)) {
 // Standalone examples track the immutable registry artifacts published for FlexDoc 3.3.
 // Repository CI may substitute packages built from the current commit when validating source changes.
 const published = {
-  client: '3.3.0',
-  backend: '3.3.0',
-  core: '0.5.1',
+  client: '3.3.1',
+  backend: '3.3.1',
+  core: '0.5.2',
   cli: '0.7.0',
   dotnet: '0.6.0',
   java: '0.9.0',
-  python: '0.7.3',
-  php: '0.4.5',
-  ruby: '0.4.5',
-  rustAxum: '0.5.5',
-  rustActix: '0.4.5',
-  rustHost: '0.1.0',
-  go: '0.5.5',
-  elixir: '0.4.5',
+  python: '0.7.4',
+  php: '0.4.6',
+  ruby: '0.4.6',
+  rustAxum: '0.5.6',
+  rustActix: '0.4.6',
+  rustHost: '0.1.1',
+  go: '0.5.6',
+  elixir: '0.4.6',
 };
 
 // A release cannot be prepared and pinned in one commit: registries only serve an
@@ -66,19 +66,7 @@ const published = {
 // is the only value a source tree may hold other than the published baseline.
 // Examples stay pinned to `published` until the artifacts ship and a follow-up
 // commit repins them and clears the entry here.
-const pending = {
-  client: '3.3.1',
-  backend: '3.3.1',
-  core: '0.5.2',
-  python: '0.7.4',
-  php: '0.4.6',
-  ruby: '0.4.6',
-  rustAxum: '0.5.6',
-  rustActix: '0.4.6',
-  go: '0.5.6',
-  elixir: '0.4.6',
-  rustHost: '0.1.1',
-};
+const pending = {};
 
 for (const name of Object.keys(pending)) {
   if (!(name in published)) fail(`pending lists unknown package ${name}`);
@@ -191,7 +179,15 @@ const checks = [
   ['README.md', `| crates.io | \`prauga-flexdoc-actix\` | \`${published.rustActix}\` |`],
   ['README.md', `| Hex | \`prauga_flexdoc\` | \`${published.elixir}\` |`],
   ['README.md', `| Go | \`github.com/prauga/flexdoc/adapters/go\` | \`${published.go}\` |`],
+  ['README.md', `| crates.io | \`prauga-flexdoc-host-execution\` | \`${published.rustHost}\` |`],
 
+  ['docs/distribution.md', `| \`@prauga/flexdoc-client\` | \`${published.client}\` | \`js/v${published.client}\` |`],
+  ['docs/distribution.md', `| \`@prauga/flexdoc-backend\` | \`${published.backend}\` | \`js/v${published.backend}\` |`],
+  ['docs/distribution.md', `| \`@prauga/flexdoc-core\` | \`${published.core}\` | \`core/v${published.core}\` |`],
+  ['docs/distribution.md', `| \`prauga-flexdoc\` (PyPI) | \`${published.python}\` | \`python/v${published.python}\` |`],
+  ['docs/distribution.md', `| \`prauga/flexdoc\` | \`${published.php}\` | \`Prauga/flexdoc-php\` \`v${published.php}\` |`],
+  ['docs/distribution.md', `| \`prauga-flexdoc-host-execution\` | \`${published.rustHost}\` | \`rust-host/v${published.rustHost}\` |`],
+  ['docs/distribution.md', `| \`github.com/prauga/flexdoc/adapters/go\` | \`${published.go}\` | \`adapters/go/v${published.go}\` |`],
   ['docs/distribution.md', `| \`Prauga.FlexDoc.AspNetCore\` | \`${published.dotnet}\` | \`dotnet/v${published.dotnet}\` |`],
   ['docs/distribution.md', `| \`prauga-flexdoc\` (RubyGems) | \`${published.ruby}\` | \`ruby/v${published.ruby}\` |`],
   ['docs/distribution.md', `| \`prauga-flexdoc-axum\` | \`${published.rustAxum}\` | \`rust/v${published.rustAxum}\` |`],
