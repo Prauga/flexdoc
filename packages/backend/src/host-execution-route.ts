@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import type { IncomingMessage } from 'http';
 import {
   HostExecutionBadRequestError,
@@ -9,6 +10,7 @@ import {
   publicCookiesForSession,
 } from './host-execution';
 import type { HostExecutionState, ParsedHostExecutionEnvelope, HostExecutionUploadedFile } from './host-execution';
+import { createHostExecutionCompleteEvent, createHostExecutionStartEvent } from './host-execution-observability';
 
 const MAX_EXECUTION_REQUEST_BYTES = 32 * 1024 * 1024;
 
@@ -196,6 +198,15 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'API host execution failed.';
 }
 
+function emitHostExecutionEvent<T>(hook: ((event: T) => void | Promise<void>) | undefined, event: T): void {
+  if (!hook) return;
+  try {
+    void Promise.resolve(hook(event)).catch(() => undefined);
+  } catch {
+    // Observability hooks are best-effort and must never alter request execution.
+  }
+}
+
 /** Input accepted by the framework-neutral host-execution POST route helper. */
 export interface RunHostExecutionRouteInput {
   /** Shared server-side host-execution state. */ state: HostExecutionState;
@@ -213,17 +224,44 @@ export interface RunHostExecutionRouteInput {
 export async function runHostExecutionRoute(input: RunHostExecutionRouteInput): Promise<HostExecutionRouteResult> {
   if (headerValue(input.headers, 'X-FlexDoc-Execute') !== '1') return response(403, { error: 'Missing X-FlexDoc-Execute header.' });
   let session: { sessionId: string; setCookie?: string } = { sessionId: '' };
+  let observation: { executionId: string; method: string; startedAt: number } | undefined;
   try {
     const envelope = parseHostExecutionRequestBody(headerValue(input.headers, 'Content-Type'), input.body);
+    observation = {
+      executionId: randomBytes(16).toString('hex'),
+      method: String(envelope.request.method || 'GET').toUpperCase(),
+      startedAt: Date.now(),
+    };
+    emitHostExecutionEvent(input.state.options.onHostExecutionStart, createHostExecutionStartEvent({
+      executionId: observation.executionId,
+      method: observation.method,
+    }));
     if (envelope.cookieJar === 'session') session = ensureHostExecutionSession(input.state, headerValue(input.headers, 'Cookie'));
     const result = await executeHostRequest(input.state, envelope, {
       spec: input.spec,
       sessionId: session.sessionId,
       docsOrigin: input.docsOrigin,
     });
+    emitHostExecutionEvent(input.state.options.onHostExecutionComplete, createHostExecutionCompleteEvent({
+      executionId: observation.executionId,
+      method: observation.method,
+      durationMs: Date.now() - observation.startedAt,
+      outcome: 'success',
+      statusCode: 200,
+    }));
     return response(200, result, session.setCookie);
   } catch (error) {
-    return response(errorStatus(error), { error: errorMessage(error) }, session.setCookie);
+    const status = errorStatus(error);
+    if (observation) {
+      emitHostExecutionEvent(input.state.options.onHostExecutionComplete, createHostExecutionCompleteEvent({
+        executionId: observation.executionId,
+        method: observation.method,
+        durationMs: Date.now() - observation.startedAt,
+        outcome: status >= 500 ? 'error' : 'rejected',
+        statusCode: status,
+      }));
+    }
+    return response(status, { error: errorMessage(error) }, session.setCookie);
   }
 }
 
