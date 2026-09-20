@@ -22,13 +22,14 @@ describe('host execution operator metrics', () => {
       durationMs: 1250,
       outcome: 'rejected',
       statusCode: 403,
+      reason: 'destination-forbidden',
     });
 
     expect(createHostExecutionCompleteMetricUpdates(rejected)).toEqual([
       { name: 'flexdoc_execute_in_flight', kind: 'gauge', operation: 'add', value: -1 },
       { name: 'flexdoc_execute_completions_total', kind: 'counter', value: 1, labels: { outcome: 'rejected' } },
       { name: 'flexdoc_execute_duration_seconds', kind: 'histogram', value: 1.25, labels: { outcome: 'rejected' } },
-      { name: 'flexdoc_execute_rejections_total', kind: 'counter', value: 1, labels: { source: 'route', statusCode: 403 } },
+      { name: 'flexdoc_execute_rejections_total', kind: 'counter', value: 1, labels: { source: 'route', statusCode: 403, reason: 'destination-forbidden' } },
     ]);
   });
 
@@ -37,7 +38,7 @@ describe('host execution operator metrics', () => {
       name: 'flexdoc_execute_rejections_total',
       kind: 'counter',
       value: 1,
-      labels: { source: 'admission', statusCode: 429 },
+      labels: { source: 'admission', statusCode: 429, reason: 'admission-saturated' },
     });
   });
 

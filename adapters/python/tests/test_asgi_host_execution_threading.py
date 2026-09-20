@@ -37,7 +37,7 @@ class FlexDocAsgiThreadingTest(unittest.TestCase):
         descriptor = bytearray(json.dumps({"request": {"url": "https://api.example.test/health"}}).encode())
         parser_threads = []
         parser_chunk_identity = []
-        original = asgi_module._parse_execute_envelope
+        original = asgi_module.parse_execute_envelope
 
         def recording_parser(content_type, chunks):
             parser_threads.append(threading.get_ident())
@@ -59,7 +59,7 @@ class FlexDocAsgiThreadingTest(unittest.TestCase):
             async def send(message):
                 messages.append(message)
 
-            with patch.object(asgi_module, "_parse_execute_envelope", recording_parser):
+            with patch.object(asgi_module, "parse_execute_envelope", recording_parser):
                 await app(
                     {
                         "type": "http",

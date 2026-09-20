@@ -61,6 +61,7 @@ export {
   createHostExecutionAdmissionRejectionMetricUpdate,
   createHostExecutionCompleteMetricUpdates,
   createHostExecutionStartMetricUpdates,
+  createHostExecutionUnmarkedMetricUpdate,
 } from './host-execution-metrics';
 export type {
   FlexDocHostExecutionMetricKind,
@@ -69,7 +70,12 @@ export type {
   FlexDocHostExecutionMetricUpdate,
   FlexDocHostExecutionRejectionSource,
 } from './host-execution-metrics';
-export { createHostExecutionCompleteEvent, createHostExecutionStartEvent } from './host-execution-observability';
+export {
+  createHostExecutionCompleteEvent,
+  createHostExecutionStartEvent,
+  hostExecutionReasons,
+  isHostExecutionReason,
+} from './host-execution-observability';
 export type {
   CreateHostExecutionCompleteEventInput,
   CreateHostExecutionStartEventInput,
@@ -79,8 +85,19 @@ export type {
   FlexDocHostExecutionEventName,
   FlexDocHostExecutionEventSink,
   FlexDocHostExecutionOutcome,
+  FlexDocHostExecutionReason,
   FlexDocHostExecutionStartEvent,
 } from './host-execution-observability';
+export { createHostExecutionObservationRecorder, createHostExecutionObservationReport } from './host-execution-observation';
+export type {
+  CreateHostExecutionObservationRecorderOptions,
+  FlexDocHostExecutionDurationSummary,
+  FlexDocHostExecutionObservation,
+  FlexDocHostExecutionObservationGap,
+  FlexDocHostExecutionObservationRecorder,
+  FlexDocHostExecutionObservationReport,
+  FlexDocHostExecutionOutcomeCounts,
+} from './host-execution-observation';
 export { validateRuntimeContract } from './contract-validation';
 export type {
   FlexDocContractDuplicateRuntimeRoute,
