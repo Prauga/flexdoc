@@ -1,6 +1,6 @@
 # Rack + FlexDoc
 
-This example uses `prauga-flexdoc` `0.4.6` directly as a Rack application.
+This example uses `prauga-flexdoc` `0.4.7` directly as a Rack application.
 
 ```bash
 bundle install
