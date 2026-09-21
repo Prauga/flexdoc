@@ -197,7 +197,16 @@ executor = Prauga::FlexDoc::HostExecution.new(allowed_origins:, metric_sink: obs
 report = Prauga::FlexDoc.host_execution_observation_report(observation)
 ```
 
-PHP, Elixir, .NET and Java do not emit this evidence yet. Until they do, a host-execution review of a fleet running those adapters has no aggregate to read, which is a coverage gap rather than a claim of clean operation.
+PHP, where a recorder observes one process, so an export is per-worker evidence under php-fpm:
+
+```php
+$observation = new HostExecutionObservation();
+$executor = new HostExecution($allowedOrigins, $observation->sink());
+
+$report = $observation->report();
+```
+
+Elixir, .NET and Java do not emit this evidence yet. Until they do, a host-execution review of a fleet running those adapters has no aggregate to read, which is a coverage gap rather than a claim of clean operation.
 
 ## The browser half: transport mix
 
