@@ -1,6 +1,6 @@
 # Flask + FlexDoc
 
-This example uses the WSGI-capable `prauga-flexdoc` `0.8.0` package and the `setup_flask_flexdoc` helper. Flask remains an optional dependency of FlexDoc.
+This example uses the WSGI-capable `prauga-flexdoc` `0.8.1` package and the `setup_flask_flexdoc` helper. Flask remains an optional dependency of FlexDoc.
 
 ```bash
 python -m venv .venv

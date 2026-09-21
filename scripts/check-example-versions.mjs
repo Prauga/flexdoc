@@ -44,20 +44,20 @@ for (const [name, version] of Object.entries(sourceVersions)) {
 // Standalone examples track the immutable registry artifacts published for FlexDoc 3.3.
 // Repository CI may substitute packages built from the current commit when validating source changes.
 const published = {
-  client: '3.3.1',
-  backend: '3.3.1',
+  client: '3.3.5',
+  backend: '3.3.5',
   core: '0.5.2',
   cli: '0.7.0',
   dotnet: '0.6.0',
   java: '0.9.0',
-  python: '0.8.0',
-  php: '0.4.6',
-  ruby: '0.4.6',
-  rustAxum: '0.5.6',
-  rustActix: '0.4.6',
+  python: '0.8.1',
+  php: '0.4.7',
+  ruby: '0.4.7',
+  rustAxum: '0.5.7',
+  rustActix: '0.4.7',
   rustHost: '0.1.1',
-  go: '0.5.6',
-  elixir: '0.4.6',
+  go: '0.5.7',
+  elixir: '0.4.7',
 };
 
 // A release cannot be prepared and pinned in one commit: registries only serve an
@@ -66,20 +66,7 @@ const published = {
 // is the only value a source tree may hold other than the published baseline.
 // Examples stay pinned to `published` until the artifacts ship and a follow-up
 // commit repins them and clears the entry here.
-const pending = {
-  // 3.3.5 publishes the observability exports that the documentation already
-  // describes: reason categories and the host recorder, plus the browser-side
-  // transport observation. Adapters carry the rebuilt renderer only.
-  client: '3.3.5',
-  backend: '3.3.5',
-  python: '0.8.1',
-  ruby: '0.4.7',
-  elixir: '0.4.7',
-  php: '0.4.7',
-  go: '0.5.7',
-  rustAxum: '0.5.7',
-  rustActix: '0.4.7',
-};
+const pending = {};
 
 for (const name of Object.keys(pending)) {
   if (!(name in published)) fail(`pending lists unknown package ${name}`);
