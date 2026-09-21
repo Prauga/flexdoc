@@ -6,8 +6,34 @@ import {
 
 /** Options for the reusable host-execution admission controller. */
 export interface FlexDocHostExecutionAdmissionOptions {
-  /** Maximum concurrently admitted host-execution requests. Defaults to 32. */
+  /** Maximum concurrently admitted host-execution requests for this instance. Defaults to 32. */
   maxInFlight?: number;
+  /**
+   * Maximum concurrent host-execution requests for the whole fleet, divided
+   * evenly across `instances`.
+   *
+   * Use this instead of `maxInFlight` when the number you actually care about is
+   * the load the fleet can put on an API host, which is the number an operator
+   * sizes against. Requires `instances`, and cannot be combined with
+   * `maxInFlight` because the two express the same limit at different scopes.
+   */
+  fleetMaxInFlight?: number;
+  /** How many instances share `fleetMaxInFlight`. Required with it, ignored without it. */
+  instances?: number;
+}
+
+/** How an admission budget was derived, for operator export and startup logs. */
+export interface FlexDocHostExecutionAdmissionBudget {
+  /** Whether the configured number described one instance or the whole fleet. */
+  readonly scope: 'instance' | 'fleet';
+  /** Concurrent executions this instance will admit. */
+  readonly perInstanceMaxInFlight: number;
+  /** Concurrent executions the fleet will admit, which is what reaches an API host. */
+  readonly fleetMaxInFlight: number;
+  /** Instances sharing the budget; 1 unless a fleet budget was declared. */
+  readonly instances: number;
+  /** Capacity lost to integer division, held by no instance. */
+  readonly unallocated: number;
 }
 
 /** Bounded in-flight admission controller for privileged host execution. */
@@ -16,6 +42,8 @@ export interface FlexDocHostExecutionAdmission {
   readonly maxInFlight: number;
   /** Current number of admitted requests that have not yet been released. */
   readonly inFlight: number;
+  /** How this instance's share was derived from the configured budget. */
+  readonly budget: FlexDocHostExecutionAdmissionBudget;
   /** Attempt to reserve one in-flight slot. Returns false immediately when saturated. */
   tryAcquire(): boolean;
   /** Release one previously acquired slot. Extra releases are ignored. */
@@ -39,23 +67,31 @@ export interface FlexDocHostExecutionAdmissionMiddlewareOptions {
 }
 
 /**
- * Create a process-local in-flight admission controller for FlexDoc host execution.
+ * Create an in-flight admission controller for FlexDoc host execution.
  *
  * This is a safety/admission primitive, not authentication or distributed rate
  * limiting. Deployments with more than one process/replica should also enforce
  * caller-aware rate limits at the application or gateway boundary.
+ *
+ * The counter is always process-local. A fleet budget is partitioned statically
+ * rather than coordinated through a shared counter, because a coordinated
+ * decision puts a network dependency in front of a privileged endpoint: when the
+ * coordinator is unreachable, every request has to either fail open, which
+ * abandons the bound that justified the controller, or fail closed, which turns a
+ * coordinator outage into a FlexDoc outage. Static partitioning has neither
+ * failure mode and needs no round-trip. What it gives up is borrowing: a busy
+ * instance cannot use an idle instance's share.
  */
 export function createHostExecutionAdmission(
   options: FlexDocHostExecutionAdmissionOptions = {},
 ): FlexDocHostExecutionAdmission {
-  const maxInFlight = options.maxInFlight ?? 32;
-  if (!Number.isSafeInteger(maxInFlight) || maxInFlight < 1) {
-    throw new TypeError('FlexDoc host-execution maxInFlight must be a positive safe integer.');
-  }
+  const budget = resolveAdmissionBudget(options);
+  const maxInFlight = budget.perInstanceMaxInFlight;
 
   let inFlight = 0;
   return {
     maxInFlight,
+    budget,
     get inFlight() { return inFlight; },
     tryAcquire() {
       if (inFlight >= maxInFlight) return false;
@@ -66,6 +102,52 @@ export function createHostExecutionAdmission(
       if (inFlight > 0) inFlight -= 1;
     },
   };
+}
+
+function resolveAdmissionBudget(
+  options: FlexDocHostExecutionAdmissionOptions,
+): FlexDocHostExecutionAdmissionBudget {
+  const { maxInFlight, fleetMaxInFlight, instances } = options;
+
+  if (fleetMaxInFlight === undefined) {
+    if (instances !== undefined) {
+      // Silently ignoring it would leave an operator believing a fleet budget is
+      // in force while each instance actually admits the full per-instance cap.
+      throw new TypeError('FlexDoc host-execution instances requires fleetMaxInFlight; a per-instance cap is not divided.');
+    }
+    const perInstance = maxInFlight ?? 32;
+    assertPositiveInteger(perInstance, 'maxInFlight');
+    return { scope: 'instance', perInstanceMaxInFlight: perInstance, fleetMaxInFlight: perInstance, instances: 1, unallocated: 0 };
+  }
+
+  if (maxInFlight !== undefined) {
+    throw new TypeError('FlexDoc host-execution maxInFlight and fleetMaxInFlight cannot both be set; they are the same limit at different scopes.');
+  }
+  assertPositiveInteger(fleetMaxInFlight, 'fleetMaxInFlight');
+  if (instances === undefined) {
+    throw new TypeError('FlexDoc host-execution fleetMaxInFlight requires instances so the budget can be divided.');
+  }
+  assertPositiveInteger(instances, 'instances');
+  if (fleetMaxInFlight < instances) {
+    // Rounding up would silently exceed the fleet budget an operator asked for;
+    // rounding down to zero would admit nothing. Neither is a usable default.
+    throw new TypeError(`FlexDoc host-execution fleetMaxInFlight ${fleetMaxInFlight} is below instances ${instances}; each instance needs at least one slot.`);
+  }
+
+  const perInstanceMaxInFlight = Math.floor(fleetMaxInFlight / instances);
+  return {
+    scope: 'fleet',
+    perInstanceMaxInFlight,
+    fleetMaxInFlight,
+    instances,
+    unallocated: fleetMaxInFlight - perInstanceMaxInFlight * instances,
+  };
+}
+
+function assertPositiveInteger(value: number, name: string): void {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new TypeError(`FlexDoc host-execution ${name} must be a positive safe integer.`);
+  }
 }
 
 /**
