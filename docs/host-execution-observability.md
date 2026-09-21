@@ -215,7 +215,16 @@ executor = PraugaFlexDoc.HostExecution.new!(allowed_origins, metric_sink: Prauga
 report = PraugaFlexDoc.HostExecutionObservation.report(MyApp.FlexDocEvidence)
 ```
 
-.NET and Java do not emit this evidence yet. Until they do, a host-execution review of a fleet running those adapters has no aggregate to read, which is a coverage gap rather than a claim of clean operation.
+.NET, where the recorder is shared directly across concurrent requests:
+
+```csharp
+var evidence = new FlexDocHostExecutionObservation();
+var hostExecution = new FlexDocHostExecution(allowedOrigins, evidence.Sink);
+
+var report = evidence.Report();
+```
+
+Java does not emit this evidence yet. Until they do, a host-execution review of a fleet running those adapters has no aggregate to read, which is a coverage gap rather than a claim of clean operation.
 
 ## The browser half: transport mix
 
