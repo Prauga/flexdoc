@@ -133,5 +133,6 @@ finally
 
 await HostExecutionConformance.RunAsync();
 await HostExecutionHttpSecurityConformance.RunAsync();
+await HostExecutionObservabilityConformance.RunAsync();
 
-Console.WriteLine(".NET FlexDoc renderer, Runtime Intelligence, and host-execution contracts passed.");
+Console.WriteLine(".NET FlexDoc renderer, Runtime Intelligence, host-execution, and execution-evidence contracts passed.");

@@ -43,12 +43,30 @@ public sealed class FlexDocHostExecution
 
     private readonly HashSet<string> _allowedOrigins;
     private readonly HttpClient _client;
+    private readonly Action<FlexDocHostExecutionMetric>? _metricSink;
 
     /// <summary>
     /// Creates an executor with an explicit exact HTTP(S) origin allowlist.
     /// </summary>
     public FlexDocHostExecution(IEnumerable<string> allowedOrigins)
+        : this(allowedOrigins, null)
     {
+    }
+
+    /// <summary>
+    /// Creates an executor that also reports execution evidence.
+    /// </summary>
+    /// <param name="allowedOrigins">Exact HTTP(S) origins this executor may reach.</param>
+    /// <param name="metricSink">
+    /// Receives metric updates using the same names and labels every other FlexDoc
+    /// runtime emits. Delivery is best effort: a sink that throws never fails an
+    /// execution.
+    /// </param>
+    public FlexDocHostExecution(
+        IEnumerable<string> allowedOrigins,
+        Action<FlexDocHostExecutionMetric>? metricSink)
+    {
+        _metricSink = metricSink;
         ArgumentNullException.ThrowIfNull(allowedOrigins);
 
         _allowedOrigins = new HashSet<string>(StringComparer.Ordinal);
@@ -99,12 +117,20 @@ public sealed class FlexDocHostExecution
         var marker = context.Request.Headers["X-FlexDoc-Execute"].ToString();
         if (marker != "1")
         {
+            // Counted outside the lifecycle: an unmarked request never became an
+            // execution, and folding it into rejections would double-count attempts.
+            Metric("flexdoc_execute_unmarked_total", "counter", 1, ("reason", FlexDocHostExecutionReasons.MarkerMissing));
             await WriteJsonAsync(context, StatusCodes.Status403Forbidden, new { error = "Missing X-FlexDoc-Execute header." });
             return;
         }
 
+        Metric("flexdoc_execute_requests_total", "counter", 1);
+        Metric("flexdoc_execute_in_flight", "gauge", 1);
+        var lifecycleStarted = Stopwatch.GetTimestamp();
+
         if (context.Request.ContentLength is long length && length > MaxRequestBytes)
         {
+            Complete("rejected", lifecycleStarted, FlexDocHostExecutionReasons.BodyTooLarge, StatusCodes.Status400BadRequest);
             await WriteJsonAsync(context, StatusCodes.Status400BadRequest, new { error = "Host execution request exceeded the 32 MiB safety limit." });
             return;
         }
@@ -114,19 +140,72 @@ public sealed class FlexDocHostExecution
             var body = await ReadLimitedAsync(context.Request.Body, MaxRequestBytes, context.RequestAborted, knownLength: context.Request.ContentLength);
             var (envelope, files) = await ParseEnvelopeAsync(context.Request.ContentType, body, context.RequestAborted);
             var result = await ExecuteAsync(envelope, files, context.RequestAborted);
+            Complete("success", lifecycleStarted);
             await WriteJsonAsync(context, StatusCodes.Status200OK, result);
         }
         catch (HostExecutionException error)
         {
+            Complete(
+                error.StatusCode >= 500 ? "error" : "rejected",
+                lifecycleStarted,
+                error.Reason,
+                error.StatusCode);
             await WriteJsonAsync(context, error.StatusCode, new { error = error.Message });
         }
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
         {
             // The caller disconnected; there is no reliable response channel left to write.
+            // The outcome is still recorded so the in-flight gauge cannot drift upward.
+            Complete("error", lifecycleStarted, FlexDocHostExecutionReasons.UpstreamError, StatusCodes.Status502BadGateway);
         }
         catch
         {
+            Complete("error", lifecycleStarted, FlexDocHostExecutionReasons.UpstreamError, StatusCodes.Status502BadGateway);
             await WriteJsonAsync(context, StatusCodes.Status502BadGateway, new { error = "API host execution failed." });
+        }
+    }
+
+    private void Complete(string outcome, long startedTimestamp, string? reason = null, int? statusCode = null)
+    {
+        Metric("flexdoc_execute_in_flight", "gauge", -1);
+        Metric("flexdoc_execute_completions_total", "counter", 1, ("outcome", outcome));
+        Metric(
+            "flexdoc_execute_duration_seconds",
+            "histogram",
+            Math.Max(0, Stopwatch.GetElapsedTime(startedTimestamp).TotalSeconds),
+            ("outcome", outcome));
+
+        if (reason is null) return;
+
+        if (outcome == "rejected")
+        {
+            Metric(
+                "flexdoc_execute_rejections_total",
+                "counter",
+                1,
+                ("source", "route"),
+                ("statusCode", (statusCode ?? StatusCodes.Status400BadRequest).ToString(CultureInfo.InvariantCulture)),
+                ("reason", reason));
+            return;
+        }
+
+        Metric("flexdoc_execute_errors_total", "counter", 1, ("reason", reason));
+    }
+
+    private void Metric(string name, string kind, double value, params (string Key, string Value)[] labels)
+    {
+        if (_metricSink is null) return;
+
+        var mapped = new Dictionary<string, string>(labels.Length, StringComparer.Ordinal);
+        foreach (var (key, label) in labels) mapped[key] = label;
+
+        try
+        {
+            _metricSink(new FlexDocHostExecutionMetric(name, kind, value, mapped));
+        }
+        catch
+        {
+            // Observability must never decide whether an execution succeeds.
         }
     }
 
@@ -136,12 +215,12 @@ public sealed class FlexDocHostExecution
         CancellationToken cancellationToken)
     {
         if (envelope.ValueKind != JsonValueKind.Object)
-            throw BadRequest("Host execution body must be a JSON object.");
+            throw BadRequest("Host execution body must be a JSON object.", FlexDocHostExecutionReasons.BodyMalformed);
 
         if (StringValue(envelope, "cookieJar") == "session")
-            throw BadRequest("Session cookie jars are not implemented by the ASP.NET Core host executor.");
+            throw BadRequest("Session cookie jars are not implemented by the ASP.NET Core host executor.", FlexDocHostExecutionReasons.AuthUnsupported);
         if (!string.IsNullOrWhiteSpace(StringValue(envelope, "certificateId")))
-            throw BadRequest("Client certificates are not implemented by the ASP.NET Core host executor.");
+            throw BadRequest("Client certificates are not implemented by the ASP.NET Core host executor.", FlexDocHostExecutionReasons.AuthUnsupported);
 
         if (!envelope.TryGetProperty("request", out var draft) || draft.ValueKind != JsonValueKind.Object)
             throw BadRequest("Host execution body requires a canonical request draft.");
@@ -221,13 +300,13 @@ public sealed class FlexDocHostExecution
             }
             catch (OperationCanceledException) when (!outerCancellationToken.IsCancellationRequested && timeoutCts.IsCancellationRequested)
             {
-                throw Upstream($"Host execution request timed out after {(long)timeout.TotalMilliseconds} ms.");
+                throw Upstream($"Host execution request timed out after {(long)timeout.TotalMilliseconds} ms.", FlexDocHostExecutionReasons.UpstreamTimeout);
             }
             catch (Exception error)
             {
                 var nested = FindHostExecutionException(error);
                 if (nested is not null) throw nested;
-                throw Upstream($"Host execution request failed: {error.Message}");
+                throw Upstream($"Host execution request failed: {error.Message}", FlexDocHostExecutionReasons.UpstreamUnreachable);
             }
 
             using (response)
@@ -240,7 +319,7 @@ public sealed class FlexDocHostExecution
                 }
                 catch (OperationCanceledException) when (!outerCancellationToken.IsCancellationRequested && timeoutCts.IsCancellationRequested)
                 {
-                    throw Upstream($"Host execution request timed out after {(long)timeout.TotalMilliseconds} ms.");
+                    throw Upstream($"Host execution request timed out after {(long)timeout.TotalMilliseconds} ms.", FlexDocHostExecutionReasons.UpstreamTimeout);
                 }
                 catch (HostExecutionException)
                 {
@@ -256,11 +335,11 @@ public sealed class FlexDocHostExecution
                 if (IsRedirect(response.StatusCode) && response.Headers.Location is Uri location)
                 {
                     if (redirect == MaxRedirects)
-                        throw Forbidden("Host execution exceeded the redirect safety limit.");
+                        throw Forbidden("Host execution exceeded the redirect safety limit.", FlexDocHostExecutionReasons.RedirectForbidden);
 
                     var next = location.IsAbsoluteUri ? location : new Uri(requestUri, location);
                     if (!string.Equals(OriginOf(next), OriginOf(requestUri), StringComparison.Ordinal))
-                        throw Forbidden("Host execution does not follow cross-origin redirects.");
+                        throw Forbidden("Host execution does not follow cross-origin redirects.", FlexDocHostExecutionReasons.RedirectForbidden);
                     AssertAllowed(next);
 
                     if (response.StatusCode == HttpStatusCode.SeeOther)
@@ -293,7 +372,7 @@ public sealed class FlexDocHostExecution
             }
         }
 
-        throw Forbidden("Host execution exceeded the redirect safety limit.");
+        throw Forbidden("Host execution exceeded the redirect safety limit.", FlexDocHostExecutionReasons.RedirectForbidden);
     }
 
     private async ValueTask<Stream> ConnectValidatedAsync(
@@ -322,12 +401,12 @@ public sealed class FlexDocHostExecution
             }
             catch
             {
-                throw Upstream("Host execution could not resolve target hostname.");
+                throw Upstream("Host execution could not resolve target hostname.", FlexDocHostExecutionReasons.UpstreamUnreachable);
             }
         }
 
         if (addresses.Length == 0)
-            throw Upstream("Host execution could not resolve target hostname.");
+            throw Upstream("Host execution could not resolve target hostname.", FlexDocHostExecutionReasons.UpstreamUnreachable);
         if (addresses.Any(IsMetadataAddress))
             throw Forbidden("Host execution blocks DNS resolutions to link-local and cloud metadata endpoints.");
 
@@ -359,7 +438,7 @@ public sealed class FlexDocHostExecution
 
         var origin = OriginOf(target);
         if (!_allowedOrigins.Contains(origin))
-            throw Forbidden($"Origin {origin} is not allowed for host execution.");
+            throw Forbidden($"Origin {origin} is not allowed for host execution.", FlexDocHostExecutionReasons.DestinationForbidden);
         if (IsMetadataHost(target.Host))
             throw Forbidden("Host execution blocks link-local and cloud metadata endpoints.");
     }
@@ -370,17 +449,17 @@ public sealed class FlexDocHostExecution
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(contentType) || !MediaTypeHeaderValue.TryParse(contentType, out var parsed))
-            throw BadRequest("Host execution Content-Type is invalid.");
+            throw BadRequest("Host execution Content-Type is invalid.", FlexDocHostExecutionReasons.UnsupportedMediaType);
 
         if (string.Equals(parsed.MediaType.Value, "application/json", StringComparison.OrdinalIgnoreCase))
             return (ParseJsonObject(body, "Host execution body must be valid UTF-8 JSON object."), new Dictionary<int, UploadedFile>());
 
         if (!string.Equals(parsed.MediaType.Value, "multipart/form-data", StringComparison.OrdinalIgnoreCase))
-            throw BadRequest("Host execution requires application/json or multipart/form-data.");
+            throw BadRequest("Host execution requires application/json or multipart/form-data.", FlexDocHostExecutionReasons.UnsupportedMediaType);
 
         var boundary = HeaderUtilities.RemoveQuotes(parsed.Boundary).Value;
         if (string.IsNullOrWhiteSpace(boundary))
-            throw BadRequest("Host execution multipart body is invalid.");
+            throw BadRequest("Host execution multipart body is invalid.", FlexDocHostExecutionReasons.BodyMalformed);
 
         var reader = new MultipartReader(boundary, new MemoryStream(body, writable: false));
         byte[]? descriptor = null;
@@ -395,7 +474,7 @@ public sealed class FlexDocHostExecution
             }
             catch
             {
-                throw BadRequest("Host execution multipart body is invalid.");
+                throw BadRequest("Host execution multipart body is invalid.", FlexDocHostExecutionReasons.BodyMalformed);
             }
 
             if (section is null) break;
@@ -443,7 +522,7 @@ public sealed class FlexDocHostExecution
             _ = StrictUtf8.GetString(data);
             using var document = JsonDocument.Parse(data);
             if (document.RootElement.ValueKind != JsonValueKind.Object)
-                throw BadRequest(errorMessage);
+                throw BadRequest(errorMessage, FlexDocHostExecutionReasons.BodyMalformed);
             return document.RootElement.Clone();
         }
         catch (HostExecutionException)
@@ -452,11 +531,11 @@ public sealed class FlexDocHostExecution
         }
         catch (DecoderFallbackException)
         {
-            throw BadRequest(errorMessage);
+            throw BadRequest(errorMessage, FlexDocHostExecutionReasons.BodyMalformed);
         }
         catch (JsonException)
         {
-            throw BadRequest(errorMessage);
+            throw BadRequest(errorMessage, FlexDocHostExecutionReasons.BodyMalformed);
         }
     }
 
@@ -482,8 +561,8 @@ public sealed class FlexDocHostExecution
                 total += read;
                 if (total > maxBytes)
                     throw responseLimit
-                        ? Upstream("Host execution response exceeded the 10 MiB safety limit.")
-                        : BadRequest("Host execution request exceeded the 32 MiB safety limit.");
+                        ? Upstream("Host execution response exceeded the 10 MiB safety limit.", FlexDocHostExecutionReasons.BodyTooLarge)
+                        : BadRequest("Host execution request exceeded the 32 MiB safety limit.", FlexDocHostExecutionReasons.BodyTooLarge);
                 await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
             }
             return output.ToArray();
@@ -525,7 +604,7 @@ public sealed class FlexDocHostExecution
                 }
                 catch (FormatException)
                 {
-                    throw BadRequest("Binary host execution bodyBase64 is invalid.");
+                    throw BadRequest("Binary host execution bodyBase64 is invalid.", FlexDocHostExecutionReasons.BodyMalformed);
                 }
 
                 if (string.IsNullOrEmpty(explicitType)
@@ -550,7 +629,7 @@ public sealed class FlexDocHostExecution
             case "graphql":
             {
                 if (!draft.TryGetProperty("graphql", out var graph) || graph.ValueKind != JsonValueKind.Object)
-                    throw BadRequest("GraphQL body must be an object.");
+                    throw BadRequest("GraphQL body must be an object.", FlexDocHostExecutionReasons.BodyMalformed);
 
                 object variables = new Dictionary<string, object?>();
                 var rawVariables = StringValue(graph, "variables").Trim();
@@ -563,7 +642,7 @@ public sealed class FlexDocHostExecution
                     }
                     catch (JsonException)
                     {
-                        throw BadRequest("GraphQL variables must be valid JSON.");
+                        throw BadRequest("GraphQL variables must be valid JSON.", FlexDocHostExecutionReasons.BodyMalformed);
                     }
                 }
 
@@ -613,7 +692,7 @@ public sealed class FlexDocHostExecution
                 return new PreparedBody(data, multipart.Headers.ContentType?.ToString());
             }
             default:
-                throw BadRequest($"Body mode {mode} is not implemented by the ASP.NET Core host executor.");
+                throw BadRequest($"Body mode {mode} is not implemented by the ASP.NET Core host executor.", FlexDocHostExecutionReasons.AuthUnsupported);
         }
     }
 
@@ -701,13 +780,13 @@ public sealed class FlexDocHostExecution
                     case "query":
                         return;
                     case "cookie":
-                        throw BadRequest("Cookie authentication is not implemented by the ASP.NET Core host executor.");
+                        throw BadRequest("Cookie authentication is not implemented by the ASP.NET Core host executor.", FlexDocHostExecutionReasons.AuthUnsupported);
                     default:
                         throw BadRequest($"Unsupported API key location: {location}");
                 }
             }
             default:
-                throw BadRequest($"Authentication type {type} is not implemented by the ASP.NET Core host executor.");
+                throw BadRequest($"Authentication type {type} is not implemented by the ASP.NET Core host executor.", FlexDocHostExecutionReasons.AuthUnsupported);
         }
     }
 
@@ -850,7 +929,7 @@ public sealed class FlexDocHostExecution
     {
         if (string.IsNullOrEmpty(value)) return;
         if (value.Contains('\r') || value.Contains('\n') || !MediaTypeHeaderValue.TryParse(value, out _))
-            throw BadRequest("Invalid host execution content type.");
+            throw BadRequest("Invalid host execution content type.", FlexDocHostExecutionReasons.UnsupportedMediaType);
     }
 
     private static bool TryParseHttpUri(string raw, out Uri uri)
@@ -919,14 +998,14 @@ public sealed class FlexDocHostExecution
 
     private static string? NullIfEmpty(string value) => value.Length == 0 ? null : value;
 
-    private static HostExecutionException BadRequest(string message)
-        => new(StatusCodes.Status400BadRequest, message);
+    private static HostExecutionException BadRequest(string message, string? reason = null)
+        => new(StatusCodes.Status400BadRequest, message, reason);
 
-    private static HostExecutionException Forbidden(string message)
-        => new(StatusCodes.Status403Forbidden, message);
+    private static HostExecutionException Forbidden(string message, string? reason = null)
+        => new(StatusCodes.Status403Forbidden, message, reason);
 
-    private static HostExecutionException Upstream(string message)
-        => new(StatusCodes.Status502BadGateway, message);
+    private static HostExecutionException Upstream(string message, string? reason = null)
+        => new(StatusCodes.Status502BadGateway, message, reason);
 
     private static async Task WriteJsonAsync(HttpContext context, int statusCode, object body)
     {
@@ -939,8 +1018,14 @@ public sealed class FlexDocHostExecution
     private sealed record PreparedBody(byte[]? Data, string? ContentType);
     private sealed record UploadedFile(string FileName, string ContentType, byte[] Data);
 
-    private sealed class HostExecutionException(int statusCode, string message) : Exception(message)
+    // The message interpolates origins, field names and methods, so it is unbounded
+    // and unusable as a metric label. The reason is the low-cardinality category that
+    // is, and it defaults from the status so a new throw site cannot lose it silently.
+    private sealed class HostExecutionException(int statusCode, string message, string? reason = null)
+        : Exception(message)
     {
         public int StatusCode { get; } = statusCode;
+
+        public string Reason { get; } = reason ?? FlexDocHostExecutionReasons.DefaultForStatus(statusCode);
     }
 }
