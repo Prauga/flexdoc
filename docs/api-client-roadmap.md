@@ -2,7 +2,7 @@
 
 FlexDoc 2.3.0 was the last coordinated product release before the API Client workspace grew through several focused development milestones. Those milestone numbers described source-development slices; they were not separate published FlexDoc package releases. The coordinated product line moved directly from published **2.3.0** to published **2.8.0** after the 2.8 source definition of done was satisfied.
 
-The current published coordinated product line is **3.3.1**, which moves ordinary interactive API Client execution onto the API host when a serving adapter advertises a native host executor. **3.2.0** shipped the headless Runner before it, taking the canonical API Client request/script/collection model into CLI/CI execution while reusing the existing advertised host-execution contract rather than introducing a second request or auth engine.
+The current published coordinated product line is **3.3.5**, which moves ordinary interactive API Client execution onto the API host when a serving adapter advertises a native host executor. **3.2.0** shipped the headless Runner before it, taking the canonical API Client request/script/collection model into CLI/CI execution while reusing the existing advertised host-execution contract rather than introducing a second request or auth engine.
 
 Ecosystem adapters remain independently versioned. `@prauga/flexdoc-client` and `@prauga/flexdoc-backend` carry the coordinated FlexDoc product version because they own and distribute the canonical renderer. Native adapters receive their own semantic-version increment when they package a new renderer, rather than being renamed to the product version.
 
