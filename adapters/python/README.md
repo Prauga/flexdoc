@@ -23,7 +23,17 @@ setup_fastapi_flexdoc(
 )
 ```
 
-When enabled, the helper inspects the live FastAPI/Starlette route tree and serves a no-store snapshot from `/docs/__flexdoc/runtime`. It compares runtime route presence with `app.openapi()`, reports Python/FastAPI runtime metadata and request-derived server origin, normalizes Starlette path converters, and marks opaque mounts partial rather than inventing routes. Runtime Intelligence is FastAPI-only in this adapter release; generic ASGI, Flask, Django, and WSGI hosts do not advertise it yet.
+When enabled, the helper inspects the live FastAPI/Starlette route tree and serves a no-store snapshot from `/docs/__flexdoc/runtime`. It compares runtime route presence with `app.openapi()`, reports Python/FastAPI runtime metadata and request-derived server origin, normalizes Starlette path converters, and marks opaque mounts partial rather than inventing routes. Flask and Django opt in by supplying the specification they serve, since neither framework generates one:
+
+```python
+setup_flask_flexdoc(app, "/docs", runtime_intelligence_spec=SPEC)
+
+urlpatterns = [*django_urlpatterns(path="/docs", runtime_intelligence_spec=SPEC)]
+```
+
+Flask route presence is fully knowable: Werkzeug's URL map records the methods each rule accepts, and the automatic `OPTIONS`/`HEAD` rules are excluded so they do not read as drift.
+
+Django is knowable only where a view declares its methods. Class-based views expose `http_method_names` and their implemented handlers, and DRF viewsets expose an action map. A plain function view accepts any method and decides internally, and a `re_path` has no readable route template; both are reported through `discoveryComplete: false` rather than guessed, because an invented method produces drift findings that are simply wrong. A generic WSGI host can pass its own `runtime_provider` to `FlexDocWSGI`.
 
 Runtime snapshots may reveal endpoints intentionally omitted from OpenAPI. The Python adapter currently relies on application middleware or upstream access control rather than a FlexDoc-native docs-auth option, so protect the FlexDoc docs subtree before enabling Runtime Intelligence on non-private documentation.
 
@@ -168,6 +178,6 @@ There is no implicit exemption and no way to reach one by accident: the argument
 
 ## Architecture
 
-`FlexDocHost` synchronously owns route matching, the HTML bootstrap, renderer fingerprinting, cache policy, and packaged JS/CSS. `FlexDocASGI` translates that neutral response to ASGI and can expose a framework-supplied live runtime snapshot or a real native execute route when one is explicitly attached. `FlexDocWSGI` translates that same response and, when an executor is explicitly attached, owns the native execute route. Framework helpers do not fork renderer behavior.
+`FlexDocHost` synchronously owns route matching, the HTML bootstrap, renderer fingerprinting, cache policy, and packaged JS/CSS. `FlexDocASGI` translates that neutral response to ASGI and can expose a framework-supplied live runtime snapshot or a real native execute route when one is explicitly attached. `FlexDocWSGI` translates that same response and, when they are explicitly attached, owns the native execute route and a framework-supplied live runtime snapshot. Framework helpers do not fork renderer behavior.
 
 Pass `assets_dir=` to `FlexDocHost`, `FlexDocASGI`, or `FlexDocWSGI` only when intentionally overriding the bundled renderer assets during development.
