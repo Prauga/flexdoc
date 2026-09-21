@@ -9,4 +9,4 @@ java -jar target/flexdoc-guice-example-0.1.0-all.jar
 
 Open `http://127.0.0.1:5091/docs`.
 
-The FlexDoc JVM host is pinned through `<flexdoc.version>0.9.0</flexdoc.version>`, the Java family release published for FlexDoc 3.3. No Spring Boot or Jakarta REST dependency is required.
+The FlexDoc JVM host is pinned through `<flexdoc.version>0.10.0</flexdoc.version>`, the Java family release published for FlexDoc 3.3. No Spring Boot or Jakarta REST dependency is required.
