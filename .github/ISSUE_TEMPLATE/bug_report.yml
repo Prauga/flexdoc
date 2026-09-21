@@ -1,0 +1,37 @@
+name: Bug report
+description: Something in FlexDoc does not behave as documented.
+title: "fix: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Security vulnerabilities belong in a [private advisory](https://github.com/Prauga/flexdoc/security/advisories/new), not in this form.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you observed.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package and version
+      description: For example, @prauga/flexdoc-client 3.4.0, or prauga-flexdoc 0.9.0 on Python.
+      placeholder: "@prauga/flexdoc-client 3.4.0"
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Adapter and runtime
+      description: The framework integration and runtime version, if the bug is not in the standalone renderer.
+      placeholder: "Express on Node 22, or Spring Boot 3.4"
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Smallest reproduction
+      description: A spec fragment, configuration, or steps that show the failure. Leave out secrets, tokens, and cookie values.
+    validations:
+      required: true

@@ -80,7 +80,7 @@ Two deliberate choices in that store. It expires jars rather than keeping them f
 
 Treat the shared store as a credential store. Use the application's normal encryption-at-rest controls for the backing database/cache, never log serialized jar values, and keep the TTL short enough for the documentation workflow rather than treating these keys as durable login state.
 
-Client credential scopes (`session` / `remember` / `never`) and the server-side jar are separate stores, but they answer the same user intent. When a workspace moves to `never` or the operator clears credentials, call the host cookies clear route so the shared store does not retain jars the user has asked not to keep. TTL alone is not enough for that case: an hour of retained session cookies can outlive a scope the user just revoked.
+Client credential scopes (`session` / `remember` / `never`) and the server-side jar are separate stores, but they answer the same user intent. Any change between those scopes clears the documentation session's jar through the host cookies route, so a shared store does not keep cookies the user just stopped treating as durable. TTL alone is not enough for that case: an hour of retained session cookies can outlive a scope the user just changed.
 
 `FLEXDOC_INSTANCES` has to match the real replica count. If it drifts low the fleet admits more than the budget; if it drifts high each instance admits less than its share. Where the orchestrator can tell the application its replica count, read it from there rather than from a second source of truth.
 

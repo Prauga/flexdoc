@@ -120,6 +120,10 @@ Adapters serve version-matched local renderer assets and do not reimplement sche
 
 See [`examples/`](./examples/README.md), [`docs/host-execution.md`](./docs/host-execution.md), [`docs/releases/3.3.md`](./docs/releases/3.3.md), and [`docs/distribution.md`](./docs/distribution.md).
 
+## Community
+
+FlexDoc follows the [Contributor Covenant](./CODE_OF_CONDUCT.md). Bug reports and feature requests use the issue forms. Report security vulnerabilities through a [private advisory](https://github.com/Prauga/flexdoc/security/advisories/new), not a public issue.
+
 ## License
 
 FlexDoc is licensed under **Apache-2.0**. See [LICENSE](./LICENSE).
