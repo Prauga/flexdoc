@@ -1,5 +1,19 @@
 # Contributing to FlexDoc
 
+## Licensing and sign-off
+
+FlexDoc is licensed under **Apache-2.0**, and contributions are accepted under the same license. Inbound matches outbound: there is no separate grant, and the renderer, API Client, runner, CLI and adapters stay permissively licensed so they can be embedded in proprietary applications without obligation.
+
+Every commit must carry a `Signed-off-by` line certifying the [Developer Certificate of Origin](./DCO):
+
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+`git commit -s` adds it. The name and address must be real and must match the commit author.
+
+Reporting a security issue is a separate path — see [SECURITY.md](./SECURITY.md). Do not open a pull request for a vulnerability before the advisory is resolved.
+
 ## Stacked pull requests and generated renderer assets
 
 FlexDoc uses stacked pull requests and checked-in standalone renderer assets. That combination has one non-negotiable invariant:

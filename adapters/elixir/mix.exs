@@ -30,7 +30,7 @@ defmodule PraugaFlexDoc.MixProject do
 
   defp package do
     [
-      licenses: ["AGPL-3.0-or-later"],
+      licenses: ["Apache-2.0"],
       links: %{"GitHub" => "https://github.com/prauga/flexdoc"},
       files: ["lib", "assets", "mix.exs", "README.md", "LICENSE"]
     ]

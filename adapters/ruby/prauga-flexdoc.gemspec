@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.summary = "Self-hosted FlexDoc integration for Rack and Rails"
   spec.description = "Framework-neutral Ruby host for the canonical FlexDoc OpenAPI renderer with thin Rack and Rails integrations."
   spec.homepage = "https://github.com/prauga/flexdoc"
-  spec.license = "AGPL-3.0-or-later"
+  spec.license = "Apache-2.0"
   spec.required_ruby_version = ">= 3.2"
   spec.metadata = {
     "source_code_uri" => "https://github.com/prauga/flexdoc",

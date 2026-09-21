@@ -79,7 +79,7 @@ function App() {
       copyright: 'Prauga FlexDoc 2.3 showcase',
       link: [
         { text: 'Repository', url: 'https://github.com/prauga/flexdoc' },
-        { text: 'AGPL-3.0', url: 'https://www.gnu.org/licenses/agpl-3.0.html' },
+        { text: 'Apache-2.0', url: 'https://www.apache.org/licenses/LICENSE-2.0' },
       ],
     },
   }), [darkMode]);
