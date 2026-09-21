@@ -12,4 +12,4 @@ mvn spring-boot:run
 
 Open `http://localhost:8080/docs`.
 
-The starter is pinned through `<flexdoc.version>0.9.0</flexdoc.version>`, the Java family release published for FlexDoc 3.3. CI installs the Java adapter family built from the same commit before building this example.
+The starter is pinned through `<flexdoc.version>0.10.0</flexdoc.version>`, the Java family release published for FlexDoc 3.3. CI installs the Java adapter family built from the same commit before building this example.
