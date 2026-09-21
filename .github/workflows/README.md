@@ -25,6 +25,6 @@ Long-lived registry credentials are avoided where the registry supports OIDC:
 - Maven Central uses the Central credentials and signing key already expected by `publish-java.yml`.
 - Go requires no registry credential; the versioned submodule tag is the release.
 
-Trusted Publisher relationships are registry-side configuration. After the repository moves to `prauga/flexdoc`, they must point at that repository and the exact workflow filenames above.
+Trusted Publisher relationships are registry-side configuration. They must point at the `Prauga/flexdoc` repository and the exact workflow filenames above.
 
-The old `@bluejeans/*` npm packages are not published by these workflows and are not unpublished. After the replacement `@prauga/*` packages exist, deprecate them with `npm deprecate`.
+Legacy `@bluejeans/*` npm packages are not published by these workflows. Owners deprecate them out of band with `npm deprecate` after the matching `@prauga/*` packages are publicly installable; that runbook is not kept in this public repository.

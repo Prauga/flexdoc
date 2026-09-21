@@ -4,7 +4,7 @@ Notable FlexDoc product releases are recorded here. Detailed release notes remai
 
 ## 3.4.0 — 3.3.x hardening package release
 
-Package semver is now explicitly independent from roadmap milestone labels: **3.4.0** publishes the completed 3.3.x hardening stack; it does not mean **3.4 Service Workbench** has shipped.
+Package semver is independent from internal product-milestone labels: **3.4.0** publishes the completed 3.3.x hardening stack.
 
 Key release themes:
 

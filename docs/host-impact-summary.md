@@ -69,6 +69,6 @@ If a change improves performance while the existing guardrail still passes, the 
 
 ## Operator takeaway
 
-FlexDoc's normal application hot path remains isolated from documentation work. Host execution adds real work only when a developer explicitly sends a request through the API host. That path is measured continuously across the supported runtime families so future execution, Runtime Intelligence, Contract Validation and Service Workbench changes cannot silently normalize material host regressions.
+FlexDoc's normal application hot path remains isolated from documentation work. Host execution adds real work only when a developer explicitly sends a request through the API host. That path is measured continuously across the supported runtime families so future execution, Runtime Intelligence, and Contract Validation changes cannot silently normalize material host regressions.
 
 For benchmark implementation details and rebaseline procedure, see `scripts/performance/host-impact/README.md`. For the broader renderer and production-readiness contract, see `docs/performance.md`.

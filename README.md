@@ -57,7 +57,7 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - **Rust:** Axum, Actix Web
 - **Elixir:** Plug, Phoenix
 
-The backend-coverage program shipped in 2.3.0 and the coordinated 2.x line culminated in published **2.9.9**. Stable **3.0.0** added backend-native Runtime Intelligence, published **3.1.0** added operation-level Contract Validation on Node Express/Fastify/Hono/NestJS with matching renderer and CLI consumption, and **3.2.0** took the canonical API Client request/script/collection model into headless CLI/CI execution while reusing the existing advertised host-execution contract. **3.3.0** expands hardened native API-host execution across the supported backend ecosystems and makes an available API host the default transport for ordinary interactive API Client sends. See [`docs/releases/3.3.md`](./docs/releases/3.3.md) for the security and operational release notes.
+The backend-coverage program shipped in 2.3.0 and the coordinated 2.x line culminated in published **2.9.9**. Stable **3.0.0** added backend-native Runtime Intelligence, published **3.1.0** added operation-level Contract Validation on Node Express/Fastify/Hono/NestJS with matching renderer and CLI consumption, and **3.2.0** took the canonical API Client request/script/collection model into headless CLI/CI execution while reusing the existing advertised host-execution contract. **3.3.0** expands hardened native API-host execution across the supported backend ecosystems and makes an available API host the default transport for ordinary interactive API Client sends. See [`docs/releases/3.3.md`](./docs/releases/3.3.md) for the security and operational release notes and [`CHANGELOG.md`](./CHANGELOG.md) for published product releases.
 
 ## CLI
 
