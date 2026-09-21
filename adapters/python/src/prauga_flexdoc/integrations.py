@@ -47,6 +47,7 @@ def setup_fastapi_flexdoc(
     runtime_intelligence: bool = False,
     try_it_host_execution: bool = False,
     try_it_host_execution_allowed_origins: list[str] | tuple[str, ...] | None = None,
+    try_it_host_execution_metric_sink: Callable[[object], None] | None = None,
 ) -> FlexDocASGI:
     """Mount FlexDoc on FastAPI using the application's generated OpenAPI endpoint.
 
@@ -64,6 +65,8 @@ def setup_fastapi_flexdoc(
         try_it_host_execution: When ``True``, mount the native API-host execution route.
         try_it_host_execution_allowed_origins: Required exact HTTP(S) origins for native
             execution. Wildcards and paths are not accepted.
+        try_it_host_execution_metric_sink: Optional operator metric sink receiving the same
+            metric names, labels and reason categories the Node backend emits.
 
     Returns:
         The mounted :class:`~prauga_flexdoc.asgi.FlexDocASGI` application.
@@ -90,7 +93,10 @@ def setup_fastapi_flexdoc(
     if try_it_host_execution:
         if not try_it_host_execution_allowed_origins:
             raise ValueError("FastAPI host execution requires try_it_host_execution_allowed_origins with at least one exact origin.")
-        host_execution = FlexDocHostExecution(try_it_host_execution_allowed_origins)
+        host_execution = FlexDocHostExecution(
+            try_it_host_execution_allowed_origins,
+            metric_sink=try_it_host_execution_metric_sink,
+        )
 
     docs = FlexDocASGI(
         FlexDocConfig(
@@ -130,6 +136,7 @@ def setup_flask_flexdoc(
     runtime_intelligence_spec: dict | Callable[[], dict] | None = None,
     try_it_host_execution: bool = False,
     try_it_host_execution_allowed_origins: list[str] | tuple[str, ...] | None = None,
+    try_it_host_execution_metric_sink: Callable[[object], None] | None = None,
 ) -> FlexDocHost:
     """Register FlexDoc routes on a Flask application without making Flask a hard dependency.
 
@@ -150,6 +157,8 @@ def setup_flask_flexdoc(
         try_it_host_execution: When ``True``, register the native API-host execution route.
         try_it_host_execution_allowed_origins: Required exact HTTP(S) origins for native
             execution. Wildcards and paths are not accepted.
+        try_it_host_execution_metric_sink: Optional operator metric sink receiving the same
+            metric names, labels and reason categories the Node backend emits.
 
     Returns:
         The :class:`~prauga_flexdoc.host.FlexDocHost` backing the registered routes.
@@ -163,7 +172,10 @@ def setup_flask_flexdoc(
     if try_it_host_execution:
         if not try_it_host_execution_allowed_origins:
             raise ValueError("Flask host execution requires try_it_host_execution_allowed_origins with at least one exact origin.")
-        host_execution = FlexDocHostExecution(try_it_host_execution_allowed_origins)
+        host_execution = FlexDocHostExecution(
+            try_it_host_execution_allowed_origins,
+            metric_sink=try_it_host_execution_metric_sink,
+        )
 
     host = FlexDocHost(FlexDocConfig(
         path=path,
@@ -258,6 +270,7 @@ def django_urlpatterns(
     try_it_api_client_persistence_key: str | Literal[False] | None = None,
     try_it_host_execution: bool = False,
     try_it_host_execution_allowed_origins: list[str] | tuple[str, ...] | None = None,
+    try_it_host_execution_metric_sink: Callable[[object], None] | None = None,
     try_it_host_execution_csrf_exempt: bool = False,
     runtime_intelligence_spec: dict | Callable[[], dict] | None = None,
     runtime_intelligence_urlconf: object | None = None,
@@ -281,6 +294,8 @@ def django_urlpatterns(
         try_it_host_execution: When ``True``, add the native API-host execution route.
         try_it_host_execution_allowed_origins: Required exact HTTP(S) origins for native
             execution. Wildcards and paths are not accepted.
+        try_it_host_execution_metric_sink: Optional operator metric sink receiving the same
+            metric names, labels and reason categories the Node backend emits.
         try_it_host_execution_csrf_exempt: Opt out of Django's CSRF enforcement on the execute
             route. Defaults to ``False``, so ``CsrfViewMiddleware`` protects the route like any
             other POST view. Set this only for a deployment whose authentication is not
@@ -302,7 +317,10 @@ def django_urlpatterns(
     if try_it_host_execution:
         if not try_it_host_execution_allowed_origins:
             raise ValueError("Django host execution requires try_it_host_execution_allowed_origins with at least one exact origin.")
-        host_execution = FlexDocHostExecution(try_it_host_execution_allowed_origins)
+        host_execution = FlexDocHostExecution(
+            try_it_host_execution_allowed_origins,
+            metric_sink=try_it_host_execution_metric_sink,
+        )
     elif try_it_host_execution_csrf_exempt:
         raise ValueError("try_it_host_execution_csrf_exempt requires try_it_host_execution=True.")
 
