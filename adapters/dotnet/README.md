@@ -5,7 +5,7 @@ Self-contained ASP.NET Core integration for FlexDoc. The NuGet package embeds th
 ## Package
 
 ```text
-Prauga.FlexDoc.AspNetCore 0.6.0
+Prauga.FlexDoc.AspNetCore 0.7.0
 ```
 
 The library targets `net8.0`, so it can be consumed by supported ASP.NET Core applications on .NET 8 and later runtimes.
@@ -70,6 +70,26 @@ The execute endpoint disables Kestrel's lower default request-body ceiling **for
 This first .NET slice intentionally advertises an empty host-only capability list. Session cookie jars, client certificates, Digest, Hawk, NTLM/Negotiate, OAuth 1.0, and AWS Signature V4 remain unavailable until implemented natively.
 
 The executor validates DNS inside `SocketsHttpHandler.ConnectCallback` and connects directly to a validated IP address while preserving the original hostname for HTTP/TLS semantics. Link-local/cloud-metadata hostnames and DNS answers are rejected before connection, avoiding a DNS-preflight/connection-time resolution gap.
+
+### Execution evidence
+
+An executor that reports nothing leaves an operator guessing whether a failing Try It is a policy rejection, a slow upstream, or traffic that never carried an execute marker. Pass a metric sink to the executor to emit the same metric names, labels, and reason vocabulary as every other FlexDoc host, so one collector reads a mixed fleet:
+
+```csharp
+var evidence = new FlexDocHostExecutionObservation();
+var hostExecution = new FlexDocHostExecution(
+    new[] { "https://api.example.internal" },
+    evidence.Sink);
+
+// Whenever an operator asks for evidence:
+var report = evidence.Report();
+```
+
+The sink receives `FlexDocHostExecutionMetric` values carrying a name, kind, value, and labels, and nothing else: no URL, header, body, or credential reaches it. Bridge it to `System.Diagnostics.Metrics`, `prometheus-net`, or OpenTelemetry if the deployment has one; where it does not, `FlexDocHostExecutionObservation` folds the same updates into an aggregate and `Report()` produces the shared `flexdoc.host-execution.observation/1` document every other runtime also emits. The recorder is safe to share across concurrent requests, bounds memory with reservoir-sampled durations, and keeps counts exact regardless.
+
+Every non-successful execution carries one of the stable categories in `FlexDocHostExecutionReasons`, which is why rejections and upstream failures are separable at all: the human-readable messages interpolate origins and field names, so they are unbounded and unusable as a metric label. Because each reason defaults from its status code, a rejection path added later cannot silently lose its category. Requests arriving without `X-FlexDoc-Execute` are counted by `flexdoc_execute_unmarked_total` and deliberately move no lifecycle metric, since they produced no validated envelope.
+
+A sink that throws is caught: observability never decides whether an execution succeeds. The report declares `browser-direct-transport-mix` in its gaps, because a browser-direct execution never reaches this host and its transport mix cannot be derived here. See [host-execution observability](../../docs/host-execution-observability.md) for the full metric contract and the browser half of a review.
 
 ## Runtime Intelligence
 

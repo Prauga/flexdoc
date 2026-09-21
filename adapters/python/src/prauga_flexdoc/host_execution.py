@@ -14,6 +14,8 @@ import time
 import uuid
 from urllib.parse import quote, urlencode, urljoin, urlsplit, urlunsplit
 
+from .host_execution_observability import FlexDocHostExecutionMetric, MetricSink
+
 
 MAX_RESPONSE_BYTES = 10 * 1024 * 1024
 DEFAULT_TIMEOUT_MS = 30_000
@@ -45,9 +47,12 @@ _METADATA_HOSTS = {
 class FlexDocHostExecutionError(RuntimeError):
     """Typed error mapped onto the canonical host-execution JSON response."""
 
-    def __init__(self, status: int, message: str):
+    def __init__(self, status: int, message: str, reason: str = "request-invalid"):
         super().__init__(message)
         self.status = status
+        # Messages interpolate origins, header names and methods, so they cannot be
+        # aggregated. The reason can, and it matches the Node vocabulary exactly.
+        self.reason = reason
 
 
 @dataclass(frozen=True)
@@ -83,10 +88,24 @@ class _ValidatedAddress:
 class FlexDocHostExecution:
     """Framework-neutral synchronous executor for the existing FlexDoc execute envelope."""
 
-    def __init__(self, allowed_origins: list[str] | tuple[str, ...]):
+    def __init__(
+        self,
+        allowed_origins: list[str] | tuple[str, ...],
+        *,
+        metric_sink: MetricSink | None = None,
+    ):
+        """Create a native executor.
+
+        Args:
+            allowed_origins: Exact HTTP(S) origins the host may call.
+            metric_sink: Optional operator metric sink receiving the same metric names
+                and labels the Node backend emits. Failures in the sink never fail an
+                execution.
+        """
         if not allowed_origins:
             raise ValueError("Python host execution requires at least one exact allowed origin.")
         self.allowed_origins = frozenset(_normalize_allowed_origin(value) for value in allowed_origins)
+        self.metric_sink = metric_sink
 
     @property
     def capabilities(self) -> list[str]:
@@ -99,15 +118,68 @@ class FlexDocHostExecution:
         envelope: dict[str, object] | None,
         files: dict[int, FlexDocHostExecutionFile] | None = None,
     ) -> FlexDocHostExecutionResult:
-        """Validate the execute marker and map executor failures to canonical JSON errors."""
+        """Validate the execute marker and map executor failures to canonical JSON errors.
+
+        This is the single choke point every transport reaches, so it is also where
+        execution evidence is emitted: one started/completed pair per validated
+        envelope, and an unmarked counter for requests that never became executions.
+        """
         if execute_marker != "1":
+            # Counted outside the lifecycle: an unmarked request never became an
+            # execution, and folding it into rejections would double-count attempts.
+            self._metric("flexdoc_execute_unmarked_total", "counter", 1, {"reason": "marker-missing"})
             return FlexDocHostExecutionResult(403, {"error": "Missing X-FlexDoc-Execute header."})
+
+        self._metric("flexdoc_execute_requests_total", "counter", 1)
+        self._metric("flexdoc_execute_in_flight", "gauge", 1)
+        started = time.monotonic()
         try:
-            return FlexDocHostExecutionResult(200, self.execute(envelope, files))
+            body = self.execute(envelope, files)
         except FlexDocHostExecutionError as error:
+            outcome = "error" if error.status >= 500 else "rejected"
+            self._complete(outcome, started, error.reason, error.status)
             return FlexDocHostExecutionResult(error.status, {"error": str(error)})
         except Exception:
+            self._complete("error", started, "upstream-error", 502)
             return FlexDocHostExecutionResult(502, {"error": "API host execution failed."})
+        self._complete("success", started)
+        return FlexDocHostExecutionResult(200, body)
+
+    def _complete(
+        self,
+        outcome: str,
+        started: float,
+        reason: str | None = None,
+        status: int | None = None,
+    ) -> None:
+        self._metric("flexdoc_execute_in_flight", "gauge", -1)
+        self._metric("flexdoc_execute_completions_total", "counter", 1, {"outcome": outcome})
+        self._metric(
+            "flexdoc_execute_duration_seconds",
+            "histogram",
+            max(0.0, time.monotonic() - started),
+            {"outcome": outcome},
+        )
+        if reason is None:
+            return
+        if outcome == "rejected":
+            self._metric(
+                "flexdoc_execute_rejections_total",
+                "counter",
+                1,
+                {"source": "route", "statusCode": str(status or 400), "reason": reason},
+            )
+        else:
+            self._metric("flexdoc_execute_errors_total", "counter", 1, {"reason": reason})
+
+    def _metric(self, name: str, kind: str, value: float, labels: dict[str, str] | None = None) -> None:
+        if self.metric_sink is None:
+            return
+        try:
+            self.metric_sink(FlexDocHostExecutionMetric(name, kind, value, labels or {}))
+        except Exception:
+            # Observability must never decide whether an execution succeeds.
+            pass
 
     def execute(
         self,
@@ -116,7 +188,7 @@ class FlexDocHostExecution:
     ) -> dict[str, object]:
         """Execute one already-parsed canonical host-execution envelope."""
         if not isinstance(envelope, dict):
-            raise _bad_request("Host execution body must be a JSON object.")
+            raise _bad_request("Host execution body must be a JSON object.", "body-malformed")
         if envelope.get("cookieJar") == "session":
             raise _unsupported("Session cookie jars are not implemented by the Python host executor.")
         if _string(envelope.get("certificateId")):
@@ -177,7 +249,7 @@ class FlexDocHostExecution:
             deadline = time.monotonic() + timeout_ms / 1000.0
             validated_addresses = self._assert_allowed(target)
             if time.monotonic() >= deadline:
-                raise _upstream(f"Host execution request timed out after {timeout_ms} ms.")
+                raise _upstream(f"Host execution request timed out after {timeout_ms} ms.", "upstream-timeout")
             status, status_text, response_headers, response_body, location = _request_once(
                 target,
                 method,
@@ -191,10 +263,10 @@ class FlexDocHostExecution:
 
             if status in {301, 302, 303, 307, 308} and location:
                 if redirect_count >= MAX_REDIRECTS:
-                    raise _forbidden("Host execution exceeded the redirect safety limit.")
+                    raise _forbidden("Host execution exceeded the redirect safety limit.", "redirect-forbidden")
                 next_url = urljoin(target, location)
                 if _origin(next_url) != _origin(target):
-                    raise _forbidden("Host execution does not follow cross-origin redirects.")
+                    raise _forbidden("Host execution does not follow cross-origin redirects.", "redirect-forbidden")
                 if status == 303:
                     method = "GET"
                     body = None
@@ -210,7 +282,7 @@ class FlexDocHostExecution:
                 "responseTime": elapsed_ms,
             }
 
-        raise _forbidden("Host execution exceeded the redirect safety limit.")
+        raise _forbidden("Host execution exceeded the redirect safety limit.", "redirect-forbidden")
 
     def _assert_allowed(self, url: str) -> tuple[_ValidatedAddress, ...]:
         parts = _split_http_url(url)
@@ -225,9 +297,9 @@ class FlexDocHostExecution:
         try:
             addresses = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
         except OSError as error:
-            raise _upstream("Host execution could not resolve target hostname.") from error
+            raise _upstream("Host execution could not resolve target hostname.", "upstream-unreachable") from error
         if not addresses:
-            raise _upstream("Host execution could not resolve target hostname.")
+            raise _upstream("Host execution could not resolve target hostname.", "upstream-unreachable")
 
         validated: list[_ValidatedAddress] = []
         seen: set[tuple[int, tuple[object, ...]]] = set()
@@ -250,7 +322,7 @@ class FlexDocHostExecution:
             validated.append(_ValidatedAddress(family, protocol, normalized_sockaddr))
 
         if not validated:
-            raise _upstream("Host execution could not resolve target hostname.")
+            raise _upstream("Host execution could not resolve target hostname.", "upstream-unreachable")
         return tuple(validated)
 
 
@@ -269,7 +341,7 @@ def _request_once(
     port = parts.port or (443 if parts.scheme.lower() == "https" else 80)
     remaining = deadline - time.monotonic()
     if remaining <= 0:
-        raise _upstream(f"Host execution request timed out after {timeout_ms} ms.")
+        raise _upstream(f"Host execution request timed out after {timeout_ms} ms.", "upstream-timeout")
 
     if parts.scheme.lower() == "https":
         connection: http.client.HTTPConnection = http.client.HTTPSConnection(
@@ -295,7 +367,7 @@ def _request_once(
 
         remaining = deadline - time.monotonic()
         if remaining <= 0:
-            raise _upstream(f"Host execution request timed out after {timeout_ms} ms.")
+            raise _upstream(f"Host execution request timed out after {timeout_ms} ms.", "upstream-timeout")
         if connection.sock is not None:
             connection.sock.settimeout(remaining)
         response = connection.getresponse()
@@ -303,7 +375,7 @@ def _request_once(
         if declared_length is not None:
             try:
                 if int(declared_length) > MAX_RESPONSE_BYTES:
-                    raise _upstream("Host execution response exceeded the 10 MiB safety limit.")
+                    raise _upstream("Host execution response exceeded the 10 MiB safety limit.", "body-too-large")
             except ValueError:
                 pass
         data = _read_response_body(response, connection, deadline, timeout_ms)
@@ -318,9 +390,9 @@ def _request_once(
     except FlexDocHostExecutionError:
         raise
     except socket.timeout as error:
-        raise _upstream(f"Host execution request timed out after {timeout_ms} ms.") from error
+        raise _upstream(f"Host execution request timed out after {timeout_ms} ms.", "upstream-timeout") from error
     except (OSError, http.client.HTTPException, ValueError) as error:
-        raise _upstream(f"Host execution request failed: {error}") from error
+        raise _upstream(f"Host execution request failed: {error}", "upstream-unreachable") from error
     finally:
         connection.close()
 
@@ -358,18 +430,18 @@ def _read_response_body(
     while True:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
-            raise _upstream(f"Host execution request timed out after {timeout_ms} ms.")
+            raise _upstream(f"Host execution request timed out after {timeout_ms} ms.", "upstream-timeout")
         if connection.sock is not None:
             connection.sock.settimeout(remaining)
         try:
             chunk = response.read1(64 * 1024)
         except socket.timeout as error:
-            raise _upstream(f"Host execution request timed out after {timeout_ms} ms.") from error
+            raise _upstream(f"Host execution request timed out after {timeout_ms} ms.", "upstream-timeout") from error
         if not chunk:
             break
         total += len(chunk)
         if total > MAX_RESPONSE_BYTES:
-            raise _upstream("Host execution response exceeded the 10 MiB safety limit.")
+            raise _upstream("Host execution response exceeded the 10 MiB safety limit.", "body-too-large")
         chunks.append(chunk)
     return b"".join(chunks)
 
@@ -661,7 +733,7 @@ def _unsafe_header(normalized: str) -> bool:
 
 def _validate_content_type(value: str | None) -> str | None:
     if value is not None and ("\r" in value or "\n" in value):
-        raise _bad_request("Invalid host execution content type.")
+        raise _bad_request("Invalid host execution content type.", "unsupported-media-type")
     return value
 
 
@@ -713,17 +785,17 @@ def _quote_multipart(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"').replace("\r", "").replace("\n", "")
 
 
-def _bad_request(message: str) -> FlexDocHostExecutionError:
-    return FlexDocHostExecutionError(400, message)
+def _bad_request(message: str, reason: str = "request-invalid") -> FlexDocHostExecutionError:
+    return FlexDocHostExecutionError(400, message, reason)
 
 
-def _unsupported(message: str) -> FlexDocHostExecutionError:
-    return FlexDocHostExecutionError(400, message)
+def _unsupported(message: str, reason: str = "auth-unsupported") -> FlexDocHostExecutionError:
+    return FlexDocHostExecutionError(400, message, reason)
 
 
-def _forbidden(message: str) -> FlexDocHostExecutionError:
-    return FlexDocHostExecutionError(403, message)
+def _forbidden(message: str, reason: str = "destination-forbidden") -> FlexDocHostExecutionError:
+    return FlexDocHostExecutionError(403, message, reason)
 
 
-def _upstream(message: str) -> FlexDocHostExecutionError:
-    return FlexDocHostExecutionError(502, message)
+def _upstream(message: str, reason: str = "upstream-error") -> FlexDocHostExecutionError:
+    return FlexDocHostExecutionError(502, message, reason)

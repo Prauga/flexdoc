@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from http import HTTPStatus
 import json
 from pathlib import Path
@@ -22,6 +23,8 @@ class FlexDocWSGI:
         *,
         assets_dir: str | Path | None = None,
         host_execution: FlexDocHostExecution | None = None,
+        runtime_provider: Callable[[dict], dict] | None = None,
+        runtime_framework: str | None = None,
     ):
         """Create a WSGI application that serves FlexDoc routes.
 
@@ -29,13 +32,19 @@ class FlexDocWSGI:
             config: Renderer and route settings for the docs subtree.
             assets_dir: Optional directory overriding the bundled renderer assets.
             host_execution: Optional real native executor for ``POST {path}/__flexdoc/execute``.
+            runtime_provider: Optional callable returning a runtime intelligence
+                snapshot for ``GET {path}/__flexdoc/runtime``.
+            runtime_framework: Framework name included in renderer options when
+                ``runtime_provider`` is set.
         """
         self.host_execution = host_execution
+        self.runtime_provider = runtime_provider
         self.host = FlexDocHost(
             config,
             assets_dir=assets_dir,
             host_execution_available=host_execution is not None,
             host_execution_capabilities=host_execution.capabilities if host_execution is not None else (),
+            runtime_intelligence_framework=runtime_framework if runtime_provider is not None else None,
         )
         self.config = self.host.config
         self.path = self.host.path
@@ -52,6 +61,9 @@ class FlexDocWSGI:
             Single-chunk iterable containing the response body bytes.
         """
         request_path = environ.get("PATH_INFO", "")
+        if self.runtime_provider is not None and request_path == self.path + "/__flexdoc/runtime":
+            return self._runtime(environ, start_response)
+
         if self.host_execution is not None and request_path == self.path + "/__flexdoc/execute":
             return self._execute(environ, start_response)
 
@@ -64,6 +76,15 @@ class FlexDocWSGI:
             headers.append(("Cache-Control", response.cache_control))
         start_response(f"{response.status} {HTTPStatus(response.status).phrase}", headers)
         return [response.body]
+
+    def _runtime(self, environ, start_response):
+        if str(environ.get("REQUEST_METHOD") or "GET").upper() != "GET":
+            return _send_json(start_response, 405, {"error": "Method not allowed."})
+        try:
+            snapshot = self.runtime_provider(environ)
+        except Exception:
+            return _send_json(start_response, 500, {"error": "Runtime intelligence unavailable."})
+        return _send_json(start_response, 200, snapshot)
 
     def _execute(self, environ, start_response):
         if str(environ.get("REQUEST_METHOD") or "GET").upper() != "POST":

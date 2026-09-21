@@ -618,7 +618,7 @@ dependencies = [
 
 [[package]]
 name = "prauga-flexdoc-axum"
-version = "0.5.7"
+version = "0.6.0"
 dependencies = [
  "axum",
  "futures-util",
@@ -632,7 +632,7 @@ dependencies = [
 
 [[package]]
 name = "prauga-flexdoc-host-execution"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "base64",
  "futures-util",

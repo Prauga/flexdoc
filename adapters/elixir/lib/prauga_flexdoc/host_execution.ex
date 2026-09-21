@@ -21,18 +21,27 @@ defmodule PraugaFlexDoc.HostExecution do
   ))
   @metadata_hosts MapSet.new(~w(169.254.169.254 metadata.google.internal metadata.google))
 
-  defstruct allowed_origins: MapSet.new()
+  defstruct allowed_origins: MapSet.new(), metric_sink: nil
 
-  @type t :: %__MODULE__{allowed_origins: MapSet.t(String.t())}
+  @type metric_sink :: (PraugaFlexDoc.HostExecutionMetric.t() -> any())
+  @type t :: %__MODULE__{allowed_origins: MapSet.t(String.t()), metric_sink: metric_sink() | nil}
   @type uploaded_file :: %{filename: String.t(), content_type: String.t(), data: binary()}
   @type result :: %{status: pos_integer(), body: map()}
 
   def max_request_bytes, do: @max_request_bytes
   def capabilities(_execution), do: []
 
-  @doc "Creates a native executor from a non-empty exact HTTP(S) origin allowlist."
-  @spec new!([String.t()]) :: t()
-  def new!(allowed_origins) do
+  @doc """
+  Creates a native executor from a non-empty exact HTTP(S) origin allowlist.
+
+  ## Options
+
+    * `:metric_sink` - receives `PraugaFlexDoc.HostExecutionMetric` updates using the
+      same names and labels every other FlexDoc runtime emits. Delivery is best
+      effort: a raising sink never fails an execution.
+  """
+  @spec new!([String.t()], keyword()) :: t()
+  def new!(allowed_origins, options \\ []) do
     normalized =
       allowed_origins
       |> List.wrap()
@@ -55,30 +64,84 @@ defmodule PraugaFlexDoc.HostExecution do
       raise ArgumentError, "FlexDoc host execution requires at least one exact allowed origin"
     end
 
-    %__MODULE__{allowed_origins: normalized}
+    %__MODULE__{allowed_origins: normalized, metric_sink: Keyword.get(options, :metric_sink)}
   end
 
-  @doc "Validates the marker and executes one canonical FlexDoc request envelope."
+  @doc """
+  Validates the marker and executes one canonical FlexDoc request envelope.
+
+  This is the single choke point every transport reaches, so it is also where
+  execution evidence is emitted: one started/completed pair per validated
+  envelope, and an unmarked counter for requests that never became executions.
+  """
   @spec handle(t(), String.t() | nil, term(), %{optional(non_neg_integer()) => uploaded_file()}) :: result()
   def handle(execution, marker, envelope, files \\ %{}) do
     if marker != "1" do
+      # Counted outside the lifecycle: an unmarked request never became an
+      # execution, and folding it into rejections would double-count attempts.
+      metric(execution, "flexdoc_execute_unmarked_total", :counter, 1, %{"reason" => "marker-missing"})
       %{status: 403, body: %{"error" => "Missing X-FlexDoc-Execute header."}}
     else
+      metric(execution, "flexdoc_execute_requests_total", :counter, 1)
+      metric(execution, "flexdoc_execute_in_flight", :gauge, 1)
+      started = System.monotonic_time(:millisecond)
+
       try do
-        %{status: 200, body: execute(execution, envelope, files)}
+        body = execute(execution, envelope, files)
+        complete(execution, "success", started)
+        %{status: 200, body: body}
       catch
-        {:execution_error, status, message} -> %{status: status, body: %{"error" => message}}
+        {:execution_error, status, message, reason} ->
+          outcome = if status >= 500, do: "error", else: "rejected"
+          complete(execution, outcome, started, reason, status)
+          %{status: status, body: %{"error" => message}}
       end
     end
   end
 
+  defp complete(execution, outcome, started, reason \\ nil, status \\ nil) do
+    metric(execution, "flexdoc_execute_in_flight", :gauge, -1)
+    metric(execution, "flexdoc_execute_completions_total", :counter, 1, %{"outcome" => outcome})
+    elapsed = max(System.monotonic_time(:millisecond) - started, 0) / 1000
+    metric(execution, "flexdoc_execute_duration_seconds", :histogram, elapsed, %{"outcome" => outcome})
+
+    cond do
+      is_nil(reason) ->
+        :ok
+
+      outcome == "rejected" ->
+        metric(execution, "flexdoc_execute_rejections_total", :counter, 1, %{
+          "source" => "route",
+          "statusCode" => to_string(status || 400),
+          "reason" => reason
+        })
+
+      true ->
+        metric(execution, "flexdoc_execute_errors_total", :counter, 1, %{"reason" => reason})
+    end
+  end
+
+  defp metric(execution, name, kind, value, labels \\ %{})
+
+  defp metric(%__MODULE__{metric_sink: nil}, _name, _kind, _value, _labels), do: :ok
+
+  defp metric(%__MODULE__{metric_sink: sink}, name, kind, value, labels) do
+    sink.(%PraugaFlexDoc.HostExecutionMetric{name: name, kind: kind, value: value, labels: labels})
+    :ok
+  rescue
+    # Observability must never decide whether an execution succeeds.
+    _error -> :ok
+  catch
+    _kind, _value -> :ok
+  end
+
   defp execute(execution, envelope, files) when is_map(envelope) do
     if envelope["cookieJar"] == "session" do
-      fail(400, "Session cookie jars are not implemented by the Elixir host executor.")
+      fail(400, "Session cookie jars are not implemented by the Elixir host executor.", "auth-unsupported")
     end
 
     if String.trim(string_value(envelope["certificateId"])) != "" do
-      fail(400, "Client certificates are not implemented by the Elixir host executor.")
+      fail(400, "Client certificates are not implemented by the Elixir host executor.", "auth-unsupported")
     end
 
     draft = envelope["request"]
@@ -105,16 +168,16 @@ defmodule PraugaFlexDoc.HostExecution do
     execute_with_redirects(execution, method, target, headers, body, draft["auth"], deadline, timeout_ms, 0)
   end
 
-  defp execute(_execution, _envelope, _files), do: fail(400, "Host execution body must be a JSON object.")
+  defp execute(_execution, _envelope, _files), do: fail(400, "Host execution body must be a JSON object.", "body-malformed")
 
   defp execute_with_redirects(execution, method, current, headers, body, auth, deadline, timeout_ms, redirect_count) do
     remaining = deadline - System.monotonic_time(:millisecond)
-    if remaining <= 0, do: fail(502, "Host execution request timed out after #{timeout_ms} ms.")
+    if remaining <= 0, do: fail(502, "Host execution request timed out after #{timeout_ms} ms.", "upstream-timeout")
 
     request_uri = apply_query_auth(current, auth)
     validated_addresses = assert_allowed(execution, request_uri, remaining, timeout_ms)
     remaining = deadline - System.monotonic_time(:millisecond)
-    if remaining <= 0, do: fail(502, "Host execution request timed out after #{timeout_ms} ms.")
+    if remaining <= 0, do: fail(502, "Host execution request timed out after #{timeout_ms} ms.", "upstream-timeout")
     started = System.monotonic_time(:millisecond)
 
     case perform_request(method, request_uri, headers, body, remaining, validated_addresses) do
@@ -131,11 +194,11 @@ defmodule PraugaFlexDoc.HostExecution do
 
           location ->
             if redirect_count >= @max_redirects do
-              fail(403, "Host execution exceeded the redirect safety limit.")
+              fail(403, "Host execution exceeded the redirect safety limit.", "redirect-forbidden")
             end
 
             next = resolve_redirect(request_uri, location)
-            if origin_of(next) != origin_of(request_uri), do: fail(403, "Host execution does not follow cross-origin redirects.")
+            if origin_of(next) != origin_of(request_uri), do: fail(403, "Host execution does not follow cross-origin redirects.", "redirect-forbidden")
 
             {next_method, next_body, next_headers} =
               if status == 303 do
@@ -158,13 +221,13 @@ defmodule PraugaFlexDoc.HostExecution do
         end
 
       {:error, :timeout} ->
-        fail(502, "Host execution request timed out after #{timeout_ms} ms.")
+        fail(502, "Host execution request timed out after #{timeout_ms} ms.", "upstream-timeout")
 
       {:error, :response_too_large} ->
-        fail(502, "Host execution response exceeded the 10 MiB safety limit.")
+        fail(502, "Host execution response exceeded the 10 MiB safety limit.", "body-too-large")
 
       {:error, reason} ->
-        fail(502, "Host execution request failed: #{format_reason(reason)}")
+        fail(502, "Host execution request failed: #{format_reason(reason)}", "upstream-unreachable")
     end
   end
 
@@ -365,7 +428,7 @@ defmodule PraugaFlexDoc.HostExecution do
         {:error, _} -> resolve_addresses(host, timeout_ms, total_timeout_ms)
       end
 
-    if addresses == [], do: fail(502, "Host execution could not resolve target hostname.")
+    if addresses == [], do: fail(502, "Host execution could not resolve target hostname.", "upstream-unreachable")
 
     if Enum.any?(addresses, &metadata_address?/1) do
       fail(403, "Host execution blocks DNS resolutions to link-local and cloud metadata endpoints.")
@@ -491,11 +554,11 @@ defmodule PraugaFlexDoc.HostExecution do
             end
 
           "query" -> headers
-          "cookie" -> fail(400, "Cookie authentication is not implemented by the Elixir host executor.")
+          "cookie" -> fail(400, "Cookie authentication is not implemented by the Elixir host executor.", "auth-unsupported")
           other -> fail(400, "Unsupported API key location: #{other}")
         end
 
-      other -> fail(400, "Authentication type #{other} is not implemented by the Elixir host executor.")
+      other -> fail(400, "Authentication type #{other} is not implemented by the Elixir host executor.", "auth-unsupported")
     end
   end
 
@@ -565,7 +628,7 @@ defmodule PraugaFlexDoc.HostExecution do
         {Jason.encode!(%{"query" => string_value(graph["query"]), "variables" => variables}), default_string(explicit_type, "application/json")}
 
       "formdata" -> build_multipart(draft, files)
-      other -> fail(400, "Body mode #{other} is not implemented by the Elixir host executor.")
+      other -> fail(400, "Body mode #{other} is not implemented by the Elixir host executor.", "auth-unsupported")
     end
   end
 
@@ -678,5 +741,12 @@ defmodule PraugaFlexDoc.HostExecution do
   defp format_reason(%{__exception__: true} = error), do: Exception.message(error)
   defp format_reason(reason) when is_binary(reason), do: reason
   defp format_reason(reason), do: inspect(reason)
-  defp fail(status, message), do: throw({:execution_error, status, message})
+  defp fail(status, message) do
+    fail(status, message, PraugaFlexDoc.HostExecutionObservability.default_reason(status))
+  end
+
+  # Messages interpolate origins, field names and methods, so they are unbounded
+  # and cannot be aggregated. The reason can, and it matches the Node, Python, Go,
+  # Rust, Ruby and PHP vocabulary exactly.
+  defp fail(status, message, reason), do: throw({:execution_error, status, message, reason})
 end

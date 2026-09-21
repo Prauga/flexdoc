@@ -151,6 +151,90 @@ Durations are retained up to `durationSampleCapacity` (8192 by default) and then
 
 The report carries only counts, timestamps and category names, so it is safe to write to disk or hand to an operator as-is. It also declares what an API host structurally cannot observe: browser-direct executions never reach the host, so the browser / API-host / host-required transport mix cannot be derived here, and the document says so in `gaps` rather than omitting it silently. FlexDoc neither writes nor transmits this document; producing and storing it is entirely the application's decision.
 
+## Native adapters
+
+The contract above is not Node-specific. Each native executor emits the same metric names, the same labels and the same reason vocabulary, and exports the same document schema. Keeping the vocabulary identical is the point: an operator running an Express API host next to a Django or Go one should read one document shape, and a collector written for any runtime should not need a second parser. Every report names its producer in `runtime` and otherwise matches field for field, including the declared `browser-direct-transport-mix` gap.
+
+Python:
+
+```python
+from prauga_flexdoc import (
+    FlexDocHostExecution,
+    FlexDocHostExecutionObservation,
+    create_host_execution_observation_report,
+)
+
+observation = FlexDocHostExecutionObservation()
+executor = FlexDocHostExecution(allowed_origins, metric_sink=observation.record)
+
+report = create_host_execution_observation_report(observation)
+```
+
+Go, where the recorder is mutex-guarded so it can be the sink for concurrent handlers directly:
+
+```go
+observation := flexdoc.NewHostExecutionObservation()
+executor, err := flexdoc.NewHostExecution(allowedOrigins, flexdoc.WithMetricSink(observation.Record))
+
+report := flexdoc.NewHostExecutionObservationReport(observation)
+```
+
+Rust, where the shared `prauga-flexdoc-host-execution` crate carries the contract for both the Axum and Actix adapters:
+
+```rust
+let observation = HostExecutionObservation::new();
+let executor = HostExecution::new(allowed_origins)?.with_metric_sink(observation.sink());
+
+let report = observation_report(&observation);
+```
+
+Ruby, where the recorder is mutex-guarded and each worker of a forking server keeps its own window:
+
+```ruby
+observation = Prauga::FlexDoc::HostExecutionObservation.new
+executor = Prauga::FlexDoc::HostExecution.new(allowed_origins:, metric_sink: observation.sink)
+
+report = Prauga::FlexDoc.host_execution_observation_report(observation)
+```
+
+PHP, where a recorder observes one process, so an export is per-worker evidence under php-fpm:
+
+```php
+$observation = new HostExecutionObservation();
+$executor = new HostExecution($allowedOrigins, $observation->sink());
+
+$report = $observation->report();
+```
+
+Elixir, where the recorder is a supervised `GenServer` because executions run in per-request processes and updates are casts, so a slow collector adds no latency:
+
+```elixir
+{:ok, _recorder} = PraugaFlexDoc.HostExecutionObservation.start_link(name: MyApp.FlexDocEvidence)
+executor = PraugaFlexDoc.HostExecution.new!(allowed_origins, metric_sink: PraugaFlexDoc.HostExecutionObservation.sink(MyApp.FlexDocEvidence))
+
+report = PraugaFlexDoc.HostExecutionObservation.report(MyApp.FlexDocEvidence)
+```
+
+.NET, where the recorder is shared directly across concurrent requests:
+
+```csharp
+var evidence = new FlexDocHostExecutionObservation();
+var hostExecution = new FlexDocHostExecution(allowedOrigins, evidence.Sink);
+
+var report = evidence.Report();
+```
+
+and Java, where the recorder is synchronized because JVM adapters serve concurrently and the aggregate is reachable from many request threads at once:
+
+```java
+FlexDocHostExecutionObservation evidence = new FlexDocHostExecutionObservation();
+FlexDocHostExecution execution = new FlexDocHostExecution(allowedOrigins, evidence.sink());
+
+Map<String, Object> report = evidence.report();
+```
+
+Every adapter with a native executor now emits this evidence, so a host-execution review of any FlexDoc fleet has an aggregate to read. The browser-direct transport mix remains outside every one of them, which is why each export declares it as a gap rather than leaving it implied.
+
 ## The browser half: transport mix
 
 The gap the host document declares is closed from the browser, not the host. A browser-direct request goes straight from the tab to the target API, so no amount of host instrumentation can count it. `@prauga/flexdoc-client` therefore keeps a matching aggregate for the executions it performs:

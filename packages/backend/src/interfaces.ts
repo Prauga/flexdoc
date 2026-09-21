@@ -155,6 +155,38 @@ export interface FlexDocHostExecutionRequest {
   /** Raw request body bytes when a body is present. */ body?: Buffer;
 }
 
+/** One cookie persisted in a host-execution session jar. */
+export interface FlexDocHostExecutionSessionCookie {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+  secure: boolean;
+  httpOnly: boolean;
+  /** True when the cookie was set without a Domain attribute and must match the host exactly. */ hostOnly: boolean;
+  /** Absolute expiry in epoch milliseconds; absent for session cookies. */ expiresAt?: number;
+}
+
+/**
+ * Session cookie-jar storage for host execution.
+ *
+ * FlexDoc defines the interface and the application supplies the implementation,
+ * following the same rule as the metric and lifecycle hooks: no infrastructure
+ * dependency enters the package. The default implementation is an in-process map,
+ * which is correct for a single instance and wrong for a fleet.
+ */
+export interface FlexDocHostExecutionSessionStore {
+  /** Return the stored jar for a session, or undefined when the session is unknown. */
+  read(sessionId: string): Promise<FlexDocHostExecutionSessionCookie[] | undefined>;
+  /** Replace the stored jar for a session. */
+  write(sessionId: string, cookies: FlexDocHostExecutionSessionCookie[]): Promise<void>;
+  /** Remove every cookie stored for a session. */
+  clear(sessionId: string): Promise<void>;
+}
+
+/** How many instances of the application serve this documentation mount. */
+export type FlexDocHostExecutionInstanceMode = 'single' | 'multiple';
+
 /** Server-only API-host execution configuration. */
 export interface FlexDocHostExecutionOptions {
   /** Enable API-host execution routes. Defaults to disabled unless explicitly opted in. */ enabled?: boolean;
@@ -165,6 +197,21 @@ export interface FlexDocHostExecutionOptions {
   /** Best-effort start hook for a validated API-host execution. Returned promises are not awaited; failures never fail the request. */ onHostExecutionStart?: (event: FlexDocHostExecutionStartEvent) => void | Promise<void>;
   /** Best-effort completion hook for that execution. Returned promises are not awaited; failures never fail the request. */ onHostExecutionComplete?: (event: FlexDocHostExecutionCompleteEvent) => void | Promise<void>;
   /** Best-effort low-cardinality operator metric sink. Returned promises are not awaited; failures never fail the request. */ onHostExecutionMetric?: FlexDocHostExecutionMetricSink;
+  /**
+   * Secret used to sign the opaque FlexDoc session cookie. Must be at least 32 bytes.
+   *
+   * Every instance given the same value can verify the others' session cookies.
+   * Omitting it keeps a per-process random secret, which is correct for one
+   * instance and means no other instance can verify a cookie this one issued.
+   */
+  sessionSecret?: string | Buffer;
+  /** Cookie-jar storage shared across instances. Defaults to an in-process map. */ sessionStore?: FlexDocHostExecutionSessionStore;
+  /**
+   * Declare that more than one instance serves this mount. In `multiple` mode
+   * without both a shared secret and a shared store, FlexDoc stops advertising
+   * the `cookies` capability instead of resetting jars unpredictably.
+   */
+  instances?: FlexDocHostExecutionInstanceMode;
 }
 
 /** Public host-execution metadata serialized to the browser renderer. */

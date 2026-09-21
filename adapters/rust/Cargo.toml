@@ -1,6 +1,6 @@
 [package]
 name = "prauga-flexdoc-axum"
-version = "0.5.7"
+version = "0.6.0"
 edition = "2021"
 license = "AGPL-3.0-or-later"
 description = "Self-contained Axum adapter for the Prauga FlexDoc OpenAPI renderer"
@@ -16,7 +16,7 @@ default = ["host-execution"]
 host-execution = ["dep:prauga-flexdoc-host-execution", "dep:futures-util", "dep:multer"]
 
 [dependencies]
-prauga-flexdoc-host-execution = { version = "0.1.1", path = "../rust-host-execution", default-features = false, features = ["host-execution"], optional = true }
+prauga-flexdoc-host-execution = { version = "0.2.0", path = "../rust-host-execution", default-features = false, features = ["host-execution"], optional = true }
 axum = "0.8"
 futures-util = { version = "0.3", optional = true }
 multer = { version = "3", optional = true }

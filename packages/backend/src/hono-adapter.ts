@@ -136,15 +136,15 @@ export function setupHonoFlexDoc(
       const docsOrigin = hostExecutionRequestOrigin({ headers, url: context.req.raw.url });
       return sendHostResult(context, await runHostExecutionRoute({ state: hostExecutionState, spec: await resolvedSpec(), headers, body, docsOrigin }));
     });
-    app.get(`${rendererBasePath}/cookies`, (context) => {
+    app.get(`${rendererBasePath}/cookies`, async (context) => {
       const denied = denyUnauthorized(context);
       if (denied !== undefined) return denied;
-      return sendHostResult(context, runHostCookiesRoute({ state: hostExecutionState, headers: honoHeaders(context) }));
+      return sendHostResult(context, await runHostCookiesRoute({ state: hostExecutionState, headers: honoHeaders(context) }));
     });
-    app.delete?.(`${rendererBasePath}/cookies`, (context) => {
+    app.delete?.(`${rendererBasePath}/cookies`, async (context) => {
       const denied = denyUnauthorized(context);
       if (denied !== undefined) return denied;
-      return sendHostResult(context, runHostCookiesRoute({ state: hostExecutionState, headers: honoHeaders(context), clear: true }));
+      return sendHostResult(context, await runHostCookiesRoute({ state: hostExecutionState, headers: honoHeaders(context), clear: true }));
     });
   }
 
