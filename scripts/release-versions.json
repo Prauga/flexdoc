@@ -1,0 +1,33 @@
+{
+  "published": {
+    "client": "3.3.5",
+    "backend": "3.3.5",
+    "core": "0.5.2",
+    "cli": "0.7.0",
+    "dotnet": "0.6.0",
+    "java": "0.9.0",
+    "python": "0.8.1",
+    "php": "0.4.7",
+    "ruby": "0.4.7",
+    "rustAxum": "0.5.7",
+    "rustActix": "0.4.7",
+    "rustHost": "0.1.1",
+    "go": "0.5.7",
+    "elixir": "0.4.7"
+  },
+  "pending": {
+    "client": "3.4.0",
+    "backend": "3.4.0",
+    "dotnet": "0.7.0",
+    "java": "0.10.0",
+    "python": "0.9.0",
+    "php": "0.5.0",
+    "ruby": "0.5.0",
+    "rustAxum": "0.6.0",
+    "rustActix": "0.5.0",
+    "rustHost": "0.2.0",
+    "go": "0.6.0",
+    "elixir": "0.5.0"
+  },
+  "sourceReleaseDocument": "docs/releases/3.4.0.md"
+}

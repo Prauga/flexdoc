@@ -1,6 +1,6 @@
 [package]
 name = "prauga-flexdoc-actix"
-version = "0.4.7"
+version = "0.5.0"
 edition = "2021"
 rust-version = "1.84"
 description = "Self-hosted FlexDoc OpenAPI renderer integration for Actix Web"
@@ -17,7 +17,7 @@ default = ["host-execution"]
 host-execution = ["dep:prauga-flexdoc-host-execution", "dep:futures-util", "dep:multer"]
 
 [dependencies]
-prauga-flexdoc-host-execution = { version = "0.1.1", path = "../rust-host-execution", default-features = false, features = ["host-execution"], optional = true }
+prauga-flexdoc-host-execution = { version = "0.2.0", path = "../rust-host-execution", default-features = false, features = ["host-execution"], optional = true }
 actix-web = "4"
 futures-util = { version = "0.3", optional = true }
 multer = { version = "3", optional = true }
