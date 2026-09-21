@@ -151,9 +151,11 @@ Durations are retained up to `durationSampleCapacity` (8192 by default) and then
 
 The report carries only counts, timestamps and category names, so it is safe to write to disk or hand to an operator as-is. It also declares what an API host structurally cannot observe: browser-direct executions never reach the host, so the browser / API-host / host-required transport mix cannot be derived here, and the document says so in `gaps` rather than omitting it silently. FlexDoc neither writes nor transmits this document; producing and storing it is entirely the application's decision.
 
-## Native adapters: the Python executor
+## Native adapters
 
-The contract above is not Node-specific. `prauga-flexdoc` emits the same metric names, the same labels and the same reason vocabulary from its native executor, and exports the same document schema:
+The contract above is not Node-specific. Each native executor emits the same metric names, the same labels and the same reason vocabulary, and exports the same document schema. Keeping the vocabulary identical is the point: an operator running an Express API host next to a Django or Go one should read one document shape, and a collector written for any runtime should not need a second parser. Every report names its producer in `runtime` and otherwise matches field for field, including the declared `browser-direct-transport-mix` gap.
+
+Python:
 
 ```python
 from prauga_flexdoc import (
@@ -168,9 +170,16 @@ executor = FlexDocHostExecution(allowed_origins, metric_sink=observation.record)
 report = create_host_execution_observation_report(observation)
 ```
 
-Keeping the vocabulary identical is the point: an operator running an Express API host next to a Django one should read one document shape, and a collector written for either runtime should not need a second parser. The report names its producer in `runtime` (`node` or `python`) and otherwise matches field for field, including the declared `browser-direct-transport-mix` gap.
+Go, where the recorder is mutex-guarded so it can be the sink for concurrent handlers directly:
 
-The remaining native adapters — Go, Rust, PHP, Ruby and Elixir — do not emit this evidence yet. Until they do, a host-execution review of a fleet running those adapters has no aggregate to read, which is a coverage gap rather than a claim of clean operation.
+```go
+observation := flexdoc.NewHostExecutionObservation()
+executor, err := flexdoc.NewHostExecution(allowedOrigins, flexdoc.WithMetricSink(observation.Record))
+
+report := flexdoc.NewHostExecutionObservationReport(observation)
+```
+
+Rust, PHP, Ruby, Elixir, .NET and Java do not emit this evidence yet. Until they do, a host-execution review of a fleet running those adapters has no aggregate to read, which is a coverage gap rather than a claim of clean operation.
 
 ## The browser half: transport mix
 
