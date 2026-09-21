@@ -139,7 +139,9 @@ flexdoc(app, {
 });
 ```
 
-FlexDoc defines the interface; the application supplies the implementation it already runs. No Redis or database dependency enters the package, and the default stays the in-process store, so a single-instance deployment needs no configuration and gains no new failure mode.\n\nA shared jar store contains third-party session cookies and must be operated as credential storage: keep entries short-lived, use the backing store's normal encryption-at-rest controls, and never log serialized cookie values. The application should not copy jar contents into metrics, traces, request logs, or support dumps.
+FlexDoc defines the interface; the application supplies the implementation it already runs. No Redis or database dependency enters the package, and the default stays the in-process store, so a single-instance deployment needs no configuration and gains no new failure mode.
+
+A shared jar store contains third-party session cookies and must be operated as credential storage: keep entries short-lived, use the backing store's normal encryption-at-rest controls, and never log serialized cookie values. The application should not copy jar contents into metrics, traces, request logs, or support dumps. When a workspace credential scope moves to `never` or credentials are cleared, call the host cookies clear route so the shared store does not outlive the user's revocation.
 
 `sessionSecret` must be at least 32 bytes and is rejected at startup otherwise. A weak shared secret is worse than the random default: it looks like multi-instance support while making session cookies forgeable.
 
