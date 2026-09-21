@@ -176,6 +176,33 @@ django_urlpatterns(
 
 There is no implicit exemption and no way to reach one by accident: the argument must be passed, it is rejected unless host execution is also enabled, and omitting it leaves Django's normal protection in place. Choose it only when a CSRF token is genuinely inapplicable — for example bearer-token or mTLS authentication — never as a way to make a cookie-authenticated deployment stop returning 403.
 
+## Execution evidence
+
+A host executor that reports nothing leaves an operator guessing whether a failing Try It is a policy rejection, a slow upstream or traffic that never carried an execute marker. `FlexDocHostExecution` accepts a metric sink and emits the same metric names, labels and reason vocabulary as the Node host, so one collector reads a mixed fleet:
+
+```python
+from prauga_flexdoc import (
+    FlexDocHostExecution,
+    FlexDocHostExecutionObservation,
+    create_host_execution_observation_report,
+)
+
+observation = FlexDocHostExecutionObservation()
+executor = FlexDocHostExecution(
+    ['https://api.example.internal'],
+    metric_sink=observation.record,
+)
+
+# Whenever an operator asks for evidence:
+report = create_host_execution_observation_report(observation)
+```
+
+The sink receives `FlexDocHostExecutionMetric` values carrying a name, kind, value and labels, and nothing else: no URL, header, body or credential reaches it. Bridge it to Prometheus or OpenTelemetry where such a stack exists; where none does, `FlexDocHostExecutionObservation` folds the same updates into an in-process aggregate and `create_host_execution_observation_report` turns it into the shared `flexdoc.host-execution.observation/1` document that the Node exporter also produces.
+
+Every non-successful execution carries one of the stable categories in `HOST_EXECUTION_REASONS`, which is why rejections and upstream failures are separable at all — the human-readable messages interpolate origins and field names, so they are unbounded and unusable as a metric label. Requests arriving without `X-FlexDoc-Execute` are counted by `flexdoc_execute_unmarked_total` and deliberately move no lifecycle metric, since they produced no validated envelope.
+
+The report declares `browser-direct-transport-mix` in its `gaps`: a browser-direct execution never reaches this process, so the transport mix cannot be derived here. `@prauga/flexdoc-client` keeps the matching browser-side aggregate. See [host-execution observability](../../docs/host-execution-observability.md) for the full metric contract and both halves of the review. Metric delivery is best effort: a sink that raises cannot fail the execution.
+
 ## Architecture
 
 `FlexDocHost` synchronously owns route matching, the HTML bootstrap, renderer fingerprinting, cache policy, and packaged JS/CSS. `FlexDocASGI` translates that neutral response to ASGI and can expose a framework-supplied live runtime snapshot or a real native execute route when one is explicitly attached. `FlexDocWSGI` translates that same response and, when they are explicitly attached, owns the native execute route and a framework-supplied live runtime snapshot. Framework helpers do not fork renderer behavior.
