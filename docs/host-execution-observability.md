@@ -188,7 +188,16 @@ let executor = HostExecution::new(allowed_origins)?.with_metric_sink(observation
 let report = observation_report(&observation);
 ```
 
-PHP, Ruby, Elixir, .NET and Java do not emit this evidence yet. Until they do, a host-execution review of a fleet running those adapters has no aggregate to read, which is a coverage gap rather than a claim of clean operation.
+Ruby, where the recorder is mutex-guarded and each worker of a forking server keeps its own window:
+
+```ruby
+observation = Prauga::FlexDoc::HostExecutionObservation.new
+executor = Prauga::FlexDoc::HostExecution.new(allowed_origins:, metric_sink: observation.sink)
+
+report = Prauga::FlexDoc.host_execution_observation_report(observation)
+```
+
+PHP, Elixir, .NET and Java do not emit this evidence yet. Until they do, a host-execution review of a fleet running those adapters has no aggregate to read, which is a coverage gap rather than a claim of clean operation.
 
 ## The browser half: transport mix
 
