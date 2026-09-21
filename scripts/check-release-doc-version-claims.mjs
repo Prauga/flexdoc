@@ -9,12 +9,14 @@ const fail = (message) => { throw new Error(message); };
 const clientVersion = json('packages/client/package.json').version;
 const backendVersion = json('packages/backend/package.json').version;
 const cliVersion = json('tools/flexdoc-cli/package.json').version;
-const release = read('docs/releases/3.3.md');
+const releaseState = json('scripts/release-versions.json');
+const { published, sourceReleaseDocument } = releaseState;
+const release = read(sourceReleaseDocument);
 const operations = read('docs/host-execution-operations.md');
 
 const claims = [
-  ['docs/releases/3.3.md', release, `\`@prauga/flexdoc-client\` — **${clientVersion}**`],
-  ['docs/releases/3.3.md', release, `\`@prauga/flexdoc-backend\` — **${backendVersion}**`],
+  [sourceReleaseDocument, release, `\`@prauga/flexdoc-client\` — **${clientVersion}**`],
+  [sourceReleaseDocument, release, `\`@prauga/flexdoc-backend\` — **${backendVersion}**`],
   ['docs/host-execution-operations.md', operations, `\`@prauga/flexdoc-backend\` **${backendVersion}**`],
 ];
 
@@ -57,8 +59,8 @@ for (const file of documents) {
     const location = `${file}:${index + 1}`;
 
     const published = line.match(PUBLISHED_LINE);
-    if (published && compareVersions(published[1], clientVersion) !== 0) {
-      staleClaims.push(`${location}: claims the published product line is ${published[1]}, but this tree is ${clientVersion}`);
+    if (published && compareVersions(published[1], releaseState.published.client) !== 0) {
+      staleClaims.push(`${location}: claims the published product line is ${published[1]}, but the published baseline is ${releaseState.published.client}`);
     }
 
     const pending = line.match(PENDING_PUBLICATION);
@@ -71,7 +73,7 @@ for (const file of documents) {
     // Product-line versions only. Native adapters are independently versioned on
     // 0.x tracks and may legitimately be described as not yet published.
     for (const [, version] of line.matchAll(/\b([2-9]\d*\.\d+(?:\.\d+)?)\b/g)) {
-      if (compareVersions(version, clientVersion) <= 0) shipped.add(version);
+      if (compareVersions(version, releaseState.published.client) <= 0) shipped.add(version);
     }
 
     // One finding per line: the phrase and the version are often separated by
@@ -110,5 +112,5 @@ if (process.argv.includes('--registry')) {
 }
 
 console.log(
-  `Release documentation version claims match client ${clientVersion} / backend ${backendVersion} / CLI ${cliVersion} across ${documents.length} documents.`,
+  `Release documentation version claims match source client ${clientVersion} / backend ${backendVersion}, published client ${releaseState.published.client}, and CLI ${cliVersion} across ${documents.length} documents.`,
 );
