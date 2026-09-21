@@ -53,6 +53,28 @@ This first native slice supports the canonical JSON and multipart envelopes, Bas
 
 The Ruby executor blocks link-local/cloud-metadata targets and validates DNS results before connecting. It then pins `Net::HTTP` to one of the validated addresses with `ipaddr=` while retaining the original hostname for the HTTP `Host` header and TLS SNI/certificate verification. Environment proxy routing is disabled for native execution, so the validated destination cannot be bypassed through `http_proxy`/`HTTP_PROXY`. Private-network relaxation is not part of this slice.
 
+### Execution evidence
+
+An executor that reports nothing leaves an operator guessing whether a failing Try It is a policy rejection, a slow upstream or traffic that never carried an execute marker. Pass a metric sink to emit the same metric names, labels and reason vocabulary as the Node, Python, Go and Rust hosts, so one collector reads a mixed fleet:
+
+```ruby
+observation = Prauga::FlexDoc::HostExecutionObservation.new
+
+executor = Prauga::FlexDoc::HostExecution.new(
+  allowed_origins: ["https://api.example.internal"],
+  metric_sink: observation.sink
+)
+
+# Whenever an operator asks for evidence:
+report = Prauga::FlexDoc.host_execution_observation_report(observation)
+```
+
+The sink receives `HostExecutionMetric` values carrying a name, kind, value and labels, and nothing else: no URL, header, body or credential reaches it. Bridge it to Prometheus or OpenTelemetry where such a stack exists; where none does, `HostExecutionObservation` folds the same updates into a mutex-guarded aggregate safe to share across threaded or forked-with-threads servers, and `host_execution_observation_report` produces the shared `flexdoc.host-execution.observation/1` document every other runtime also emits. Under a forking server each worker keeps its own window, so treat the export as per-process evidence.
+
+Every non-successful execution carries one of the stable categories in `HostExecutionObservability::HOST_EXECUTION_REASONS`, which is why rejections and upstream failures are separable at all — the human-readable messages interpolate origins and field names, so they are unbounded and unusable as a metric label. Requests arriving without `X-FlexDoc-Execute` are counted by `flexdoc_execute_unmarked_total` and deliberately move no lifecycle metric, since they produced no validated envelope.
+
+The report declares `browser-direct-transport-mix` in its gaps: a browser-direct execution never reaches this process, so the transport mix cannot be derived here. See [host-execution observability](../../docs/host-execution-observability.md) for the full metric contract and the browser half of a review. Metric delivery is best effort: a sink that raises cannot fail an execution.
+
 ## Rails
 
 In `config/routes.rb`:
