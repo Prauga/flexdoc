@@ -2,6 +2,19 @@
 
 Notable FlexDoc product releases are recorded here. Detailed release notes remain under `docs/releases/` and are linked from each entry.
 
+## 3.4.0 — 3.3.x hardening package release
+
+Package semver is now explicitly independent from roadmap milestone labels: **3.4.0** publishes the completed 3.3.x hardening stack; it does not mean **3.4 Service Workbench** has shipped.
+
+Key release themes:
+
+- horizontally scaled Node host execution with shared session state, honest capability degradation, fleet admission budgeting, fleet-readable observation merge and deployment recipes;
+- the same OBS-07 execution-evidence vocabulary and export shape across all nine native executing runtimes;
+- coordinated `@prauga/flexdoc-client` / `@prauga/flexdoc-backend` **3.4.0**, with independently versioned native feature-minor releases;
+- `runHostCookiesRoute` is now asynchronous for remote session stores; in-repo callers already await it, while external direct callers of the undocumented low-level export must do the same.
+
+See [`docs/releases/3.4.0.md`](docs/releases/3.4.0.md) for the complete package, compatibility, multi-instance and release-sequencing notes.
+
 ## 3.3.0 — backend host execution expansion
 
 FlexDoc 3.3 expands native API-host execution across the supported backend/runtime families, hardens the outbound security boundary, adds server-controlled interactive host-routing preference, and introduces permanent cross-runtime host-impact regression monitoring.
