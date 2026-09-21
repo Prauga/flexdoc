@@ -206,7 +206,16 @@ $executor = new HostExecution($allowedOrigins, $observation->sink());
 $report = $observation->report();
 ```
 
-Elixir, .NET and Java do not emit this evidence yet. Until they do, a host-execution review of a fleet running those adapters has no aggregate to read, which is a coverage gap rather than a claim of clean operation.
+Elixir, where the recorder is a supervised `GenServer` because executions run in per-request processes and updates are casts, so a slow collector adds no latency:
+
+```elixir
+{:ok, _recorder} = PraugaFlexDoc.HostExecutionObservation.start_link(name: MyApp.FlexDocEvidence)
+executor = PraugaFlexDoc.HostExecution.new!(allowed_origins, metric_sink: PraugaFlexDoc.HostExecutionObservation.sink(MyApp.FlexDocEvidence))
+
+report = PraugaFlexDoc.HostExecutionObservation.report(MyApp.FlexDocEvidence)
+```
+
+.NET and Java do not emit this evidence yet. Until they do, a host-execution review of a fleet running those adapters has no aggregate to read, which is a coverage gap rather than a claim of clean operation.
 
 ## The browser half: transport mix
 

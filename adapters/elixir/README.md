@@ -43,6 +43,30 @@ This first Elixir slice intentionally advertises an empty host-only capability l
 
 The Elixir executor resolves and validates the target before each request or redirect, rejects link-local/cloud-metadata addresses, and uses Mint to connect directly to one of the validated IP addresses. The original hostname remains the HTTP Host and TLS server name/certificate identity, so the socket cannot silently re-resolve to a different address between validation and connection.
 
+### Execution evidence
+
+An executor that reports nothing leaves an operator guessing whether a failing Try It is a policy rejection, a slow upstream or traffic that never carried an execute marker. Pass a metric sink to emit the same metric names, labels and reason vocabulary as every other FlexDoc host, so one collector reads a mixed fleet:
+
+```elixir
+{:ok, recorder} = PraugaFlexDoc.HostExecutionObservation.start_link(name: MyApp.FlexDocEvidence)
+
+executor =
+  PraugaFlexDoc.HostExecution.new!(["https://api.example.internal"],
+    metric_sink: PraugaFlexDoc.HostExecutionObservation.sink(MyApp.FlexDocEvidence)
+  )
+
+# Whenever an operator asks for evidence:
+report = PraugaFlexDoc.HostExecutionObservation.report(MyApp.FlexDocEvidence)
+```
+
+The sink receives `PraugaFlexDoc.HostExecutionMetric` structs carrying a name, kind, value and labels, and nothing else: no URL, header, body or credential reaches it. Bridge it to `:telemetry`, Prometheus or OpenTelemetry where such a stack exists; where none does, the recorder folds the same updates into an aggregate and `report/2` produces the shared `flexdoc.host-execution.observation/1` document every other runtime also emits.
+
+The recorder is a `GenServer` rather than a struct threaded through the caller's state because executions run in per-request processes and an aggregate has to live somewhere they can all reach. Supervise it under the application tree and give it a name. Updates are casts, so a slow or dead collector adds no latency to an execution and cannot fail one. In a multi-node deployment each node keeps its own window; merging is the application's decision.
+
+Every non-successful execution carries one of the stable categories in `PraugaFlexDoc.HostExecutionObservability.reasons/0`, which is why rejections and upstream failures are separable at all — the human-readable messages interpolate origins and field names, so they are unbounded and unusable as a metric label. Requests arriving without `X-FlexDoc-Execute` are counted by `flexdoc_execute_unmarked_total` and deliberately move no lifecycle metric, since they produced no validated envelope.
+
+The report declares `browser-direct-transport-mix` in its gaps: a browser-direct execution never reaches this node, so the transport mix cannot be derived here. See [host-execution observability](../../docs/host-execution-observability.md) for the full metric contract and the browser half of a review.
+
 ## Phoenix
 
 Phoenix routers can forward directly to the same Plug. Place the application's authentication/authorization plugs before the forward, then use the same explicit protection acknowledgement when host execution is enabled:
