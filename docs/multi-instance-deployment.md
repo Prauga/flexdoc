@@ -21,9 +21,15 @@ The last row is the one that makes the rest safe to get wrong. In `multiple` mod
 Configuration comes from the environment so every replica is identical and the secret never lives in an image:
 
 ```ts
+import express from 'express';
 import { createClient } from 'redis';
-import { createHostExecutionAdmission, setupExpressFlexDoc } from '@prauga/flexdoc-backend';
+import {
+  createHostExecutionAdmission,
+  createHostExecutionAdmissionMiddleware,
+  setupExpressFlexDoc,
+} from '@prauga/flexdoc-backend';
 
+const app = express();
 const redis = createClient({ url: process.env.REDIS_URL });
 await redis.connect();
 
@@ -32,24 +38,35 @@ const instances = Number(process.env.FLEXDOC_INSTANCES ?? 1);
 // Sized against what the API host tolerates, then divided across replicas.
 const admission = createHostExecutionAdmission({ fleetMaxInFlight: 48, instances });
 
-setupExpressFlexDoc(app, {
+// Keep the privileged execute route behind the application's real boundary:
+// authentication -> CSRF/same-origin policy -> admission -> FlexDoc.
+app.use('/docs', requireDocumentationUser);
+app.use('/docs/__flexdoc/execute', requireSameOriginOrCsrfToken);
+app.use(
+  '/docs/__flexdoc/execute',
+  createHostExecutionAdmissionMiddleware(admission, { retryAfterSeconds: 1 }),
+);
+
+setupExpressFlexDoc(app, '/docs', {
   spec,
-  tryIt: {
-    hostExecution: {
-      enabled: true,
-      allowedOrigins: ['https://api.example.internal'],
-      instances: instances > 1 ? 'multiple' : 'single',
-      sessionSecret: process.env.FLEXDOC_SESSION_SECRET,
-      sessionStore: {
-        async read(sessionId) {
-          const raw = await redis.get(`flexdoc:jar:${sessionId}`);
-          return raw ? JSON.parse(raw) : undefined;
-        },
-        async write(sessionId, cookies) {
-          await redis.set(`flexdoc:jar:${sessionId}`, JSON.stringify(cookies), { EX: 3600 });
-        },
-        async clear(sessionId) {
-          await redis.del(`flexdoc:jar:${sessionId}`);
+  options: {
+    tryIt: {
+      hostExecution: {
+        enabled: true,
+        allowedOrigins: ['https://api.example.internal'],
+        instances: instances > 1 ? 'multiple' : 'single',
+        sessionSecret: process.env.FLEXDOC_SESSION_SECRET,
+        sessionStore: {
+          async read(sessionId) {
+            const raw = await redis.get(`flexdoc:jar:${sessionId}`);
+            return raw ? JSON.parse(raw) : undefined;
+          },
+          async write(sessionId, cookies) {
+            await redis.set(`flexdoc:jar:${sessionId}`, JSON.stringify(cookies), { EX: 3600 });
+          },
+          async clear(sessionId) {
+            await redis.del(`flexdoc:jar:${sessionId}`);
+          },
         },
       },
     },
@@ -57,7 +74,7 @@ setupExpressFlexDoc(app, {
 });
 ```
 
-Two deliberate choices in that store. It expires jars rather than keeping them forever, because a cookie jar is session state and an unbounded keyspace is a slow leak. And it stores the jar under one key per session rather than one key per session and domain: each record already carries its domain and the jar is capped, so domain keying would add round-trips per request without removing the read-modify-write race it appears to address.
+Two deliberate choices in that store. It expires jars rather than keeping them forever, because a cookie jar is session state and an unbounded keyspace is a slow leak. And it stores the jar under one key per session rather than one key per session and domain: each record already carries its domain and the jar is capped, so domain keying would add round-trips per request without removing the read-modify-write race it appears to address.\n\nTreat the shared store as a credential store. Use the application's normal encryption-at-rest controls for the backing database/cache, never log serialized jar values, and keep the TTL short enough for the documentation workflow rather than treating these keys as durable login state.
 
 `FLEXDOC_INSTANCES` has to match the real replica count. If it drifts low the fleet admits more than the budget; if it drifts high each instance admits less than its share. Where the orchestrator can tell the application its replica count, read it from there rather than from a second source of truth.
 

@@ -18,7 +18,7 @@ export interface FlexDocHostExecutionAdmissionOptions {
    * `maxInFlight` because the two express the same limit at different scopes.
    */
   fleetMaxInFlight?: number;
-  /** How many instances share `fleetMaxInFlight`. Required with it, ignored without it. */
+  /** How many instances share `fleetMaxInFlight`. Required with it; invalid without it. */
   instances?: number;
 }
 
