@@ -105,7 +105,7 @@ The Node executor can provide a signed, documentation-session-scoped cookie jar.
 
 Ordinary host executions do not allocate a cookie session. Cookie jars are bounded in memory and are not a durable login/session store; restarting the API host clears them.
 
-Jar storage is pluggable. The default is an in-process map, correct for a single instance; a deployment running several instances should supply `sessionSecret` and `sessionStore` so every instance can verify the same session cookie and read the same jar. Declaring `instances: 'multiple'` without them makes FlexDoc withhold the `cookies` capability rather than reset jars unpredictably behind a load balancer. See [host-execution operations](./host-execution-operations.md) for the store interface and the reasoning.
+Jar storage is pluggable. The default is an in-process map, correct for a single instance; a deployment running several instances should supply `sessionSecret` and `sessionStore` so every instance can verify the same session cookie and read the same jar. Declaring `instances: 'multiple'` without them makes FlexDoc withhold the `cookies` capability rather than reset jars unpredictably behind a load balancer. See [host-execution operations](./host-execution-operations.md) for the store interface and the reasoning, and [multi-instance deployment](./multi-instance-deployment.md) for Compose, Kubernetes and load-balancer topologies.
 
 The first native 3.3 adapters do not advertise cookie-jar support and fail closed if the canonical envelope requests it.
 

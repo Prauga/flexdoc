@@ -141,14 +141,52 @@ flexdoc(app, {
 
 FlexDoc defines the interface; the application supplies the implementation it already runs. No Redis or database dependency enters the package, and the default stays the in-process store, so a single-instance deployment needs no configuration and gains no new failure mode.
 
+A shared jar store contains third-party session cookies and must be operated as credential storage: keep entries short-lived, use the backing store's normal encryption-at-rest controls, and never log serialized cookie values. The application should not copy jar contents into metrics, traces, request logs, or support dumps. When a workspace credential scope moves to `never` or credentials are cleared, call the host cookies clear route so the shared store does not outlive the user's revocation.
+
 `sessionSecret` must be at least 32 bytes and is rejected at startup otherwise. A weak shared secret is worse than the random default: it looks like multi-instance support while making session cookies forgeable.
 
 Declaring `instances: 'multiple'` is what turns a silent misbehaviour into a stated one. In that mode, if either the secret or the store is missing, FlexDoc **stops advertising the `cookies` capability**, logs which piece is absent, and the renderer shows the honest transport state instead of offering a jar that will reset. Withdrawing a capability the deployment cannot honour is the same rule the product applies to every other advertised feature.
 
-Two consequences are worth planning for even when jars are not used:
+Two consequences are worth planning for even when jars are not used, and each now has a helper.
 
-- **The admission cap is per instance.** A cap of 8 across 4 instances admits up to 32 concurrent executions, not 8. Size it as cap × instances, or have the admission helper consult a counter the application shares.
-- **Observability is per instance.** Each process aggregates its own window, so an operator export describes one instance. Reading a fleet means collecting one document per instance; percentiles cannot be averaged across them.
+### Sizing admission for the fleet, not the instance
+
+The admission cap is per instance, so a cap of 8 across 4 instances admits up to 32 concurrent executions. The number an operator actually cares about is the second one — it is the load that reaches the API host — so declare it directly and let FlexDoc divide:
+
+```ts
+const admission = createHostExecutionAdmission({ fleetMaxInFlight: 32, instances: 4 });
+
+admission.maxInFlight;         // 8, this instance's share
+admission.budget.unallocated;  // capacity lost to integer division, held by nobody
+```
+
+`maxInFlight` and `fleetMaxInFlight` cannot both be set, since they are the same limit at two scopes, and `instances` without `fleetMaxInFlight` is rejected rather than ignored: silently ignoring it would leave an operator believing a fleet bound is in force while every instance admits the full per-instance cap. A fleet budget below the instance count is also rejected, because rounding up would exceed the budget that was asked for and rounding down would admit nothing.
+
+The division is static. FlexDoc deliberately does not coordinate admission through a shared counter: that would put a network dependency in front of a privileged endpoint, and when the coordinator is unreachable every request has to either fail open, abandoning the bound that justified the controller, or fail closed, turning a coordinator outage into a FlexDoc outage. Static partitioning has neither failure mode and costs no round-trip. What it gives up is borrowing — a busy instance cannot use an idle instance's share — so size the fleet budget against the API host's real tolerance and let per-user quotas live at the gateway, where the caller is known.
+
+### Reading observability across the fleet
+
+Each process aggregates its own window, so one export describes one instance, and there is no safe way to tell which fraction of the fleet's traffic it saw. Collect one document per instance and merge them:
+
+```ts
+const fleet = mergeHostExecutionObservationDocuments(
+  await Promise.all(instanceUrls.map(async (url) => (await fetch(url)).json())),
+);
+
+fleet.totals.rejectionsByReason;              // exact
+fleet.concurrency.peakInFlightUpperBound;     // a bound, not an observation
+fleet.durations?.percentiles;                 // null with two or more instances
+fleet.durations?.p95SpreadMs;                 // which instances disagree, and by how much
+```
+
+Collecting the documents stays the application's job, exactly as with the session store and the metric sink; FlexDoc adds no transport. What the merge adds is honesty about which parts of the result are exact:
+
+- **Counts are additive and stay exact.** Started, unmarked and completed executions, outcomes, and both reason breakdowns simply add.
+- **Concurrency is a bound.** Two instances each peaking at 8 may never have peaked together, so the sum is reported as `peakInFlightUpperBound`, alongside the exact `peakInFlightSingleInstanceMax`. There is no `peakInFlight` field to misread.
+- **Percentiles are not merged.** A percentile cannot be recovered from other percentiles, and the retained samples do not travel in the per-instance documents. With two or more instances `percentiles` is null, the merge reports the exact fleet minimum and maximum plus every per-instance summary, and `cross-instance-duration-percentiles` joins the declared gaps. With a single instance the percentiles are that instance's own and are passed through with no disclaimer.
+- **An empty merge is an error, not a clean fleet.** A collection failure that returned nothing would otherwise report a healthy fleet of zero executions, and a document from an unrecognized schema is rejected by name rather than silently folded into the totals.
+
+For Compose, Kubernetes and plain load-balanced topologies, plus the checks that prove a fleet is actually configured rather than assumed, see [multi-instance deployment](./multi-instance-deployment.md).
 
 **Session affinity is the interim answer, not the answer.** Sticky sessions fix the symptom today with no code change. They also redistribute users on scale-down and rolling deploys, which resets jars exactly when a deployment is already changing behaviour, and they constrain load balancing to work around a product limitation. Use affinity until the secret and store are in place; do not treat it as the destination.
 
