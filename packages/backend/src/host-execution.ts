@@ -11,6 +11,8 @@ import type {
   FlexDocHostExecutionOptions,
   FlexDocHostExecutionPublicOptions,
   FlexDocHostExecutionRequest,
+  FlexDocHostExecutionSessionCookie,
+  FlexDocHostExecutionSessionStore,
 } from './interfaces';
 
 type HeaderEntry = [string, string];
@@ -109,16 +111,7 @@ export interface HostExecutionResponse {
   /** Optional error field supported by host-route response envelopes. */ error?: string;
 }
 
-interface CookieRecord {
-  name: string;
-  value: string;
-  domain: string;
-  path: string;
-  hostOnly: boolean;
-  secure: boolean;
-  httpOnly: boolean;
-  expiresAt?: number;
-}
+type CookieRecord = FlexDocHostExecutionSessionCookie;
 
 /** Error raised when a host-execution request violates SSRF/origin/redirect safety policy. */
 export class HostExecutionForbiddenError extends Error {
@@ -151,8 +144,13 @@ export interface HostExecutionState {
   /** Normalized server-only host-execution configuration. */ options: FlexDocHostExecutionOptions;
   /** Capabilities advertised to the renderer by this Node host. */ capabilities: FlexDocHostExecutionCapability[];
   /** Server-side client certificates keyed by their public selection id. */ certificates: Map<string, { id: string; name: string; cert: string; key: string; passphrase?: string }>;
-  /** Random secret used to authenticate the opaque FlexDoc session-cookie id. */ sessionSecret: Buffer;
-  /** Per-session cookie jars keyed by authenticated FlexDoc session id. */ jars: Map<string, CookieRecord[]>;
+  /** Secret used to authenticate the opaque FlexDoc session-cookie id. */ sessionSecret: Buffer;
+  /** Cookie-jar storage, in-process by default and shared when the application supplies a store. */ sessionStore: FlexDocHostExecutionSessionStore;
+  /**
+   * Capabilities withheld because the declared deployment cannot support them,
+   * each with the reason. Empty for every single-instance deployment.
+   */
+  degradations: string[];
 }
 
 const HOP_BY_HOP = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade', 'host', 'content-length', 'set-cookie']);
@@ -171,16 +169,92 @@ export function createHostExecutionState(value: boolean | FlexDocHostExecutionOp
   const enabled = value === true || (typeof value === 'object' && value !== null && value.enabled !== false);
   const options = typeof value === 'object' ? value : {};
   const certificates = new Map((options.clientCertificates || []).map((certificate) => [certificate.id, { ...certificate }]));
+  const sessionSecret = resolveSessionSecret(options.sessionSecret);
+  const sessionStore = options.sessionStore ?? createInProcessHostExecutionSessionStore();
+
+  // A fleet without a shared secret cannot verify its own session cookies, and a
+  // fleet without a shared store has a jar per instance. Either way the cookie
+  // jar resets on most requests, so advertising it would offer the renderer a
+  // feature that misbehaves. Withdraw the claim instead, per E-09.
+  const degradations: string[] = [];
+  if (enabled && options.instances === 'multiple') {
+    if (!options.sessionSecret) degradations.push('cookies: instances is "multiple" but no sessionSecret was supplied, so session cookies issued by one instance cannot be verified by another.');
+    if (!options.sessionStore) degradations.push('cookies: instances is "multiple" but no sessionStore was supplied, so each instance keeps its own cookie jar.');
+  }
+
   const capabilities: FlexDocHostExecutionCapability[] = enabled
-    ? ['cookies', 'digest', 'hawk', 'oauth1', 'awsv4', ...(certificates.size ? ['clientCertificates' as const] : [])]
+    ? [
+        ...(degradations.length ? [] : ['cookies' as const]),
+        'digest', 'hawk', 'oauth1', 'awsv4',
+        ...(certificates.size ? ['clientCertificates' as const] : []),
+      ]
     : [];
+
+  // Say it once at mount. A capability quietly missing from the renderer is the
+  // same silence this work exists to remove.
+  for (const degradation of degradations) {
+    console.warn(`FlexDoc host execution withheld a capability: ${degradation}`);
+  }
+
   return {
     enabled,
     options,
     capabilities,
     certificates,
-    sessionSecret: crypto.randomBytes(32),
-    jars: new Map(),
+    sessionSecret,
+    sessionStore,
+    degradations,
+  };
+}
+
+const MIN_SESSION_SECRET_BYTES = 32;
+
+/**
+ * Resolve the session-signing secret, rejecting one too short to be worth signing with.
+ *
+ * A weak shared secret is worse than the per-process random default: it looks
+ * like multi-instance support while making session cookies forgeable, so this
+ * fails at mount rather than at runtime.
+ * @param supplied Operator-supplied secret, if any.
+ * @returns Secret buffer to sign session ids with.
+ */
+function resolveSessionSecret(supplied: FlexDocHostExecutionOptions['sessionSecret']): Buffer {
+  if (supplied === undefined) return crypto.randomBytes(MIN_SESSION_SECRET_BYTES);
+  const secret = typeof supplied === 'string' ? Buffer.from(supplied, 'utf8') : supplied;
+  if (!Buffer.isBuffer(secret) || secret.length < MIN_SESSION_SECRET_BYTES) {
+    throw new Error(`FlexDoc host execution sessionSecret must be at least ${MIN_SESSION_SECRET_BYTES} bytes.`);
+  }
+  return secret;
+}
+
+/**
+ * Create the default in-process cookie-jar store.
+ *
+ * Correct for a single instance and wrong for a fleet, which is why a
+ * multi-instance deployment must supply its own store or lose the capability.
+ * @param maxSessions Jar ceiling before the oldest session is evicted.
+ * @returns Session store backed by a FIFO-evicted map.
+ */
+export function createInProcessHostExecutionSessionStore(maxSessions: number = MAX_SESSION_JARS): FlexDocHostExecutionSessionStore {
+  const jars = new Map<string, CookieRecord[]>();
+  const capacity = Math.max(1, Math.floor(maxSessions));
+  return {
+    async read(sessionId) {
+      return jars.get(sessionId);
+    },
+    async write(sessionId, cookies) {
+      if (!jars.has(sessionId)) {
+        while (jars.size >= capacity) {
+          const oldest = jars.keys().next().value as string | undefined;
+          if (oldest === undefined) break;
+          jars.delete(oldest);
+        }
+      }
+      jars.set(sessionId, [...cookies]);
+    },
+    async clear(sessionId) {
+      jars.set(sessionId, []);
+    },
   };
 }
 
@@ -219,13 +293,8 @@ function parseCookieHeader(value: string | undefined): Map<string, string> {
   return out;
 }
 
-function allocateSessionJar(state: HostExecutionState, id: string): void {
-  while (state.jars.size >= MAX_SESSION_JARS) {
-    const oldest = state.jars.keys().next().value as string | undefined;
-    if (!oldest) break;
-    state.jars.delete(oldest);
-  }
-  state.jars.set(id, []);
+async function allocateSessionJar(state: HostExecutionState, id: string): Promise<void> {
+  await state.sessionStore.write(id, []);
 }
 
 /** Result of resolving or creating a signed FlexDoc host-execution session. */
@@ -240,7 +309,7 @@ export interface HostExecutionSession {
  * @param cookieHeader Raw incoming `Cookie` header.
  * @returns Existing/new session id plus a Set-Cookie value when a new session was created.
  */
-export function ensureHostExecutionSession(state: HostExecutionState, cookieHeader?: string): HostExecutionSession {
+export async function ensureHostExecutionSession(state: HostExecutionState, cookieHeader?: string): Promise<HostExecutionSession> {
   const raw = parseCookieHeader(cookieHeader).get(SESSION_COOKIE);
   if (raw) {
     const separator = raw.lastIndexOf('.');
@@ -251,14 +320,17 @@ export function ensureHostExecutionSession(state: HostExecutionState, cookieHead
       const a = Buffer.from(signature);
       const b = Buffer.from(expected);
       if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
-        if (!state.jars.has(id)) allocateSessionJar(state, id);
+        // A verified cookie from another instance is trusted: with a shared store
+        // its jar is already there, and with a shared secret but no store this
+        // allocates an empty one rather than rejecting a valid session.
+        if ((await state.sessionStore.read(id)) === undefined) await allocateSessionJar(state, id);
         return { sessionId: id };
       }
     }
   }
   const sessionId = base64Url(crypto.randomBytes(24));
   const signed = `${sessionId}.${signSession(state, sessionId)}`;
-  allocateSessionJar(state, sessionId);
+  await allocateSessionJar(state, sessionId);
   return {
     sessionId,
     setCookie: `${SESSION_COOKIE}=${signed}; Path=/; HttpOnly; SameSite=Strict`,
@@ -291,9 +363,9 @@ export function isCookieDomainAllowed(responseHostname: string, candidateDomain:
   return !publicSuffix || publicSuffix.toLowerCase() !== domain;
 }
 
-function cookiesForUrl(state: HostExecutionState, sessionId: string, url: URL): CookieRecord[] {
-  const existing = cleanExpired(state.jars.get(sessionId) || []);
-  state.jars.set(sessionId, existing);
+async function cookiesForUrl(state: HostExecutionState, sessionId: string, url: URL): Promise<CookieRecord[]> {
+  const existing = cleanExpired((await state.sessionStore.read(sessionId)) || []);
+  await state.sessionStore.write(sessionId, existing);
   return existing.filter((cookie) => domainMatches(url.hostname, cookie) && url.pathname.startsWith(cookie.path) && (!cookie.secure || url.protocol === 'https:'));
 }
 
@@ -334,8 +406,8 @@ function parseSetCookie(value: string, url: URL): CookieRecord | undefined {
   return cookie;
 }
 
-function storeSetCookies(state: HostExecutionState, sessionId: string, url: URL, values: string[]): void {
-  let jar = cleanExpired(state.jars.get(sessionId) || []);
+async function storeSetCookies(state: HostExecutionState, sessionId: string, url: URL, values: string[]): Promise<void> {
+  let jar = cleanExpired((await state.sessionStore.read(sessionId)) || []);
   for (const value of values) {
     const cookie = parseSetCookie(value, url);
     if (!cookie) continue;
@@ -343,7 +415,7 @@ function storeSetCookies(state: HostExecutionState, sessionId: string, url: URL,
     if (cookie.expiresAt === undefined || cookie.expiresAt > Date.now()) jar.push(cookie);
   }
   if (jar.length > 100) jar = jar.slice(jar.length - 100);
-  state.jars.set(sessionId, jar);
+  await state.sessionStore.write(sessionId, jar);
 }
 
 /**
@@ -352,9 +424,9 @@ function storeSetCookies(state: HostExecutionState, sessionId: string, url: URL,
  * @param sessionId Session whose jar should be inspected.
  * @returns Unexpired cookie metadata/value records.
  */
-export function publicCookiesForSession(state: HostExecutionState, sessionId: string): HostExecutionResponse['cookies'] {
-  const jar = cleanExpired(state.jars.get(sessionId) || []);
-  state.jars.set(sessionId, jar);
+export async function publicCookiesForSession(state: HostExecutionState, sessionId: string): Promise<HostExecutionResponse['cookies']> {
+  const jar = cleanExpired((await state.sessionStore.read(sessionId)) || []);
+  await state.sessionStore.write(sessionId, jar);
   return jar.map((cookie) => ({ name: cookie.name, value: cookie.value, domain: cookie.domain, path: cookie.path, httpOnly: cookie.httpOnly }));
 }
 
@@ -363,8 +435,8 @@ export function publicCookiesForSession(state: HostExecutionState, sessionId: st
  * @param state Host-execution state containing cookie jars.
  * @param sessionId Session jar to clear.
  */
-export function clearCookiesForSession(state: HostExecutionState, sessionId: string): void {
-  state.jars.set(sessionId, []);
+export async function clearCookiesForSession(state: HostExecutionState, sessionId: string): Promise<void> {
+  await state.sessionStore.clear(sessionId);
 }
 
 function normalizeServerUrl(server: any): string | undefined {
@@ -807,7 +879,7 @@ async function sendPrepared(
     if (preparedBody.contentType && !getHeader(headers, 'Content-Type')) setHeader(headers, 'Content-Type', preparedBody.contentType);
     const { apiKeyCookie } = applySimpleAuth(draft.auth, target, headers);
     const explicitCookieHeader = getHeader(headers, 'Cookie');
-    applyCookieHeader(headers, envelope.cookieJar === 'session' ? cookiesForUrl(state, sessionId, target) : [], explicitCookieHeader, apiKeyCookie);
+    applyCookieHeader(headers, envelope.cookieJar === 'session' ? await cookiesForUrl(state, sessionId, target) : [], explicitCookieHeader, apiKeyCookie);
 
     let intercepted: FlexDocHostExecutionRequest = { method: nextMethod, url: target.toString(), headers: [...headers], body: preparedBody.body };
     if (state.options.interceptor) intercepted = await state.options.interceptor(intercepted);
@@ -823,19 +895,19 @@ async function sendPrepared(
     if (draft.auth?.type === 'digest') {
       deleteHeader(finalHeaders, 'Authorization');
       const challenge = await requestOnce(interceptedUrl, finalMethod, finalHeaders, finalBody, timeoutMs, agent);
-      if (envelope.cookieJar === 'session' && challenge.setCookies.length) storeSetCookies(state, sessionId, interceptedUrl, challenge.setCookies);
+      if (envelope.cookieJar === 'session' && challenge.setCookies.length) await storeSetCookies(state, sessionId, interceptedUrl, challenge.setCookies);
       if (challenge.status !== 401) raw = challenge;
       else {
         const digest = responseHeader(challenge.headers, 'WWW-Authenticate');
         if (!digest) throw new HostExecutionUnsupportedError('Server did not return a Digest challenge.');
         setHeader(finalHeaders, 'Authorization', digestHeader(draft.auth, digest, finalMethod, interceptedUrl));
-        applyCookieHeader(finalHeaders, envelope.cookieJar === 'session' ? cookiesForUrl(state, sessionId, interceptedUrl) : [], explicitCookieHeader, apiKeyCookie);
+        applyCookieHeader(finalHeaders, envelope.cookieJar === 'session' ? await cookiesForUrl(state, sessionId, interceptedUrl) : [], explicitCookieHeader, apiKeyCookie);
         raw = await requestOnce(interceptedUrl, finalMethod, finalHeaders, finalBody, timeoutMs, agent);
       }
     } else {
       raw = await requestOnce(interceptedUrl, finalMethod, finalHeaders, finalBody, timeoutMs, agent);
     }
-    if (envelope.cookieJar === 'session' && raw.setCookies.length) storeSetCookies(state, sessionId, interceptedUrl, raw.setCookies);
+    if (envelope.cookieJar === 'session' && raw.setCookies.length) await storeSetCookies(state, sessionId, interceptedUrl, raw.setCookies);
 
     if (raw.status >= 300 && raw.status < 400 && raw.location) {
       if (redirectCount >= MAX_REDIRECTS) throw new HostExecutionForbiddenError('Host execution stopped after too many redirects.', 'redirect-forbidden');
@@ -852,7 +924,7 @@ async function sendPrepared(
       headers: raw.headers,
       body: raw.body.toString('utf8'),
       responseTime: Date.now() - started,
-      ...(envelope.cookieJar === 'session' ? { cookies: publicCookiesForSession(state, sessionId) } : {}),
+      ...(envelope.cookieJar === 'session' ? { cookies: await publicCookiesForSession(state, sessionId) } : {}),
     };
   };
 

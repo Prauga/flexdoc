@@ -184,7 +184,7 @@ export function setupFlexDoc(
     });
   }
 
-  const sendHostResult = (res: any, result: Awaited<ReturnType<typeof runHostExecutionRoute>> | ReturnType<typeof runHostCookiesRoute>) => {
+  const sendHostResult = (res: any, result: Awaited<ReturnType<typeof runHostExecutionRoute>> | Awaited<ReturnType<typeof runHostCookiesRoute>>) => {
     res.statusCode = result.status;
     for (const [name, value] of Object.entries(result.headers)) res.setHeader(name, value);
     return typeof res.send === 'function' ? res.send(result.body) : res.end(result.body);
@@ -203,7 +203,7 @@ export function setupFlexDoc(
     app.use(`${rendererBasePath}/cookies`, async (req: any, res: any) => {
       const method = String(req.method || 'GET').toUpperCase();
       if (method !== 'GET' && method !== 'DELETE') return sendHostResult(res, { status: 405, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, body: JSON.stringify({ error: 'Method not allowed.' }) });
-      return sendHostResult(res, runHostCookiesRoute({ state: hostExecutionState, headers: req.headers || {}, clear: method === 'DELETE' }));
+      return sendHostResult(res, await runHostCookiesRoute({ state: hostExecutionState, headers: req.headers || {}, clear: method === 'DELETE' }));
     });
   }
 
