@@ -16,6 +16,7 @@ import type { HttpAuth, HttpHostExecutionCapability, HttpKeyValue, HttpRequestDr
 import type { ApiClientRequestScripts, ApiClientScriptCollectionChange, ApiClientScriptEnvironmentChange, ApiClientScriptTestResult } from '../utils/api-client-scripting';
 import type { BuiltRequest } from '../utils/request-builder';
 import type { ApiClientCredentialStorage } from '../utils/api-client-credentials';
+import { clearApiHostCookieJar, withoutSessionCookieJar } from '../utils/api-client-credential-scope';
 import type { FlexDocHostExecutionPublicOptions, FlexDocMessages } from '../types/options';
 import type { Server } from '../types/openapi';
 
@@ -216,7 +217,9 @@ export const ApiClient: React.FC<ApiClientProps> = ({
   const [scriptTests, setScriptTests] = useState<ApiClientScriptTestResult[]>([]);
   const [scriptLogs, setScriptLogs] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [cookieJarWarning, setCookieJarWarning] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const scopeClearGeneration = useRef(0);
   const onRequestChangeRef = useRef(onRequestChange);
   const onDraftChangeRef = useRef(onDraftChange);
   const onScriptsChangeRef = useRef(onScriptsChange);
@@ -328,6 +331,17 @@ export const ApiClient: React.FC<ApiClientProps> = ({
       : messages?.unusualBodyBrowserWarning || `${method} request bodies are unusual. Browser fetch may reject this request; enable API-host execution to send it reliably.`
     : apiClientTransportNotice(transport, hostExecution, messages?.hostBrowserUnsupported, messages?.hostExecutionDisabled);
   const supportsHostCapability = (capability: HttpHostExecutionCapability) => hostExecution?.available === true && (hostExecution.capabilities || []).includes(capability);
+
+  const changeCredentialStorage = (next: ApiClientCredentialStorage) => {
+    if (!onCredentialStorageChange || next === (credentialStorage || 'remember')) return;
+    onCredentialStorageChange(next);
+    setDraft((current) => withoutSessionCookieJar(current));
+    const generation = scopeClearGeneration.current + 1;
+    scopeClearGeneration.current = generation;
+    void clearApiHostCookieJar(hostExecution).then((warning) => {
+      if (scopeClearGeneration.current === generation) setCookieJarWarning(warning);
+    });
+  };
 
   const slowHostHint = apiClientSlowHostHint(response, { ...draft, auth: resolvedAuth }, hostExecution);
 
@@ -458,7 +472,8 @@ export const ApiClient: React.FC<ApiClientProps> = ({
 
       {effectiveRequestTab === 'authorization' && <div role='tabpanel' id={requestPanelId('authorization')} aria-labelledby={requestTabId('authorization')} className='space-y-3'>
         <ApiClientAuthEditor auth={draft.auth || { type: 'none' }} label='' allowInherit={!!resolveAuth} advanced={density === 'advanced'} hostExecution={hostExecution} onChange={(auth) => setDraft((current) => ({ ...current, auth }))} theme={theme} />
-        {onCredentialStorageChange && <label className='block text-sm font-medium'>Credential storage<select aria-label='Credential storage' className={smallFieldClass} value={credentialStorage || 'remember'} onChange={(event) => onCredentialStorageChange(event.target.value as ApiClientCredentialStorage)}><option value='session'>Session only</option><option value='remember'>Remember on this browser</option><option value='never'>Never store</option></select><span className={`mt-1 block text-xs font-normal ${mutedClass}`}>Applies to request, collection, and folder credentials. {credentialStorage === 'session' ? 'Kept in this tab, not IndexedDB.' : credentialStorage === 'never' ? 'Memory only; cleared on reload.' : 'Stored in this browser workspace.'}</span></label>}
+        {onCredentialStorageChange && <label className='block text-sm font-medium'>Credential storage<select aria-label='Credential storage' className={smallFieldClass} value={credentialStorage || 'remember'} onChange={(event) => changeCredentialStorage(event.target.value as ApiClientCredentialStorage)}><option value='session'>Session only</option><option value='remember'>Remember on this browser</option><option value='never'>Never store</option></select><span className={`mt-1 block text-xs font-normal ${mutedClass}`}>Applies to request, collection, and folder credentials. {credentialStorage === 'session' ? 'Kept in this tab, not IndexedDB.' : credentialStorage === 'never' ? 'Memory only; cleared on reload.' : 'Stored in this browser workspace.'}</span></label>}
+        {cookieJarWarning && <p role='status' aria-label='API-host cookie jar' className={`text-xs ${theme === 'dark' ? 'text-amber-200' : 'text-amber-800'}`}>{cookieJarWarning}</p>}
         {density === 'advanced' && hostExecution?.available && <div className='grid gap-2 rounded-md border p-3 sm:grid-cols-2'>
           {hostExecution.clientCertificates?.length ? <label className='text-xs font-medium'>Client certificate<select aria-label='Client certificate' className={`mt-1 w-full rounded-md border px-2 py-1.5 ${inputClass}`} value={draft.hostExecution?.certificateId || ''} onChange={(e) => setDraft((current) => ({ ...current, hostExecution: { ...(current.hostExecution || {}), certificateId: e.target.value || undefined } }))}><option value=''>None</option>{hostExecution.clientCertificates.map((certificate) => <option key={certificate.id} value={certificate.id}>{certificate.name}</option>)}</select></label> : null}
           {supportsHostCapability('cookies') && <label className='inline-flex items-center gap-2 text-xs font-medium'><input aria-label='Use API host cookie jar' type='checkbox' checked={draft.hostExecution?.cookieJar === 'session'} onChange={(e) => setDraft((current) => ({ ...current, hostExecution: { ...(current.hostExecution || {}), cookieJar: e.target.checked ? 'session' : undefined } }))} />Use API host cookie jar</label>}
