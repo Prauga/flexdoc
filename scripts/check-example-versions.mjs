@@ -41,8 +41,8 @@ for (const [name, version] of Object.entries(sourceVersions)) {
   if (!version) fail(`Unable to read ${name} version`);
 }
 
-// Standalone examples track the immutable registry artifacts published for FlexDoc 3.3.
-// Repository CI may substitute packages built from the current commit when validating source changes.
+// Standalone examples track immutable registry artifacts that are actually published.
+// Repository CI may substitute packages built from the current commit while a release is pending.
 const published = {
   client: '3.3.5',
   backend: '3.3.5',
@@ -66,7 +66,23 @@ const published = {
 // is the only value a source tree may hold other than the published baseline.
 // Examples stay pinned to `published` until the artifacts ship and a follow-up
 // commit repins them and clears the entry here.
-const pending = {};
+const pending = {
+  // Package semver is independent from product milestone labels. This wave
+  // publishes the complete 3.3.x hardening stack; the JavaScript packages use
+  // 3.4.0 while "3.4 Service Workbench" remains a roadmap milestone name.
+  client: '3.4.0',
+  backend: '3.4.0',
+  dotnet: '0.7.0',
+  java: '0.10.0',
+  python: '0.9.0',
+  php: '0.5.0',
+  ruby: '0.5.0',
+  rustAxum: '0.6.0',
+  rustActix: '0.5.0',
+  rustHost: '0.2.0',
+  go: '0.6.0',
+  elixir: '0.5.0',
+};
 
 for (const name of Object.keys(pending)) {
   if (!(name in published)) fail(`pending lists unknown package ${name}`);
@@ -77,7 +93,7 @@ for (const [name, version] of Object.entries(sourceVersions)) {
   const expected = pending[name] ?? published[name];
   if (version !== expected) {
     fail(pending[name]
-      ? `Pending 3.3 ${name} release ${expected} does not match source version ${version}`
+      ? `Pending ${name} release ${expected} does not match source version ${version}`
       : `Published 3.3 ${name} baseline ${expected} does not match source version ${version}`);
   }
 }
