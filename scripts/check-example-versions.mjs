@@ -41,48 +41,10 @@ for (const [name, version] of Object.entries(sourceVersions)) {
   if (!version) fail(`Unable to read ${name} version`);
 }
 
-// Standalone examples track immutable registry artifacts that are actually published.
-// Repository CI may substitute packages built from the current commit while a release is pending.
-const published = {
-  client: '3.3.5',
-  backend: '3.3.5',
-  core: '0.5.2',
-  cli: '0.7.0',
-  dotnet: '0.6.0',
-  java: '0.9.0',
-  python: '0.8.1',
-  php: '0.4.7',
-  ruby: '0.4.7',
-  rustAxum: '0.5.7',
-  rustActix: '0.4.7',
-  rustHost: '0.1.1',
-  go: '0.5.7',
-  elixir: '0.4.7',
-};
-
-// A release cannot be prepared and pinned in one commit: registries only serve an
-// artifact after its tag is published, and go.sum/Cargo.lock/package-lock entries
-// need those artifacts to exist. `pending` names the version being prepared, which
-// is the only value a source tree may hold other than the published baseline.
-// Examples stay pinned to `published` until the artifacts ship and a follow-up
-// commit repins them and clears the entry here.
-const pending = {
-  // Package semver is independent from product milestone labels. This wave
-  // publishes the complete 3.3.x hardening stack; the JavaScript packages use
-  // 3.4.0 while "3.4 Service Workbench" remains a roadmap milestone name.
-  client: '3.4.0',
-  backend: '3.4.0',
-  dotnet: '0.7.0',
-  java: '0.10.0',
-  python: '0.9.0',
-  php: '0.5.0',
-  ruby: '0.5.0',
-  rustAxum: '0.6.0',
-  rustActix: '0.5.0',
-  rustHost: '0.2.0',
-  go: '0.6.0',
-  elixir: '0.5.0',
-};
+// One release-state document owns the registry baseline and any release in flight.
+// Examples stay on published artifacts until the post-publish repin clears pending.
+const releaseState = json('scripts/release-versions.json');
+const { published, pending } = releaseState;
 
 for (const name of Object.keys(pending)) {
   if (!(name in published)) fail(`pending lists unknown package ${name}`);
@@ -257,7 +219,7 @@ if (read('examples/go-net-http/showcase-openapi.json') !== read('examples/showca
   fail('examples/go-net-http/showcase-openapi.json is stale; copy examples/showcase-openapi.json so the embedded Go showcase stays in sync');
 }
 
-console.log(`Examples and generated dependency metadata match FlexDoc 3.3 published versions: client ${published.client}, backend ${published.backend}, .NET ${published.dotnet}, Java ${published.java}, Python ${published.python}, PHP/Ruby/Elixir ${published.php}/${published.ruby}/${published.elixir}, Go ${published.go}, Rust ${published.rustAxum}/${published.rustActix} + host ${published.rustHost}`);
+console.log(`Examples and generated dependency metadata match published FlexDoc package baselines: client ${published.client}, backend ${published.backend}, .NET ${published.dotnet}, Java ${published.java}, Python ${published.python}, PHP/Ruby/Elixir ${published.php}/${published.ruby}/${published.elixir}, Go ${published.go}, Rust ${published.rustAxum}/${published.rustActix} + host ${published.rustHost}`);
 
 const pendingList = Object.entries(pending).map(([name, version]) => `${name} ${published[name]} -> ${version}`);
 if (pendingList.length) {
