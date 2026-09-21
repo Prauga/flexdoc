@@ -4,6 +4,8 @@ FlexDoc is correct on one instance with no configuration. Behind a load balancer
 
 This guide is the deployment half of [host-execution operations](./host-execution-operations.md), which covers the configuration surface itself. Start there for what each option means; come here for the topology.
 
+A runnable Compose stack that implements this guide lives at [`examples/javascript-fleet`](../examples/javascript-fleet): three Express replicas, Redis jar store, nginx round-robin, and a merge script for the per-instance observation exports.
+
 ## What multi-instance actually requires
 
 | Concern | Single instance | Fleet |

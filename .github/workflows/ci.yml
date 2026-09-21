@@ -202,8 +202,11 @@ jobs:
         run: |
           npm install --prefix examples/javascript-express --no-save --package-lock=false --ignore-scripts --no-audit --no-fund "${{ github.workspace }}/packages/backend"
           npm install --prefix examples/javascript-fastify --no-save --package-lock=false --ignore-scripts --no-audit --no-fund "${{ github.workspace }}/packages/backend"
+          npm install --prefix examples/javascript-fleet --no-save --package-lock=false --ignore-scripts --no-audit --no-fund "${{ github.workspace }}/packages/backend" redis@4.7.0
           node --check examples/javascript-express/index.js
           node --check examples/javascript-fastify/index.js
+          node --check examples/javascript-fleet/index.js
+          node --check examples/javascript-fleet/merge-observations.js
           node - <<'NODE'
           const { buildApp: buildExpress } = require('./examples/javascript-express');
           const { buildApp: buildFastify } = require('./examples/javascript-fastify');
