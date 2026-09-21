@@ -35,7 +35,20 @@ app = FastAPI(docs_url=None, redoc_url=None)
 setup_fastapi_flexdoc(app, '/docs', runtime_intelligence=True)
 ```
 
-This support is intentionally FastAPI-specific. Flask, Django, and generic ASGI/WSGI hosting do not advertise Runtime Intelligence yet because FlexDoc does not have a reliable framework-native route inventory for those integrations in this slice.
+Flask and Django opt in by supplying the specification they serve, because neither framework generates one:
+
+```python
+setup_flask_flexdoc(app, "/docs", runtime_intelligence_spec=SPEC)
+
+urlpatterns = [*django_urlpatterns(path="/docs", runtime_intelligence_spec=SPEC)]
+```
+
+The two frameworks differ in how much is knowable, and the snapshot says which:
+
+- **Flask** is complete. Werkzeug's URL map records the methods each rule accepts, so route presence needs no inference. The automatic `OPTIONS` and implicit `HEAD` rules are excluded, since reporting them would show drift against a specification that never documents them.
+- **Django** is complete only where a view declares its methods: a class-based view through `http_method_names` plus its implemented handlers, or a DRF viewset through its action map. A plain function view accepts any method and decides internally, and a `re_path` pattern has no readable route template. Neither is guessed; both set `discoveryComplete: false`, because an invented method produces a drift finding that is simply wrong.
+
+A generic WSGI host can supply its own `runtime_provider` to `FlexDocWSGI`, exactly as a generic ASGI host does with `FlexDocASGI`.
 
 ### ASP.NET Core
 
