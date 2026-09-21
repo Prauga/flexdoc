@@ -48,6 +48,29 @@ FlexDocHost host = new FlexDocHost(
 
 The first JVM native slice advertises `capabilities: []`. That means ordinary host transport is available while cookie jars, client certificates, Digest, Hawk, OAuth 1.0 and SigV4 remain unsupported and fail closed; an empty list does not mean the execute route is disabled.
 
+### Execution evidence
+
+An executor that reports nothing leaves an operator guessing whether a failing Try It is a policy rejection, a slow upstream or traffic that never carried an execute marker. Pass a metric sink to emit the same metric names, labels and reason vocabulary as every other FlexDoc host, so one collector reads a mixed fleet:
+
+```java
+FlexDocHostExecutionObservation evidence = new FlexDocHostExecutionObservation();
+
+FlexDocHostExecution execution = new FlexDocHostExecution(
+    List.of("https://api.example.internal"),
+    evidence.sink());
+
+// Whenever an operator asks for evidence:
+Map<String, Object> report = evidence.report();
+```
+
+The sink receives `FlexDocHostExecutionMetric` records carrying a name, kind, value and labels, and nothing else: no URL, header, body or credential reaches it. Bridge it to Micrometer, Prometheus or OpenTelemetry where such a stack exists; where none does, `FlexDocHostExecutionObservation` folds the same updates into an aggregate and `report()` produces the shared `flexdoc.host-execution.observation/1` document every other runtime also emits, as a plain map any JSON library can serialize.
+
+The recorder is synchronized because JVM adapters serve concurrently and the aggregate is reachable from many request threads at once. It bounds memory with reservoir-sampled durations while keeping counts exact, so a host can run indefinitely without the window growing.
+
+Every non-successful execution carries one of the stable `FlexDocHostExecutionReason` categories, which is why rejections and upstream failures are separable at all: the human-readable messages interpolate origins and field names, so they are unbounded and unusable as a metric label. Because `FlexDocHostExecutionException` derives its reason from its status when none is given, a rejection path added later cannot silently lose its category. Requests arriving without `X-FlexDoc-Execute` are counted by `flexdoc_execute_unmarked_total` and deliberately move no lifecycle metric, since they produced no validated envelope.
+
+A sink that throws is caught: observability never decides whether an execution succeeds. The report declares `browser-direct-transport-mix` in its gaps, because a browser-direct execution never reaches this host and its transport mix cannot be derived here. See [host-execution observability](../../docs/host-execution-observability.md) for the full metric contract and the browser half of a review.
+
 ### Resource limits and production tuning
 
 The shared pinned Apache client is intentionally bounded:

@@ -224,7 +224,16 @@ var hostExecution = new FlexDocHostExecution(allowedOrigins, evidence.Sink);
 var report = evidence.Report();
 ```
 
-Java does not emit this evidence yet. Until they do, a host-execution review of a fleet running those adapters has no aggregate to read, which is a coverage gap rather than a claim of clean operation.
+and Java, where the recorder is synchronized because JVM adapters serve concurrently and the aggregate is reachable from many request threads at once:
+
+```java
+FlexDocHostExecutionObservation evidence = new FlexDocHostExecutionObservation();
+FlexDocHostExecution execution = new FlexDocHostExecution(allowedOrigins, evidence.sink());
+
+Map<String, Object> report = evidence.report();
+```
+
+Every adapter with a native executor now emits this evidence, so a host-execution review of any FlexDoc fleet has an aggregate to read. The browser-direct transport mix remains outside every one of them, which is why each export declares it as a gap rather than leaving it implied.
 
 ## The browser half: transport mix
 
