@@ -88,7 +88,7 @@ node tools/flexdoc-cli/bin/flexdoc.js run ./pets.flexdoc.json --json
 | Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.9.0` |
 | Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.9.0` |
 | Maven | `com.prauga.flexdoc:flexdoc-spring-boot-starter` | `0.9.0` |
-| PyPI | `prauga-flexdoc` | `0.7.4` |
+| PyPI | `prauga-flexdoc` | `0.8.0` |
 | Composer | `prauga/flexdoc` | `0.4.6` |
 | RubyGems | `prauga-flexdoc` | `0.4.6` |
 | crates.io | `prauga-flexdoc-host-execution` | `0.1.1` |

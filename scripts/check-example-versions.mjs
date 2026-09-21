@@ -50,7 +50,7 @@ const published = {
   cli: '0.7.0',
   dotnet: '0.6.0',
   java: '0.9.0',
-  python: '0.7.4',
+  python: '0.8.0',
   php: '0.4.6',
   ruby: '0.4.6',
   rustAxum: '0.5.6',
@@ -67,8 +67,18 @@ const published = {
 // Examples stay pinned to `published` until the artifacts ship and a follow-up
 // commit repins them and clears the entry here.
 const pending = {
-  // 0.8.0 adds WSGI/Flask/Django host execution. Examples stay on 0.7.4 until it publishes.
-  python: '0.8.0',
+  // 3.3.5 publishes the observability exports that the documentation already
+  // describes: reason categories and the host recorder, plus the browser-side
+  // transport observation. Adapters carry the rebuilt renderer only.
+  client: '3.3.5',
+  backend: '3.3.5',
+  python: '0.8.1',
+  ruby: '0.4.7',
+  elixir: '0.4.7',
+  php: '0.4.7',
+  go: '0.5.7',
+  rustAxum: '0.5.7',
+  rustActix: '0.4.7',
 };
 
 for (const name of Object.keys(pending)) {
@@ -199,6 +209,33 @@ const checks = [
 ];
 
 for (const [path, expected] of checks) expect(path, expected);
+
+// Every row of the examples table must name the published version of the package
+// it installs. The checks above cover one row per ecosystem, which let eleven of
+// the other rows drift as far as two releases behind before anyone noticed. An
+// unrecognized row fails too, so a new example cannot be added ungated.
+const rowBaselines = [
+  [/^\| \[`(basic-usage|interactive-demo|api-client)`\]/, published.client, '@prauga/flexdoc-client'],
+  [/^\| \[`(nestjs|javascript-[a-z]+)`\]/, published.backend, '@prauga/flexdoc-backend'],
+  [/^\| \[`dotnet-/, published.dotnet, 'Prauga.FlexDoc.AspNetCore'],
+  [/^\| \[`(java|kotlin)-/, published.java, 'the Java family'],
+  [/^\| \[`python-/, published.python, 'prauga-flexdoc (PyPI)'],
+  [/^\| \[`php-/, published.php, 'prauga/flexdoc'],
+  [/^\| \[`ruby-/, published.ruby, 'prauga-flexdoc (RubyGems)'],
+  [/^\| \[`go-/, published.go, 'the Go adapter'],
+  [/^\| \[`rust-axum`\]/, published.rustAxum, 'prauga-flexdoc-axum'],
+  [/^\| \[`rust-actix`\]/, published.rustActix, 'prauga-flexdoc-actix'],
+  [/^\| \[`elixir-/, published.elixir, 'prauga_flexdoc'],
+];
+
+for (const line of read('examples/README.md').split('\n')) {
+  if (!line.startsWith('| [`')) continue;
+  const name = line.slice(4, line.indexOf('`', 4));
+  const baseline = rowBaselines.find(([pattern]) => pattern.test(line));
+  if (!baseline) fail(`examples/README.md row \`${name}\` is not covered by a version baseline; add it to rowBaselines`);
+  const [, version, label] = baseline;
+  if (!line.includes(version)) fail(`examples/README.md row \`${name}\` is stale: expected ${label} ${version}`);
+}
 
 for (const dir of ['go-net-http', 'go-gin', 'go-chi', 'go-echo', 'go-fiber']) {
   const sum = read(`examples/${dir}/go.sum`);

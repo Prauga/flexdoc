@@ -14,4 +14,4 @@ uvicorn app:app --reload
 
 Open `http://127.0.0.1:8000/docs`.
 
-`prauga-flexdoc` is pinned to `0.7.4`, the Python package published for FlexDoc 3.3. Repository CI installs the wheel built from the current commit when validating source changes.
+`prauga-flexdoc` is pinned to `0.8.0`, the Python package published for FlexDoc 3.3. Repository CI installs the wheel built from the current commit when validating source changes.
