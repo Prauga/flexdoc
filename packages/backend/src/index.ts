@@ -20,6 +20,9 @@ export type {
   FlexDocHostExecutionCertificate,
   FlexDocHostExecutionCertificateChoice,
   FlexDocHostExecutionOptions,
+  FlexDocHostExecutionInstanceMode,
+  FlexDocHostExecutionSessionCookie,
+  FlexDocHostExecutionSessionStore,
   FlexDocHostExecutionPublicOptions,
   FlexDocHostExecutionRequest,
   FlexDocModuleOptions,
@@ -48,11 +51,21 @@ export { setupFlexDoc } from './setup';
 export { setupExpressFlexDoc, setupFastifyFlexDoc, setupFastifySwaggerFlexDoc, setupNestFlexDoc } from './framework-adapters';
 export type { ExpressLikeApplication, FastifyLikeApplication, FastifyLikeReply, FastifyLikeRequest, NestLikeApplication } from './framework-adapters';
 export { setupHonoFlexDoc } from './hono-adapter';
-export { createHostExecutionState, executeHostRequest, publicHostExecutionOptions } from './host-execution';
+export { createHostExecutionState, createInProcessHostExecutionSessionStore, executeHostRequest, publicHostExecutionOptions } from './host-execution';
 export { parseHostExecutionRequestBody, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 export { createHostExecutionAdmission, createHostExecutionAdmissionMiddleware } from './host-execution-admission';
+export { mergeHostExecutionObservationDocuments, mergeHostExecutionObservationReports } from './host-execution-fleet';
+export type {
+  FlexDocHostExecutionFleetConcurrency,
+  FlexDocHostExecutionFleetDurations,
+  FlexDocHostExecutionFleetGap,
+  FlexDocHostExecutionFleetInstanceDurations,
+  FlexDocHostExecutionFleetReport,
+  FlexDocHostExecutionFleetTotals,
+} from './host-execution-fleet';
 export type {
   FlexDocHostExecutionAdmission,
+  FlexDocHostExecutionAdmissionBudget,
   FlexDocHostExecutionAdmissionMiddlewareOptions,
   FlexDocHostExecutionAdmissionOptions,
   FlexDocHostExecutionAdmissionResponse,

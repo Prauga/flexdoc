@@ -23,7 +23,17 @@ setup_fastapi_flexdoc(
 )
 ```
 
-When enabled, the helper inspects the live FastAPI/Starlette route tree and serves a no-store snapshot from `/docs/__flexdoc/runtime`. It compares runtime route presence with `app.openapi()`, reports Python/FastAPI runtime metadata and request-derived server origin, normalizes Starlette path converters, and marks opaque mounts partial rather than inventing routes. Runtime Intelligence is FastAPI-only in this adapter release; generic ASGI, Flask, Django, and WSGI hosts do not advertise it yet.
+When enabled, the helper inspects the live FastAPI/Starlette route tree and serves a no-store snapshot from `/docs/__flexdoc/runtime`. It compares runtime route presence with `app.openapi()`, reports Python/FastAPI runtime metadata and request-derived server origin, normalizes Starlette path converters, and marks opaque mounts partial rather than inventing routes. Flask and Django opt in by supplying the specification they serve, since neither framework generates one:
+
+```python
+setup_flask_flexdoc(app, "/docs", runtime_intelligence_spec=SPEC)
+
+urlpatterns = [*django_urlpatterns(path="/docs", runtime_intelligence_spec=SPEC)]
+```
+
+Flask route presence is fully knowable: Werkzeug's URL map records the methods each rule accepts, and the automatic `OPTIONS`/`HEAD` rules are excluded so they do not read as drift.
+
+Django is knowable only where a view declares its methods. Class-based views expose `http_method_names` and their implemented handlers, and DRF viewsets expose an action map. A plain function view accepts any method and decides internally, and a `re_path` has no readable route template; both are reported through `discoveryComplete: false` rather than guessed, because an invented method produces drift findings that are simply wrong. A generic WSGI host can pass its own `runtime_provider` to `FlexDocWSGI`.
 
 Runtime snapshots may reveal endpoints intentionally omitted from OpenAPI. The Python adapter currently relies on application middleware or upstream access control rather than a FlexDoc-native docs-auth option, so protect the FlexDoc docs subtree before enabling Runtime Intelligence on non-private documentation.
 
@@ -166,8 +176,35 @@ django_urlpatterns(
 
 There is no implicit exemption and no way to reach one by accident: the argument must be passed, it is rejected unless host execution is also enabled, and omitting it leaves Django's normal protection in place. Choose it only when a CSRF token is genuinely inapplicable — for example bearer-token or mTLS authentication — never as a way to make a cookie-authenticated deployment stop returning 403.
 
+## Execution evidence
+
+A host executor that reports nothing leaves an operator guessing whether a failing Try It is a policy rejection, a slow upstream or traffic that never carried an execute marker. `FlexDocHostExecution` accepts a metric sink and emits the same metric names, labels and reason vocabulary as the Node host, so one collector reads a mixed fleet:
+
+```python
+from prauga_flexdoc import (
+    FlexDocHostExecution,
+    FlexDocHostExecutionObservation,
+    create_host_execution_observation_report,
+)
+
+observation = FlexDocHostExecutionObservation()
+executor = FlexDocHostExecution(
+    ['https://api.example.internal'],
+    metric_sink=observation.record,
+)
+
+# Whenever an operator asks for evidence:
+report = create_host_execution_observation_report(observation)
+```
+
+The sink receives `FlexDocHostExecutionMetric` values carrying a name, kind, value and labels, and nothing else: no URL, header, body or credential reaches it. Bridge it to Prometheus or OpenTelemetry where such a stack exists; where none does, `FlexDocHostExecutionObservation` folds the same updates into an in-process aggregate and `create_host_execution_observation_report` turns it into the shared `flexdoc.host-execution.observation/1` document that the Node exporter also produces.
+
+Every non-successful execution carries one of the stable categories in `HOST_EXECUTION_REASONS`, which is why rejections and upstream failures are separable at all — the human-readable messages interpolate origins and field names, so they are unbounded and unusable as a metric label. Requests arriving without `X-FlexDoc-Execute` are counted by `flexdoc_execute_unmarked_total` and deliberately move no lifecycle metric, since they produced no validated envelope.
+
+The report declares `browser-direct-transport-mix` in its `gaps`: a browser-direct execution never reaches this process, so the transport mix cannot be derived here. `@prauga/flexdoc-client` keeps the matching browser-side aggregate. See [host-execution observability](../../docs/host-execution-observability.md) for the full metric contract and both halves of the review. Metric delivery is best effort: a sink that raises cannot fail the execution.
+
 ## Architecture
 
-`FlexDocHost` synchronously owns route matching, the HTML bootstrap, renderer fingerprinting, cache policy, and packaged JS/CSS. `FlexDocASGI` translates that neutral response to ASGI and can expose a framework-supplied live runtime snapshot or a real native execute route when one is explicitly attached. `FlexDocWSGI` translates that same response and, when an executor is explicitly attached, owns the native execute route. Framework helpers do not fork renderer behavior.
+`FlexDocHost` synchronously owns route matching, the HTML bootstrap, renderer fingerprinting, cache policy, and packaged JS/CSS. `FlexDocASGI` translates that neutral response to ASGI and can expose a framework-supplied live runtime snapshot or a real native execute route when one is explicitly attached. `FlexDocWSGI` translates that same response and, when they are explicitly attached, owns the native execute route and a framework-supplied live runtime snapshot. Framework helpers do not fork renderer behavior.
 
 Pass `assets_dir=` to `FlexDocHost`, `FlexDocASGI`, or `FlexDocWSGI` only when intentionally overriding the bundled renderer assets during development.

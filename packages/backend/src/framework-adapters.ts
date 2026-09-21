@@ -197,8 +197,8 @@ function setupFastifyFlexDocInternal(
       });
       return sendHostResult(reply, await runHostExecutionRoute({ state: hostExecutionState, spec: await resolvedSpec(), headers: request.headers, body: request.body, docsOrigin }));
     });
-    app.get(`${rendererBasePath}/cookies`, routeOptions, async (request, reply) => sendHostResult(reply, runHostCookiesRoute({ state: hostExecutionState, headers: request.headers })));
-    app.delete?.(`${rendererBasePath}/cookies`, routeOptions, async (request, reply) => sendHostResult(reply, runHostCookiesRoute({ state: hostExecutionState, headers: request.headers, clear: true })));
+    app.get(`${rendererBasePath}/cookies`, routeOptions, async (request, reply) => sendHostResult(reply, await runHostCookiesRoute({ state: hostExecutionState, headers: request.headers })));
+    app.delete?.(`${rendererBasePath}/cookies`, routeOptions, async (request, reply) => sendHostResult(reply, await runHostCookiesRoute({ state: hostExecutionState, headers: request.headers, clear: true })));
   }
 
   app.get(`${rendererBasePath}/renderer.js`, routeOptions, async (_request, reply) => {

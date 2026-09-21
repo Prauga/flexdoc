@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import Literal
 
 import json
@@ -9,7 +10,7 @@ from .asgi import FlexDocASGI
 from .host import FlexDocConfig, FlexDocHost, FlexDocResponse
 from .host_execution import FlexDocHostExecution
 from .host_execution_envelope import parse_execute_envelope, validate_declared_length
-from .runtime_intelligence import build_fastapi_runtime_snapshot
+from .runtime_intelligence import build_django_runtime_snapshot, build_fastapi_runtime_snapshot, build_flask_runtime_snapshot
 from .wsgi import LengthRequired, read_bounded_wsgi_body
 
 
@@ -46,6 +47,7 @@ def setup_fastapi_flexdoc(
     runtime_intelligence: bool = False,
     try_it_host_execution: bool = False,
     try_it_host_execution_allowed_origins: list[str] | tuple[str, ...] | None = None,
+    try_it_host_execution_metric_sink: Callable[[object], None] | None = None,
 ) -> FlexDocASGI:
     """Mount FlexDoc on FastAPI using the application's generated OpenAPI endpoint.
 
@@ -63,6 +65,8 @@ def setup_fastapi_flexdoc(
         try_it_host_execution: When ``True``, mount the native API-host execution route.
         try_it_host_execution_allowed_origins: Required exact HTTP(S) origins for native
             execution. Wildcards and paths are not accepted.
+        try_it_host_execution_metric_sink: Optional operator metric sink receiving the same
+            metric names, labels and reason categories the Node backend emits.
 
     Returns:
         The mounted :class:`~prauga_flexdoc.asgi.FlexDocASGI` application.
@@ -89,7 +93,10 @@ def setup_fastapi_flexdoc(
     if try_it_host_execution:
         if not try_it_host_execution_allowed_origins:
             raise ValueError("FastAPI host execution requires try_it_host_execution_allowed_origins with at least one exact origin.")
-        host_execution = FlexDocHostExecution(try_it_host_execution_allowed_origins)
+        host_execution = FlexDocHostExecution(
+            try_it_host_execution_allowed_origins,
+            metric_sink=try_it_host_execution_metric_sink,
+        )
 
     docs = FlexDocASGI(
         FlexDocConfig(
@@ -126,8 +133,10 @@ def setup_flask_flexdoc(
     try_it_default_server: str | None = None,
     try_it_credentials: Literal["omit", "same-origin", "include"] | None = None,
     try_it_api_client_persistence_key: str | Literal[False] | None = None,
+    runtime_intelligence_spec: dict | Callable[[], dict] | None = None,
     try_it_host_execution: bool = False,
     try_it_host_execution_allowed_origins: list[str] | tuple[str, ...] | None = None,
+    try_it_host_execution_metric_sink: Callable[[object], None] | None = None,
 ) -> FlexDocHost:
     """Register FlexDoc routes on a Flask application without making Flask a hard dependency.
 
@@ -142,9 +151,14 @@ def setup_flask_flexdoc(
         try_it_default_server: Optional default server URL for Try It requests.
         try_it_credentials: Optional fetch credentials mode for Try It requests.
         try_it_api_client_persistence_key: Optional persistence key, or ``False``.
+        runtime_intelligence_spec: OpenAPI document (or callable returning one) to compare the
+            live URL map against. Supplying it enables ``GET {path}/__flexdoc/runtime``. Flask
+            does not generate a specification, so the application must provide the one it serves.
         try_it_host_execution: When ``True``, register the native API-host execution route.
         try_it_host_execution_allowed_origins: Required exact HTTP(S) origins for native
             execution. Wildcards and paths are not accepted.
+        try_it_host_execution_metric_sink: Optional operator metric sink receiving the same
+            metric names, labels and reason categories the Node backend emits.
 
     Returns:
         The :class:`~prauga_flexdoc.host.FlexDocHost` backing the registered routes.
@@ -158,7 +172,10 @@ def setup_flask_flexdoc(
     if try_it_host_execution:
         if not try_it_host_execution_allowed_origins:
             raise ValueError("Flask host execution requires try_it_host_execution_allowed_origins with at least one exact origin.")
-        host_execution = FlexDocHostExecution(try_it_host_execution_allowed_origins)
+        host_execution = FlexDocHostExecution(
+            try_it_host_execution_allowed_origins,
+            metric_sink=try_it_host_execution_metric_sink,
+        )
 
     host = FlexDocHost(FlexDocConfig(
         path=path,
@@ -176,6 +193,7 @@ def setup_flask_flexdoc(
     ),
         host_execution_available=host_execution is not None,
         host_execution_capabilities=host_execution.capabilities if host_execution is not None else (),
+        runtime_intelligence_framework="flask" if runtime_intelligence_spec is not None else None,
     )
     normalized = host.path
     endpoint_prefix = "flexdoc_" + re.sub(r"[^a-zA-Z0-9_]", "_", normalized).strip("_")
@@ -189,6 +207,20 @@ def setup_flask_flexdoc(
     app.add_url_rule(normalized, endpoint=f"{endpoint_prefix}_index", view_func=lambda: to_flask(host.route(normalized)), strict_slashes=False)
     app.add_url_rule(normalized + "/__flexdoc/renderer.js", endpoint=f"{endpoint_prefix}_js", view_func=lambda: to_flask(host.route(normalized + "/__flexdoc/renderer.js")))
     app.add_url_rule(normalized + "/__flexdoc/renderer.css", endpoint=f"{endpoint_prefix}_css", view_func=lambda: to_flask(host.route(normalized + "/__flexdoc/renderer.css")))
+
+    if runtime_intelligence_spec is not None:
+        def runtime_view():
+            from flask import request
+
+            snapshot = build_flask_runtime_snapshot(app, runtime_intelligence_spec, request.environ, normalized)
+            return _to_flask_json(app, 200, snapshot)
+
+        app.add_url_rule(
+            normalized + "/__flexdoc/runtime",
+            endpoint=f"{endpoint_prefix}_runtime",
+            view_func=runtime_view,
+            methods=["GET"],
+        )
 
     if host_execution is not None:
         def execute_view():
@@ -238,7 +270,10 @@ def django_urlpatterns(
     try_it_api_client_persistence_key: str | Literal[False] | None = None,
     try_it_host_execution: bool = False,
     try_it_host_execution_allowed_origins: list[str] | tuple[str, ...] | None = None,
+    try_it_host_execution_metric_sink: Callable[[object], None] | None = None,
     try_it_host_execution_csrf_exempt: bool = False,
+    runtime_intelligence_spec: dict | Callable[[], dict] | None = None,
+    runtime_intelligence_urlconf: object | None = None,
 ):
     """Return Django URL patterns for FlexDoc. Django is imported lazily and remains optional.
 
@@ -252,9 +287,15 @@ def django_urlpatterns(
         try_it_default_server: Optional default server URL for Try It requests.
         try_it_credentials: Optional fetch credentials mode for Try It requests.
         try_it_api_client_persistence_key: Optional persistence key, or ``False``.
+        runtime_intelligence_spec: OpenAPI document (or callable returning one) to compare the
+            live URLconf against. Supplying it enables ``GET {path}/__flexdoc/runtime``. Django
+            does not generate a specification, so the application must provide the one it serves.
+        runtime_intelligence_urlconf: URL patterns to walk instead of ``ROOT_URLCONF``.
         try_it_host_execution: When ``True``, add the native API-host execution route.
         try_it_host_execution_allowed_origins: Required exact HTTP(S) origins for native
             execution. Wildcards and paths are not accepted.
+        try_it_host_execution_metric_sink: Optional operator metric sink receiving the same
+            metric names, labels and reason categories the Node backend emits.
         try_it_host_execution_csrf_exempt: Opt out of Django's CSRF enforcement on the execute
             route. Defaults to ``False``, so ``CsrfViewMiddleware`` protects the route like any
             other POST view. Set this only for a deployment whose authentication is not
@@ -276,7 +317,10 @@ def django_urlpatterns(
     if try_it_host_execution:
         if not try_it_host_execution_allowed_origins:
             raise ValueError("Django host execution requires try_it_host_execution_allowed_origins with at least one exact origin.")
-        host_execution = FlexDocHostExecution(try_it_host_execution_allowed_origins)
+        host_execution = FlexDocHostExecution(
+            try_it_host_execution_allowed_origins,
+            metric_sink=try_it_host_execution_metric_sink,
+        )
     elif try_it_host_execution_csrf_exempt:
         raise ValueError("try_it_host_execution_csrf_exempt requires try_it_host_execution=True.")
 
@@ -296,6 +340,7 @@ def django_urlpatterns(
     ),
         host_execution_available=host_execution is not None,
         host_execution_capabilities=host_execution.capabilities if host_execution is not None else (),
+        runtime_intelligence_framework="django" if runtime_intelligence_spec is not None else None,
     )
     route = host.path.strip("/")
 
@@ -306,15 +351,6 @@ def django_urlpatterns(
             result["Cache-Control"] = response.cache_control
         return result
 
-    patterns = [
-        re_path(rf"^{re.escape(route)}/?$", lambda request: to_django(request, host.path), name="flexdoc-index"),
-        re_path(rf"^{re.escape(route)}/__flexdoc/renderer\.js$", lambda request: to_django(request, host.path + "/__flexdoc/renderer.js"), name="flexdoc-js"),
-        re_path(rf"^{re.escape(route)}/__flexdoc/renderer\.css$", lambda request: to_django(request, host.path + "/__flexdoc/renderer.css"), name="flexdoc-css"),
-    ]
-
-    if host_execution is None:
-        return patterns
-
     def json_response(status: int, payload: object):
         result = HttpResponse(
             json.dumps(payload, separators=(",", ":")).encode(),
@@ -323,6 +359,29 @@ def django_urlpatterns(
         )
         result["Cache-Control"] = "no-store"
         return result
+
+    patterns = [
+        re_path(rf"^{re.escape(route)}/?$", lambda request: to_django(request, host.path), name="flexdoc-index"),
+        re_path(rf"^{re.escape(route)}/__flexdoc/renderer\.js$", lambda request: to_django(request, host.path + "/__flexdoc/renderer.js"), name="flexdoc-js"),
+        re_path(rf"^{re.escape(route)}/__flexdoc/renderer\.css$", lambda request: to_django(request, host.path + "/__flexdoc/renderer.css"), name="flexdoc-css"),
+    ]
+
+    if runtime_intelligence_spec is not None:
+        def runtime(request):
+            if request.method != "GET":
+                return json_response(405, {"error": "Method not allowed."})
+            urlpatterns = runtime_intelligence_urlconf
+            if urlpatterns is None:
+                from django.urls import get_resolver
+
+                urlpatterns = get_resolver().url_patterns
+            snapshot = build_django_runtime_snapshot(urlpatterns, runtime_intelligence_spec, request.META, host.path)
+            return json_response(200, snapshot)
+
+        patterns.append(re_path(rf"^{re.escape(route)}/__flexdoc/runtime$", runtime, name="flexdoc-runtime"))
+
+    if host_execution is None:
+        return patterns
 
     def execute(request):
         if request.method != "POST":

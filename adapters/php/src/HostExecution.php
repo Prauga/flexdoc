@@ -49,11 +49,18 @@ final class HostExecution
         'metadata.google' => true,
     ];
 
+    /** @var (callable(HostExecutionMetric): void)|null */
+    private $metricSink;
+
     /**
      * @param list<string> $allowedOrigins Exact HTTP(S) origins the host may call.
+     * @param (callable(HostExecutionMetric): void)|null $metricSink Operator metric sink
+     *        receiving the same metric names and labels every other FlexDoc runtime
+     *        emits. Failures in the sink never fail an execution.
      */
-    public function __construct(array $allowedOrigins)
+    public function __construct(array $allowedOrigins, ?callable $metricSink = null)
     {
+        $this->metricSink = $metricSink;
         foreach ($allowedOrigins as $raw) {
             $raw = trim((string) $raw);
             if ($raw === '') continue;
@@ -89,16 +96,62 @@ final class HostExecution
     public function handle(?string $marker, mixed $envelope, array $files = []): array
     {
         if ($marker !== '1') {
+            // Counted outside the lifecycle: an unmarked request never became an
+            // execution, and folding it into rejections would double-count attempts.
+            $this->metric('flexdoc_execute_unmarked_total', 'counter', 1, ['reason' => 'marker-missing']);
             return ['status' => 403, 'body' => ['error' => 'Missing X-FlexDoc-Execute header.']];
         }
 
+        $this->metric('flexdoc_execute_requests_total', 'counter', 1);
+        $this->metric('flexdoc_execute_in_flight', 'gauge', 1);
+        $started = microtime(true);
+
         try {
             if (!is_array($envelope)) {
-                throw new HostExecutionException(400, 'Host execution body must be a JSON object.');
+                throw new HostExecutionException(400, 'Host execution body must be a JSON object.', 'body-malformed');
             }
-            return ['status' => 200, 'body' => $this->execute($envelope, $files)];
+            $body = $this->execute($envelope, $files);
         } catch (HostExecutionException $error) {
+            $this->complete($error->status >= 500 ? 'error' : 'rejected', $started, $error->reason, $error->status);
             return ['status' => $error->status, 'body' => ['error' => $error->getMessage()]];
+        } catch (\Throwable $error) {
+            $this->complete('error', $started, 'upstream-error', 502);
+            throw $error;
+        }
+        $this->complete('success', $started);
+        return ['status' => 200, 'body' => $body];
+    }
+
+    private function complete(string $outcome, float $started, ?string $reason = null, ?int $status = null): void
+    {
+        $this->metric('flexdoc_execute_in_flight', 'gauge', -1);
+        $this->metric('flexdoc_execute_completions_total', 'counter', 1, ['outcome' => $outcome]);
+        $this->metric(
+            'flexdoc_execute_duration_seconds',
+            'histogram',
+            max(0.0, microtime(true) - $started),
+            ['outcome' => $outcome],
+        );
+        if ($reason === null) return;
+        if ($outcome === 'rejected') {
+            $this->metric('flexdoc_execute_rejections_total', 'counter', 1, [
+                'source' => 'route',
+                'statusCode' => (string) ($status ?? 400),
+                'reason' => $reason,
+            ]);
+            return;
+        }
+        $this->metric('flexdoc_execute_errors_total', 'counter', 1, ['reason' => $reason]);
+    }
+
+    /** @param array<string, string> $labels */
+    private function metric(string $name, string $kind, float $value, array $labels = []): void
+    {
+        if ($this->metricSink === null) return;
+        try {
+            ($this->metricSink)(new HostExecutionMetric($name, $kind, $value, $labels));
+        } catch (\Throwable) {
+            // Observability must never decide whether an execution succeeds.
         }
     }
 
@@ -110,10 +163,10 @@ final class HostExecution
     private function execute(array $envelope, array $files): array
     {
         if (($envelope['cookieJar'] ?? null) === 'session') {
-            throw new HostExecutionException(400, 'Session cookie jars are not implemented by the PHP host executor.');
+            throw new HostExecutionException(400, 'Session cookie jars are not implemented by the PHP host executor.', 'auth-unsupported');
         }
         if (trim(self::stringValue($envelope['certificateId'] ?? null)) !== '') {
-            throw new HostExecutionException(400, 'Client certificates are not implemented by the PHP host executor.');
+            throw new HostExecutionException(400, 'Client certificates are not implemented by the PHP host executor.', 'auth-unsupported');
         }
 
         $draft = $envelope['request'] ?? null;
@@ -174,7 +227,7 @@ final class HostExecution
         int $redirectCount,
     ): array {
         if ($deadline - self::monotonicMs() <= 0) {
-            throw new HostExecutionException(502, "Host execution request timed out after {$timeoutMs} ms.");
+            throw new HostExecutionException(502, "Host execution request timed out after {$timeoutMs} ms.", 'upstream-timeout');
         }
 
         $requestUrl = self::applyQueryAuth($currentUrl, $auth);
@@ -185,17 +238,17 @@ final class HostExecution
         $location = self::headerValue($response['headers'], 'location');
         if (self::isRedirect($response['status']) && $location !== null && $location !== '') {
             if ($redirectCount >= self::MAX_REDIRECTS) {
-                throw new HostExecutionException(403, 'Host execution exceeded the redirect safety limit.');
+                throw new HostExecutionException(403, 'Host execution exceeded the redirect safety limit.', 'redirect-forbidden');
             }
 
             try {
                 $next = self::resolveRedirect($requestUrl, $location);
                 $nextParts = self::parseHttpUrl($next, 'Host execution received an invalid redirect URL.');
             } catch (\InvalidArgumentException) {
-                throw new HostExecutionException(400, 'Host execution received an invalid redirect URL.');
+                throw new HostExecutionException(400, 'Host execution received an invalid redirect URL.', 'redirect-forbidden');
             }
             if (self::originOf($nextParts) !== self::originOf($target['parts'])) {
-                throw new HostExecutionException(403, 'Host execution does not follow cross-origin redirects.');
+                throw new HostExecutionException(403, 'Host execution does not follow cross-origin redirects.', 'redirect-forbidden');
             }
 
             if ($response['status'] === 303) {
@@ -246,7 +299,7 @@ final class HostExecution
         $scheme = strtolower((string) $parts['scheme']);
         $port = isset($parts['port']) ? (int) $parts['port'] : ($scheme === 'https' ? 443 : 80);
         if ($target['addresses'] === []) {
-            throw new HostExecutionException(502, 'Host execution could not resolve target hostname.');
+            throw new HostExecutionException(502, 'Host execution could not resolve target hostname.', 'upstream-unreachable');
         }
 
         $contextOptions = [];
@@ -265,7 +318,7 @@ final class HostExecution
         foreach ($target['addresses'] as $address) {
             $remainingMs = $deadline - self::monotonicMs();
             if ($remainingMs <= 0) {
-                throw new HostExecutionException(502, "Host execution request timed out after {$timeoutMs} ms.");
+                throw new HostExecutionException(502, "Host execution request timed out after {$timeoutMs} ms.", 'upstream-timeout');
             }
             $context = stream_context_create($contextOptions);
             $connectHost = str_contains($address, ':') ? '[' . trim($address, '[]') . ']' : $address;
@@ -288,10 +341,10 @@ final class HostExecution
 
         if (!is_resource($socket)) {
             if (self::monotonicMs() >= $deadline) {
-                throw new HostExecutionException(502, "Host execution request timed out after {$timeoutMs} ms.");
+                throw new HostExecutionException(502, "Host execution request timed out after {$timeoutMs} ms.", 'upstream-timeout');
             }
             $detail = $lastError !== '' ? $lastError : 'connection failed';
-            throw new HostExecutionException(502, "Host execution request failed: {$detail}");
+            throw new HostExecutionException(502, "Host execution request failed: {$detail}", 'upstream-unreachable');
         }
 
         try {
@@ -353,7 +406,7 @@ final class HostExecution
                 } elseif ($contentLength !== null && ctype_digit(trim($contentLength))) {
                     $length = (int) trim($contentLength);
                     if ($length > self::MAX_RESPONSE_BYTES) {
-                        throw new HostExecutionException(502, 'Host execution response exceeded the 10 MiB safety limit.');
+                        throw new HostExecutionException(502, 'Host execution response exceeded the 10 MiB safety limit.', 'body-too-large');
                     }
                     $responseBody = self::readExact($socket, $length, $deadline, $timeoutMs);
                 } else {
@@ -391,7 +444,7 @@ final class HostExecution
 
         $addresses = self::resolveAddresses($host);
         if ($addresses === []) {
-            throw new HostExecutionException(502, 'Host execution could not resolve target hostname.');
+            throw new HostExecutionException(502, 'Host execution could not resolve target hostname.', 'upstream-unreachable');
         }
         foreach ($addresses as $address) {
             if (self::isMetadataAddress($address)) {
@@ -520,12 +573,12 @@ final class HostExecution
             if ($key === '') throw new HostExecutionException(400, 'API key authentication requires a key name.');
             $location = self::stringValue($auth['in'] ?? null) ?: 'header';
             if ($location === 'query') return $headers;
-            if ($location === 'cookie') throw new HostExecutionException(400, 'Cookie authentication is not implemented by the PHP host executor.');
+            if ($location === 'cookie') throw new HostExecutionException(400, 'Cookie authentication is not implemented by the PHP host executor.', 'auth-unsupported');
             if ($location !== 'header') throw new HostExecutionException(400, "Unsupported API key location: {$location}");
             self::setHeader($headers, $key, self::stringValue($auth['value'] ?? null));
             return $headers;
         }
-        throw new HostExecutionException(400, "Authentication type {$type} is not implemented by the PHP host executor.");
+        throw new HostExecutionException(400, "Authentication type {$type} is not implemented by the PHP host executor.", 'auth-unsupported');
     }
 
     private static function applyQueryAuth(string $url, mixed $raw): string
@@ -555,7 +608,7 @@ final class HostExecution
             'urlencoded' => self::prepareUrlEncodedBody($draft, $explicitType),
             'graphql' => self::prepareGraphqlBody($draft, $explicitType),
             'formdata' => self::prepareMultipartBody($draft, $files),
-            default => throw new HostExecutionException(400, "Body mode {$mode} is not implemented by the PHP host executor."),
+            default => throw new HostExecutionException(400, "Body mode {$mode} is not implemented by the PHP host executor.", 'auth-unsupported'),
         };
     }
 
@@ -677,7 +730,7 @@ final class HostExecution
     private static function resolveRedirect(string $baseUrl, string $location): string
     {
         $location = trim($location);
-        if ($location === '') throw new HostExecutionException(400, 'Host execution received an invalid redirect URL.');
+        if ($location === '') throw new HostExecutionException(400, 'Host execution received an invalid redirect URL.', 'redirect-forbidden');
         if (preg_match('#^https?://#i', $location)) return $location;
 
         $base = self::parseHttpUrl($baseUrl, 'Host execution received an invalid redirect URL.');
@@ -807,7 +860,7 @@ final class HostExecution
     private static function applyStreamDeadline($stream, int $deadline, int $timeoutMs): void
     {
         $remainingMs = $deadline - self::monotonicMs();
-        if ($remainingMs <= 0) throw new HostExecutionException(502, "Host execution request timed out after {$timeoutMs} ms.");
+        if ($remainingMs <= 0) throw new HostExecutionException(502, "Host execution request timed out after {$timeoutMs} ms.", 'upstream-timeout');
         $seconds = intdiv($remainingMs, 1000);
         $microseconds = ($remainingMs % 1000) * 1000;
         stream_set_timeout($stream, $seconds, $microseconds);
@@ -853,7 +906,7 @@ final class HostExecution
             if ($chunk === '' && feof($stream)) break;
             $body .= $chunk;
             if (strlen($body) > self::MAX_RESPONSE_BYTES) {
-                throw new HostExecutionException(502, 'Host execution response exceeded the 10 MiB safety limit.');
+                throw new HostExecutionException(502, 'Host execution response exceeded the 10 MiB safety limit.', 'body-too-large');
             }
         }
         if (strlen($body) < $length) throw new HostExecutionException(502, 'Host execution response ended before Content-Length bytes were received.');
@@ -872,7 +925,7 @@ final class HostExecution
             }
             $body .= $chunk;
             if (strlen($body) > self::MAX_RESPONSE_BYTES) {
-                throw new HostExecutionException(502, 'Host execution response exceeded the 10 MiB safety limit.');
+                throw new HostExecutionException(502, 'Host execution response exceeded the 10 MiB safety limit.', 'body-too-large');
             }
         }
         return $body;
@@ -902,7 +955,7 @@ final class HostExecution
                 break;
             }
             if (strlen($body) + $size > self::MAX_RESPONSE_BYTES) {
-                throw new HostExecutionException(502, 'Host execution response exceeded the 10 MiB safety limit.');
+                throw new HostExecutionException(502, 'Host execution response exceeded the 10 MiB safety limit.', 'body-too-large');
             }
             $body .= self::readExact($stream, $size, $deadline, $timeoutMs);
             $terminator = self::readExact($stream, 2, $deadline, $timeoutMs);
@@ -916,7 +969,7 @@ final class HostExecution
     {
         $metadata = stream_get_meta_data($stream);
         if (($metadata['timed_out'] ?? false) || self::monotonicMs() >= $deadline) {
-            throw new HostExecutionException(502, "Host execution request timed out after {$timeoutMs} ms.");
+            throw new HostExecutionException(502, "Host execution request timed out after {$timeoutMs} ms.", 'upstream-timeout');
         }
         throw new HostExecutionException(502, $fallback);
     }
@@ -933,8 +986,26 @@ final class HostExecution
 /** @internal */
 final class HostExecutionException extends \RuntimeException
 {
-    public function __construct(public readonly int $status, string $message)
+    public readonly int $status;
+
+    /**
+     * Messages interpolate origins, field names and methods, so they are unbounded
+     * and cannot be aggregated. The reason can, and it matches the Node, Python,
+     * Go, Rust and Ruby vocabulary exactly.
+     */
+    public readonly string $reason;
+
+    public function __construct(int $status, string $message, ?string $reason = null)
     {
+        $this->status = $status;
+        // Throw sites name a status rather than calling a helper per category, so
+        // the status supplies the default category and a site overrides it only
+        // when it knows something more specific.
+        $this->reason = $reason ?? match (true) {
+            $status >= 500 => 'upstream-error',
+            $status === 403 => 'destination-forbidden',
+            default => 'request-invalid',
+        };
         parent::__construct($message);
     }
 }

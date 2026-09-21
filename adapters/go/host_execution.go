@@ -60,10 +60,21 @@ type HostExecutionResult struct {
 type HostExecution struct {
 	allowedOrigins map[string]struct{}
 	client         *http.Client
+	metricSink     MetricSink
+}
+
+// HostExecutionOption configures an executor without breaking the existing constructor.
+type HostExecutionOption func(*HostExecution)
+
+// WithMetricSink delivers operator metric updates using the same names and
+// labels every other FlexDoc runtime emits. Delivery is best effort: a sink that
+// panics or blocks briefly cannot change the outcome of an execution.
+func WithMetricSink(sink MetricSink) HostExecutionOption {
+	return func(executor *HostExecution) { executor.metricSink = sink }
 }
 
 // NewHostExecution creates a native executor with an explicit exact HTTP(S) origin allowlist.
-func NewHostExecution(allowedOrigins []string) (*HostExecution, error) {
+func NewHostExecution(allowedOrigins []string, options ...HostExecutionOption) (*HostExecution, error) {
 	normalized := make(map[string]struct{})
 	for _, raw := range allowedOrigins {
 		if strings.TrimSpace(raw) == "" {
@@ -83,6 +94,9 @@ func NewHostExecution(allowedOrigins []string) (*HostExecution, error) {
 	}
 
 	executor := &HostExecution{allowedOrigins: normalized}
+	for _, option := range options {
+		option(executor)
+	}
 	transport := &http.Transport{
 		Proxy:               nil,
 		DialContext:         executor.dialContext,
@@ -104,31 +118,87 @@ func NewHostExecution(allowedOrigins []string) (*HostExecution, error) {
 func (e *HostExecution) Capabilities() []string { return []string{} }
 
 // Handle validates the execute marker and maps native execution errors to canonical JSON errors.
+//
+// This is the single choke point every transport reaches, so it is also where
+// execution evidence is emitted: one started/completed pair per validated
+// envelope, and an unmarked counter for requests that never became executions.
 func (e *HostExecution) Handle(marker string, envelope map[string]any, files map[int]HostExecutionFile) HostExecutionResult {
 	if marker != "1" {
+		// Counted outside the lifecycle: an unmarked request never became an
+		// execution, and folding it into rejections would double-count attempts.
+		e.metric("flexdoc_execute_unmarked_total", "counter", 1, map[string]string{"reason": string(ReasonMarkerMissing)})
 		return HostExecutionResult{Status: http.StatusForbidden, Body: map[string]any{"error": "Missing X-FlexDoc-Execute header."}}
 	}
+
+	e.metric("flexdoc_execute_requests_total", "counter", 1, nil)
+	e.metric("flexdoc_execute_in_flight", "gauge", 1, nil)
+	started := time.Now()
+
 	body, err := e.Execute(envelope, files)
 	if err == nil {
+		e.complete("success", started, "", 0)
 		return HostExecutionResult{Status: http.StatusOK, Body: body}
 	}
 	var executionErr *hostExecutionError
 	if errors.As(err, &executionErr) {
+		outcome := "rejected"
+		if executionErr.status >= 500 {
+			outcome = "error"
+		}
+		e.complete(outcome, started, executionErr.reason, executionErr.status)
 		return HostExecutionResult{Status: executionErr.status, Body: map[string]any{"error": executionErr.Error()}}
 	}
+	e.complete("error", started, ReasonUpstreamError, http.StatusBadGateway)
 	return HostExecutionResult{Status: http.StatusBadGateway, Body: map[string]any{"error": "API host execution failed."}}
+}
+
+func (e *HostExecution) complete(outcome string, started time.Time, reason HostExecutionReason, status int) {
+	e.metric("flexdoc_execute_in_flight", "gauge", -1, nil)
+	e.metric("flexdoc_execute_completions_total", "counter", 1, map[string]string{"outcome": outcome})
+	elapsed := time.Since(started).Seconds()
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	e.metric("flexdoc_execute_duration_seconds", "histogram", elapsed, map[string]string{"outcome": outcome})
+	if reason == "" {
+		return
+	}
+	if outcome == "rejected" {
+		if status == 0 {
+			status = http.StatusBadRequest
+		}
+		e.metric("flexdoc_execute_rejections_total", "counter", 1, map[string]string{
+			"source":     "route",
+			"statusCode": strconv.Itoa(status),
+			"reason":     string(reason),
+		})
+		return
+	}
+	e.metric("flexdoc_execute_errors_total", "counter", 1, map[string]string{"reason": string(reason)})
+}
+
+func (e *HostExecution) metric(name, kind string, value float64, labels map[string]string) {
+	if e.metricSink == nil {
+		return
+	}
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	// Observability must never decide whether an execution succeeds.
+	defer func() { _ = recover() }()
+	e.metricSink(HostExecutionMetric{Name: name, Kind: kind, Value: value, Labels: labels})
 }
 
 // Execute runs one already-parsed canonical host-execution envelope.
 func (e *HostExecution) Execute(envelope map[string]any, files map[int]HostExecutionFile) (map[string]any, error) {
 	if envelope == nil {
-		return nil, badRequest("Host execution body must be a JSON object.")
+		return nil, badRequest("Host execution body must be a JSON object.", ReasonBodyMalformed)
 	}
 	if stringValue(envelope["cookieJar"]) == "session" {
-		return nil, badRequest("Session cookie jars are not implemented by the Go host executor.")
+		return nil, unsupported("Session cookie jars are not implemented by the Go host executor.")
 	}
 	if strings.TrimSpace(stringValue(envelope["certificateId"])) != "" {
-		return nil, badRequest("Client certificates are not implemented by the Go host executor.")
+		return nil, unsupported("Client certificates are not implemented by the Go host executor.")
 	}
 
 	draft, ok := envelope["request"].(map[string]any)
@@ -281,17 +351,32 @@ func preparedBytesBody(value []byte, contentType string) preparedBody {
 type hostExecutionError struct {
 	status  int
 	message string
+	// Messages interpolate origins, field names and methods, so they are
+	// unbounded and cannot be aggregated. The reason can, and it matches the
+	// Node and Python vocabulary exactly.
+	reason HostExecutionReason
 }
 
 func (e *hostExecutionError) Error() string { return e.message }
-func badRequest(message string) error {
-	return &hostExecutionError{status: http.StatusBadRequest, message: message}
+
+func firstReason(override []HostExecutionReason, fallback HostExecutionReason) HostExecutionReason {
+	if len(override) > 0 {
+		return override[0]
+	}
+	return fallback
 }
-func forbidden(message string) error {
-	return &hostExecutionError{status: http.StatusForbidden, message: message}
+
+func badRequest(message string, reason ...HostExecutionReason) error {
+	return &hostExecutionError{status: http.StatusBadRequest, message: message, reason: firstReason(reason, ReasonRequestInvalid)}
 }
-func upstream(message string) error {
-	return &hostExecutionError{status: http.StatusBadGateway, message: message}
+func unsupported(message string, reason ...HostExecutionReason) error {
+	return &hostExecutionError{status: http.StatusBadRequest, message: message, reason: firstReason(reason, ReasonAuthUnsupported)}
+}
+func forbidden(message string, reason ...HostExecutionReason) error {
+	return &hostExecutionError{status: http.StatusForbidden, message: message, reason: firstReason(reason, ReasonDestinationForbidden)}
+}
+func upstream(message string, reason ...HostExecutionReason) error {
+	return &hostExecutionError{status: http.StatusBadGateway, message: message, reason: firstReason(reason, ReasonUpstreamError)}
 }
 
 func (e *HostExecution) executeWithRedirects(method string, target *url.URL, headers http.Header, body preparedBody, timeout time.Duration, rawAuth any) (map[string]any, error) {
@@ -314,7 +399,7 @@ func (e *HostExecution) executeWithRedirects(method string, target *url.URL, hea
 			opened, err := currentBody.open()
 			if err != nil {
 				cancel()
-				return nil, upstream("Host execution request failed: " + err.Error())
+				return nil, upstream("Host execution request failed: "+err.Error(), ReasonUpstreamUnreachable)
 			}
 			reader = opened
 		}
@@ -324,7 +409,7 @@ func (e *HostExecution) executeWithRedirects(method string, target *url.URL, hea
 				_ = closer.Close()
 			}
 			cancel()
-			return nil, upstream("Host execution request failed: " + err.Error())
+			return nil, upstream("Host execution request failed: "+err.Error(), ReasonUpstreamUnreachable)
 		}
 		req.Header = currentHeaders.Clone()
 		started := time.Now()
@@ -332,13 +417,13 @@ func (e *HostExecution) executeWithRedirects(method string, target *url.URL, hea
 		if err != nil {
 			cancel()
 			if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return nil, upstream(fmt.Sprintf("Host execution request timed out after %d ms.", timeout.Milliseconds()))
+				return nil, upstream(fmt.Sprintf("Host execution request timed out after %d ms.", timeout.Milliseconds()), ReasonUpstreamTimeout)
 			}
 			var executionErr *hostExecutionError
 			if errors.As(err, &executionErr) {
 				return nil, executionErr
 			}
-			return nil, upstream("Host execution request failed: " + err.Error())
+			return nil, upstream("Host execution request failed: "+err.Error(), ReasonUpstreamUnreachable)
 		}
 
 		data, readErr := io.ReadAll(io.LimitReader(response.Body, maxExecutionResponseBytes+1))
@@ -347,7 +432,7 @@ func (e *HostExecution) executeWithRedirects(method string, target *url.URL, hea
 		deadlineErr := ctx.Err()
 		cancel()
 		if deadlineErr != nil || errors.Is(readErr, context.DeadlineExceeded) {
-			return nil, upstream(fmt.Sprintf("Host execution request timed out after %d ms.", timeout.Milliseconds()))
+			return nil, upstream(fmt.Sprintf("Host execution request timed out after %d ms.", timeout.Milliseconds()), ReasonUpstreamTimeout)
 		}
 		if readErr != nil {
 			return nil, upstream("Host execution response read failed: " + readErr.Error())
@@ -356,19 +441,19 @@ func (e *HostExecution) executeWithRedirects(method string, target *url.URL, hea
 			return nil, upstream("Host execution response close failed: " + closeErr.Error())
 		}
 		if len(data) > maxExecutionResponseBytes {
-			return nil, upstream("Host execution response exceeded the 10 MiB safety limit.")
+			return nil, upstream("Host execution response exceeded the 10 MiB safety limit.", ReasonBodyTooLarge)
 		}
 
 		if isRedirect(response.StatusCode) && response.Header.Get("Location") != "" {
 			if redirect == maxExecutionRedirects {
-				return nil, forbidden("Host execution exceeded the redirect safety limit.")
+				return nil, forbidden("Host execution exceeded the redirect safety limit.", ReasonRedirectForbidden)
 			}
 			next, err := requestURL.Parse(response.Header.Get("Location"))
 			if err != nil {
-				return nil, badRequest("Host execution received an invalid redirect URL.")
+				return nil, badRequest("Host execution received an invalid redirect URL.", ReasonRedirectForbidden)
 			}
 			if originOf(next) != originOf(requestURL) {
-				return nil, forbidden("Host execution does not follow cross-origin redirects.")
+				return nil, forbidden("Host execution does not follow cross-origin redirects.", ReasonRedirectForbidden)
 			}
 			if err := e.assertAllowed(next); err != nil {
 				return nil, err
@@ -401,7 +486,7 @@ func (e *HostExecution) executeWithRedirects(method string, target *url.URL, hea
 			"responseTime": elapsed.Milliseconds(),
 		}, nil
 	}
-	return nil, forbidden("Host execution exceeded the redirect safety limit.")
+	return nil, forbidden("Host execution exceeded the redirect safety limit.", ReasonRedirectForbidden)
 }
 
 func (e *HostExecution) assertAllowed(target *url.URL) error {
@@ -436,14 +521,14 @@ func (e *HostExecution) dialContext(ctx context.Context, network, address string
 	} else {
 		resolved, err := net.DefaultResolver.LookupIPAddr(ctx, host)
 		if err != nil {
-			return nil, upstream("Host execution could not resolve target hostname.")
+			return nil, upstream("Host execution could not resolve target hostname.", ReasonUpstreamUnreachable)
 		}
 		for _, item := range resolved {
 			addresses = append(addresses, item.IP)
 		}
 	}
 	if len(addresses) == 0 {
-		return nil, upstream("Host execution could not resolve target hostname.")
+		return nil, upstream("Host execution could not resolve target hostname.", ReasonUpstreamUnreachable)
 	}
 	for _, ip := range addresses {
 		if isMetadataAddress(ip) {
@@ -467,7 +552,7 @@ func (e *HostExecution) dialContext(ctx context.Context, network, address string
 func parseIncomingMultipart(r *http.Request) (map[string]any, map[int]HostExecutionFile, error) {
 	reader, err := r.MultipartReader()
 	if err != nil {
-		return nil, nil, badRequest("Host execution multipart body is invalid.")
+		return nil, nil, badRequest("Host execution multipart body is invalid.", ReasonBodyMalformed)
 	}
 	var descriptor []byte
 	files := map[int]HostExecutionFile{}
@@ -479,16 +564,16 @@ func parseIncomingMultipart(r *http.Request) (map[string]any, map[int]HostExecut
 		if err != nil {
 			var maxErr *http.MaxBytesError
 			if errors.As(err, &maxErr) {
-				return nil, nil, badRequest("Host execution request exceeded the 32 MiB safety limit.")
+				return nil, nil, badRequest("Host execution request exceeded the 32 MiB safety limit.", ReasonBodyTooLarge)
 			}
-			return nil, nil, badRequest("Host execution multipart body is invalid.")
+			return nil, nil, badRequest("Host execution multipart body is invalid.", ReasonBodyMalformed)
 		}
 		data, err := io.ReadAll(part)
 		_ = part.Close()
 		if err != nil {
 			var maxErr *http.MaxBytesError
 			if errors.As(err, &maxErr) {
-				return nil, nil, badRequest("Host execution request exceeded the 32 MiB safety limit.")
+				return nil, nil, badRequest("Host execution request exceeded the 32 MiB safety limit.", ReasonBodyTooLarge)
 			}
 			return nil, nil, badRequest("Unable to read multipart host execution upload.")
 		}
@@ -515,10 +600,10 @@ func parseIncomingMultipart(r *http.Request) (map[string]any, map[int]HostExecut
 	}
 	var envelope map[string]any
 	if !utf8.Valid(descriptor) {
-		return nil, nil, badRequest("Host execution multipart descriptor must be valid UTF-8 JSON object.")
+		return nil, nil, badRequest("Host execution multipart descriptor must be valid UTF-8 JSON object.", ReasonBodyMalformed)
 	}
 	if err := json.Unmarshal(descriptor, &envelope); err != nil || envelope == nil {
-		return nil, nil, badRequest("Host execution multipart descriptor must be valid UTF-8 JSON object.")
+		return nil, nil, badRequest("Host execution multipart descriptor must be valid UTF-8 JSON object.", ReasonBodyMalformed)
 	}
 	return envelope, files, nil
 }
@@ -687,7 +772,7 @@ func prepareRequestBody(draft, envelope map[string]any, files map[int]HostExecut
 			},
 		}, nil
 	default:
-		return preparedBody{}, badRequest("Body mode " + mode + " is not implemented by the Go host executor.")
+		return preparedBody{}, unsupported("Body mode " + mode + " is not implemented by the Go host executor.")
 	}
 }
 
@@ -773,12 +858,12 @@ func applyHeaderAuth(raw any, headers http.Header) error {
 		case "query":
 			return nil
 		case "cookie":
-			return badRequest("Cookie authentication is not implemented by the Go host executor.")
+			return unsupported("Cookie authentication is not implemented by the Go host executor.")
 		default:
 			return badRequest("Unsupported API key location: " + stringValue(auth["in"]))
 		}
 	default:
-		return badRequest("Authentication type " + stringValue(auth["type"]) + " is not implemented by the Go host executor.")
+		return unsupported("Authentication type " + stringValue(auth["type"]) + " is not implemented by the Go host executor.")
 	}
 }
 
@@ -845,10 +930,10 @@ func validateContentType(value string) error {
 		return nil
 	}
 	if strings.ContainsAny(value, "\r\n") {
-		return badRequest("Invalid host execution content type.")
+		return badRequest("Invalid host execution content type.", ReasonUnsupportedMediaType)
 	}
 	if _, _, err := mime.ParseMediaType(value); err != nil {
-		return badRequest("Invalid host execution content type.")
+		return badRequest("Invalid host execution content type.", ReasonUnsupportedMediaType)
 	}
 	return nil
 }

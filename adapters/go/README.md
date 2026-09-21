@@ -50,6 +50,28 @@ This first Go slice intentionally advertises an empty host-only capability list.
 
 The Go executor resolves and validates the target inside its custom `DialContext`, then connects directly to one of the validated IP addresses. Link-local/cloud-metadata hostnames and resolved link-local addresses are rejected before connection, while the original request hostname is preserved for HTTP Host and TLS identity semantics.
 
+### Execution evidence
+
+An executor that reports nothing leaves an operator guessing whether a failing Try It is a policy rejection, a slow upstream or traffic that never carried an execute marker. Pass a metric sink to emit the same metric names, labels and reason vocabulary as the Node, Python and other FlexDoc hosts, so one collector reads a mixed fleet:
+
+```go
+observation := flexdoc.NewHostExecutionObservation()
+
+executor, err := flexdoc.NewHostExecution(
+    []string{"https://api.example.internal"},
+    flexdoc.WithMetricSink(observation.Record),
+)
+
+// Whenever an operator asks for evidence:
+report := flexdoc.NewHostExecutionObservationReport(observation)
+```
+
+The sink receives `HostExecutionMetric` values carrying a name, kind, value and labels, and nothing else: no URL, header, body or credential reaches it. Bridge it to Prometheus or OpenTelemetry where such a stack exists; where none does, `HostExecutionObservation` folds the same updates into a mutex-guarded in-process aggregate safe to use from concurrent handlers, and `NewHostExecutionObservationReport` marshals the shared `flexdoc.host-execution.observation/1` document that every other runtime also produces.
+
+Every non-successful execution carries one of the stable categories returned by `HostExecutionReasons()`, which is why rejections and upstream failures are separable at all — the human-readable messages interpolate origins and field names, so they are unbounded and unusable as a metric label. Requests arriving without `X-FlexDoc-Execute` are counted by `flexdoc_execute_unmarked_total` and deliberately move no lifecycle metric, since they produced no validated envelope.
+
+The report declares `browser-direct-transport-mix` in its gaps: a browser-direct execution never reaches this process, so the transport mix cannot be derived here. See [host-execution observability](../../docs/host-execution-observability.md) for the full metric contract and the browser half of a review. Metric delivery is best effort: a sink that panics cannot fail an execution.
+
 For code-first generators such as Huma, pass the generated OpenAPI document directly:
 
 ```go

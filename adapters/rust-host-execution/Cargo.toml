@@ -1,6 +1,6 @@
 [package]
 name = "prauga-flexdoc-host-execution"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 license = "AGPL-3.0-or-later"
 description = "Framework-neutral native host-execution engine for Prauga FlexDoc Rust adapters"
@@ -22,3 +22,8 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 serde_json = { version = "1", optional = true }
 tokio = { version = "1", features = ["net", "time"], optional = true }
 url = { version = "2", optional = true }
+
+# Test-only: the executor is async, so its tests need a runtime and the `#[tokio::test]`
+# attribute. This does not widen what a consumer of the crate compiles.
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread"] }

@@ -40,6 +40,14 @@ __pycache__/
 # Rust and Maven build output
 target/
 
+# .NET build output
+[Bb]in/
+[Oo]bj/
+
+# Elixir build output and fetched dependencies
+adapters/elixir/_build/
+adapters/elixir/deps/
+
 # Playwright local output (visual baselines under e2e/**/*-snapshots stay tracked)
 playwright-report/
 playwright-cli-report/

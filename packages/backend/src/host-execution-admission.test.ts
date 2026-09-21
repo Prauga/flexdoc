@@ -101,4 +101,85 @@ describe('host-execution admission', () => {
     const admission = createHostExecutionAdmission();
     expect(() => createHostExecutionAdmissionMiddleware(admission, { retryAfterSeconds: 0 })).toThrow(/positive safe integer/);
   });
+
+  describe('fleet budget', () => {
+    it('reports an instance-scoped budget when no fleet budget is declared', () => {
+      const admission = createHostExecutionAdmission({ maxInFlight: 8 });
+      expect(admission.budget).toEqual({
+        scope: 'instance',
+        perInstanceMaxInFlight: 8,
+        fleetMaxInFlight: 8,
+        instances: 1,
+        unallocated: 0,
+      });
+    });
+
+    it('defaults to the documented per-instance cap', () => {
+      expect(createHostExecutionAdmission().budget.perInstanceMaxInFlight).toBe(32);
+    });
+
+    // The number an operator sizes against is what reaches the API host, so a fleet
+    // budget must divide down rather than multiply up.
+    it('divides a fleet budget into a per-instance share', () => {
+      const admission = createHostExecutionAdmission({ fleetMaxInFlight: 32, instances: 4 });
+
+      expect(admission.maxInFlight).toBe(8);
+      expect(admission.budget).toEqual({
+        scope: 'fleet',
+        perInstanceMaxInFlight: 8,
+        fleetMaxInFlight: 32,
+        instances: 4,
+        unallocated: 0,
+      });
+
+      for (let index = 0; index < 8; index += 1) expect(admission.tryAcquire()).toBe(true);
+      expect(admission.tryAcquire()).toBe(false);
+    });
+
+    // Rounding up would exceed the budget the operator asked for, so the remainder is
+    // held by nobody and said out loud rather than quietly redistributed.
+    it('declares capacity lost to integer division', () => {
+      const admission = createHostExecutionAdmission({ fleetMaxInFlight: 10, instances: 3 });
+
+      expect(admission.maxInFlight).toBe(3);
+      expect(admission.budget.unallocated).toBe(1);
+      expect(admission.budget.perInstanceMaxInFlight * admission.budget.instances)
+        .toBeLessThanOrEqual(admission.budget.fleetMaxInFlight);
+    });
+
+    it('admits one per instance at the smallest usable fleet budget', () => {
+      const admission = createHostExecutionAdmission({ fleetMaxInFlight: 4, instances: 4 });
+
+      expect(admission.maxInFlight).toBe(1);
+      expect(admission.tryAcquire()).toBe(true);
+      expect(admission.tryAcquire()).toBe(false);
+    });
+
+    it('rejects a fleet budget that cannot give every instance a slot', () => {
+      expect(() => createHostExecutionAdmission({ fleetMaxInFlight: 3, instances: 4 }))
+        .toThrow(/below instances/);
+    });
+
+    it('rejects the two scopes being configured at once', () => {
+      expect(() => createHostExecutionAdmission({ maxInFlight: 8, fleetMaxInFlight: 32, instances: 4 }))
+        .toThrow(/same limit at different scopes/);
+    });
+
+    it('rejects a fleet budget with no instance count to divide by', () => {
+      expect(() => createHostExecutionAdmission({ fleetMaxInFlight: 32 })).toThrow(/requires instances/);
+    });
+
+    // Ignoring it would leave an operator believing a fleet bound is in force while
+    // each instance admits the full per-instance cap.
+    it('rejects an instance count with no fleet budget to divide', () => {
+      expect(() => createHostExecutionAdmission({ maxInFlight: 8, instances: 4 }))
+        .toThrow(/requires fleetMaxInFlight/);
+    });
+
+    it('rejects invalid fleet values', () => {
+      expect(() => createHostExecutionAdmission({ fleetMaxInFlight: 0, instances: 1 })).toThrow(/positive safe integer/);
+      expect(() => createHostExecutionAdmission({ fleetMaxInFlight: 32, instances: 0 })).toThrow(/positive safe integer/);
+      expect(() => createHostExecutionAdmission({ fleetMaxInFlight: 1.5, instances: 1 })).toThrow(/positive safe integer/);
+    });
+  });
 });

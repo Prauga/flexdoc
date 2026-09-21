@@ -9,6 +9,8 @@ require "socket"
 require "timeout"
 require "uri"
 
+require_relative "host_execution_observability"
+
 module Prauga
   module FlexDoc
     HostExecutionFile = Data.define(:filename, :content_type, :data)
@@ -33,7 +35,8 @@ module Prauga
 
       attr_reader :allowed_origins
 
-      def initialize(allowed_origins:)
+      def initialize(allowed_origins:, metric_sink: nil)
+        @metric_sink = metric_sink
         normalized = Array(allowed_origins).filter_map do |raw|
           value = raw.to_s.strip
           next if value.empty?
@@ -52,38 +55,90 @@ module Prauga
         @allowed_origins = normalized.uniq.freeze
       end
 
+      attr_reader :metric_sink
+
       def capabilities
         []
       end
 
+      # Validate the marker and map executor failures to canonical JSON errors.
+      #
+      # This is the single choke point every transport reaches, so it is also where
+      # execution evidence is emitted: one started/completed pair per validated
+      # envelope, and an unmarked counter for requests that never became executions.
       def handle(marker:, envelope:, files: {})
-        return HostExecutionResult.new(status: 403, body: { "error" => "Missing X-FlexDoc-Execute header." }) unless marker == "1"
+        unless marker == "1"
+          # Counted outside the lifecycle: an unmarked request never became an
+          # execution, and folding it into rejections would double-count attempts.
+          metric("flexdoc_execute_unmarked_total", "counter", 1, { "reason" => "marker-missing" })
+          return HostExecutionResult.new(status: 403, body: { "error" => "Missing X-FlexDoc-Execute header." })
+        end
 
-        HostExecutionResult.new(status: 200, body: execute(envelope, files))
-      rescue ExecutionError => error
-        HostExecutionResult.new(status: error.status, body: { "error" => error.message })
+        metric("flexdoc_execute_requests_total", "counter", 1)
+        metric("flexdoc_execute_in_flight", "gauge", 1)
+        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        begin
+          body = execute(envelope, files)
+        rescue ExecutionError => error
+          complete(error.status >= 500 ? "error" : "rejected", started, error.reason, error.status)
+          return HostExecutionResult.new(status: error.status, body: { "error" => error.message })
+        rescue StandardError
+          complete("error", started, "upstream-error", 502)
+          raise
+        end
+        complete("success", started)
+        HostExecutionResult.new(status: 200, body:)
       end
 
       private
 
       class ExecutionError < StandardError
-        attr_reader :status
+        attr_reader :status, :reason
 
-        def initialize(status, message)
+        # Messages interpolate origins, field names and methods, so they are
+        # unbounded and cannot be aggregated. The reason can, and it matches the
+        # Node, Python, Go and Rust vocabulary exactly.
+        def initialize(status, message, reason)
           @status = status
+          @reason = reason
           super(message)
         end
       end
 
-      def bad_request(message) = raise(ExecutionError.new(400, message))
-      def forbidden(message) = raise(ExecutionError.new(403, message))
-      def upstream(message) = raise(ExecutionError.new(502, message))
+      def bad_request(message, reason = "request-invalid") = raise(ExecutionError.new(400, message, reason))
+      def unsupported(message, reason = "auth-unsupported") = raise(ExecutionError.new(400, message, reason))
+      def forbidden(message, reason = "destination-forbidden") = raise(ExecutionError.new(403, message, reason))
+      def upstream(message, reason = "upstream-error") = raise(ExecutionError.new(502, message, reason))
+
+      def complete(outcome, started, reason = nil, status = nil)
+        metric("flexdoc_execute_in_flight", "gauge", -1)
+        metric("flexdoc_execute_completions_total", "counter", 1, { "outcome" => outcome })
+        elapsed = [Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, 0.0].max
+        metric("flexdoc_execute_duration_seconds", "histogram", elapsed, { "outcome" => outcome })
+        return if reason.nil?
+
+        if outcome == "rejected"
+          metric("flexdoc_execute_rejections_total", "counter", 1,
+                 { "source" => "route", "statusCode" => (status || 400).to_s, "reason" => reason })
+        else
+          metric("flexdoc_execute_errors_total", "counter", 1, { "reason" => reason })
+        end
+      end
+
+      def metric(name, kind, value, labels = {})
+        return if @metric_sink.nil?
+
+        @metric_sink.call(HostExecutionMetric.new(name:, kind:, value:, labels:))
+      rescue StandardError
+        # Observability must never decide whether an execution succeeds.
+        nil
+      end
 
       def execute(envelope, files)
-        root = envelope.is_a?(Hash) ? envelope : bad_request("Host execution body must be a JSON object.")
-        bad_request("Session cookie jars are not implemented by the Ruby host executor.") if root["cookieJar"] == "session"
+        root = envelope.is_a?(Hash) ? envelope : bad_request("Host execution body must be a JSON object.", "body-malformed")
+        unsupported("Session cookie jars are not implemented by the Ruby host executor.") if root["cookieJar"] == "session"
         certificate_id = root["certificateId"].to_s
-        bad_request("Client certificates are not implemented by the Ruby host executor.") unless certificate_id.strip.empty?
+        unsupported("Client certificates are not implemented by the Ruby host executor.") unless certificate_id.strip.empty?
 
         draft = root["request"]
         bad_request("Host execution body requires a canonical request draft.") unless draft.is_a?(Hash)
@@ -123,9 +178,9 @@ module Prauga
             status = response[:status]
 
             if status.between?(300, 399) && response[:location]
-              forbidden("Host execution exceeded the redirect safety limit.") if redirect_count == MAX_REDIRECTS
+              forbidden("Host execution exceeded the redirect safety limit.", "redirect-forbidden") if redirect_count == MAX_REDIRECTS
               next_uri = request_uri.merge(response[:location])
-              forbidden("Host execution does not follow cross-origin redirects.") unless origin_of(next_uri) == origin_of(request_uri)
+              forbidden("Host execution does not follow cross-origin redirects.", "redirect-forbidden") unless origin_of(next_uri) == origin_of(request_uri)
               assert_allowed!(next_uri)
               if status == 303
                 method = "GET"
@@ -146,13 +201,13 @@ module Prauga
             }
           end
         end
-        forbidden("Host execution exceeded the redirect safety limit.")
+        forbidden("Host execution exceeded the redirect safety limit.", "redirect-forbidden")
       rescue Timeout::Error
-        upstream("Host execution request timed out after #{timeout_ms} ms.")
+        upstream("Host execution request timed out after #{timeout_ms} ms.", "upstream-timeout")
       rescue ExecutionError
         raise
       rescue StandardError => error
-        upstream("Host execution request failed: #{error.message}")
+        upstream("Host execution request failed: #{error.message}", "upstream-unreachable")
       end
 
       def perform_request(method, uri, headers, body, timeout_ms, validated_ip)
@@ -188,7 +243,7 @@ module Prauga
             end
             response.read_body do |chunk|
               if response_body.bytesize + chunk.bytesize > MAX_EXECUTION_RESPONSE_BYTES
-                upstream("Host execution response exceeded the 10 MiB safety limit.")
+                upstream("Host execution response exceeded the 10 MiB safety limit.", "body-too-large")
               end
               response_body << chunk.b
             end
@@ -212,14 +267,14 @@ module Prauga
         end
 
         addresses = Addrinfo.getaddrinfo(host, uri.port, nil, :STREAM)
-        upstream("Host execution could not resolve target hostname.") if addresses.empty?
+        upstream("Host execution could not resolve target hostname.", "upstream-unreachable") if addresses.empty?
         if addresses.any? { |address| metadata_ip?(address.ip_address) }
           forbidden("Host execution blocks DNS resolutions to link-local and cloud metadata endpoints.")
         end
 
         addresses.first.ip_address
       rescue SocketError
-        upstream("Host execution could not resolve target hostname.")
+        upstream("Host execution could not resolve target hostname.", "upstream-unreachable")
       end
 
       def parse_http_uri(raw)
@@ -301,12 +356,12 @@ module Prauga
           when "query"
             nil
           when "cookie"
-            bad_request("Cookie authentication is not implemented by the Ruby host executor.")
+            unsupported("Cookie authentication is not implemented by the Ruby host executor.")
           else
             bad_request("Unsupported API key location: #{location}")
           end
         else
-          bad_request("Authentication type #{string_value(auth["type"])} is not implemented by the Ruby host executor.")
+          unsupported("Authentication type #{string_value(auth["type"])} is not implemented by the Ruby host executor.")
         end
       end
 
@@ -354,7 +409,7 @@ module Prauga
         when "formdata"
           build_multipart(draft, files)
         else
-          bad_request("Body mode #{mode} is not implemented by the Ruby host executor.")
+          unsupported("Body mode #{mode} is not implemented by the Ruby host executor.")
         end
       rescue ArgumentError
         bad_request("Binary host execution bodyBase64 is invalid.") if mode == "binary"
@@ -376,7 +431,7 @@ module Prauga
             bad_request("Host execution multipart file formData[#{index}] is missing.") unless file
             filename = non_empty(file.filename.to_s) || non_empty(string_value(entry["fileName"])) || "upload.bin"
             content_type = non_empty(file.content_type.to_s) || non_empty(string_value(entry["contentType"])) || "application/octet-stream"
-            bad_request("Host execution multipart Content-Type is invalid.") if content_type.include?("\r") || content_type.include?("\n")
+            bad_request("Host execution multipart Content-Type is invalid.", "unsupported-media-type") if content_type.include?("\r") || content_type.include?("\n")
             output << "--#{boundary}\r\n"
             output << "Content-Disposition: form-data; name=\"#{quote_multipart(key)}\"; filename=\"#{quote_multipart(filename)}\"\r\n"
             output << "Content-Type: #{content_type}\r\n\r\n"
