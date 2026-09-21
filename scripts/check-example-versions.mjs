@@ -76,6 +76,7 @@ for (const path of [
   'examples/javascript-express/package-lock.json',
   'examples/javascript-fastify/package-lock.json',
   'examples/javascript-hono/package-lock.json',
+  'examples/javascript-fleet/package-lock.json',
 ]) {
   const lock = json(path);
   const declared = lock.packages?.['']?.dependencies?.['@prauga/flexdoc-backend'];
@@ -93,6 +94,8 @@ const checks = [
   ['examples/javascript-express/package.json', `"@prauga/flexdoc-backend": "${published.backend}"`],
   ['examples/javascript-fastify/package.json', `"@prauga/flexdoc-backend": "${published.backend}"`],
   ['examples/javascript-hono/package.json', `"@prauga/flexdoc-backend": "${published.backend}"`],
+  ['examples/javascript-fleet/package.json', `"@prauga/flexdoc-backend": "${published.backend}"`],
+  ['examples/javascript-fleet/README.md', `Pinned to \`@prauga/flexdoc-backend\` \`${published.backend}\``],
   ['examples/python-fastapi/requirements.txt', `prauga-flexdoc==${published.python}`],
   ['examples/python-flask/requirements.txt', `prauga-flexdoc==${published.python}`],
   ['examples/python-django/requirements.txt', `prauga-flexdoc==${published.python}`],
@@ -181,7 +184,7 @@ for (const [path, expected] of checks) expect(path, expected);
 // unrecognized row fails too, so a new example cannot be added ungated.
 const rowBaselines = [
   [/^\| \[`(basic-usage|interactive-demo|api-client)`\]/, published.client, '@prauga/flexdoc-client'],
-  [/^\| \[`(nestjs|javascript-[a-z]+)`\]/, published.backend, '@prauga/flexdoc-backend'],
+  [/^\| \[`(nestjs|javascript-[a-z0-9-]+)`\]/, published.backend, '@prauga/flexdoc-backend'],
   [/^\| \[`dotnet-/, published.dotnet, 'Prauga.FlexDoc.AspNetCore'],
   [/^\| \[`(java|kotlin)-/, published.java, 'the Java family'],
   [/^\| \[`python-/, published.python, 'prauga-flexdoc (PyPI)'],

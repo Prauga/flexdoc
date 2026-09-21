@@ -16,6 +16,7 @@ The examples deliberately separate two kinds of capability:
 | [`javascript-express`](./javascript-express) | Express + `@prauga/flexdoc-backend` `3.4.0` | Primary backend-native showcase with intentional route drift | **Yes — live Express router** |
 | [`javascript-fastify`](./javascript-fastify) | Fastify + `@prauga/flexdoc-backend` `3.4.0` | Shared OpenAPI showcase + intentional runtime-only route | **Yes — live Fastify route tree** |
 | [`javascript-hono`](./javascript-hono) | Hono + `@prauga/flexdoc-backend` `3.4.0` | Small inline contract + intentional runtime-only route | **Yes — live Hono route inventory** |
+| [`javascript-fleet`](./javascript-fleet) | Express fleet + `@prauga/flexdoc-backend` `3.4.0` | Multi-instance host execution: shared secret, Redis jar store, fleet admission, observation merge | **Yes — live Express router** |
 | [`dotnet-aspnetcore`](./dotnet-aspnetcore) | `Prauga.FlexDoc.AspNetCore` `0.7.0` | Exact server-side contract + runtime-only minimal API route | **Yes — `EndpointDataSource`** |
 | [`java-spring`](./java-spring) | Spring Boot + `flexdoc-spring-boot-starter` `0.10.0` | Exact `FlexDocSpecProvider` contract + runtime-only MVC route | **Yes — `RequestMappingHandlerMapping`** |
 | [`java-quarkus`](./java-quarkus) | Quarkus/Jakarta REST + `flexdoc-jaxrs` `0.10.0` | Canonical JVM renderer hosting | No in current slice |
@@ -40,7 +41,7 @@ The examples deliberately separate two kinds of capability:
 
 ## What to run for the current surface
 
-Start with `javascript-express` when evaluating FlexDoc as a product: it demonstrates the full documentation/API Client experience **and** the backend-native distinction, including a route that exists in the running application but not in OpenAPI. Use `interactive-demo` for the framework-neutral renderer surface and `api-client` for focused API-development workflows.
+Start with `javascript-express` when evaluating FlexDoc as a product: it demonstrates the full documentation/API Client experience **and** the backend-native distinction, including a route that exists in the running application but not in OpenAPI. Use `javascript-fleet` when you need a horizontally scaled host-execution deployment with a shared session jar and fleet observation merge. Use `interactive-demo` for the framework-neutral renderer surface and `api-client` for focused API-development workflows.
 
 Runtime-capable examples intentionally include either a runtime-only route or a live controller/router inventory so the Runtime panel demonstrates evidence from the running backend rather than repeating the specification.
 

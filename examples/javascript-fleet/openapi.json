@@ -1,0 +1,84 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FlexDoc multi-instance fleet demo",
+    "version": "3.4.0",
+    "description": "A small cookie-authenticated account API used to prove that FlexDoc host-execution session jars survive round-robin across replicas."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Same-container origin the host executor fetches. Browser traffic arrives via the load balancer on :8080; host execution stays on :3000 so each replica can reach itself."
+    }
+  ],
+  "paths": {
+    "/account/login": {
+      "post": {
+        "operationId": "login",
+        "summary": "Create an API session cookie",
+        "description": "Sets an HttpOnly `demo-api-session` cookie. Run this through host execution, then call `/account/me` through a different replica to prove the shared jar.",
+        "responses": {
+          "200": {
+            "description": "Session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "instanceId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/me": {
+      "get": {
+        "operationId": "me",
+        "summary": "Read the current API session",
+        "description": "Requires the `demo-api-session` cookie from `/account/login`. Returns 401 when the jar is empty on this instance.",
+        "responses": {
+          "200": {
+            "description": "Authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": { "type": "string" },
+                    "instanceId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Missing session cookie" }
+        }
+      }
+    },
+    "/whoami": {
+      "get": {
+        "operationId": "whoami",
+        "summary": "Report which replica handled the request",
+        "responses": {
+          "200": {
+            "description": "Replica identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "instanceId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
