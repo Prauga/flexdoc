@@ -1,7 +1,7 @@
 # FlexDoc Backend
 
 [![npm version](https://img.shields.io/npm/v/@prauga/flexdoc-backend.svg)](https://www.npmjs.com/package/@prauga/flexdoc-backend)
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
 Thin self-hosted integrations that mount the FlexDoc renderer, optional API-host execution routes, and runtime intelligence endpoints on Express, Fastify, NestJS, or Hono.
 
@@ -81,4 +81,4 @@ Use `setupFlexDoc(app, path, options)` directly when you already have an Express
 
 ## License
 
-AGPL-3.0-or-later
+Apache-2.0

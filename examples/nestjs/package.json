@@ -19,7 +19,7 @@
     "gen:auth:bearer": "npx ts-node ../../packages/backend/src/scripts/generate-auth.ts bearer"
   },
   "author": "Prauga",
-  "license": "AGPL-3.0-or-later",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/Prauga/flexdoc",

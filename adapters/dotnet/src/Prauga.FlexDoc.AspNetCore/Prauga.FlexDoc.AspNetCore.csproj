@@ -10,7 +10,7 @@
     <Company>Prauga</Company>
     <Description>Self-hosted FlexDoc integration for ASP.NET Core.</Description>
     <PackageTags>flexdoc;openapi;aspnetcore;api-documentation;api-client</PackageTags>
-    <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/Prauga/flexdoc</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

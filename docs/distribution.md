@@ -135,6 +135,6 @@ Every release should verify at least:
 - host HTML loads only local packaged assets by default;
 - documentation-route secrets are not serialized to the browser;
 - a representative OpenAPI document boots and Try It works;
-- package metadata points at Prauga's public source and AGPL license;
+- package metadata points at Prauga's public source and Apache-2.0 license;
 - no publishing credential/signing secret exists in a produced package;
 - the paired `Prauga/flexdoc-website` release-data PR exists and matches the intended public package/tag matrix, while remaining unmerged until publication is real.

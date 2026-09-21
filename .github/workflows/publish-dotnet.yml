@@ -39,7 +39,7 @@ jobs:
           VERSION=$(grep -oPm1 '(?<=<Version>)[^<]+' adapters/dotnet/src/Prauga.FlexDoc.AspNetCore/Prauga.FlexDoc.AspNetCore.csproj)
           PACKAGE="adapters/dotnet/dist/Prauga.FlexDoc.AspNetCore.${VERSION}.nupkg"
           test -s "$PACKAGE"
-          unzip -p "$PACKAGE" Prauga.FlexDoc.AspNetCore.nuspec | grep '<license type="expression">AGPL-3.0-or-later</license>'
+          unzip -p "$PACKAGE" Prauga.FlexDoc.AspNetCore.nuspec | grep '<license type="expression">Apache-2.0</license>'
           unzip -l "$PACKAGE" | grep 'README.md'
       - uses: actions/upload-artifact@v7
         with:

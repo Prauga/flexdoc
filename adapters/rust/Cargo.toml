@@ -2,7 +2,7 @@
 name = "prauga-flexdoc-axum"
 version = "0.6.0"
 edition = "2021"
-license = "AGPL-3.0-or-later"
+license = "Apache-2.0"
 description = "Self-contained Axum adapter for the Prauga FlexDoc OpenAPI renderer"
 repository = "https://github.com/prauga/flexdoc"
 homepage = "https://github.com/prauga/flexdoc"

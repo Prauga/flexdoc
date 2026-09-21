@@ -122,4 +122,6 @@ See [`examples/`](./examples/README.md), [`docs/host-execution.md`](./docs/host-
 
 ## License
 
-FlexDoc is licensed under **AGPL-3.0-or-later**. See [LICENSE](./LICENSE).
+FlexDoc is licensed under **Apache-2.0**. See [LICENSE](./LICENSE).
+
+The renderer, API Client, headless runner, CLI and every framework adapter are permissively licensed and stay that way — you can embed them in a proprietary application without obligation. Any future hosted or fleet control-plane product is separate code and will carry its own license; nothing in this repository depends on it.
