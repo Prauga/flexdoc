@@ -54,8 +54,18 @@ export { setupHonoFlexDoc } from './hono-adapter';
 export { createHostExecutionState, createInProcessHostExecutionSessionStore, executeHostRequest, publicHostExecutionOptions } from './host-execution';
 export { parseHostExecutionRequestBody, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 export { createHostExecutionAdmission, createHostExecutionAdmissionMiddleware } from './host-execution-admission';
+export { mergeHostExecutionObservationDocuments, mergeHostExecutionObservationReports } from './host-execution-fleet';
+export type {
+  FlexDocHostExecutionFleetConcurrency,
+  FlexDocHostExecutionFleetDurations,
+  FlexDocHostExecutionFleetGap,
+  FlexDocHostExecutionFleetInstanceDurations,
+  FlexDocHostExecutionFleetReport,
+  FlexDocHostExecutionFleetTotals,
+} from './host-execution-fleet';
 export type {
   FlexDocHostExecutionAdmission,
+  FlexDocHostExecutionAdmissionBudget,
   FlexDocHostExecutionAdmissionMiddlewareOptions,
   FlexDocHostExecutionAdmissionOptions,
   FlexDocHostExecutionAdmissionResponse,
