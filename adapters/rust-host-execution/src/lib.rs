@@ -6,6 +6,14 @@ use reqwest::{
     header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE},
     Method, Url,
 };
+pub mod observability;
+
+pub use observability::{
+    is_host_execution_reason, observation_report, DurationSummary, HostExecutionMetric,
+    HostExecutionObservation, HostExecutionReason, MetricKind, MetricSink, ObservationSnapshot,
+    HOST_EXECUTION_REASONS, OBSERVATION_GAPS, OBSERVATION_SCHEMA,
+};
+
 use serde_json::{json, Map, Value};
 use std::{
     collections::{HashMap, HashSet},
@@ -43,6 +51,7 @@ pub struct HostExecutionResult {
 #[derive(Clone)]
 pub struct HostExecution {
     allowed_origins: Arc<HashSet<String>>,
+    metric_sink: Option<MetricSink>,
 }
 
 impl fmt::Debug for HostExecution {
@@ -58,6 +67,10 @@ impl fmt::Debug for HostExecution {
 struct ExecutionError {
     status: u16,
     message: String,
+    /// Messages interpolate origins, field names and methods, so they are
+    /// unbounded and cannot be aggregated. The reason can, and it matches the
+    /// Node, Python and Go vocabulary exactly.
+    reason: HostExecutionReason,
 }
 
 impl ExecutionError {
@@ -65,19 +78,33 @@ impl ExecutionError {
         Self {
             status: 400,
             message: message.into(),
+            reason: HostExecutionReason::RequestInvalid,
+        }
+    }
+    fn unsupported(message: impl Into<String>) -> Self {
+        Self {
+            status: 400,
+            message: message.into(),
+            reason: HostExecutionReason::AuthUnsupported,
         }
     }
     fn forbidden(message: impl Into<String>) -> Self {
         Self {
             status: 403,
             message: message.into(),
+            reason: HostExecutionReason::DestinationForbidden,
         }
     }
     fn upstream(message: impl Into<String>) -> Self {
         Self {
             status: 502,
             message: message.into(),
+            reason: HostExecutionReason::UpstreamError,
         }
+    }
+    fn because(mut self, reason: HostExecutionReason) -> Self {
+        self.reason = reason;
+        self
     }
 }
 
@@ -118,7 +145,16 @@ impl HostExecution {
         }
         Ok(Self {
             allowed_origins: Arc::new(normalized),
+            metric_sink: None,
         })
+    }
+
+    /// Deliver operator metric updates using the same names and labels every
+    /// other FlexDoc runtime emits. Delivery is best effort: a sink that panics
+    /// cannot change the outcome of an execution.
+    pub fn with_metric_sink(mut self, sink: MetricSink) -> Self {
+        self.metric_sink = Some(sink);
+        self
     }
 
     /// Host-only capabilities implemented by this first Rust slice.
@@ -127,6 +163,11 @@ impl HostExecution {
     }
 
     /// Validate the marker and map execution errors into the canonical JSON error shape.
+    ///
+    /// This is the single choke point every transport reaches, so it is also
+    /// where execution evidence is emitted: one started/completed pair per
+    /// validated envelope, and an unmarked counter for requests that never
+    /// became executions.
     pub async fn handle(
         &self,
         marker: Option<&str>,
@@ -134,18 +175,99 @@ impl HostExecution {
         files: HashMap<usize, HostExecutionFile>,
     ) -> HostExecutionResult {
         if marker != Some("1") {
+            // Counted outside the lifecycle: an unmarked request never became an
+            // execution, and folding it into rejections would double-count
+            // attempts.
+            self.metric(
+                "flexdoc_execute_unmarked_total",
+                MetricKind::Counter,
+                1.0,
+                [("reason", HostExecutionReason::MarkerMissing.as_str().to_string())],
+            );
             return HostExecutionResult {
                 status: 403,
                 body: json!({"error":"Missing X-FlexDoc-Execute header."}),
             };
         }
+
+        self.metric("flexdoc_execute_requests_total", MetricKind::Counter, 1.0, []);
+        self.metric("flexdoc_execute_in_flight", MetricKind::Gauge, 1.0, []);
+        let started = Instant::now();
+
         match self.execute(envelope, files).await {
-            Ok(body) => HostExecutionResult { status: 200, body },
-            Err(error) => HostExecutionResult {
-                status: error.status,
-                body: json!({"error":error.message}),
-            },
+            Ok(body) => {
+                self.complete("success", started, None, 200);
+                HostExecutionResult { status: 200, body }
+            }
+            Err(error) => {
+                let outcome = if error.status >= 500 { "error" } else { "rejected" };
+                self.complete(outcome, started, Some(error.reason), error.status);
+                HostExecutionResult {
+                    status: error.status,
+                    body: json!({"error":error.message}),
+                }
+            }
         }
+    }
+
+    fn complete(
+        &self,
+        outcome: &'static str,
+        started: Instant,
+        reason: Option<HostExecutionReason>,
+        status: u16,
+    ) {
+        self.metric("flexdoc_execute_in_flight", MetricKind::Gauge, -1.0, []);
+        self.metric(
+            "flexdoc_execute_completions_total",
+            MetricKind::Counter,
+            1.0,
+            [("outcome", outcome.to_string())],
+        );
+        self.metric(
+            "flexdoc_execute_duration_seconds",
+            MetricKind::Histogram,
+            started.elapsed().as_secs_f64(),
+            [("outcome", outcome.to_string())],
+        );
+        let Some(reason) = reason else { return };
+        if outcome == "rejected" {
+            self.metric(
+                "flexdoc_execute_rejections_total",
+                MetricKind::Counter,
+                1.0,
+                [
+                    ("source", "route".to_string()),
+                    ("statusCode", status.to_string()),
+                    ("reason", reason.as_str().to_string()),
+                ],
+            );
+            return;
+        }
+        self.metric(
+            "flexdoc_execute_errors_total",
+            MetricKind::Counter,
+            1.0,
+            [("reason", reason.as_str().to_string())],
+        );
+    }
+
+    fn metric<const N: usize>(
+        &self,
+        name: &'static str,
+        kind: MetricKind,
+        value: f64,
+        labels: [(&'static str, String); N],
+    ) {
+        let Some(sink) = &self.metric_sink else { return };
+        let metric = HostExecutionMetric {
+            name,
+            kind,
+            value,
+            labels: HashMap::from(labels),
+        };
+        // Observability must never decide whether an execution succeeds.
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| sink(metric)));
     }
 
     async fn execute(
@@ -155,9 +277,10 @@ impl HostExecution {
     ) -> Result<Value, ExecutionError> {
         let root = envelope.as_object().ok_or_else(|| {
             ExecutionError::bad_request("Host execution body must be a JSON object.")
+                .because(HostExecutionReason::BodyMalformed)
         })?;
         if root.get("cookieJar").and_then(Value::as_str) == Some("session") {
-            return Err(ExecutionError::bad_request(
+            return Err(ExecutionError::unsupported(
                 "Session cookie jars are not implemented by the Rust host executor.",
             ));
         }
@@ -166,7 +289,7 @@ impl HostExecution {
             .and_then(Value::as_str)
             .is_some_and(|value| !value.trim().is_empty())
         {
-            return Err(ExecutionError::bad_request(
+            return Err(ExecutionError::unsupported(
                 "Client certificates are not implemented by the Rust host executor.",
             ));
         }
@@ -226,6 +349,7 @@ impl HostExecution {
             if !headers.contains_key(CONTENT_TYPE) {
                 let value = HeaderValue::from_str(content_type).map_err(|_| {
                     ExecutionError::bad_request("Host execution Content-Type is invalid.")
+                        .because(HostExecutionReason::UnsupportedMediaType)
                 })?;
                 headers.insert(CONTENT_TYPE, value);
             }
@@ -283,6 +407,7 @@ impl HostExecution {
                 }
                 let response = request.send().await.map_err(|error| {
                     ExecutionError::upstream(format!("Host execution request failed: {error}"))
+                        .because(HostExecutionReason::UpstreamUnreachable)
                 })?;
                 let status = response.status();
                 let response_headers = response.headers().clone();
@@ -292,22 +417,26 @@ impl HostExecution {
                         if redirect == MAX_REDIRECTS {
                             return Err(ExecutionError::forbidden(
                                 "Host execution exceeded the redirect safety limit.",
-                            ));
+                            )
+                            .because(HostExecutionReason::RedirectForbidden));
                         }
                         let location = location.to_str().map_err(|_| {
                             ExecutionError::bad_request(
                                 "Host execution received an invalid redirect URL.",
                             )
+                            .because(HostExecutionReason::RedirectForbidden)
                         })?;
                         let next = request_url.join(location).map_err(|_| {
                             ExecutionError::bad_request(
                                 "Host execution received an invalid redirect URL.",
                             )
+                            .because(HostExecutionReason::RedirectForbidden)
                         })?;
                         if origin_of(&next) != origin_of(&request_url) {
                             return Err(ExecutionError::forbidden(
                                 "Host execution does not follow cross-origin redirects.",
-                            ));
+                            )
+                            .because(HostExecutionReason::RedirectForbidden));
                         }
                         self.assert_allowed(&next).await?;
                         if status.as_u16() == 303 {
@@ -331,7 +460,8 @@ impl HostExecution {
                     if data.len().saturating_add(chunk.len()) > MAX_EXECUTION_RESPONSE_BYTES {
                         return Err(ExecutionError::upstream(
                             "Host execution response exceeded the 10 MiB safety limit.",
-                        ));
+                        )
+                        .because(HostExecutionReason::BodyTooLarge));
                     }
                     data.extend_from_slice(&chunk);
                 }
@@ -349,7 +479,8 @@ impl HostExecution {
             }
             Err(ExecutionError::forbidden(
                 "Host execution exceeded the redirect safety limit.",
-            ))
+            )
+            .because(HostExecutionReason::RedirectForbidden))
         };
 
         tokio::time::timeout(timeout, operation)
@@ -359,6 +490,7 @@ impl HostExecution {
                     "Host execution request timed out after {} ms.",
                     timeout.as_millis()
                 ))
+                .because(HostExecutionReason::UpstreamTimeout)
             })?
     }
 
@@ -398,6 +530,7 @@ impl HostExecution {
         }
         let resolved = lookup_host((host, port)).await.map_err(|_| {
             ExecutionError::upstream("Host execution could not resolve target hostname.")
+                .because(HostExecutionReason::UpstreamUnreachable)
         })?;
         let mut addresses = Vec::new();
         for address in resolved {
@@ -409,7 +542,8 @@ impl HostExecution {
         if addresses.is_empty() {
             return Err(ExecutionError::upstream(
                 "Host execution could not resolve target hostname.",
-            ));
+            )
+            .because(HostExecutionReason::UpstreamUnreachable));
         }
         Ok(addresses)
     }
@@ -516,7 +650,7 @@ fn prepare_body(
             })
         }
         "formdata" => build_multipart(draft, files),
-        other => Err(ExecutionError::bad_request(format!(
+        other => Err(ExecutionError::unsupported(format!(
             "Body mode {other} is not implemented by the Rust host executor."
         ))),
     }
@@ -727,7 +861,7 @@ fn apply_header_auth(raw: Option<&Value>, headers: &mut HeaderMap) -> Result<(),
             match string_value_default(auth.get("in"), "header").as_str() {
                 "header" => insert_header(headers, key, &string_value(auth.get("value"))),
                 "query" => Ok(()),
-                "cookie" => Err(ExecutionError::bad_request(
+                "cookie" => Err(ExecutionError::unsupported(
                     "Cookie authentication is not implemented by the Rust host executor.",
                 )),
                 other => Err(ExecutionError::bad_request(format!(
@@ -735,7 +869,7 @@ fn apply_header_auth(raw: Option<&Value>, headers: &mut HeaderMap) -> Result<(),
                 ))),
             }
         }
-        other => Err(ExecutionError::bad_request(format!(
+        other => Err(ExecutionError::unsupported(format!(
             "Authentication type {other} is not implemented by the Rust host executor."
         ))),
     }

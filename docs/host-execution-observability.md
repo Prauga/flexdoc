@@ -179,7 +179,16 @@ executor, err := flexdoc.NewHostExecution(allowedOrigins, flexdoc.WithMetricSink
 report := flexdoc.NewHostExecutionObservationReport(observation)
 ```
 
-Rust, PHP, Ruby, Elixir, .NET and Java do not emit this evidence yet. Until they do, a host-execution review of a fleet running those adapters has no aggregate to read, which is a coverage gap rather than a claim of clean operation.
+Rust, where the shared `prauga-flexdoc-host-execution` crate carries the contract for both the Axum and Actix adapters:
+
+```rust
+let observation = HostExecutionObservation::new();
+let executor = HostExecution::new(allowed_origins)?.with_metric_sink(observation.sink());
+
+let report = observation_report(&observation);
+```
+
+PHP, Ruby, Elixir, .NET and Java do not emit this evidence yet. Until they do, a host-execution review of a fleet running those adapters has no aggregate to read, which is a coverage gap rather than a claim of clean operation.
 
 ## The browser half: transport mix
 
