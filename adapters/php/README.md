@@ -50,6 +50,29 @@ The execute endpoint is a server-side network capability. Protect the docs subtr
 
 For framework-neutral integrations, route `responseForRequest()` so POST requests to the execute path can pass request headers/body and, for multipart requests, the parsed `descriptor` and uploaded `formData[n]` files.
 
+### Execution evidence
+
+An executor that reports nothing leaves an operator guessing whether a failing Try It is a policy rejection, a slow upstream or traffic that never carried an execute marker. Pass a metric sink to emit the same metric names, labels and reason vocabulary as the Node, Python, Go, Rust and Ruby hosts, so one collector reads a mixed fleet:
+
+```php
+use Prauga\FlexDoc\HostExecution;
+use Prauga\FlexDoc\HostExecutionObservation;
+
+$observation = new HostExecutionObservation();
+$executor = new HostExecution(['https://api.example.internal'], $observation->sink());
+
+// Whenever an operator asks for evidence:
+$report = $observation->report();
+```
+
+The sink receives `HostExecutionMetric` values carrying a name, kind, value and labels, and nothing else: no URL, header, body or credential reaches it. Bridge it to Prometheus or OpenTelemetry where such a stack exists; where none does, `HostExecutionObservation` folds the same updates into an in-process aggregate and `report()` produces the shared `flexdoc.host-execution.observation/1` document every other runtime also emits.
+
+PHP's request lifecycle is the honest limit here: a recorder observes one process, so under php-fpm an export is per-worker evidence and a window ends when the worker does. Persisting and merging snapshots across workers is the application's decision, not something FlexDoc does behind its back.
+
+Every non-successful execution carries one of the stable categories in `HostExecutionObservability::REASONS`, which is why rejections and upstream failures are separable at all — the human-readable messages interpolate origins and field names, so they are unbounded and unusable as a metric label. Requests arriving without `X-FlexDoc-Execute` are counted by `flexdoc_execute_unmarked_total` and deliberately move no lifecycle metric, since they produced no validated envelope.
+
+The report declares `browser-direct-transport-mix` in its gaps: a browser-direct execution never reaches this process, so the transport mix cannot be derived here. See [host-execution observability](../../docs/host-execution-observability.md) for the full metric contract and the browser half of a review. Metric delivery is best effort: a sink that throws cannot fail an execution.
+
 ## Laravel
 
 Laravel package auto-discovery loads `FlexDocServiceProvider`, which binds `FlexDocHost` and registers the docs and renderer routes. Configure `flexdoc.path`, `flexdoc.spec_url`, `flexdoc.title`, `flexdoc.theme`, and `flexdoc.try_it_enabled` in the application config. The adapter also accepts `expand`, `try_it_default_server`, `try_it_credentials`, and `try_it_api_client_persistence_key`; unset renderer settings are omitted. `FLEXDOC_TRY_IT=false` is parsed as a boolean and disables Try It. `LaravelFlexDoc::register($router, $host)` is also available for manual routing.
