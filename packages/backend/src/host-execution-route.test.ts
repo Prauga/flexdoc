@@ -1,5 +1,5 @@
 import * as http from 'http';
-import { allowedHostExecutionOrigins, assertHostExecutionResolvedAddressAllowed, createHostExecutionState, ensureHostExecutionSession, isCookieDomainAllowed } from './host-execution';
+import { allowedHostExecutionOrigins, assertHostExecutionResolvedAddressAllowed, createHostExecutionState, createInProcessHostExecutionSessionStore, ensureHostExecutionSession, isCookieDomainAllowed } from './host-execution';
 import { hostExecutionRequestOrigin, parseHostExecutionRequestBody, runHostExecutionRoute } from './host-execution-route';
 import { createHostExecutionTargetPolicy } from './shared/host-execution-policy';
 
@@ -213,7 +213,12 @@ describe('host execution HTTP protocol', () => {
     const address = server.address();
     if (!address || typeof address === 'string') throw new Error('test server address unavailable');
     const origin = `http://127.0.0.1:${address.port}`;
-    const state = createHostExecutionState({ allowedOrigins: [origin] });
+    const writes: string[] = [];
+    const store = createInProcessHostExecutionSessionStore();
+    const state = createHostExecutionState({
+      allowedOrigins: [origin],
+      sessionStore: { ...store, write: async (id, cookies) => { writes.push(id); return store.write(id, cookies); } },
+    });
     try {
       const result = await runHostExecutionRoute({
         state,
@@ -223,16 +228,27 @@ describe('host execution HTTP protocol', () => {
       });
       expect(result.status).toBe(200);
       expect(result.headers['Set-Cookie']).toBeUndefined();
-      expect(state.jars.size).toBe(0);
+      expect(writes).toEqual([]);
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     }
   });
 
-  it('bounds signed cookie-jar sessions', () => {
-    const state = createHostExecutionState(true);
-    for (let index = 0; index < 1050; index += 1) ensureHostExecutionSession(state);
-    expect(state.jars.size).toBeLessThanOrEqual(1000);
+  it('bounds stored cookie-jar sessions by evicting the oldest', async () => {
+    const store = createInProcessHostExecutionSessionStore(3);
+    for (const id of ['a', 'b', 'c', 'd']) await store.write(id, []);
+
+    expect(await store.read('a')).toBeUndefined();
+    expect(await store.read('d')).toEqual([]);
+  });
+
+  it('does not evict when rewriting a session already in the store', async () => {
+    const store = createInProcessHostExecutionSessionStore(2);
+    await store.write('a', []);
+    await store.write('b', []);
+    await store.write('b', []);
+
+    expect(await store.read('a')).toEqual([]);
   });
 
   it('rejects cross-origin redirects even when both origins are allowlisted', async () => {
