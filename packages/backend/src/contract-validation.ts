@@ -63,6 +63,7 @@ export interface ValidateRuntimeContractOptions {
   /** Normalized operations discovered from the running backend. */ runtimeRoutes: FlexDocContractRoute[];
   /** Runtime operations that were registered more than once by the host framework. */ duplicateRuntimeRoutes?: FlexDocContractDuplicateRuntimeRoute[];
   /** Whether route discovery is believed to cover the complete running application. */ discoveryComplete: boolean;
+  /** Runtime operations intentionally absent from OpenAPI. They are not reported as undocumented. */ acknowledgedUndocumented?: FlexDocContractRoute[];
 }
 
 function routeShape(path: string): string {
@@ -142,14 +143,15 @@ export function validateRuntimeContract(options: ValidateRuntimeContractOptions)
     });
   }
 
+  const acknowledgedKeys = new Set((options.acknowledgedUndocumented || []).map(exactShapeKey));
   for (const route of options.runtimeRoutes) {
     const shape = routeShape(route.path);
     if (methodMismatchShapes.has(shape)) continue;
-    if (documentedKeys.has(exactShapeKey(route))) continue;
+    if (documentedKeys.has(exactShapeKey(route)) || acknowledgedKeys.has(exactShapeKey(route))) continue;
     findings.push({
       id: findingId('runtime.operation-undocumented', route.path, route.method),
       code: 'runtime.operation-undocumented',
-      severity: 'error',
+      severity: options.discoveryComplete ? 'error' : 'warning',
       location: { kind: 'operation', method: route.method.toUpperCase(), path: route.path },
       message: `Runtime implements ${route.method.toUpperCase()} ${route.path}, but OpenAPI does not document that operation.`,
       expected: 'Operation is represented in OpenAPI',

@@ -174,7 +174,10 @@ export interface FlexDocMessages {
   /** Heading for documented routes not observed at runtime. */ documentedButNotObserved?: string;
   /** Empty-state copy when all documented routes are observed. */ everyDocumentedRouteObserved?: string;
   /** Status text shown when runtime and documented routes align. */ runtimeAligned?: string;
-  /** Action text for opening a runtime route's documentation when available. */ openRuntimeRoute?: string;
+  /** Action text for opening a runtime-registered route, including one OpenAPI does not document. */ openRuntimeRoute?: string;
+  /** Action text for opening a documented operation from a contract finding. */ openDocumentedOperation?: string;
+  /** Explains a route the running service registered and OpenAPI does not document. */ runtimeRouteUndocumented?: string;
+  /** Shown when the selected path is neither documented nor registered at runtime. */ operationNotFound?: string;
   /** Heading for structured runtime-vs-OpenAPI contract findings. */ contractValidation?: string;
   /** Status text shown when 3.1 contract validation has no findings. */ contractValidationPass?: string;
   /** Label preceding expected contract state in a finding. */ validationExpected?: string;
@@ -239,7 +242,7 @@ export interface FlexDocRuntimeEnvironmentMetadata {
 /** Aggregate route counts in a Runtime Intelligence snapshot. */
 export interface FlexDocRuntimeIntelligenceSummary {
   /** Number of HTTP operations present in the OpenAPI document. */ documented: number;
-  /** Number of routes discovered in the running backend. */ runtime: number;
+  /** Runtime routes in the drift comparison (`matched + runtimeOnly`). Acknowledged undocumented routes stay in `routes` and are excluded here. */ runtime: number;
   /** Number of routes observed in both OpenAPI and the running backend. */ matched: number;
   /** Number of runtime routes missing from OpenAPI. */ runtimeOnly: number;
   /** Number of OpenAPI operations not observed at runtime. */ documentedOnly: number;

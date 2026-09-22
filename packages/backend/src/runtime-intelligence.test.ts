@@ -139,6 +139,30 @@ describe('runtime intelligence', () => {
     expect(snapshot.runtime).toEqual({ name: 'node', version: 'v22.22.3', platform: 'linux', arch: 'x64' });
   });
 
+  it('omits acknowledged undocumented routes from drift and validation', () => {
+    const snapshot = buildRuntimeIntelligenceSnapshot({
+      spec: { openapi: '3.1.0', paths: { '/pets': { get: {} } } },
+      discovery: {
+        framework: 'express',
+        complete: true,
+        routes: [
+          { method: 'GET', path: '/pets' },
+          { method: 'GET', path: '/internal/health' },
+        ],
+      },
+      acknowledgedUndocumented: [{ method: 'GET', path: '/internal/health' }],
+    });
+    expect(snapshot.routes).toEqual([
+      { method: 'GET', path: '/internal/health' },
+      { method: 'GET', path: '/pets' },
+    ]);
+    expect(snapshot.runtimeOnly).toEqual([]);
+    expect(snapshot.summary).toEqual({ documented: 1, runtime: 1, matched: 1, runtimeOnly: 0, documentedOnly: 0 });
+    expect(snapshot.summary.matched + snapshot.summary.runtimeOnly).toBe(snapshot.summary.runtime);
+    expect(snapshot.validation.status).toBe('pass');
+    expect(snapshot.validation.findings).toEqual([]);
+  });
+
   it('feeds duplicate host registrations into contract validation', () => {
     const snapshot = buildRuntimeIntelligenceSnapshot({
       spec: { openapi: '3.1.0', paths: { '/pets/{petId}': { get: {} } } },

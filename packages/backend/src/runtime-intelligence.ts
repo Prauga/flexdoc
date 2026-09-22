@@ -43,7 +43,7 @@ export interface FlexDocRuntimeDiscovery {
 /** Aggregate route counts in a Runtime Intelligence snapshot. */
 export interface FlexDocRuntimeIntelligenceSummary {
   /** Number of documented OpenAPI operations. */ documented: number;
-  /** Number of runtime routes observed. */ runtime: number;
+  /** Runtime routes in the drift comparison. Equals `matched + runtimeOnly`. Acknowledged undocumented routes stay in `routes` and are excluded here. */ runtime: number;
   /** Number of wire-equivalent method/path matches between runtime and OpenAPI. */ matched: number;
   /** Number of runtime-only routes. */ runtimeOnly: number;
   /** Number of documented-only routes. */ documentedOnly: number;
@@ -74,6 +74,20 @@ const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'
  */
 export function runtimeIntelligenceEnabled(value: boolean | FlexDocRuntimeIntelligenceOptions | undefined): boolean {
   return value === true || (typeof value === 'object' && value?.enabled === true);
+}
+
+/**
+ * Normalize operations an operator has accepted as intentionally absent from OpenAPI.
+ * @param value Runtime Intelligence configuration from the host integration.
+ * @returns Routes omitted from undocumented findings, or an empty list when none are acknowledged.
+ */
+export function acknowledgedUndocumentedRoutes(value: boolean | FlexDocRuntimeIntelligenceOptions | undefined): FlexDocRuntimeRoute[] {
+  if (!value || typeof value !== 'object' || !Array.isArray(value.acknowledgedUndocumented)) return [];
+  return uniqueSorted(value.acknowledgedUndocumented.flatMap((entry) => {
+    if (!entry || typeof entry.method !== 'string' || typeof entry.path !== 'string') return [];
+    const route = normalizedRoute(entry.method, entry.path);
+    return route ? [route] : [];
+  }));
 }
 
 /**
@@ -324,6 +338,7 @@ export interface FlexDocRuntimeIntelligenceSnapshotInput {
   /** Safe backend listener metadata. */ server?: FlexDocRuntimeServerMetadata;
   /** Explicit environment metadata; Node's `NODE_ENV` fallback is used when omitted. */ environment?: FlexDocRuntimeEnvironmentMetadata;
   /** Explicit runtime metadata; current Node process metadata is used when omitted. */ runtime?: FlexDocRuntimeMetadata;
+  /** Runtime operations intentionally absent from OpenAPI. */ acknowledgedUndocumented?: FlexDocRuntimeRoute[];
 }
 
 /**
@@ -336,8 +351,9 @@ export function buildRuntimeIntelligenceSnapshot(input: FlexDocRuntimeIntelligen
   const runtimeRoutes = uniqueSorted(input.discovery.routes);
   const documentedKeys = new Set(documented.map(contractRouteKey));
   const runtimeKeys = new Set(runtimeRoutes.map(contractRouteKey));
+  const acknowledgedKeys = new Set((input.acknowledgedUndocumented || []).map(contractRouteKey));
   const matched = runtimeRoutes.filter((route) => documentedKeys.has(contractRouteKey(route))).length;
-  const runtimeOnly = runtimeRoutes.filter((route) => !documentedKeys.has(contractRouteKey(route)));
+  const runtimeOnly = runtimeRoutes.filter((route) => !documentedKeys.has(contractRouteKey(route)) && !acknowledgedKeys.has(contractRouteKey(route)));
   const documentedOnly = documented.filter((route) => !runtimeKeys.has(contractRouteKey(route)));
   const environment = input.environment || nodeEnvironmentMetadata();
   const validation = validateRuntimeContract({
@@ -345,6 +361,7 @@ export function buildRuntimeIntelligenceSnapshot(input: FlexDocRuntimeIntelligen
     runtimeRoutes,
     duplicateRuntimeRoutes: input.discovery.duplicateRoutes,
     discoveryComplete: input.discovery.complete,
+    acknowledgedUndocumented: input.acknowledgedUndocumented,
   });
 
   return {
@@ -360,7 +377,7 @@ export function buildRuntimeIntelligenceSnapshot(input: FlexDocRuntimeIntelligen
     documentedOnly,
     summary: {
       documented: documented.length,
-      runtime: runtimeRoutes.length,
+      runtime: matched + runtimeOnly.length,
       matched,
       runtimeOnly: runtimeOnly.length,
       documentedOnly: documentedOnly.length,

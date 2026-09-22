@@ -124,6 +124,6 @@ export type {
   FlexDocContractValidationSummary,
   ValidateRuntimeContractOptions,
 } from './contract-validation';
-export { buildRuntimeIntelligenceSnapshot, discoverExpressRoutes, discoverFastifyRoutes, discoverHonoRoutes, documentedOpenApiRoutes, nodeRuntimeMetadata, normalizeRuntimePath } from './runtime-intelligence';
+export { acknowledgedUndocumentedRoutes, buildRuntimeIntelligenceSnapshot, discoverExpressRoutes, discoverFastifyRoutes, discoverHonoRoutes, documentedOpenApiRoutes, nodeRuntimeMetadata, normalizeRuntimePath } from './runtime-intelligence';
 export type { FlexDocRuntimeDiscovery, FlexDocRuntimeDuplicateRoute, FlexDocRuntimeIntelligenceSnapshot, FlexDocRuntimeMetadata, FlexDocRuntimeRoute } from './runtime-intelligence';
 export type { HonoLikeApplication, HonoLikeContext } from './hono-adapter';

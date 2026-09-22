@@ -35,6 +35,8 @@ test('runtime panel remains accessible with a hidden topbar and behaves as a mod
   await expect.poll(() => page.evaluate(() => document.body.style.overflow)).toBe('hidden');
 
   await page.keyboard.press('Tab');
+  await expect(dialog.getByRole('button', { name: 'Open runtime route POST /internal/reindex' })).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(dialog.getByLabel('Close runtime intelligence panel')).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();

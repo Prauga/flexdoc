@@ -227,6 +227,7 @@ export interface FlexDocHostExecutionPublicOptions {
 /** Explicit Runtime Intelligence opt-in configuration. */
 export interface FlexDocRuntimeIntelligenceOptions {
   /** Enable runtime route discovery and drift metadata for this documentation mount. */ enabled: true;
+  /** Runtime operations that are intentionally absent from OpenAPI and must not be reported as undocumented. */ acknowledgedUndocumented?: Array<{ method: string; path: string }>;
 }
 
 /** Runtime Intelligence endpoint metadata safe to serialize to the renderer. */

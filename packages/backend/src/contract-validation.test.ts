@@ -76,6 +76,33 @@ describe('runtime contract validation', () => {
     })]);
   });
 
+  it('downgrades an undocumented route to a warning when discovery is partial', () => {
+    const result = validateRuntimeContract({
+      documentedRoutes: [{ method: 'GET', path: '/pets' }],
+      runtimeRoutes: [{ method: 'POST', path: '/internal/reindex' }],
+      discoveryComplete: false,
+    });
+    expect(result.status).toBe('warn');
+    expect(result.findings[0]).toEqual(expect.objectContaining({
+      code: 'runtime.operation-undocumented',
+      severity: 'warning',
+    }));
+  });
+
+  it('omits runtime operations the operator has acknowledged as undocumented', () => {
+    const result = validateRuntimeContract({
+      documentedRoutes: [{ method: 'GET', path: '/pets' }],
+      runtimeRoutes: [
+        { method: 'GET', path: '/pets' },
+        { method: 'GET', path: '/internal/health' },
+      ],
+      acknowledgedUndocumented: [{ method: 'GET', path: '/internal/health' }],
+      discoveryComplete: true,
+    });
+    expect(result.status).toBe('pass');
+    expect(result.findings).toEqual([]);
+  });
+
   it('reports duplicate host registrations that standalone OpenAPI tooling cannot observe', () => {
     const result = validateRuntimeContract({
       documentedRoutes: [{ method: 'GET', path: '/pets/{petId}' }],
