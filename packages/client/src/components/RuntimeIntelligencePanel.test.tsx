@@ -61,15 +61,16 @@ describe('RuntimeIntelligencePanel', () => {
     expect(screen.getByText('production')).toBeInTheDocument();
   });
 
-  it('opens documented findings but never treats undocumented runtime routes as spec operations', () => {
+  it('opens a documented finding and a runtime-only finding as different kinds of route', () => {
     const select = jest.fn();
     const close = jest.fn();
     render(<RuntimeIntelligencePanel open theme='light' loading={false} onClose={close} onEndpointSelect={select} snapshot={snapshot} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Open documented operation GET /missing' }));
     expect(select).toHaveBeenCalledWith('/missing', 'GET');
-    expect(close).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('button', { name: /POST \/internal\/reindex/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Open runtime route POST /internal/reindex' }));
+    expect(select).toHaveBeenCalledWith('/internal/reindex', 'POST');
+    expect(close).toHaveBeenCalledTimes(2);
   });
 
   it('opens method-mismatch findings using an expected documented HTTP method', () => {

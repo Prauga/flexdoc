@@ -67,11 +67,11 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
   const [copiedLink, setCopiedLink] = useState(false);
   const codeTabsId = useId().replace(/:/g, '');
   const codeTabRefs = useRef<Partial<Record<CodeSampleLanguage, HTMLButtonElement | null>>>({});
-  const initialBuiltRequest = useMemo(() => buildRequest(spec, path, method, initialRequestValues(spec, path, method)), [spec, path, method]);
-  const [sampleRequest, setSampleRequest] = useState(initialBuiltRequest);
   const pathItem = spec.paths[path];
   const operation = pathItem?.[method.toLowerCase() as keyof typeof pathItem] as Operation | undefined;
-  const parameters = useMemo(() => parametersFor(spec, path, method), [spec, path, method]);
+  const initialBuiltRequest = useMemo(() => operation ? buildRequest(spec, path, method, initialRequestValues(spec, path, method)) : undefined, [operation, spec, path, method]);
+  const [sampleRequest, setSampleRequest] = useState(initialBuiltRequest);
+  const parameters = useMemo(() => operation ? parametersFor(spec, path, method) : [], [operation, spec, path, method]);
   const messages = options.messages;
 
   useEffect(() => {
@@ -79,7 +79,18 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
     requestAnimationFrame(() => document.getElementById('tryIt-heading')?.scrollIntoView({ block: 'start' }));
   }, [deepLink.tryIt, method, path]);
 
-  if (!operation) return <div className='p-6'>Operation not found.</div>;
+  if (!operation || !sampleRequest) {
+    const registered = runtimeSnapshot?.runtimeOnly?.some((route) => route.path === path && route.method.toUpperCase() === method.toUpperCase())
+      || runtimeSnapshot?.validation?.findings.some((finding) => finding.code === 'runtime.operation-undocumented' && finding.location.path === path && finding.location.method?.toUpperCase() === method.toUpperCase());
+    if (!registered) return <div className='p-6'>Operation not found.</div>;
+    return <div className='p-6'>
+      <div className='mb-4 flex flex-wrap items-center gap-3'>
+        <span className='rounded-md bg-blue-600 px-3 py-1 text-sm font-bold text-white'>{method.toUpperCase()}</span>
+        <code className='break-all text-lg font-semibold'>{path}</code>
+      </div>
+      <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>The running service registers this operation. OpenAPI does not document it.</p>
+    </div>;
+  }
 
   const muted = theme === 'dark' ? 'text-gray-400' : 'text-gray-600';
   const card = theme === 'dark' ? 'border-gray-700 bg-gray-800/60' : 'border-gray-200 bg-white';
