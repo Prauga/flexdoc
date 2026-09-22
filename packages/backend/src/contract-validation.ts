@@ -36,6 +36,7 @@ export interface FlexDocContractValidationFinding {
   /** Human-readable explanation suitable for UI and CI output. */ message: string;
   /** Concise expected contract/runtime state. */ expected?: string | string[];
   /** Concise state actually observed from the running backend. */ observed?: string | string[];
+  /** Operator policy applied to this finding. Absence means the finding is still actionable. */ disposition?: 'acknowledged';
 }
 
 /** Aggregate finding counts for one contract-validation pass. */
@@ -63,7 +64,7 @@ export interface ValidateRuntimeContractOptions {
   /** Normalized operations discovered from the running backend. */ runtimeRoutes: FlexDocContractRoute[];
   /** Runtime operations that were registered more than once by the host framework. */ duplicateRuntimeRoutes?: FlexDocContractDuplicateRuntimeRoute[];
   /** Whether route discovery is believed to cover the complete running application. */ discoveryComplete: boolean;
-  /** Runtime operations intentionally absent from OpenAPI. They are not reported as undocumented. */ acknowledgedUndocumented?: FlexDocContractRoute[];
+  /** Runtime operations the operator has accepted as intentionally absent from OpenAPI. They remain registered and are reported as acknowledged info. */ acknowledgedUndocumented?: FlexDocContractRoute[];
 }
 
 function routeShape(path: string): string {
@@ -147,15 +148,17 @@ export function validateRuntimeContract(options: ValidateRuntimeContractOptions)
   for (const route of options.runtimeRoutes) {
     const shape = routeShape(route.path);
     if (methodMismatchShapes.has(shape)) continue;
-    if (documentedKeys.has(exactShapeKey(route)) || acknowledgedKeys.has(exactShapeKey(route))) continue;
+    if (documentedKeys.has(exactShapeKey(route))) continue;
+    const acknowledged = acknowledgedKeys.has(exactShapeKey(route));
     findings.push({
       id: findingId('runtime.operation-undocumented', route.path, route.method),
       code: 'runtime.operation-undocumented',
-      severity: options.discoveryComplete ? 'error' : 'warning',
+      severity: acknowledged ? 'info' : (options.discoveryComplete ? 'error' : 'warning'),
+      ...(acknowledged ? { disposition: 'acknowledged' as const } : {}),
       location: { kind: 'operation', method: route.method.toUpperCase(), path: route.path },
       message: `Runtime implements ${route.method.toUpperCase()} ${route.path}, but OpenAPI does not document that operation.`,
       expected: 'Operation is represented in OpenAPI',
-      observed: 'Operation exists only in the running backend',
+      observed: acknowledged ? 'Operation exists only in the running backend and is acknowledged' : 'Operation exists only in the running backend',
     });
   }
 

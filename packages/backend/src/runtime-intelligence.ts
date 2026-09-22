@@ -43,7 +43,7 @@ export interface FlexDocRuntimeDiscovery {
 /** Aggregate route counts in a Runtime Intelligence snapshot. */
 export interface FlexDocRuntimeIntelligenceSummary {
   /** Number of documented OpenAPI operations. */ documented: number;
-  /** Runtime routes in the drift comparison. Equals `matched + runtimeOnly`. Acknowledged undocumented routes stay in `routes` and are excluded here. */ runtime: number;
+  /** Number of routes the framework registered, including acknowledged undocumented routes. */ runtime: number;
   /** Number of wire-equivalent method/path matches between runtime and OpenAPI. */ matched: number;
   /** Number of runtime-only routes. */ runtimeOnly: number;
   /** Number of documented-only routes. */ documentedOnly: number;
@@ -351,9 +351,8 @@ export function buildRuntimeIntelligenceSnapshot(input: FlexDocRuntimeIntelligen
   const runtimeRoutes = uniqueSorted(input.discovery.routes);
   const documentedKeys = new Set(documented.map(contractRouteKey));
   const runtimeKeys = new Set(runtimeRoutes.map(contractRouteKey));
-  const acknowledgedKeys = new Set((input.acknowledgedUndocumented || []).map(contractRouteKey));
   const matched = runtimeRoutes.filter((route) => documentedKeys.has(contractRouteKey(route))).length;
-  const runtimeOnly = runtimeRoutes.filter((route) => !documentedKeys.has(contractRouteKey(route)) && !acknowledgedKeys.has(contractRouteKey(route)));
+  const runtimeOnly = runtimeRoutes.filter((route) => !documentedKeys.has(contractRouteKey(route)));
   const documentedOnly = documented.filter((route) => !runtimeKeys.has(contractRouteKey(route)));
   const environment = input.environment || nodeEnvironmentMetadata();
   const validation = validateRuntimeContract({
@@ -377,7 +376,7 @@ export function buildRuntimeIntelligenceSnapshot(input: FlexDocRuntimeIntelligen
     documentedOnly,
     summary: {
       documented: documented.length,
-      runtime: matched + runtimeOnly.length,
+      runtime: runtimeRoutes.length,
       matched,
       runtimeOnly: runtimeOnly.length,
       documentedOnly: documentedOnly.length,

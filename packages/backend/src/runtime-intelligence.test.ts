@@ -156,11 +156,13 @@ describe('runtime intelligence', () => {
       { method: 'GET', path: '/internal/health' },
       { method: 'GET', path: '/pets' },
     ]);
-    expect(snapshot.runtimeOnly).toEqual([]);
-    expect(snapshot.summary).toEqual({ documented: 1, runtime: 1, matched: 1, runtimeOnly: 0, documentedOnly: 0 });
-    expect(snapshot.summary.matched + snapshot.summary.runtimeOnly).toBe(snapshot.summary.runtime);
+    expect(snapshot.runtimeOnly).toEqual([{ method: 'GET', path: '/internal/health' }]);
+    expect(snapshot.summary).toEqual({ documented: 1, runtime: 2, matched: 1, runtimeOnly: 1, documentedOnly: 0 });
     expect(snapshot.validation.status).toBe('pass');
-    expect(snapshot.validation.findings).toEqual([]);
+    expect(snapshot.validation.findings[0]).toEqual(expect.objectContaining({
+      disposition: 'acknowledged',
+      severity: 'info',
+    }));
   });
 
   it('feeds duplicate host registrations into contract validation', () => {

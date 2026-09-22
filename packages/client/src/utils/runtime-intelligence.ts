@@ -90,6 +90,10 @@ function validationFinding(value: unknown): FlexDocContractValidationFinding {
   if (expected !== undefined) finding.expected = expected;
   const observed = optionalStringOrStrings(value, 'observed');
   if (observed !== undefined) finding.observed = observed;
+  if (value.disposition !== undefined) {
+    if (value.disposition !== 'acknowledged') invalidSnapshot();
+    finding.disposition = 'acknowledged';
+  }
   return finding;
 }
 

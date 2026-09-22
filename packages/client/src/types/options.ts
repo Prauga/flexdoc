@@ -182,6 +182,10 @@ export interface FlexDocMessages {
   /** Status text shown when 3.1 contract validation has no findings. */ contractValidationPass?: string;
   /** Label preceding expected contract state in a finding. */ validationExpected?: string;
   /** Label preceding observed runtime state in a finding. */ validationObserved?: string;
+  /** Label for a finding the operator has accepted. */ acknowledgedFinding?: string;
+  /** Label for the contract side of a runtime-only route. */ contractEvidence?: string;
+  /** States that OpenAPI does not declare the selected operation. */ contractNotDeclared?: string;
+  /** Label for the runtime side of a runtime-only route. */ runtimeEvidence?: string;
   /** Advisory heading for HTTP methods with unusual request bodies. */ unusualBodyAdvisory?: string;
   /** Copy explaining that API-host execution can preserve an unusual body. */ unusualBodyHostExecution?: string;
   /** Copy warning that browser transport may reject an unusual body. */ unusualBodyBrowserWarning?: string;
@@ -242,7 +246,7 @@ export interface FlexDocRuntimeEnvironmentMetadata {
 /** Aggregate route counts in a Runtime Intelligence snapshot. */
 export interface FlexDocRuntimeIntelligenceSummary {
   /** Number of HTTP operations present in the OpenAPI document. */ documented: number;
-  /** Runtime routes in the drift comparison (`matched + runtimeOnly`). Acknowledged undocumented routes stay in `routes` and are excluded here. */ runtime: number;
+  /** Number of routes discovered in the running backend, including acknowledged undocumented routes. */ runtime: number;
   /** Number of routes observed in both OpenAPI and the running backend. */ matched: number;
   /** Number of runtime routes missing from OpenAPI. */ runtimeOnly: number;
   /** Number of OpenAPI operations not observed at runtime. */ documentedOnly: number;
@@ -274,6 +278,7 @@ export interface FlexDocContractValidationFinding {
   /** Human-readable explanation. */ message: string;
   /** Concise expected contract/runtime state. */ expected?: string | string[];
   /** Concise state observed in the running backend. */ observed?: string | string[];
+  /** Operator policy applied to this finding. Absence means the finding is still actionable. */ disposition?: 'acknowledged';
 }
 
 /** Aggregate finding counts for one runtime contract-validation pass. */

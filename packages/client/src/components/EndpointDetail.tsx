@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Check, ChevronDown, ChevronRight, Link2, Lock, Unlock } from 'lucide-react';
+import { AlertCircle, Check, ChevronDown, ChevronRight, ExternalLink, Link2, Lock, Unlock } from 'lucide-react';
 import { OpenAPISpec, Operation, RequestBody, Response } from '../types/openapi';
 import { ExpandSection, FlexDocRendererOptions, FlexDocRuntimeIntelligenceSnapshot } from '../types/options';
 import { resolveExpandSections } from '../utils/renderer-preferences';
@@ -12,6 +12,7 @@ import { SchemaView } from './SchemaView';
 import { TryItApiClientWorkspace } from './TryItApiClientWorkspace';
 import type { TryItApiClientHandoff } from './TryItApiClientWorkspace';
 import { operationHashId } from '../utils/operation-id';
+import type { HttpRequestDraft } from '../utils/http-client';
 
 interface EndpointDetailProps {
   spec: OpenAPISpec;
@@ -31,6 +32,26 @@ interface ViewerDeepLinkState {
 }
 
 const DEFAULT_LANGUAGES: CodeSampleLanguage[] = ['curl', 'javascript', 'python', 'go', 'java'];
+
+function httpOrigin(value: string | undefined): string {
+  if (!value) return '';
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.origin : '';
+  } catch {
+    return '';
+  }
+}
+
+function runtimeRouteRequest(method: string, path: string, origin: string, preferHost: boolean): HttpRequestDraft {
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  return {
+    method: method.toUpperCase(),
+    url: origin ? `${origin}${suffix}` : suffix,
+    auth: { type: 'none' },
+    ...(preferHost ? { hostExecution: { preferHostExecution: true } } : {}),
+  };
+}
 
 
 function readViewerDeepLinkState(): ViewerDeepLinkState {
@@ -91,12 +112,32 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
     const registered = runtimeSnapshot?.runtimeOnly?.some((route) => route.path === path && route.method.toUpperCase() === method.toUpperCase())
       || runtimeSnapshot?.validation?.findings.some((finding) => finding.code === 'runtime.operation-undocumented' && finding.location.path === path && finding.location.method?.toUpperCase() === method.toUpperCase());
     if (!registered) return <div className='p-6'>{messages?.operationNotFound || 'Operation not found.'}</div>;
+    const origin = httpOrigin(runtimeSnapshot?.serverOrigin);
+    const host = options.tryIt?.hostExecution;
+    const preferHost = host?.available === true && host.preferHostExecution !== false;
+    const openRuntimeRequest = () => onOpenInApiClient?.({
+      request: runtimeRouteRequest(method, path, origin, preferHost),
+      serverUrl: origin || undefined,
+      scripts: { preRequest: '', tests: '' },
+      requestTab: 'params',
+      scriptTab: 'pre-request',
+    });
     return <div className='p-6'>
       <div className='mb-4 flex flex-wrap items-center gap-3'>
         <span className='rounded-md bg-blue-600 px-3 py-1 text-sm font-bold text-white'>{method.toUpperCase()}</span>
         <code className='break-all text-lg font-semibold'>{path}</code>
       </div>
-      <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>{messages?.runtimeRouteUndocumented || 'The running service registers this operation. OpenAPI does not document it.'}</p>
+      <dl className={`mt-4 space-y-3 text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
+        <div>
+          <dt className='font-semibold'>{messages?.contractEvidence || 'Contract'}</dt>
+          <dd>{messages?.contractNotDeclared || 'OpenAPI does not declare this operation.'}</dd>
+        </div>
+        <div>
+          <dt className='font-semibold'>{messages?.runtimeEvidence || 'Runtime'}</dt>
+          <dd>{messages?.runtimeRouteUndocumented || `${method.toUpperCase()} ${path} is registered by the running service.`}</dd>
+        </div>
+      </dl>
+      {onOpenInApiClient && <button type='button' className='mt-4 inline-flex min-h-10 items-center gap-2 rounded-md border px-3 py-1.5 text-sm' onClick={openRuntimeRequest}><ExternalLink className='h-4 w-4' />{messages?.openApiClient || 'Open in API Client'}</button>}
     </div>;
   }
   if (!sampleRequest) return <div className='p-6'>{messages?.operationNotFound || 'Operation not found.'}</div>;

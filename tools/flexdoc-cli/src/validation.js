@@ -73,6 +73,10 @@ function parseFinding(value) {
   if (expected !== undefined) finding.expected = expected;
   const observed = optionalStringOrStrings(value, 'observed');
   if (observed !== undefined) finding.observed = observed;
+  if (value.disposition !== undefined) {
+    if (value.disposition !== 'acknowledged') invalidValidation('unsupported finding disposition');
+    finding.disposition = 'acknowledged';
+  }
   return finding;
 }
 
@@ -225,7 +229,8 @@ export function formatContractValidationResult(result) {
   ];
   for (const finding of result.findings) {
     const operation = `${finding.location.method ? `${finding.location.method} ` : ''}${finding.location.path}`;
-    lines.push('', `[${finding.severity.toUpperCase()}] ${finding.code} · ${operation}`, finding.message);
+    const disposition = finding.disposition === 'acknowledged' ? ' · acknowledged' : '';
+    lines.push('', `[${finding.severity.toUpperCase()}] ${finding.code} · ${operation}${disposition}`, finding.message);
     if (finding.expected !== undefined) lines.push(`Expected: ${displayValue(finding.expected)}`);
     if (finding.observed !== undefined) lines.push(`Observed: ${displayValue(finding.observed)}`);
   }

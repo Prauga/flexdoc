@@ -157,7 +157,7 @@ function ValidationFindings({ result, theme, messages, onSelect }: { result: Fle
       ? (messages?.openRuntimeRoute || 'Open runtime route')
       : (messages?.openDocumentedOperation || 'Open documented operation');
     const content = <>
-      <div className='flex gap-2 text-sm'><span className='w-14 shrink-0 font-semibold'>{finding.severity.toUpperCase()}</span><code className='break-all'>{finding.code}</code></div>
+      <div className='flex gap-2 text-sm'><span className='w-14 shrink-0 font-semibold'>{finding.severity.toUpperCase()}</span><code className='break-all'>{finding.code}</code>{finding.disposition === 'acknowledged' && <span>{messages?.acknowledgedFinding || 'acknowledged'}</span>}</div>
       <div className={`mt-1 text-xs ${muted}`}>{finding.message}</div>
       {(finding.expected !== undefined || finding.observed !== undefined) && <div className={`mt-1 text-xs ${muted}`}>
         {finding.expected !== undefined && <div>{messages?.validationExpected || 'Expected'}: {validationValue(finding.expected)}</div>}
