@@ -27,4 +27,12 @@ describe('server URL helpers', () => {
     const localhost = replaceRequestServer(canary, 'https://spot-canary.example.test/v1', 'http://localhost:8080');
     expect(localhost).toBe('http://localhost:8080/pets/42?expand=owner#details');
   });
+
+  it('does not repeat a base path already present in a runtime path rooted at an origin', () => {
+    expect(replaceRequestServer(
+      'https://api.example.test/v1/internal/reindex',
+      'https://api.example.test',
+      'https://spec.example.test/v1',
+    )).toBe('https://spec.example.test/v1/internal/reindex');
+  });
 });
