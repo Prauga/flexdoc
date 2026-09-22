@@ -21,7 +21,7 @@
   </p>
 </div>
 
-FlexDoc runs inside your backend, compares the routes your framework actually registered with your OpenAPI contract, and tells you where they disagree. When it finds an undocumented runtime route, you can open it and reproduce it directly in the built-in API Client.
+FlexDoc runs inside the backend and reads the routes the framework actually registered. **On Node today,** it compares that runtime surface with OpenAPI, fails `flexdoc validate` on unacknowledged disagreement, and lets you open an undocumented runtime route directly in the built-in API Client.
 
 It also provides self-hosted API documentation, exploration, and execution. No FlexDoc account or control plane required.
 
@@ -159,6 +159,6 @@ FlexDoc follows the [Contributor Covenant](./CODE_OF_CONDUCT.md). Bug reports an
 
 ## License
 
-FlexDoc is licensed under **Apache-2.0**. See [LICENSE](./LICENSE).
+FlexDoc is licensed under **Apache-2.0**. See [LICENSE](./LICENSE). Copyright 2025 Vishnu R is recorded in [NOTICE](./NOTICE).
 
 The renderer, API Client, headless runner, CLI and every framework adapter are permissively licensed and stay that way — you can embed them in a proprietary application without obligation. Any future hosted or fleet control-plane product is separate code and will carry its own license; nothing in this repository depends on it.
