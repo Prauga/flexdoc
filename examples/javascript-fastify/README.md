@@ -11,4 +11,4 @@ npm start
 
 Open `http://localhost:3000/docs`.
 
-The standalone FlexDoc dependency is pinned to `3.3.0`, the current published release, for reproducible installs. Repository CI substitutes the backend package built from the same commit when validating source changes.
+The standalone FlexDoc dependency is pinned to published `@prauga/flexdoc-backend` `3.5.0`. Repository CI substitutes the backend package built from the same commit when validating source changes.

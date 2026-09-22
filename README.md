@@ -8,8 +8,7 @@
     <img src="https://flexdoc.prauga.com/brand/flexdoc/wordmark-light.svg" alt="FlexDoc" width="300" />
   </picture>
 
-  <p><strong>Backend-native OpenAPI documentation, API exploration, and execution.</strong></p>
-  <p>One canonical renderer. Thin native adapters. No FlexDoc control plane required.</p>
+  <p><strong>Your OpenAPI says one thing. Your backend may be running another.</strong></p>
 
   <p>
     <a href="https://github.com/Prauga/flexdoc/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Prauga/flexdoc/actions/workflows/ci.yml/badge.svg?branch=main" /></a>
@@ -22,9 +21,43 @@
   </p>
 </div>
 
-FlexDoc is Prauga's open-source, self-hosted OpenAPI documentation renderer and API explorer. It ships one canonical browser renderer and thin ecosystem adapters so supported backends expose the same documentation, Try It, API Client, Runtime Intelligence, and backend-produced Contract Validation behavior where the host can genuinely observe it.
+FlexDoc runs inside the backend and reads the routes the framework actually registered. **On Node today,** it compares that runtime surface with OpenAPI, fails `flexdoc validate` on unacknowledged disagreement, and lets you open an undocumented runtime route directly in the built-in API Client.
 
-No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is required.
+It also provides self-hosted API documentation, exploration, and execution. No FlexDoc account or control plane required.
+
+Against the Express example, after its demo login:
+
+```text
+$ npx @prauga/flexdoc-cli validate \
+    http://localhost:3000/docs/__flexdoc/runtime \
+    --header 'Cookie: flexdoc-example-session=demo'
+
+FlexDoc contract validation: FAIL
+1 error, 0 warnings, 1 info · discovery complete
+
+[INFO] runtime.operation-undocumented · GET /internal/health · acknowledged
+Runtime implements GET /internal/health, but OpenAPI does not document that operation.
+
+[ERROR] runtime.operation-undocumented · POST /internal/reindex
+Runtime implements POST /internal/reindex, but OpenAPI does not document that operation.
+```
+
+```text
+Open FlexDoc
+    ↓
+Runtime
+    ↓
+POST /internal/reindex
+    ↓
+Contract: OpenAPI does not declare this operation
+Runtime: POST /internal/reindex is registered
+    ↓
+Open in API Client
+```
+
+**[Try the disagreement loop with Express](./examples/javascript-express).** That example is the evaluation path. `GET /internal/health` is runtime-only and acknowledged, so it does not fail validation. `POST /internal/reindex` is runtime-only and not acknowledged, so the check fails and the finding opens the route.
+
+Once FlexDoc finds the disagreement, the same screen already has the documentation and API Client you need to investigate it. The package matrix and framework list below are the rest of the surface.
 
 ## Published packages
 
@@ -57,7 +90,7 @@ No FlexDoc account, hosted dashboard, telemetry service, or runtime CDN is requi
 - **Rust:** Axum, Actix Web
 - **Elixir:** Plug, Phoenix
 
-The backend-coverage program shipped in 2.3.0 and the coordinated 2.x line culminated in published **2.9.9**. Stable **3.0.0** added backend-native Runtime Intelligence, published **3.1.0** added operation-level Contract Validation on Node Express/Fastify/Hono/NestJS with matching renderer and CLI consumption, and **3.2.0** took the canonical API Client request/script/collection model into headless CLI/CI execution while reusing the existing advertised host-execution contract. **3.3.0** expands hardened native API-host execution across the supported backend ecosystems and makes an available API host the default transport for ordinary interactive API Client sends. See [`docs/releases/3.3.md`](./docs/releases/3.3.md) for the security and operational release notes and [`CHANGELOG.md`](./CHANGELOG.md) for published product releases.
+**3.5.0** is the current JavaScript release. On Node, a route the framework registered and OpenAPI does not document fails `flexdoc validate` when discovery is complete, and that finding opens in the API Client. See [`docs/releases/3.5.0.md`](./docs/releases/3.5.0.md). Earlier releases added Runtime Intelligence (**3.0.0**), Node contract validation (**3.1.0**), the headless Runner (**3.2.0**), and native API-host execution (**3.3.0**). [`CHANGELOG.md`](./CHANGELOG.md) records the published line.
 
 ## CLI
 
@@ -72,7 +105,7 @@ npx @prauga/flexdoc-cli validate http://127.0.0.1:3000/docs/__flexdoc/runtime
 node tools/flexdoc-cli/bin/flexdoc.js run ./pets.flexdoc.json --json
 ```
 
-`validate` consumes the installed Node backend's structured 3.1 validation result rather than reimplementing contract comparison. It supports JSON output, custom headers, bearer/basic authentication for protected Runtime Intelligence endpoints, and opt-in stricter CI failure policies such as `--fail-on warning`. By default it exits `1` only when the backend reports `fail` (or the endpoint/payload cannot be consumed).
+`validate` reads the Node backend's validation result. When discovery is complete, an undocumented runtime route is an error, the output names the method and path, and the command exits `1`. An acknowledged route stays in that output as info and does not fail the check. Partial discovery keeps an unacknowledged undocumented route a warning. The command also accepts JSON output, custom headers, and bearer or basic authentication for a protected runtime endpoint. `--fail-on warning` or `--fail-on info` makes the exit stricter.
 
 `run` consumes a versioned artifact exported from the canonical API Client workspace and delegates to the same collection/request executor and `flex.*` script/test runtime. Ordinary reusable/headless requests execute directly from Node unless host semantics are explicitly selected or required. See [`docs/headless-runner.md`](./docs/headless-runner.md) for the artifact, security, reporting, and cancellation contract.
 
@@ -97,7 +130,7 @@ node tools/flexdoc-cli/bin/flexdoc.js run ./pets.flexdoc.json --json
 | Hex | `prauga_flexdoc` | `0.5.0` |
 | Go | `github.com/prauga/flexdoc/adapters/go` | `0.6.0` |
 
-Ecosystem package versions are intentionally independent. FlexDoc 3.3.0 is the coordinated product/source release; native adapters retain their established ecosystem semver histories. Renderer contract v1 remains the cross-language compatibility boundary.
+Ecosystem package versions are intentionally independent. Client, backend, and CLI **3.5.0** / **0.8.0** publish the Node disagreement loop. Native adapters keep their own version lines. Renderer contract v1 remains the cross-language compatibility boundary.
 
 > The package table reflects the versions encoded by the current source commit. Release-preparation commits update these source versions only when the matching release is ready; source version numbers alone do not mean an artifact has been published.
 
@@ -126,6 +159,6 @@ FlexDoc follows the [Contributor Covenant](./CODE_OF_CONDUCT.md). Bug reports an
 
 ## License
 
-FlexDoc is licensed under **Apache-2.0**. See [LICENSE](./LICENSE).
+FlexDoc is licensed under **Apache-2.0**. See [LICENSE](./LICENSE). Copyright 2025 Vishnu R is recorded in [NOTICE](./NOTICE).
 
 The renderer, API Client, headless runner, CLI and every framework adapter are permissively licensed and stay that way — you can embed them in a proprietary application without obligation. Any future hosted or fleet control-plane product is separate code and will carry its own license; nothing in this repository depends on it.
