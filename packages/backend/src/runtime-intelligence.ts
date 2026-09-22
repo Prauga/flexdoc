@@ -77,6 +77,20 @@ export function runtimeIntelligenceEnabled(value: boolean | FlexDocRuntimeIntell
 }
 
 /**
+ * Normalize operations an operator has accepted as intentionally absent from OpenAPI.
+ * @param value Runtime Intelligence configuration from the host integration.
+ * @returns Routes omitted from undocumented findings, or an empty list when none are acknowledged.
+ */
+export function acknowledgedUndocumentedRoutes(value: boolean | FlexDocRuntimeIntelligenceOptions | undefined): FlexDocRuntimeRoute[] {
+  if (!value || typeof value !== 'object' || !Array.isArray(value.acknowledgedUndocumented)) return [];
+  return uniqueSorted(value.acknowledgedUndocumented.flatMap((entry) => {
+    if (!entry || typeof entry.method !== 'string' || typeof entry.path !== 'string') return [];
+    const route = normalizedRoute(entry.method, entry.path);
+    return route ? [route] : [];
+  }));
+}
+
+/**
  * Normalize a framework route path for Runtime Intelligence comparisons.
  * @param value Framework route path or template.
  * @returns Leading-slash path with Express-style parameters converted to `{name}`, duplicate slashes removed, and trailing slash normalized.
@@ -324,6 +338,7 @@ export interface FlexDocRuntimeIntelligenceSnapshotInput {
   /** Safe backend listener metadata. */ server?: FlexDocRuntimeServerMetadata;
   /** Explicit environment metadata; Node's `NODE_ENV` fallback is used when omitted. */ environment?: FlexDocRuntimeEnvironmentMetadata;
   /** Explicit runtime metadata; current Node process metadata is used when omitted. */ runtime?: FlexDocRuntimeMetadata;
+  /** Runtime operations intentionally absent from OpenAPI. */ acknowledgedUndocumented?: FlexDocRuntimeRoute[];
 }
 
 /**
@@ -336,8 +351,9 @@ export function buildRuntimeIntelligenceSnapshot(input: FlexDocRuntimeIntelligen
   const runtimeRoutes = uniqueSorted(input.discovery.routes);
   const documentedKeys = new Set(documented.map(contractRouteKey));
   const runtimeKeys = new Set(runtimeRoutes.map(contractRouteKey));
+  const acknowledgedKeys = new Set((input.acknowledgedUndocumented || []).map(contractRouteKey));
   const matched = runtimeRoutes.filter((route) => documentedKeys.has(contractRouteKey(route))).length;
-  const runtimeOnly = runtimeRoutes.filter((route) => !documentedKeys.has(contractRouteKey(route)));
+  const runtimeOnly = runtimeRoutes.filter((route) => !documentedKeys.has(contractRouteKey(route)) && !acknowledgedKeys.has(contractRouteKey(route)));
   const documentedOnly = documented.filter((route) => !runtimeKeys.has(contractRouteKey(route)));
   const environment = input.environment || nodeEnvironmentMetadata();
   const validation = validateRuntimeContract({
@@ -345,6 +361,7 @@ export function buildRuntimeIntelligenceSnapshot(input: FlexDocRuntimeIntelligen
     runtimeRoutes,
     duplicateRuntimeRoutes: input.discovery.duplicateRoutes,
     discoveryComplete: input.discovery.complete,
+    acknowledgedUndocumented: input.acknowledgedUndocumented,
   });
 
   return {

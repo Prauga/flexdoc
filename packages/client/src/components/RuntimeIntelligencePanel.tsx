@@ -153,7 +153,9 @@ function ValidationFindings({ result, theme, messages, onSelect }: { result: Fle
     const documentedFinding = finding.code === 'runtime.operation-unobserved' || finding.code === 'runtime.method-mismatch';
     const runtimeOnlyFinding = finding.code === 'runtime.operation-undocumented';
     const canSelect = Boolean(onSelect && finding.location.method && (documentedFinding || runtimeOnlyFinding));
-    const openLabel = runtimeOnlyFinding ? 'Open runtime route' : (messages?.openRuntimeRoute || 'Open documented operation');
+    const openLabel = runtimeOnlyFinding
+      ? (messages?.openRuntimeRoute || 'Open runtime route')
+      : (messages?.openDocumentedOperation || 'Open documented operation');
     const content = <>
       <div className='flex gap-2 text-sm'><span className='w-14 shrink-0 font-semibold'>{finding.severity.toUpperCase()}</span><code className='break-all'>{finding.code}</code></div>
       <div className={`mt-1 text-xs ${muted}`}>{finding.message}</div>

@@ -7,7 +7,7 @@ import { generateFlexDocHTML } from './template';
 import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
 import { hostExecutionRequestOrigin, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 import { createCachedFlexDocPage, matchesFlexDocEtag } from './page-cache';
-import { buildRuntimeIntelligenceSnapshot, discoverFastifyRoutes, runtimeIntelligenceEnabled } from './runtime-intelligence';
+import { acknowledgedUndocumentedRoutes, buildRuntimeIntelligenceSnapshot, discoverFastifyRoutes, runtimeIntelligenceEnabled } from './runtime-intelligence';
 
 /** Minimal Express application surface required by `setupExpressFlexDoc`. */
 export interface ExpressLikeApplication {
@@ -177,6 +177,7 @@ function setupFastifyFlexDocInternal(
       const snapshot = buildRuntimeIntelligenceSnapshot({
         spec: await resolvedSpec(),
         discovery: await discoverFastifyRoutes(app, normalizedPath),
+        acknowledgedUndocumented: acknowledgedUndocumentedRoutes(options.options?.runtimeIntelligence),
         serverOrigin,
       });
       return reply

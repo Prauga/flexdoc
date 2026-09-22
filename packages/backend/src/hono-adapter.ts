@@ -5,7 +5,7 @@ import { generateFlexDocHTML } from './template';
 import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
 import { hostExecutionRequestOrigin, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 import { createCachedFlexDocPage, matchesFlexDocEtag } from './page-cache';
-import { buildRuntimeIntelligenceSnapshot, discoverHonoRoutes, runtimeIntelligenceEnabled } from './runtime-intelligence';
+import { acknowledgedUndocumentedRoutes, buildRuntimeIntelligenceSnapshot, discoverHonoRoutes, runtimeIntelligenceEnabled } from './runtime-intelligence';
 
 /** Minimal Hono request surface required by FlexDoc's adapter. */
 export interface HonoLikeRequest {
@@ -117,6 +117,7 @@ export function setupHonoFlexDoc(
       const snapshot = buildRuntimeIntelligenceSnapshot({
         spec: await resolvedSpec(),
         discovery: discoverHonoRoutes(app, base),
+        acknowledgedUndocumented: acknowledgedUndocumentedRoutes(options.options?.runtimeIntelligence),
         serverOrigin,
       });
       return context.body(JSON.stringify(snapshot), 200, {

@@ -7,7 +7,7 @@ import * as https from 'https';
 import { createHostExecutionState, publicHostExecutionOptions } from './host-execution';
 import { hostExecutionRequestOrigin, readNodeRequestBody, runHostCookiesRoute, runHostExecutionRoute } from './host-execution-route';
 import { createCachedFlexDocPage, matchesFlexDocEtag } from './page-cache';
-import { buildRuntimeIntelligenceSnapshot, discoverExpressRoutes, runtimeIntelligenceEnabled } from './runtime-intelligence';
+import { acknowledgedUndocumentedRoutes, buildRuntimeIntelligenceSnapshot, discoverExpressRoutes, runtimeIntelligenceEnabled } from './runtime-intelligence';
 
 interface AppWithUse {
   use: (
@@ -174,6 +174,7 @@ export function setupFlexDoc(
       const snapshot = buildRuntimeIntelligenceSnapshot({
         spec: await getSpec(),
         discovery: discoverExpressRoutes(app, normalizedPath),
+        acknowledgedUndocumented: acknowledgedUndocumentedRoutes(flexDocOptions?.runtimeIntelligence),
         serverOrigin,
         ...(localPort ? { server: { localPort } } : {}),
       });
