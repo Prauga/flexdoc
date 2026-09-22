@@ -33,41 +33,41 @@ describe('EndpointDetail runtime-only routes', () => {
     render(<EndpointDetail spec={spec} path='/internal/reindex' method='POST' runtimeSnapshot={snapshot} />);
     expect(screen.getByText('POST')).toBeInTheDocument();
     expect(screen.getByText('/internal/reindex')).toBeInTheDocument();
-    expect(screen.getByText('The running service registers this operation. OpenAPI does not document it.')).toBeInTheDocument();
+    expect(screen.getByText('Contract')).toBeInTheDocument();
+    expect(screen.getByText('OpenAPI does not declare this operation.')).toBeInTheDocument();
+    expect(screen.getByText('Runtime')).toBeInTheDocument();
+    expect(screen.getByText('POST /internal/reindex is registered by the running service.')).toBeInTheDocument();
   });
 
-  it('joins the runtime path to the registering origin, not to a server base path', () => {
+  it('joins the runtime path only to the origin that registered it', () => {
     const open = jest.fn();
-    const specWithBase = {
-      ...spec,
-      servers: [{ url: 'https://spec.example.test/v1' }],
-    };
     render(<EndpointDetail
-      spec={specWithBase}
-      path='/v1/internal/reindex'
+      spec={{ ...spec, servers: [{ url: 'https://api.company.com/v1' }] }}
+      path='/internal/reindex'
       method='POST'
-      runtimeSnapshot={{ ...snapshot, serverOrigin: 'https://api.example.test', runtimeOnly: [{ method: 'POST', path: '/v1/internal/reindex' }] }}
+      runtimeSnapshot={{ ...snapshot, serverOrigin: 'https://staging.internal' }}
       onOpenInApiClient={open}
-      options={{ tryIt: { defaultServer: 'https://api.example.test/v1', hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] } } }}
+      options={{ tryIt: { defaultServer: 'https://api.company.com/v1', hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] } } }}
     />);
     fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
-    expect(open.mock.calls[0][0].serverUrl).toBe('https://api.example.test');
-    expect(open.mock.calls[0][0].request.url).toBe('https://api.example.test/v1/internal/reindex');
+    expect(open.mock.calls[0][0].serverUrl).toBe('https://staging.internal');
+    expect(open.mock.calls[0][0].request.url).toBe('https://staging.internal/internal/reindex');
     expect(open.mock.calls[0][0].request.hostExecution).toEqual({ preferHostExecution: true });
   });
 
-  it('uses the origin of the configured server when the snapshot has no server origin', () => {
+  it('stays same-origin when the snapshot has no server origin', () => {
     const open = jest.fn();
     render(<EndpointDetail
-      spec={spec}
+      spec={{ ...spec, servers: [{ url: 'https://api.company.com/v1' }] }}
       path='/internal/reindex'
       method='POST'
       runtimeSnapshot={snapshot}
       onOpenInApiClient={open}
-      options={{ tryIt: { defaultServer: 'https://api.example.test/v1' } }}
+      options={{ tryIt: { defaultServer: 'https://api.company.com/v1' } }}
     />);
     fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
-    expect(open.mock.calls[0][0].request.url).toBe('https://api.example.test/internal/reindex');
+    expect(open.mock.calls[0][0].serverUrl).toBeUndefined();
+    expect(open.mock.calls[0][0].request.url).toBe('/internal/reindex');
   });
 
   it('does not ask for host execution when the server has opted out', () => {
@@ -99,7 +99,7 @@ describe('EndpointDetail runtime-only routes', () => {
 
   it('renders a documented operation after a runtime-only route in the same instance', () => {
     const { rerender } = render(<EndpointDetail spec={spec} path='/internal/reindex' method='POST' runtimeSnapshot={snapshot} />);
-    expect(screen.getByText('The running service registers this operation. OpenAPI does not document it.')).toBeInTheDocument();
+    expect(screen.getByText('POST /internal/reindex is registered by the running service.')).toBeInTheDocument();
     rerender(<EndpointDetail spec={spec} path='/pets' method='GET' runtimeSnapshot={snapshot} />);
     expect(screen.queryByText('Operation not found.')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'List pets' })).toBeInTheDocument();

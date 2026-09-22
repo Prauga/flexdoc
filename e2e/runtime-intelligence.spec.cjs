@@ -82,3 +82,43 @@ test('runtime drift rows navigate to documented operations', async ({ page }, te
   await expect(page.getByRole('heading', { name: 'Get a pet' })).toBeVisible();
   await expect(page).toHaveURL(/#get-~2Fpets~2F~7Bid~7D$/);
 });
+
+test('an undocumented runtime finding opens, shows the contract gap, and hands off to the API Client', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium-desktop', 'desktop runtime disagreement loop');
+  const disagreement = {
+    ...runtimeSnapshot,
+    discoveryComplete: true,
+    serverOrigin: 'https://staging.internal',
+    routes: [{ method: 'POST', path: '/internal/reindex' }],
+    runtimeOnly: [{ method: 'POST', path: '/internal/reindex' }],
+    documentedOnly: [],
+    summary: { documented: 1, runtime: 1, matched: 0, runtimeOnly: 1, documentedOnly: 0 },
+    validation: {
+      status: 'fail',
+      complete: true,
+      findings: [{
+        id: 'runtime.operation-undocumented:POST:/internal/reindex',
+        code: 'runtime.operation-undocumented',
+        severity: 'error',
+        location: { kind: 'operation', method: 'POST', path: '/internal/reindex' },
+        message: 'Runtime implements POST /internal/reindex, but OpenAPI does not document that operation.',
+        expected: 'Operation is represented in OpenAPI',
+        observed: 'Operation exists only in the running backend',
+      }],
+      summary: { total: 1, errors: 1, warnings: 0, info: 0 },
+    },
+  };
+  await page.route('**/e2e/__flexdoc/runtime', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(disagreement) });
+  });
+  await page.goto('/e2e/index.html?runtime=1');
+  await page.getByRole('button', { name: 'Open runtime intelligence' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Runtime intelligence' });
+  await dialog.getByRole('button', { name: 'Open runtime route POST /internal/reindex' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText('OpenAPI does not declare this operation.')).toBeVisible();
+  await expect(page.getByText('POST /internal/reindex is registered by the running service.')).toBeVisible();
+  await page.getByRole('button', { name: 'Open in API Client' }).click();
+  await expect(page.getByLabel('Request URL')).toHaveValue('https://staging.internal/internal/reindex');
+  await expect(page.getByLabel('HTTP method')).toHaveValue('POST');
+});

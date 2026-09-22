@@ -17,6 +17,7 @@ async function buildApp() {
   app.patch('/pets/:petId', async (request) => ({ id: request.params.petId, name: 'Miso', age: 3, tags: ['friendly'], status: 'available', ...(request.body || {}) }));
   app.get('/search', async (request) => ({ terms: request.query.terms || [], count: 1 }));
   app.get('/internal/health', async () => ({ status: 'internal-ok' }));
+  app.post('/internal/reindex', async () => ({ accepted: true }));
 
   setupFastifyFlexDoc(app, '/docs', {
     spec,
@@ -48,7 +49,7 @@ async function main() {
   await app.listen({ port: 3000, host: '0.0.0.0' });
   console.log('API:  http://localhost:3000/pets');
   console.log('Docs: http://localhost:3000/docs');
-  console.log('GET /internal/health is acknowledged as intentionally undocumented');
+  console.log('GET /internal/health is acknowledged. POST /internal/reindex is undocumented and fails validation.');
 }
 
 if (require.main === module) {

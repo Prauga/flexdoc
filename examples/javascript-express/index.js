@@ -57,6 +57,7 @@ function buildApp() {
 
   // Intentionally omitted from the OpenAPI document so Runtime Intelligence has real drift to report.
   app.get('/internal/health', (_req, res) => res.json({ status: 'internal-ok' }));
+  app.post('/internal/reindex', (_req, res) => res.json({ accepted: true }));
 
   // Security ordering matters for host execution:
   // 1. authenticate the whole documentation subtree;
@@ -106,7 +107,7 @@ function buildApp() {
 }
 
 if (require.main === module) {
-  buildApp().listen(3000, () => console.log('Login: http://localhost:3000/example-login\nAPI:   http://localhost:3000/pets\nDocs:  http://localhost:3000/docs\nGET /internal/health is acknowledged as intentionally undocumented'));
+  buildApp().listen(3000, () => console.log('Login: http://localhost:3000/example-login\nAPI:   http://localhost:3000/pets\nDocs:  http://localhost:3000/docs\nGET /internal/health is acknowledged. POST /internal/reindex is undocumented and fails validation.'));
 }
 
 module.exports = { buildApp };

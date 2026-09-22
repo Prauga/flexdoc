@@ -89,7 +89,7 @@ describe('runtime contract validation', () => {
     }));
   });
 
-  it('omits runtime operations the operator has acknowledged as undocumented', () => {
+  it('keeps an acknowledged undocumented route as info and does not fail validation', () => {
     const result = validateRuntimeContract({
       documentedRoutes: [{ method: 'GET', path: '/pets' }],
       runtimeRoutes: [
@@ -100,7 +100,13 @@ describe('runtime contract validation', () => {
       discoveryComplete: true,
     });
     expect(result.status).toBe('pass');
-    expect(result.findings).toEqual([]);
+    expect(result.summary).toEqual({ total: 1, errors: 0, warnings: 0, info: 1 });
+    expect(result.findings[0]).toEqual(expect.objectContaining({
+      code: 'runtime.operation-undocumented',
+      severity: 'info',
+      disposition: 'acknowledged',
+      location: { kind: 'operation', method: 'GET', path: '/internal/health' },
+    }));
   });
 
   it('reports duplicate host registrations that standalone OpenAPI tooling cannot observe', () => {

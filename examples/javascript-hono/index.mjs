@@ -37,8 +37,9 @@ export const app = new Hono();
 
 app.get('/health', (c) => c.json({ status: 'ok' }));
 app.get('/pets/:petId', (c) => c.json({ id: c.req.param('petId'), name: 'Miso' }));
-// Absent from the contract and acknowledged so validation stays green.
+// Acknowledged, so the finding is informational. /internal/reindex is the drift that fails validation.
 app.get('/internal/health', (c) => c.json({ status: 'internal-ok' }));
+app.post('/internal/reindex', (c) => c.json({ accepted: true }));
 
 setupHonoFlexDoc(app, '/docs', {
   spec,
