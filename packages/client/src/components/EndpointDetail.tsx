@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { AlertCircle, Check, ChevronDown, ChevronRight, Link2, Lock, Unlock } from 'lucide-react';
+import { AlertCircle, Check, ChevronDown, ChevronRight, ExternalLink, Link2, Lock, Unlock } from 'lucide-react';
 import { OpenAPISpec, Operation, RequestBody, Response } from '../types/openapi';
 import { ExpandSection, FlexDocRendererOptions, FlexDocRuntimeIntelligenceSnapshot } from '../types/options';
 import { resolveExpandSections } from '../utils/renderer-preferences';
@@ -12,6 +12,8 @@ import { SchemaView } from './SchemaView';
 import { TryItApiClientWorkspace } from './TryItApiClientWorkspace';
 import type { TryItApiClientHandoff } from './TryItApiClientWorkspace';
 import { operationHashId } from '../utils/operation-id';
+import { resolveServerUrl } from '../utils/server-url';
+import type { HttpRequestDraft } from '../utils/http-client';
 
 interface EndpointDetailProps {
   spec: OpenAPISpec;
@@ -31,6 +33,17 @@ interface ViewerDeepLinkState {
 }
 
 const DEFAULT_LANGUAGES: CodeSampleLanguage[] = ['curl', 'javascript', 'python', 'go', 'java'];
+
+function runtimeRouteRequest(method: string, path: string, baseUrl: string, preferHost: boolean): HttpRequestDraft {
+  const base = baseUrl.replace(/\/+$/, '');
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  return {
+    method: method.toUpperCase(),
+    url: base ? `${base}${suffix}` : suffix,
+    auth: { type: 'none' },
+    ...(preferHost ? { hostExecution: { preferHostExecution: true } } : {}),
+  };
+}
 
 
 function readViewerDeepLinkState(): ViewerDeepLinkState {
@@ -91,12 +104,22 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
     const registered = runtimeSnapshot?.runtimeOnly?.some((route) => route.path === path && route.method.toUpperCase() === method.toUpperCase())
       || runtimeSnapshot?.validation?.findings.some((finding) => finding.code === 'runtime.operation-undocumented' && finding.location.path === path && finding.location.method?.toUpperCase() === method.toUpperCase());
     if (!registered) return <div className='p-6'>{messages?.operationNotFound || 'Operation not found.'}</div>;
+    const baseUrl = options.tryIt?.defaultServer || runtimeSnapshot?.serverOrigin || (spec.servers?.[0] ? resolveServerUrl(spec.servers[0]) : '');
+    const preferHost = options.tryIt?.hostExecution?.available === true;
+    const openRuntimeRequest = () => onOpenInApiClient?.({
+      request: runtimeRouteRequest(method, path, baseUrl, preferHost),
+      serverUrl: baseUrl || undefined,
+      scripts: { preRequest: '', tests: '' },
+      requestTab: 'params',
+      scriptTab: 'pre-request',
+    });
     return <div className='p-6'>
       <div className='mb-4 flex flex-wrap items-center gap-3'>
         <span className='rounded-md bg-blue-600 px-3 py-1 text-sm font-bold text-white'>{method.toUpperCase()}</span>
         <code className='break-all text-lg font-semibold'>{path}</code>
       </div>
       <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>{messages?.runtimeRouteUndocumented || 'The running service registers this operation. OpenAPI does not document it.'}</p>
+      {onOpenInApiClient && <button type='button' className='mt-4 inline-flex min-h-10 items-center gap-2 rounded-md border px-3 py-1.5 text-sm' onClick={openRuntimeRequest}><ExternalLink className='h-4 w-4' />{messages?.openApiClient || 'Open in API Client'}</button>}
     </div>;
   }
   if (!sampleRequest) return <div className='p-6'>{messages?.operationNotFound || 'Operation not found.'}</div>;

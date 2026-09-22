@@ -5,7 +5,7 @@ Notable FlexDoc product releases are recorded here. Detailed release notes remai
 ## Unreleased
 
 - An implemented route that OpenAPI does not document fails `flexdoc validate` when runtime discovery is complete, and the failure names the method and path. Partial discovery keeps that finding a warning. `runtimeIntelligence.acknowledgedUndocumented` omits operations that are intentionally absent from the contract. Those routes stay in the runtime route list, and `summary.runtime` counts only `matched + runtimeOnly`.
-- Opening that finding shows the registered route. It is not treated as an OpenAPI operation.
+- Opening that finding shows the registered route and can send it from the API Client. When host execution is available, that request prefers the API host. It is not treated as an OpenAPI operation.
 
 ## 3.4.0 — 3.3.x hardening package release
 

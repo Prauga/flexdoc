@@ -2,7 +2,7 @@
 // stale useState value cannot be observed. This file uses real React.
 jest.unmock('react');
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { EndpointDetail } from './EndpointDetail';
 import type { OpenAPISpec } from '../types/openapi';
@@ -34,6 +34,35 @@ describe('EndpointDetail runtime-only routes', () => {
     expect(screen.getByText('POST')).toBeInTheDocument();
     expect(screen.getByText('/internal/reindex')).toBeInTheDocument();
     expect(screen.getByText('The running service registers this operation. OpenAPI does not document it.')).toBeInTheDocument();
+  });
+
+  it('opens the registered route in the API Client and prefers host execution when it is available', () => {
+    const open = jest.fn();
+    render(<EndpointDetail
+      spec={spec}
+      path='/internal/reindex'
+      method='post'
+      runtimeSnapshot={{ ...snapshot, serverOrigin: 'https://api.example.test' }}
+      onOpenInApiClient={open}
+      options={{ tryIt: { hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] } } }}
+    />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
+    expect(open).toHaveBeenCalledWith(expect.objectContaining({
+      serverUrl: 'https://api.example.test',
+      request: expect.objectContaining({
+        method: 'POST',
+        url: 'https://api.example.test/internal/reindex',
+        hostExecution: { preferHostExecution: true },
+      }),
+    }));
+  });
+
+  it('keeps a browser request when host execution is unavailable', () => {
+    const open = jest.fn();
+    render(<EndpointDetail spec={spec} path='/internal/reindex' method='POST' runtimeSnapshot={snapshot} onOpenInApiClient={open} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
+    expect(open.mock.calls[0][0].request.hostExecution).toBeUndefined();
+    expect(open.mock.calls[0][0].request.url).toBe('/internal/reindex');
   });
 
   it('keeps an unknown path as operation not found', () => {
