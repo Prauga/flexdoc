@@ -80,10 +80,10 @@ node tools/flexdoc-cli/bin/flexdoc.js run ./pets.flexdoc.json --json
 
 | Ecosystem | Package | Source version |
 | --- | --- | ---: |
-| npm | `@prauga/flexdoc-client` | `3.4.0` |
-| npm | `@prauga/flexdoc-backend` | `3.4.0` |
+| npm | `@prauga/flexdoc-client` | `3.5.0` |
+| npm | `@prauga/flexdoc-backend` | `3.5.0` |
 | npm | `@prauga/flexdoc-core` | `0.5.2` |
-| npm | `@prauga/flexdoc-cli` | `0.7.0` |
+| npm | `@prauga/flexdoc-cli` | `0.8.0` |
 | NuGet | `Prauga.FlexDoc.AspNetCore` | `0.7.0` |
 | Maven | `com.prauga.flexdoc:flexdoc-jvm` | `0.10.0` |
 | Maven | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.10.0` |

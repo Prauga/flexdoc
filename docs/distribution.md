@@ -6,10 +6,10 @@ FlexDoc uses one canonical browser renderer and thin ecosystem adapters. Every a
 
 | Artifact | Version represented by source | Release tag | Compatibility |
 | --- | --- | --- | --- |
-| `@prauga/flexdoc-client` | `3.4.0` | `js/v3.4.0` | canonical renderer; renderer contract v1 |
-| `@prauga/flexdoc-backend` | `3.4.0` | `js/v3.4.0` | matching renderer; contract v1 |
+| `@prauga/flexdoc-client` | `3.5.0` | `js/v3.5.0` | canonical renderer; renderer contract v1 |
+| `@prauga/flexdoc-backend` | `3.5.0` | `js/v3.5.0` | matching renderer; contract v1 |
 | `@prauga/flexdoc-core` | `0.5.2` | `core/v0.5.2` | framework-neutral OpenAPI engine + host-execution target-policy contract |
-| `@prauga/flexdoc-cli` | `0.7.0` | `cli/v0.7.0` | Contract Validation + headless Runner consumer; compatible Prauga renderer |
+| `@prauga/flexdoc-cli` | `0.8.0` | `cli/v0.8.0` | Contract Validation + headless Runner consumer; compatible Prauga renderer |
 | `Prauga.FlexDoc.AspNetCore` | `0.7.0` | `dotnet/v0.7.0` | ASP.NET Core 8+; renderer contract v1; HX-03 protection acknowledgement |
 | `com.prauga.flexdoc:flexdoc-jvm` | `0.10.0` | `java/v0.10.0` | Java 17+ framework-neutral renderer host; HX-03 protection acknowledgement |
 | `com.prauga.flexdoc:flexdoc-jaxrs` | `0.10.0` | `java/v0.10.0` | Jakarta REST/JAX-RS transport over `flexdoc-jvm` |

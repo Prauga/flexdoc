@@ -4,7 +4,7 @@ Runnable proof that FlexDoc host-execution session jars, admission budgeting and
 
 Three Express replicas share one `FLEXDOC_SESSION_SECRET` and a Redis cookie-jar store, sit behind nginx round-robin on `:8080`, and export per-instance observation documents that `mergeHostExecutionObservationDocuments` combines.
 
-Pinned to `@prauga/flexdoc-backend` `3.4.0`.
+Pinned to `@prauga/flexdoc-backend` `3.5.0`.
 
 ## What this demonstrates
 

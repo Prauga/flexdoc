@@ -9,14 +9,14 @@ The examples deliberately separate two kinds of capability:
 
 | Example | FlexDoc package / integration | Current focus | Runtime Intelligence |
 | --- | --- | --- | --- |
-| [`basic-usage`](./basic-usage) | React + `@prauga/flexdoc-client` `3.4.0` | Minimal renderer integration | — client only |
-| [`interactive-demo`](./interactive-demo) | React + `@prauga/flexdoc-client` `3.4.0` | **Complete framework-neutral renderer**: deep links, preferences, command palette, Try It → API Client, downloads, code samples, responsive/a11y chrome | — client only |
-| [`api-client`](./api-client) | Full API Client + `@prauga/flexdoc-client` `3.4.0` | **Complete standalone API Client**: environments, variables, CodeMirror scripts, runner/history, response inspection, persistence, shortcuts | — client only |
-| [`nestjs`](./nestjs) | NestJS + `@prauga/flexdoc-backend` `3.4.0` | Code-first OpenAPI + full renderer/API Client | **Yes — underlying Express/Fastify adapter** |
-| [`javascript-express`](./javascript-express) | Express + `@prauga/flexdoc-backend` `3.4.0` | Primary backend-native showcase with intentional route drift | **Yes — live Express router** |
-| [`javascript-fastify`](./javascript-fastify) | Fastify + `@prauga/flexdoc-backend` `3.4.0` | Shared OpenAPI showcase + intentional runtime-only route | **Yes — live Fastify route tree** |
-| [`javascript-hono`](./javascript-hono) | Hono + `@prauga/flexdoc-backend` `3.4.0` | Small inline contract + intentional runtime-only route | **Yes — live Hono route inventory** |
-| [`javascript-fleet`](./javascript-fleet) | Express fleet + `@prauga/flexdoc-backend` `3.4.0` | Multi-instance host execution: shared secret, Redis jar store, fleet admission, observation merge | **Yes — live Express router** |
+| [`basic-usage`](./basic-usage) | React + `@prauga/flexdoc-client` `3.5.0` | Minimal renderer integration | — client only |
+| [`interactive-demo`](./interactive-demo) | React + `@prauga/flexdoc-client` `3.5.0` | **Complete framework-neutral renderer**: deep links, preferences, command palette, Try It → API Client, downloads, code samples, responsive/a11y chrome | — client only |
+| [`api-client`](./api-client) | Full API Client + `@prauga/flexdoc-client` `3.5.0` | **Complete standalone API Client**: environments, variables, CodeMirror scripts, runner/history, response inspection, persistence, shortcuts | — client only |
+| [`nestjs`](./nestjs) | NestJS + `@prauga/flexdoc-backend` `3.5.0` | Code-first OpenAPI + full renderer/API Client | **Yes — underlying Express/Fastify adapter** |
+| [`javascript-express`](./javascript-express) | Express + `@prauga/flexdoc-backend` `3.5.0` | Primary backend-native showcase with intentional route drift | **Yes — live Express router** |
+| [`javascript-fastify`](./javascript-fastify) | Fastify + `@prauga/flexdoc-backend` `3.5.0` | Shared OpenAPI showcase + intentional runtime-only route | **Yes — live Fastify route tree** |
+| [`javascript-hono`](./javascript-hono) | Hono + `@prauga/flexdoc-backend` `3.5.0` | Small inline contract + intentional runtime-only route | **Yes — live Hono route inventory** |
+| [`javascript-fleet`](./javascript-fleet) | Express fleet + `@prauga/flexdoc-backend` `3.5.0` | Multi-instance host execution: shared secret, Redis jar store, fleet admission, observation merge | **Yes — live Express router** |
 | [`dotnet-aspnetcore`](./dotnet-aspnetcore) | `Prauga.FlexDoc.AspNetCore` `0.7.0` | Exact server-side contract + runtime-only minimal API route | **Yes — `EndpointDataSource`** |
 | [`java-spring`](./java-spring) | Spring Boot + `flexdoc-spring-boot-starter` `0.10.0` | Exact `FlexDocSpecProvider` contract + runtime-only MVC route | **Yes — `RequestMappingHandlerMapping`** |
 | [`java-quarkus`](./java-quarkus) | Quarkus/Jakarta REST + `flexdoc-jaxrs` `0.10.0` | Canonical JVM renderer hosting | No in current slice |

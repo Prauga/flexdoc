@@ -2,6 +2,8 @@
 
 Notable FlexDoc product releases are recorded here. Detailed release notes remain under `docs/releases/` and are linked from each entry.
 
+## Unreleased
+
 ## 3.5.0 — Node disagreement loop
 
 `@prauga/flexdoc-client` and `@prauga/flexdoc-backend` **3.5.0**, with `@prauga/flexdoc-cli` **0.8.0**. Native adapter versions are unchanged.
