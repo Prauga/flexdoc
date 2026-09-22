@@ -34,12 +34,21 @@ interface ViewerDeepLinkState {
 
 const DEFAULT_LANGUAGES: CodeSampleLanguage[] = ['curl', 'javascript', 'python', 'go', 'java'];
 
-function runtimeRouteRequest(method: string, path: string, baseUrl: string, preferHost: boolean): HttpRequestDraft {
-  const base = baseUrl.replace(/\/+$/, '');
+function httpOrigin(value: string | undefined): string {
+  if (!value) return '';
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.origin : '';
+  } catch {
+    return '';
+  }
+}
+
+function runtimeRouteRequest(method: string, path: string, origin: string, preferHost: boolean): HttpRequestDraft {
   const suffix = path.startsWith('/') ? path : `/${path}`;
   return {
     method: method.toUpperCase(),
-    url: base ? `${base}${suffix}` : suffix,
+    url: origin ? `${origin}${suffix}` : suffix,
     auth: { type: 'none' },
     ...(preferHost ? { hostExecution: { preferHostExecution: true } } : {}),
   };
@@ -104,11 +113,13 @@ export const EndpointDetail: React.FC<EndpointDetailProps> = ({ spec, path, meth
     const registered = runtimeSnapshot?.runtimeOnly?.some((route) => route.path === path && route.method.toUpperCase() === method.toUpperCase())
       || runtimeSnapshot?.validation?.findings.some((finding) => finding.code === 'runtime.operation-undocumented' && finding.location.path === path && finding.location.method?.toUpperCase() === method.toUpperCase());
     if (!registered) return <div className='p-6'>{messages?.operationNotFound || 'Operation not found.'}</div>;
-    const baseUrl = options.tryIt?.defaultServer || runtimeSnapshot?.serverOrigin || (spec.servers?.[0] ? resolveServerUrl(spec.servers[0]) : '');
-    const preferHost = options.tryIt?.hostExecution?.available === true;
+    const specServer = spec.servers?.[0] ? resolveServerUrl(spec.servers[0]) : undefined;
+    const origin = httpOrigin(runtimeSnapshot?.serverOrigin) || httpOrigin(options.tryIt?.defaultServer) || httpOrigin(specServer);
+    const host = options.tryIt?.hostExecution;
+    const preferHost = host?.available === true && host.preferHostExecution !== false;
     const openRuntimeRequest = () => onOpenInApiClient?.({
-      request: runtimeRouteRequest(method, path, baseUrl, preferHost),
-      serverUrl: baseUrl || undefined,
+      request: runtimeRouteRequest(method, path, origin, preferHost),
+      serverUrl: origin || undefined,
       scripts: { preRequest: '', tests: '' },
       requestTab: 'params',
       scriptTab: 'pre-request',

@@ -36,25 +36,52 @@ describe('EndpointDetail runtime-only routes', () => {
     expect(screen.getByText('The running service registers this operation. OpenAPI does not document it.')).toBeInTheDocument();
   });
 
-  it('opens the registered route in the API Client and prefers host execution when it is available', () => {
+  it('joins the runtime path to the registering origin, not to a server base path', () => {
+    const open = jest.fn();
+    const specWithBase = {
+      ...spec,
+      servers: [{ url: 'https://spec.example.test/v1' }],
+    };
+    render(<EndpointDetail
+      spec={specWithBase}
+      path='/v1/internal/reindex'
+      method='POST'
+      runtimeSnapshot={{ ...snapshot, serverOrigin: 'https://api.example.test', runtimeOnly: [{ method: 'POST', path: '/v1/internal/reindex' }] }}
+      onOpenInApiClient={open}
+      options={{ tryIt: { defaultServer: 'https://api.example.test/v1', hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] } } }}
+    />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
+    expect(open.mock.calls[0][0].serverUrl).toBe('https://api.example.test');
+    expect(open.mock.calls[0][0].request.url).toBe('https://api.example.test/v1/internal/reindex');
+    expect(open.mock.calls[0][0].request.hostExecution).toEqual({ preferHostExecution: true });
+  });
+
+  it('uses the origin of the configured server when the snapshot has no server origin', () => {
     const open = jest.fn();
     render(<EndpointDetail
       spec={spec}
       path='/internal/reindex'
-      method='post'
-      runtimeSnapshot={{ ...snapshot, serverOrigin: 'https://api.example.test' }}
+      method='POST'
+      runtimeSnapshot={snapshot}
       onOpenInApiClient={open}
-      options={{ tryIt: { hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [] } } }}
+      options={{ tryIt: { defaultServer: 'https://api.example.test/v1' } }}
     />);
     fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
-    expect(open).toHaveBeenCalledWith(expect.objectContaining({
-      serverUrl: 'https://api.example.test',
-      request: expect.objectContaining({
-        method: 'POST',
-        url: 'https://api.example.test/internal/reindex',
-        hostExecution: { preferHostExecution: true },
-      }),
-    }));
+    expect(open.mock.calls[0][0].request.url).toBe('https://api.example.test/internal/reindex');
+  });
+
+  it('does not ask for host execution when the server has opted out', () => {
+    const open = jest.fn();
+    render(<EndpointDetail
+      spec={spec}
+      path='/internal/reindex'
+      method='POST'
+      runtimeSnapshot={{ ...snapshot, serverOrigin: 'https://api.example.test' }}
+      onOpenInApiClient={open}
+      options={{ tryIt: { hostExecution: { available: true, endpoint: '/docs/__flexdoc/execute', capabilities: [], preferHostExecution: false } } }}
+    />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open in API Client' }));
+    expect(open.mock.calls[0][0].request.hostExecution).toBeUndefined();
   });
 
   it('keeps a browser request when host execution is unavailable', () => {
