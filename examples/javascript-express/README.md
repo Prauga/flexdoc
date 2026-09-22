@@ -2,7 +2,7 @@
 
 This is the primary backend-native FlexDoc 3.1 showcase. Express serves the shared OpenAPI 3.1 contract, while FlexDoc runs inside the same backend and exposes the completed documentation/API Client surface plus live Runtime Intelligence.
 
-The example registers `GET /internal/health` without documenting it, and lists that operation in `runtimeIntelligence.acknowledgedUndocumented`. Contract validation stays green. The route remains in the runtime route list, which is how an intentionally private operation is kept out of the failure without pretending it is in the OpenAPI document.
+The example registers `GET /internal/health` without documenting it, and lists that operation in `runtimeIntelligence.acknowledgedUndocumented`. Contract validation stays green. The route stays on the snapshot's `routes` array. The Runtime panel shows findings rather than that array, so an acknowledged route does not appear there.
 
 The renderer also demonstrates the completed documentation/API Client surface: persisted viewer preferences, deep links, keyboard command palette, mobile navigation, JSON/YAML download, Basic/Advanced Try It, handoff to the sibling API Client page, environments, scripts, the CodeMirror-backed editor, response inspection, collection/history workflows, and code samples.
 
