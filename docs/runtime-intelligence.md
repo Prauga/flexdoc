@@ -148,7 +148,7 @@ The Node Runtime Intelligence snapshot can include one backend-produced `validat
 
 The four finding codes in this cut are:
 
-- `runtime.operation-undocumented` — the running backend positively exposes an operation that OpenAPI does not document. Severity: `warning`. This is runtime evidence only and is not clickable as a spec operation.
+- `runtime.operation-undocumented` — the running backend positively exposes an operation that OpenAPI does not document. Severity: `error`. The finding names the method and path. This is runtime evidence only and is not clickable as a spec operation. Because it is an error, the derived status is `fail`, and `flexdoc validate` exits `1` under the default policy.
 - `runtime.operation-unobserved` — OpenAPI documents an operation that runtime discovery did not observe. Severity: `error` when discovery is complete, `info` when discovery is partial.
 - `runtime.method-mismatch` — the same wire-equivalent path exists in both sources but under different HTTP methods. Severity: `error` when discovery is complete, `warning` when partial. The finding carries an expected documented method so the renderer can navigate to the spec operation.
 - `runtime.duplicate-operation` — the host exposes multiple registrations for one wire-equivalent method/path. Severity: `warning`. In 3.1 this is an explicitly supported/verified claim for Express (including Nest-on-Express) and Hono. Fastify participates in the other validation checks, but exact duplicate-registration reporting is not claimed for Fastify in this cut.

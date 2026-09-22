@@ -29,14 +29,14 @@ const snapshot = {
       {
         id: 'runtime.operation-undocumented:POST:/internal/reindex',
         code: 'runtime.operation-undocumented' as const,
-        severity: 'warning' as const,
+        severity: 'error' as const,
         location: { kind: 'operation' as const, method: 'POST', path: '/internal/reindex' },
         message: 'Runtime implements POST /internal/reindex, but OpenAPI does not document that operation.',
         expected: 'Operation is represented in OpenAPI',
         observed: 'Operation exists only in the running backend',
       },
     ],
-    summary: { total: 2, errors: 1, warnings: 1, info: 0 },
+    summary: { total: 2, errors: 2, warnings: 0, info: 0 },
   },
 };
 
@@ -48,7 +48,7 @@ describe('RuntimeIntelligencePanel', () => {
   it('shows runtime metadata and structured 3.1 contract findings', () => {
     render(<RuntimeIntelligencePanel open theme='light' loading={false} onClose={() => undefined} snapshot={snapshot} />);
     expect(screen.getByText('FAIL · 2 findings')).toBeInTheDocument();
-    expect(screen.getByText('1 errors · 1 warnings · 0 info')).toBeInTheDocument();
+    expect(screen.getByText('2 errors · 0 warnings · 0 info')).toBeInTheDocument();
     expect(screen.getByText('runtime.operation-unobserved')).toBeInTheDocument();
     expect(screen.getByText('runtime.operation-undocumented')).toBeInTheDocument();
     expect(screen.getByText('Expected: Operation is exposed by the running backend')).toBeInTheDocument();
