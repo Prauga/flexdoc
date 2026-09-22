@@ -43,7 +43,7 @@ export interface FlexDocRuntimeDiscovery {
 /** Aggregate route counts in a Runtime Intelligence snapshot. */
 export interface FlexDocRuntimeIntelligenceSummary {
   /** Number of documented OpenAPI operations. */ documented: number;
-  /** Number of runtime routes observed. */ runtime: number;
+  /** Runtime routes in the drift comparison. Equals `matched + runtimeOnly`. Acknowledged undocumented routes stay in `routes` and are excluded here. */ runtime: number;
   /** Number of wire-equivalent method/path matches between runtime and OpenAPI. */ matched: number;
   /** Number of runtime-only routes. */ runtimeOnly: number;
   /** Number of documented-only routes. */ documentedOnly: number;
@@ -377,7 +377,7 @@ export function buildRuntimeIntelligenceSnapshot(input: FlexDocRuntimeIntelligen
     documentedOnly,
     summary: {
       documented: documented.length,
-      runtime: runtimeRoutes.length,
+      runtime: matched + runtimeOnly.length,
       matched,
       runtimeOnly: runtimeOnly.length,
       documentedOnly: documentedOnly.length,

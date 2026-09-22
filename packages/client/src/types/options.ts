@@ -242,7 +242,7 @@ export interface FlexDocRuntimeEnvironmentMetadata {
 /** Aggregate route counts in a Runtime Intelligence snapshot. */
 export interface FlexDocRuntimeIntelligenceSummary {
   /** Number of HTTP operations present in the OpenAPI document. */ documented: number;
-  /** Number of routes discovered in the running backend. */ runtime: number;
+  /** Runtime routes in the drift comparison (`matched + runtimeOnly`). Acknowledged undocumented routes stay in `routes` and are excluded here. */ runtime: number;
   /** Number of routes observed in both OpenAPI and the running backend. */ matched: number;
   /** Number of runtime routes missing from OpenAPI. */ runtimeOnly: number;
   /** Number of OpenAPI operations not observed at runtime. */ documentedOnly: number;

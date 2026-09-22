@@ -85,7 +85,10 @@ function buildApp() {
       requiredPropsFirst: true,
       sortPropsAlphabetically: true,
       showRequestHeaders: true,
-      runtimeIntelligence: true,
+      runtimeIntelligence: {
+        enabled: true,
+        acknowledgedUndocumented: [{ method: 'GET', path: '/internal/health' }],
+      },
       expand: 'interactive',
       tryIt: {
         enabled: true,
@@ -103,7 +106,7 @@ function buildApp() {
 }
 
 if (require.main === module) {
-  buildApp().listen(3000, () => console.log('Login: http://localhost:3000/example-login\nAPI:   http://localhost:3000/pets\nDocs:  http://localhost:3000/docs\nRuntime drift: GET /internal/health is intentionally undocumented'));
+  buildApp().listen(3000, () => console.log('Login: http://localhost:3000/example-login\nAPI:   http://localhost:3000/pets\nDocs:  http://localhost:3000/docs\nGET /internal/health is acknowledged as intentionally undocumented'));
 }
 
 module.exports = { buildApp };

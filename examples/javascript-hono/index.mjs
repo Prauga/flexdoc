@@ -37,7 +37,7 @@ export const app = new Hono();
 
 app.get('/health', (c) => c.json({ status: 'ok' }));
 app.get('/pets/:petId', (c) => c.json({ id: c.req.param('petId'), name: 'Miso' }));
-// Intentionally omitted from the contract so Runtime Intelligence reports it as runtime-only.
+// Absent from the contract and acknowledged so validation stays green.
 app.get('/internal/health', (c) => c.json({ status: 'internal-ok' }));
 
 setupHonoFlexDoc(app, '/docs', {
@@ -46,7 +46,10 @@ setupHonoFlexDoc(app, '/docs', {
     title: 'FlexDoc Hono 3.0 showcase',
     description: 'Live Hono route discovery plus the canonical FlexDoc 3.0 renderer and API Client surface.',
     version: '3.0.0',
-    runtimeIntelligence: true,
+    runtimeIntelligence: {
+      enabled: true,
+      acknowledgedUndocumented: [{ method: 'GET', path: '/internal/health' }],
+    },
     expand: 'interactive',
     tryIt: {
       enabled: true,

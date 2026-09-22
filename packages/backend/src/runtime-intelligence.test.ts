@@ -152,7 +152,13 @@ describe('runtime intelligence', () => {
       },
       acknowledgedUndocumented: [{ method: 'GET', path: '/internal/health' }],
     });
+    expect(snapshot.routes).toEqual([
+      { method: 'GET', path: '/internal/health' },
+      { method: 'GET', path: '/pets' },
+    ]);
     expect(snapshot.runtimeOnly).toEqual([]);
+    expect(snapshot.summary).toEqual({ documented: 1, runtime: 1, matched: 1, runtimeOnly: 0, documentedOnly: 0 });
+    expect(snapshot.summary.matched + snapshot.summary.runtimeOnly).toBe(snapshot.summary.runtime);
     expect(snapshot.validation.status).toBe('pass');
     expect(snapshot.validation.findings).toEqual([]);
   });

@@ -29,7 +29,10 @@ async function buildApp() {
       requiredPropsFirst: true,
       sortPropsAlphabetically: true,
       showRequestHeaders: true,
-      runtimeIntelligence: true,
+      runtimeIntelligence: {
+        enabled: true,
+        acknowledgedUndocumented: [{ method: 'GET', path: '/internal/health' }],
+      },
       expand: 'interactive',
       tryIt: { enabled: true, defaultServer: 'http://localhost:3000', credentials: 'same-origin', apiClientPersistenceKey: 'flexdoc-fastify-3-showcase' },
       codeSamples: { enabled: true, languages: ['curl', 'javascript', 'python', 'go', 'java'] },
@@ -45,7 +48,7 @@ async function main() {
   await app.listen({ port: 3000, host: '0.0.0.0' });
   console.log('API:  http://localhost:3000/pets');
   console.log('Docs: http://localhost:3000/docs');
-  console.log('Runtime drift: GET /internal/health is intentionally undocumented');
+  console.log('GET /internal/health is acknowledged as intentionally undocumented');
 }
 
 if (require.main === module) {
