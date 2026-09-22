@@ -215,7 +215,17 @@ export const FlexDoc: React.FC<FlexDocProps> = ({
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const syncHash = () => setSelectedEndpoint(endpointFromHash(spec, window.location.hash));
+    const syncHash = () => {
+      const fromSpec = endpointFromHash(spec, window.location.hash);
+      if (fromSpec) {
+        setSelectedEndpoint(fromSpec);
+        return;
+      }
+      const hash = window.location.hash.replace(/^#/, '');
+      setSelectedEndpoint((current) => (
+        current && hash && operationHashId(current.path, current.method) === hash ? current : null
+      ));
+    };
     const syncView = () => {
       const nextView = viewFromLocation();
       setActiveView(nextView);
