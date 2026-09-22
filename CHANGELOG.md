@@ -4,8 +4,15 @@ Notable FlexDoc product releases are recorded here. Detailed release notes remai
 
 ## Unreleased
 
-- An implemented route that OpenAPI does not document fails `flexdoc validate` when runtime discovery is complete, and the failure names the method and path. Partial discovery keeps that finding a warning. `runtimeIntelligence.acknowledgedUndocumented` records that route as acknowledged info. The route stays registered, `summary.runtime` still counts it, and the acknowledgement does not fail validation.
+## 3.5.0 — Node disagreement loop
+
+`@prauga/flexdoc-client` and `@prauga/flexdoc-backend` **3.5.0**, with `@prauga/flexdoc-cli` **0.8.0**. Native adapter versions are unchanged.
+
+- An implemented route that OpenAPI does not document fails `flexdoc validate` when runtime discovery is complete, and the failure names the method and path. Partial discovery keeps that finding a warning. A service that previously passed validation with only that warning now fails the default check.
+- `runtimeIntelligence.acknowledgedUndocumented` records a chosen route as acknowledged info. The route stays registered, `summary.runtime` still counts it, and the acknowledgement does not fail validation.
 - Opening that finding shows the missing contract beside the registered method and path, and can send it from the API Client. The URL uses the snapshot `serverOrigin` when present, and is same-origin otherwise. The request asks to prefer the API host only when host execution is available and the server has not opted out.
+
+See [`docs/releases/3.5.0.md`](docs/releases/3.5.0.md).
 
 ## 3.4.0 — 3.3.x hardening package release
 

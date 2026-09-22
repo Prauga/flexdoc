@@ -15,6 +15,10 @@
     "go": "0.6.0",
     "elixir": "0.5.0"
   },
-  "pending": {},
-  "sourceReleaseDocument": "docs/releases/3.4.0.md"
+  "pending": {
+    "client": "3.5.0",
+    "backend": "3.5.0",
+    "cli": "0.8.0"
+  },
+  "sourceReleaseDocument": "docs/releases/3.5.0.md"
 }

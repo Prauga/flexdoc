@@ -1,6 +1,6 @@
 # API-host execution operations and abuse controls
 
-This guidance is part of the `@prauga/flexdoc-backend` **3.4.0** host-execution contract. FlexDoc API-host execution is an application-owned server capability. When it is available, an interactive browser request can become two network hops: browser -> API host -> target API. The execute endpoint therefore consumes API-host CPU, memory, sockets, outbound bandwidth, DNS/TLS work, and target-service capacity in addition to the ordinary documentation request.
+This guidance is the `@prauga/flexdoc-backend` **3.5.0** host-execution contract, unchanged from 3.4.0. FlexDoc API-host execution is an application-owned server capability. When it is available, an interactive browser request can become two network hops: browser -> API host -> target API. The execute endpoint therefore consumes API-host CPU, memory, sockets, outbound bandwidth, DNS/TLS work, and target-service capacity in addition to the ordinary documentation request.
 
 The built-in executor safety policy is necessary but is not an application abuse policy. Exact-origin allowlists, DNS/address pinning, redirect validation, request/response size bounds, execution deadlines, and `X-FlexDoc-Execute: 1` prevent classes of unsafe execution; they do not identify the caller or decide how much work one authenticated user may cause.
 

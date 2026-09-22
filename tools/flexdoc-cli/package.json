@@ -1,6 +1,6 @@
 {
   "name": "@prauga/flexdoc-cli",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Build, serve, validate, and run self-hosted FlexDoc/OpenAPI workflows from the CLI",
   "type": "module",
   "bin": { "flexdoc": "./bin/flexdoc.js" },
