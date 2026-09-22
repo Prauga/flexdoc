@@ -1,16 +1,27 @@
-# Express + FlexDoc 3.1
+# Try the disagreement loop with Express
 
-This is the primary backend-native FlexDoc 3.1 showcase. Express serves the shared OpenAPI 3.1 contract, while FlexDoc runs inside the same backend and exposes the completed documentation/API Client surface plus live Runtime Intelligence.
+This is the evaluation path. Express registers two routes the OpenAPI document does not describe.
 
-`GET /internal/health` is registered and listed in `runtimeIntelligence.acknowledgedUndocumented`. It stays a runtime-only route, the finding is informational, and it does not fail validation. `POST /internal/reindex` is also registered and is not acknowledged, so contract validation fails. Open **Runtime**, then that finding, to see the registered route beside the missing contract and send it from the API Client.
+| Route | What FlexDoc records | Validation |
+| --- | --- | --- |
+| `GET /internal/health` | Runtime-only, acknowledged | Passes. The finding stays informational. |
+| `POST /internal/reindex` | Runtime-only, not acknowledged | Fails. The finding names the method and path. |
 
-The renderer also demonstrates the completed documentation/API Client surface: persisted viewer preferences, deep links, keyboard command palette, mobile navigation, JSON/YAML download, Basic/Advanced Try It, handoff to the sibling API Client page, environments, scripts, the CodeMirror-backed editor, response inspection, collection/history workflows, and code samples.
+Open **Runtime**, then `POST /internal/reindex`. The page shows that OpenAPI does not declare the operation beside the route Express registered. **Open in API Client** sends that method and path.
 
 ```bash
 npm install
 npm start
 ```
 
-Open `http://localhost:3000/docs`.
+Open `http://localhost:3000/docs/example-login` first. That sets the demo cookie for `/docs`. Then open `http://localhost:3000/docs`.
 
-The standalone FlexDoc dependency is pinned to `3.3.0`, the current published release, for reproducible installs. Repository CI replaces it with the backend package built from the current commit when validating source changes.
+```bash
+npx @prauga/flexdoc-cli validate \
+  http://localhost:3000/docs/__flexdoc/runtime \
+  --header 'Cookie: flexdoc-example-session=demo'
+```
+
+The command prints the acknowledged health route and exits `1` on `POST /internal/reindex`.
+
+The same page also includes the documentation and API Client surface: Try It, code samples, environments, and scripts. The standalone dependency is pinned to published `@prauga/flexdoc-backend` `3.5.0`. Repository CI replaces it with the backend package built from the current commit.

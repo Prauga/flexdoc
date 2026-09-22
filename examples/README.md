@@ -1,6 +1,8 @@
 # FlexDoc examples
 
-These examples are the executable capability map for the current FlexDoc 3.3 release. Registry-consuming manifests and generated locks are pinned to the published package release versions listed below so clean standalone installs remain reproducible. Repository CI may substitute packages built from the current commit when validating source changes.
+Start with [Try the disagreement loop with Express](./javascript-express). That service registers two routes OpenAPI does not document. `GET /internal/health` is acknowledged and does not fail validation. `POST /internal/reindex` is not acknowledged, so `flexdoc validate` fails and the finding opens in the API Client.
+
+The table is the rest of the integrations. Registry-consuming manifests and generated locks are pinned to the published package versions listed below. Repository CI may substitute packages built from the current commit when validating source changes.
 
 The examples deliberately separate two kinds of capability:
 
@@ -13,7 +15,7 @@ The examples deliberately separate two kinds of capability:
 | [`interactive-demo`](./interactive-demo) | React + `@prauga/flexdoc-client` `3.5.0` | **Complete framework-neutral renderer**: deep links, preferences, command palette, Try It → API Client, downloads, code samples, responsive/a11y chrome | — client only |
 | [`api-client`](./api-client) | Full API Client + `@prauga/flexdoc-client` `3.5.0` | **Complete standalone API Client**: environments, variables, CodeMirror scripts, runner/history, response inspection, persistence, shortcuts | — client only |
 | [`nestjs`](./nestjs) | NestJS + `@prauga/flexdoc-backend` `3.5.0` | Code-first OpenAPI + full renderer/API Client | **Yes — underlying Express/Fastify adapter** |
-| [`javascript-express`](./javascript-express) | Express + `@prauga/flexdoc-backend` `3.5.0` | Primary backend-native showcase with intentional route drift | **Yes — live Express router** |
+| [`javascript-express`](./javascript-express) | Express + `@prauga/flexdoc-backend` `3.5.0` | Evaluation path: acknowledged `GET /internal/health` passes; `POST /internal/reindex` fails and opens in the API Client | **Yes — live Express router** |
 | [`javascript-fastify`](./javascript-fastify) | Fastify + `@prauga/flexdoc-backend` `3.5.0` | Shared OpenAPI showcase + intentional runtime-only route | **Yes — live Fastify route tree** |
 | [`javascript-hono`](./javascript-hono) | Hono + `@prauga/flexdoc-backend` `3.5.0` | Small inline contract + intentional runtime-only route | **Yes — live Hono route inventory** |
 | [`javascript-fleet`](./javascript-fleet) | Express fleet + `@prauga/flexdoc-backend` `3.5.0` | Multi-instance host execution: shared secret, Redis jar store, fleet admission, observation merge | **Yes — live Express router** |
@@ -41,7 +43,7 @@ The examples deliberately separate two kinds of capability:
 
 ## What to run for the current surface
 
-Start with `javascript-express` when evaluating FlexDoc as a product: it demonstrates the full documentation/API Client experience **and** the backend-native distinction, including a route that exists in the running application but not in OpenAPI. Use `javascript-fleet` when you need a horizontally scaled host-execution deployment with a shared session jar and fleet observation merge. Use `interactive-demo` for the framework-neutral renderer surface and `api-client` for focused API-development workflows.
+Use [`javascript-express`](./javascript-express) to evaluate the product. The other examples are additional integrations: `javascript-fleet` for a horizontally scaled host-execution deployment, `interactive-demo` for the framework-neutral renderer, and `api-client` for the API Client on its own.
 
 Runtime-capable examples intentionally include either a runtime-only route or a live controller/router inventory so the Runtime panel demonstrates evidence from the running backend rather than repeating the specification.
 
