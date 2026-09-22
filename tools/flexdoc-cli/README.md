@@ -65,7 +65,7 @@ npx @prauga/flexdoc-cli validate "$FLEXDOC_RUNTIME_URL" \
 
 `--header <name:value>` is repeatable. Do not combine an explicit `Authorization` header with `--bearer` or `--basic`, and do not use bearer and basic together. CLI arguments can be visible to local process inspection, so supply credentials from your CI secret facility rather than committing them to scripts or repository configuration.
 
-By default, `validate` exits `1` only when the backend validation status is `fail` (or when the endpoint/payload cannot be consumed). `warn` and `partial` remain successful so the backend's severity model is preserved without surprising existing CI.
+By default, `validate` exits `1` only when the backend validation status is `fail` (or when the endpoint/payload cannot be consumed). An implemented-but-undocumented operation is an error, so it fails that default policy and the log names the method and path. Other warnings, and `partial` discovery, remain successful unless `--fail-on` asks for them.
 
 To make CI stricter, add a fail policy:
 

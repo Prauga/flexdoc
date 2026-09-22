@@ -149,7 +149,7 @@ export function validateRuntimeContract(options: ValidateRuntimeContractOptions)
     findings.push({
       id: findingId('runtime.operation-undocumented', route.path, route.method),
       code: 'runtime.operation-undocumented',
-      severity: 'warning',
+      severity: 'error',
       location: { kind: 'operation', method: route.method.toUpperCase(), path: route.path },
       message: `Runtime implements ${route.method.toUpperCase()} ${route.path}, but OpenAPI does not document that operation.`,
       expected: 'Operation is represented in OpenAPI',

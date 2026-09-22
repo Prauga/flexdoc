@@ -144,6 +144,30 @@ test('formats actionable human output for CI logs', () => {
   assert.match(output, /Observed: 2 runtime registrations/);
 });
 
+test('default validate policy fails an undocumented runtime operation and names it', async () => {
+  const output = [];
+  const undocumented = {
+    status: 'fail',
+    complete: true,
+    findings: [{
+      id: 'runtime.operation-undocumented:POST:/internal/reindex',
+      code: 'runtime.operation-undocumented',
+      severity: 'error',
+      location: { kind: 'operation', method: 'POST', path: '/internal/reindex' },
+      message: 'Runtime implements POST /internal/reindex, but OpenAPI does not document that operation.',
+      expected: 'Operation is represented in OpenAPI',
+      observed: 'Operation exists only in the running backend',
+    }],
+    summary: { total: 1, errors: 1, warnings: 0, info: 0 },
+  };
+  const exitCode = await runValidationCli(['https://api.example.test/docs/__flexdoc/runtime'], {
+    fetchImpl: async () => ({ ok: true, status: 200, json: async () => ({ validation: undocumented }) }),
+    log: (value) => output.push(value),
+  });
+  assert.equal(exitCode, 1);
+  assert.match(output.join('\n'), /runtime\.operation-undocumented · POST \/internal\/reindex/);
+});
+
 test('default validate policy exits 1 only for backend fail status', async () => {
   const output = [];
   const failureCode = await runValidationCli(['https://api.example.test/docs/__flexdoc/runtime', '--json'], {

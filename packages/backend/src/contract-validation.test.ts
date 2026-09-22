@@ -56,7 +56,7 @@ describe('runtime contract validation', () => {
     }));
   });
 
-  it('reports undocumented runtime operations as warnings', () => {
+  it('fails the default validation status when a runtime operation is undocumented', () => {
     const result = validateRuntimeContract({
       documentedRoutes: [{ method: 'GET', path: '/pets' }],
       runtimeRoutes: [
@@ -66,11 +66,13 @@ describe('runtime contract validation', () => {
       discoveryComplete: true,
     });
 
-    expect(result.status).toBe('warn');
+    expect(result.status).toBe('fail');
+    expect(result.summary).toEqual({ total: 1, errors: 1, warnings: 0, info: 0 });
     expect(result.findings).toEqual([expect.objectContaining({
       code: 'runtime.operation-undocumented',
-      severity: 'warning',
+      severity: 'error',
       location: { kind: 'operation', method: 'POST', path: '/internal/reindex' },
+      message: 'Runtime implements POST /internal/reindex, but OpenAPI does not document that operation.',
     })]);
   });
 

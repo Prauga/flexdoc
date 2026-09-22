@@ -130,7 +130,8 @@ describe('runtime intelligence', () => {
     expect(snapshot.summary).toEqual({ documented: 2, runtime: 2, matched: 1, runtimeOnly: 1, documentedOnly: 1 });
     expect(snapshot.runtimeOnly).toEqual([{ method: 'POST', path: '/internal/reindex' }]);
     expect(snapshot.documentedOnly).toEqual([{ method: 'GET', path: '/pets/{petId}' }]);
-    expect(snapshot.validation.summary).toEqual({ total: 2, errors: 1, warnings: 1, info: 0 });
+    expect(snapshot.validation.status).toBe('fail');
+    expect(snapshot.validation.summary).toEqual({ total: 2, errors: 2, warnings: 0, info: 0 });
     expect(snapshot.serverOrigin).toBe('https://api.example.com');
     expect(snapshot.server).toEqual({ localPort: 8443 });
     expect(snapshot.environment).toEqual({ name: 'production' });
