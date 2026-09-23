@@ -106,8 +106,16 @@ jobs:
               snapshot = json.load(handle)
           assert snapshot['framework'] == 'aspnetcore'
           assert snapshot['runtime']['name'] == 'dotnet'
-          assert snapshot['summary'] == {'documented': 1, 'runtime': 2, 'matched': 1, 'runtimeOnly': 1, 'documentedOnly': 0}
-          assert snapshot['runtimeOnly'] == [{'method': 'POST', 'path': '/internal'}]
+          assert snapshot['summary'] == {'documented': 1, 'runtime': 3, 'matched': 1, 'runtimeOnly': 2, 'documentedOnly': 0}
+          assert {(item['method'], item['path']) for item in snapshot['runtimeOnly']} == {('GET', '/internal/health'), ('POST', '/internal/reindex')}
+          validation = snapshot['validation']
+          assert validation['status'] == 'fail'
+          assert validation['summary'] == {'total': 2, 'errors': 1, 'warnings': 0, 'info': 1}
+          assert validation['findings'][0]['severity'] == 'error'
+          assert validation['findings'][0]['location']['method'] == 'POST'
+          assert validation['findings'][0]['location']['path'] == '/internal/reindex'
+          assert validation['findings'][1]['disposition'] == 'acknowledged'
+          assert validation['findings'][1]['location']['path'] == '/internal/health'
           PY
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' -X POST http://127.0.0.1:5087/docs/__flexdoc/runtime)" = "405"
 

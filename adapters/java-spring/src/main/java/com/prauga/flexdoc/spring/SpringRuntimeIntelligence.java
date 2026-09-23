@@ -56,7 +56,8 @@ final class SpringRuntimeIntelligence {
         request,
         properties.getPath(),
         properties.getSpecUrl(),
-        activeEnvironmentName(environment));
+        activeEnvironmentName(environment),
+        acknowledgedRoutes(properties.getAcknowledgedUndocumented()));
   }
 
   static Map<String, Object> buildSnapshot(
@@ -66,16 +67,27 @@ final class SpringRuntimeIntelligence {
       String docsPath,
       String specUrl,
       String environmentName) {
+    return buildSnapshot(mappings, spec, request, docsPath, specUrl, environmentName, List.of());
+  }
+
+  static Map<String, Object> buildSnapshot(
+      Iterable<RequestMappingInfo> mappings,
+      JsonNode spec,
+      HttpServletRequest request,
+      String docsPath,
+      String specUrl,
+      String environmentName,
+      List<RuntimeRoute> acknowledgedUndocumented) {
     Discovery discovery = discoverRoutes(mappings, docsPath, specUrl);
     List<RuntimeRoute> documented = documentedRoutes(spec);
     Set<String> documentedKeys = new LinkedHashSet<>();
-    for (RuntimeRoute route : documented) documentedKeys.add(routeKey(route));
+    for (RuntimeRoute route : documented) documentedKeys.add(shapeKey(route));
     Set<String> runtimeKeys = new LinkedHashSet<>();
-    for (RuntimeRoute route : discovery.routes()) runtimeKeys.add(routeKey(route));
+    for (RuntimeRoute route : discovery.routes()) runtimeKeys.add(shapeKey(route));
 
-    List<RuntimeRoute> runtimeOnly = discovery.routes().stream().filter(route -> !documentedKeys.contains(routeKey(route))).toList();
-    List<RuntimeRoute> documentedOnly = documented.stream().filter(route -> !runtimeKeys.contains(routeKey(route))).toList();
-    long matched = discovery.routes().stream().filter(route -> documentedKeys.contains(routeKey(route))).count();
+    List<RuntimeRoute> runtimeOnly = discovery.routes().stream().filter(route -> !documentedKeys.contains(shapeKey(route))).toList();
+    List<RuntimeRoute> documentedOnly = documented.stream().filter(route -> !runtimeKeys.contains(shapeKey(route))).toList();
+    long matched = discovery.routes().stream().filter(route -> documentedKeys.contains(shapeKey(route))).count();
 
     Map<String, Object> snapshot = new LinkedHashMap<>();
     snapshot.put("framework", "spring");
@@ -101,7 +113,24 @@ final class SpringRuntimeIntelligence {
         "matched", matched,
         "runtimeOnly", runtimeOnly.size(),
         "documentedOnly", documentedOnly.size()));
+    snapshot.put("validation", SpringContractValidation.validate(
+        documented,
+        discovery.routes(),
+        discovery.complete(),
+        acknowledgedUndocumented == null ? List.of() : acknowledgedUndocumented));
     return snapshot;
+  }
+
+  private static List<RuntimeRoute> acknowledgedRoutes(List<FlexDocProperties.AcknowledgedRoute> configured) {
+    if (configured == null || configured.isEmpty()) return List.of();
+    List<RuntimeRoute> routes = new ArrayList<>();
+    for (FlexDocProperties.AcknowledgedRoute route : configured) {
+      if (route == null || route.getMethod() == null || route.getPath() == null) continue;
+      String method = route.getMethod().trim().toUpperCase(Locale.ROOT);
+      if (!HTTP_METHODS.contains(method) || route.getPath().isBlank()) continue;
+      routes.add(new RuntimeRoute(method, normalizePath(route.getPath())));
+    }
+    return uniqueSorted(routes);
   }
 
   static Discovery discoverRoutes(Iterable<RequestMappingInfo> mappings, String docsPath, String specUrl) {
@@ -204,6 +233,11 @@ final class SpringRuntimeIntelligence {
   }
 
   private static String routeKey(RuntimeRoute route) { return route.method() + " " + route.path(); }
+
+  /** Wire identity. Parameter names such as `{id}` and `{petId}` describe the same operation. */
+  private static String shapeKey(RuntimeRoute route) {
+    return route.method() + " " + route.path().replaceAll("\\{[^/{}]+\\}", "{}");
+  }
 
   private static boolean isExcluded(String path, String docsPath, String specPath) {
     return path.equals(docsPath) || path.startsWith(docsPath + "/") || (specPath != null && path.equals(specPath));

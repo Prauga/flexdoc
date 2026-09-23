@@ -4,6 +4,8 @@ Notable FlexDoc product releases are recorded here. Detailed release notes remai
 
 ## Unreleased
 
+- Spring MVC and ASP.NET Core emit the same runtime-contract validation object as Node. A complete-discovery undocumented route fails `flexdoc validate` by method and path. Acknowledgement keeps that route registered as informational and does not remove it from the runtime record. Snapshot membership uses the same wire identity as validation, so differing path-parameter names are one operation.
+
 ## 3.5.0 — Node disagreement loop
 
 `@prauga/flexdoc-client` and `@prauga/flexdoc-backend` **3.5.0**, with `@prauga/flexdoc-cli` **0.8.0**. Native adapter versions are unchanged.

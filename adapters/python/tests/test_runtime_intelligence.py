@@ -80,6 +80,17 @@ class RuntimeIntelligenceTest(unittest.TestCase):
         })
         self.assertNotIn({"method": "HEAD", "path": "/mounted/items/{item_id}"}, snapshot["routes"])
         self.assertNotIn("environment", snapshot)
+        self.assertNotIn("validation", snapshot)
+
+    def test_parameter_names_do_not_split_one_wire_operation(self):
+        app = FakeFastAPI([FakeRoute("/pets/{id}", {"GET"})])
+        app.openapi = lambda: {"paths": {"/pets/{petId}": {"get": {}}}}
+
+        snapshot = build_fastapi_runtime_snapshot(app, {"scheme": "http", "headers": [], "server": ("127.0.0.1", 8000)})
+
+        self.assertEqual(snapshot["summary"]["matched"], 1)
+        self.assertEqual(snapshot["runtimeOnly"], [])
+        self.assertEqual(snapshot["documentedOnly"], [])
 
     def test_marks_opaque_mounts_partial(self):
         app = FakeFastAPI([FakeMount("/opaque", [])])

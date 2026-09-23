@@ -42,12 +42,25 @@ public sealed class FlexDocOptions
     /// <summary>Native ASP.NET Core executor. A null executor keeps host execution unavailable and the execute route unregistered.</summary>
     public FlexDocHostExecution? HostExecution { get; set; }
 
-    /// <summary>Explicit opt-in for live ASP.NET Core route discovery and OpenAPI presence drift.</summary>
+    /// <summary>Explicit opt-in for live ASP.NET Core route discovery and the same contract-validation object Node emits.</summary>
     public bool RuntimeIntelligence { get; set; }
+
+    /// <summary>Runtime routes accepted as intentionally absent from OpenAPI. They stay registered.</summary>
+    public IReadOnlyList<FlexDocAcknowledgedRoute> AcknowledgedUndocumented { get; set; } = Array.Empty<FlexDocAcknowledgedRoute>();
 
     /// <summary>
     /// Server-only OpenAPI document used for Runtime Intelligence comparison. Required when RuntimeIntelligence is enabled.
     /// Accepts a serializable OpenAPI object, JsonElement/JsonDocument, or JSON string and is never sent to the renderer.
     /// </summary>
     public object? RuntimeOpenApiDocument { get; set; }
+}
+
+/// <summary>One runtime route the operator has accepted as undocumented.</summary>
+public sealed class FlexDocAcknowledgedRoute
+{
+    /// <summary>HTTP method.</summary>
+    public string Method { get; set; } = "";
+
+    /// <summary>Route path.</summary>
+    public string Path { get; set; } = "";
 }

@@ -25,7 +25,8 @@ var openApiDocument = new
 
 app.MapGet("/openapi.json", () => Results.Json(openApiDocument));
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-app.MapPost("/internal", () => Results.Ok(new { status = "internal" }));
+app.MapGet("/internal/health", () => Results.Ok(new { status = "internal-ok" }));
+app.MapPost("/internal/reindex", () => Results.Ok(new { accepted = true }));
 app.MapFlexDoc(options =>
 {
     options.Path = "/docs";
@@ -33,6 +34,10 @@ app.MapFlexDoc(options =>
     options.Title = "FlexDoc ASP.NET Core Example";
     options.RuntimeIntelligence = true;
     options.RuntimeOpenApiDocument = openApiDocument;
+    options.AcknowledgedUndocumented = new[]
+    {
+        new FlexDocAcknowledgedRoute { Method = "GET", Path = "/internal/health" },
+    };
 });
 
 app.Run();

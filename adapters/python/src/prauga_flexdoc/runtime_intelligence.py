@@ -203,6 +203,14 @@ def server_port_from_asgi_scope(scope) -> int | None:
     return port if isinstance(port, int) and 0 < port <= 65535 else None
 
 
+def _route_shape(path: str) -> str:
+    return re.sub(r"\{[^/{}]+\}", "{}", path)
+
+
+def _exact_shape_key(route: dict[str, str]) -> str:
+    return f'{route["method"].upper()} {_route_shape(route["path"])}'
+
+
 def build_fastapi_runtime_snapshot(app, scope, exclude_prefix: str | None = None) -> dict:
     """Build a Runtime Intelligence route-presence snapshot for FastAPI.
 
@@ -219,11 +227,11 @@ def build_fastapi_runtime_snapshot(app, scope, exclude_prefix: str | None = None
     discovery = discover_fastapi_routes(app, exclude_prefix)
     documented = documented_openapi_routes(spec)
     runtime_routes = discovery["routes"]
-    documented_keys = {_route_key(route) for route in documented}
-    runtime_keys = {_route_key(route) for route in runtime_routes}
-    runtime_only = [route for route in runtime_routes if _route_key(route) not in documented_keys]
-    documented_only = [route for route in documented if _route_key(route) not in runtime_keys]
-    matched = sum(1 for route in runtime_routes if _route_key(route) in documented_keys)
+    documented_keys = {_exact_shape_key(route) for route in documented}
+    runtime_keys = {_exact_shape_key(route) for route in runtime_routes}
+    runtime_only = [route for route in runtime_routes if _exact_shape_key(route) not in documented_keys]
+    documented_only = [route for route in documented if _exact_shape_key(route) not in runtime_keys]
+    matched = sum(1 for route in runtime_routes if _exact_shape_key(route) in documented_keys)
     origin = server_origin_from_asgi_scope(scope)
     local_port = server_port_from_asgi_scope(scope)
 

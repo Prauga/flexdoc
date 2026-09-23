@@ -34,15 +34,16 @@ internal static class AspNetRuntimeIntelligence
         JsonElement openApiDocument,
         HttpContext context,
         string docsPath,
-        string specUrl)
+        string specUrl,
+        IReadOnlyList<RuntimeRoute>? acknowledgedUndocumented = null)
     {
         var discovery = DiscoverRoutes(endpoints, docsPath, specUrl);
         var documented = DocumentedRoutes(openApiDocument);
-        var documentedKeys = documented.Select(RouteKey).ToHashSet(StringComparer.Ordinal);
-        var runtimeKeys = discovery.Routes.Select(RouteKey).ToHashSet(StringComparer.Ordinal);
-        var runtimeOnly = discovery.Routes.Where(route => !documentedKeys.Contains(RouteKey(route))).ToArray();
-        var documentedOnly = documented.Where(route => !runtimeKeys.Contains(RouteKey(route))).ToArray();
-        var matched = discovery.Routes.Count(route => documentedKeys.Contains(RouteKey(route)));
+        var documentedKeys = documented.Select(ShapeKey).ToHashSet(StringComparer.Ordinal);
+        var runtimeKeys = discovery.Routes.Select(ShapeKey).ToHashSet(StringComparer.Ordinal);
+        var runtimeOnly = discovery.Routes.Where(route => !documentedKeys.Contains(ShapeKey(route))).ToArray();
+        var documentedOnly = documented.Where(route => !runtimeKeys.Contains(ShapeKey(route))).ToArray();
+        var matched = discovery.Routes.Count(route => documentedKeys.Contains(ShapeKey(route)));
         var frameworkVersion = typeof(RouteEndpoint).Assembly.GetName().Version?.ToString();
 
         var snapshot = new Dictionary<string, object?>
@@ -76,7 +77,26 @@ internal static class AspNetRuntimeIntelligence
         var environmentName = StandardEnvironmentName();
         if (environmentName is not null)
             snapshot["environment"] = new Dictionary<string, object?> { ["name"] = environmentName };
+        snapshot["validation"] = AspNetContractValidation.Validate(
+            documented,
+            discovery.Routes,
+            discovery.Complete,
+            acknowledgedUndocumented ?? Array.Empty<RuntimeRoute>());
         return snapshot;
+    }
+
+    internal static IReadOnlyList<RuntimeRoute> NormalizeAcknowledged(IEnumerable<FlexDocAcknowledgedRoute>? configured)
+    {
+        if (configured is null) return Array.Empty<RuntimeRoute>();
+        var routes = new List<RuntimeRoute>();
+        foreach (var route in configured)
+        {
+            if (route is null || string.IsNullOrWhiteSpace(route.Method) || string.IsNullOrWhiteSpace(route.Path)) continue;
+            var method = route.Method.Trim().ToUpperInvariant();
+            if (!HttpMethods.Contains(method)) continue;
+            routes.Add(new RuntimeRoute(method, NormalizePath(route.Path)));
+        }
+        return UniqueSorted(routes);
     }
 
     internal static (IReadOnlyList<RuntimeRoute> Routes, bool Complete) DiscoverRoutes(
@@ -191,6 +211,10 @@ internal static class AspNetRuntimeIntelligence
     }
 
     private static string RouteKey(RuntimeRoute route) => $"{route.Method} {route.Path}";
+
+    /// <summary>Wire identity. Parameter names such as <c>{id}</c> and <c>{petId}</c> describe the same operation.</summary>
+    private static string ShapeKey(RuntimeRoute route)
+        => $"{route.Method} {System.Text.RegularExpressions.Regex.Replace(route.Path, @"\{[^/{}]+\}", "{}")}";
 
     private static Dictionary<string, string> RouteObject(RuntimeRoute route) => new()
     {
