@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -172,6 +173,52 @@ var partialValidation = partialSnapshot.GetProperty("validation");
 Check(partialValidation.GetProperty("complete").GetBoolean() == false, "a non-route endpoint makes discovery partial");
 Check(partialValidation.GetProperty("status").GetString() == "warn", "partial undocumented discovery warns");
 Check(partialValidation.GetProperty("findings")[0].GetProperty("severity").GetString() == "warning", "the undocumented route is a warning when discovery is partial");
+
+var shapeApp = WebApplication.CreateBuilder().Build();
+shapeApp.MapGet("/pets/{id}", () => Results.Ok());
+var shapeSnapshot = JsonSerializer.SerializeToElement(AspNetRuntimeIntelligence.BuildSnapshot(
+    ((IEndpointRouteBuilder)shapeApp).DataSources.SelectMany(static source => source.Endpoints),
+    AspNetRuntimeIntelligence.OpenApiDocumentElement(new { paths = new Dictionary<string, object> { ["/pets/{petId}"] = new { get = new { } } } }),
+    new DefaultHttpContext(),
+    "/docs",
+    "/openapi.json"));
+Check(shapeSnapshot.GetProperty("summary").GetProperty("matched").GetInt32() == 1, "parameter names must not split one wire operation");
+Check(shapeSnapshot.GetProperty("runtimeOnly").GetArrayLength() == 0, "equivalent runtime path is not runtime-only");
+Check(shapeSnapshot.GetProperty("documentedOnly").GetArrayLength() == 0, "equivalent documented path is not documented-only");
+Check(shapeSnapshot.GetProperty("validation").GetProperty("status").GetString() == "pass", "equivalent parameter names must pass validation");
+
+var fixtureDir = new DirectoryInfo(AppContext.BaseDirectory);
+string? fixturePath = null;
+while (fixtureDir is not null)
+{
+    var candidate = Path.Combine(fixtureDir.FullName, "contracts", "contract-validation-fixtures.json");
+    if (File.Exists(candidate))
+    {
+        fixturePath = candidate;
+        break;
+    }
+    fixtureDir = fixtureDir.Parent;
+}
+if (fixturePath is null) throw new InvalidOperationException("contract validation fixtures were not found");
+foreach (var item in JsonNode.Parse(File.ReadAllText(fixturePath))!["cases"]!.AsArray())
+{
+    var input = item!["input"]!;
+    var actual = JsonSerializer.SerializeToNode(AspNetContractValidation.Validate(
+        ConformanceRoutes(input["documentedRoutes"]),
+        ConformanceRoutes(input["runtimeRoutes"]),
+        input["discoveryComplete"]!.GetValue<bool>(),
+        ConformanceRoutes(input["acknowledgedUndocumented"])));
+    Check(JsonNode.DeepEquals(actual, item["expected"]), $"ASP.NET validation diverged on {item["name"]}");
+}
+
+static List<AspNetRuntimeIntelligence.RuntimeRoute> ConformanceRoutes(JsonNode? value)
+{
+    var routes = new List<AspNetRuntimeIntelligence.RuntimeRoute>();
+    if (value is not JsonArray array) return routes;
+    foreach (var route in array)
+        routes.Add(new AspNetRuntimeIntelligence.RuntimeRoute(route!["method"]!.GetValue<string>(), route["path"]!.GetValue<string>()));
+    return routes;
+}
 
 await HostExecutionConformance.RunAsync();
 await HostExecutionHttpSecurityConformance.RunAsync();

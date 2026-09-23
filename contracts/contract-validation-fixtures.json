@@ -1,0 +1,342 @@
+{
+  "cases": [
+    {
+      "name": "exact-match",
+      "input": {
+        "documentedRoutes": [
+          {
+            "method": "GET",
+            "path": "/pets"
+          }
+        ],
+        "runtimeRoutes": [
+          {
+            "method": "GET",
+            "path": "/pets"
+          }
+        ],
+        "discoveryComplete": true
+      },
+      "expected": {
+        "status": "pass",
+        "complete": true,
+        "findings": [],
+        "summary": {
+          "total": 0,
+          "errors": 0,
+          "warnings": 0,
+          "info": 0
+        }
+      }
+    },
+    {
+      "name": "parameter-name-equivalence",
+      "input": {
+        "documentedRoutes": [
+          {
+            "method": "GET",
+            "path": "/pets/{petId}"
+          }
+        ],
+        "runtimeRoutes": [
+          {
+            "method": "GET",
+            "path": "/pets/{id}"
+          }
+        ],
+        "discoveryComplete": true
+      },
+      "expected": {
+        "status": "pass",
+        "complete": true,
+        "findings": [],
+        "summary": {
+          "total": 0,
+          "errors": 0,
+          "warnings": 0,
+          "info": 0
+        }
+      }
+    },
+    {
+      "name": "undocumented-complete",
+      "input": {
+        "documentedRoutes": [
+          {
+            "method": "GET",
+            "path": "/pets"
+          }
+        ],
+        "runtimeRoutes": [
+          {
+            "method": "GET",
+            "path": "/pets"
+          },
+          {
+            "method": "POST",
+            "path": "/internal/reindex"
+          }
+        ],
+        "discoveryComplete": true
+      },
+      "expected": {
+        "status": "fail",
+        "complete": true,
+        "findings": [
+          {
+            "id": "runtime.operation-undocumented:POST:/internal/reindex",
+            "code": "runtime.operation-undocumented",
+            "severity": "error",
+            "location": {
+              "kind": "operation",
+              "method": "POST",
+              "path": "/internal/reindex"
+            },
+            "message": "Runtime implements POST /internal/reindex, but OpenAPI does not document that operation.",
+            "expected": "Operation is represented in OpenAPI",
+            "observed": "Operation exists only in the running backend"
+          }
+        ],
+        "summary": {
+          "total": 1,
+          "errors": 1,
+          "warnings": 0,
+          "info": 0
+        }
+      }
+    },
+    {
+      "name": "undocumented-partial",
+      "input": {
+        "documentedRoutes": [
+          {
+            "method": "GET",
+            "path": "/pets"
+          }
+        ],
+        "runtimeRoutes": [
+          {
+            "method": "POST",
+            "path": "/internal/reindex"
+          }
+        ],
+        "discoveryComplete": false
+      },
+      "expected": {
+        "status": "warn",
+        "complete": false,
+        "findings": [
+          {
+            "id": "runtime.operation-undocumented:POST:/internal/reindex",
+            "code": "runtime.operation-undocumented",
+            "severity": "warning",
+            "location": {
+              "kind": "operation",
+              "method": "POST",
+              "path": "/internal/reindex"
+            },
+            "message": "Runtime implements POST /internal/reindex, but OpenAPI does not document that operation.",
+            "expected": "Operation is represented in OpenAPI",
+            "observed": "Operation exists only in the running backend"
+          },
+          {
+            "id": "runtime.operation-unobserved:GET:/pets",
+            "code": "runtime.operation-unobserved",
+            "severity": "info",
+            "location": {
+              "kind": "operation",
+              "method": "GET",
+              "path": "/pets"
+            },
+            "message": "OpenAPI documents GET /pets, but it was not observed during partial runtime discovery.",
+            "expected": "Operation is exposed by the running backend",
+            "observed": "No matching operation was observed during partial discovery"
+          }
+        ],
+        "summary": {
+          "total": 2,
+          "errors": 0,
+          "warnings": 1,
+          "info": 1
+        }
+      }
+    },
+    {
+      "name": "acknowledged-undocumented",
+      "input": {
+        "documentedRoutes": [
+          {
+            "method": "GET",
+            "path": "/pets"
+          }
+        ],
+        "runtimeRoutes": [
+          {
+            "method": "GET",
+            "path": "/pets"
+          },
+          {
+            "method": "GET",
+            "path": "/internal/health"
+          }
+        ],
+        "acknowledgedUndocumented": [
+          {
+            "method": "GET",
+            "path": "/internal/health"
+          }
+        ],
+        "discoveryComplete": true
+      },
+      "expected": {
+        "status": "pass",
+        "complete": true,
+        "findings": [
+          {
+            "id": "runtime.operation-undocumented:GET:/internal/health",
+            "code": "runtime.operation-undocumented",
+            "severity": "info",
+            "disposition": "acknowledged",
+            "location": {
+              "kind": "operation",
+              "method": "GET",
+              "path": "/internal/health"
+            },
+            "message": "Runtime implements GET /internal/health, but OpenAPI does not document that operation.",
+            "expected": "Operation is represented in OpenAPI",
+            "observed": "Operation exists only in the running backend and is acknowledged"
+          }
+        ],
+        "summary": {
+          "total": 1,
+          "errors": 0,
+          "warnings": 0,
+          "info": 1
+        }
+      }
+    },
+    {
+      "name": "documented-unobserved-complete",
+      "input": {
+        "documentedRoutes": [
+          {
+            "method": "GET",
+            "path": "/pets/{petId}"
+          }
+        ],
+        "runtimeRoutes": [],
+        "discoveryComplete": true
+      },
+      "expected": {
+        "status": "fail",
+        "complete": true,
+        "findings": [
+          {
+            "id": "runtime.operation-unobserved:GET:/pets/{}",
+            "code": "runtime.operation-unobserved",
+            "severity": "error",
+            "location": {
+              "kind": "operation",
+              "method": "GET",
+              "path": "/pets/{petId}"
+            },
+            "message": "OpenAPI documents GET /pets/{petId}, but the running backend does not expose that operation.",
+            "expected": "Operation is exposed by the running backend",
+            "observed": "No matching runtime operation exists"
+          }
+        ],
+        "summary": {
+          "total": 1,
+          "errors": 1,
+          "warnings": 0,
+          "info": 0
+        }
+      }
+    },
+    {
+      "name": "documented-unobserved-partial",
+      "input": {
+        "documentedRoutes": [
+          {
+            "method": "GET",
+            "path": "/pets/{petId}"
+          }
+        ],
+        "runtimeRoutes": [],
+        "discoveryComplete": false
+      },
+      "expected": {
+        "status": "partial",
+        "complete": false,
+        "findings": [
+          {
+            "id": "runtime.operation-unobserved:GET:/pets/{}",
+            "code": "runtime.operation-unobserved",
+            "severity": "info",
+            "location": {
+              "kind": "operation",
+              "method": "GET",
+              "path": "/pets/{petId}"
+            },
+            "message": "OpenAPI documents GET /pets/{petId}, but it was not observed during partial runtime discovery.",
+            "expected": "Operation is exposed by the running backend",
+            "observed": "No matching operation was observed during partial discovery"
+          }
+        ],
+        "summary": {
+          "total": 1,
+          "errors": 0,
+          "warnings": 0,
+          "info": 1
+        }
+      }
+    },
+    {
+      "name": "method-mismatch",
+      "input": {
+        "documentedRoutes": [
+          {
+            "method": "POST",
+            "path": "/pets/{petId}"
+          }
+        ],
+        "runtimeRoutes": [
+          {
+            "method": "GET",
+            "path": "/pets/{id}"
+          }
+        ],
+        "discoveryComplete": true
+      },
+      "expected": {
+        "status": "fail",
+        "complete": true,
+        "findings": [
+          {
+            "id": "runtime.method-mismatch:/pets/{}",
+            "code": "runtime.method-mismatch",
+            "severity": "error",
+            "location": {
+              "kind": "operation",
+              "method": "POST",
+              "path": "/pets/{petId}"
+            },
+            "message": "Runtime route /pets/{petId} is registered for different HTTP methods than OpenAPI documents.",
+            "expected": [
+              "POST"
+            ],
+            "observed": [
+              "GET"
+            ]
+          }
+        ],
+        "summary": {
+          "total": 1,
+          "errors": 1,
+          "warnings": 0,
+          "info": 0
+        }
+      }
+    }
+  ]
+}

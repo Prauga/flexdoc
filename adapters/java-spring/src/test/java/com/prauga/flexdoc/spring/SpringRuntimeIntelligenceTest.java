@@ -175,6 +175,22 @@ class SpringRuntimeIntelligenceTest {
   }
 
   @Test
+  void parameterNamesDoNotSplitOneWireOperation() {
+    List<RequestMappingInfo> mappings = List.of(
+        RequestMappingInfo.paths("/pets/{id}").methods(RequestMethod.GET).build());
+    JsonNode spec = objectMapper.valueToTree(Map.of("paths", Map.of("/pets/{petId}", Map.of("get", Map.of()))));
+
+    JsonNode json = objectMapper.valueToTree(SpringRuntimeIntelligence.buildSnapshot(
+        mappings, spec, null, "/docs", "/v3/api-docs", null));
+
+    assertThat(json.get("summary").get("matched").asInt()).isEqualTo(1);
+    assertThat(json.get("runtimeOnly")).isEmpty();
+    assertThat(json.get("documentedOnly")).isEmpty();
+    assertThat(json.get("validation").get("status").asText()).isEqualTo("pass");
+    assertThat(json.get("validation").get("findings")).isEmpty();
+  }
+
+  @Test
   void normalizesSpringParameterSyntax() {
     assertThat(SpringRuntimeIntelligence.normalizeRuntimePath("/orders/{orderId:\\d+}/"))
         .isEqualTo("/orders/{orderId}");

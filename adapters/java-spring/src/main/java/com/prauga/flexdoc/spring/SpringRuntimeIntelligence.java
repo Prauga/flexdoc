@@ -81,13 +81,13 @@ final class SpringRuntimeIntelligence {
     Discovery discovery = discoverRoutes(mappings, docsPath, specUrl);
     List<RuntimeRoute> documented = documentedRoutes(spec);
     Set<String> documentedKeys = new LinkedHashSet<>();
-    for (RuntimeRoute route : documented) documentedKeys.add(routeKey(route));
+    for (RuntimeRoute route : documented) documentedKeys.add(shapeKey(route));
     Set<String> runtimeKeys = new LinkedHashSet<>();
-    for (RuntimeRoute route : discovery.routes()) runtimeKeys.add(routeKey(route));
+    for (RuntimeRoute route : discovery.routes()) runtimeKeys.add(shapeKey(route));
 
-    List<RuntimeRoute> runtimeOnly = discovery.routes().stream().filter(route -> !documentedKeys.contains(routeKey(route))).toList();
-    List<RuntimeRoute> documentedOnly = documented.stream().filter(route -> !runtimeKeys.contains(routeKey(route))).toList();
-    long matched = discovery.routes().stream().filter(route -> documentedKeys.contains(routeKey(route))).count();
+    List<RuntimeRoute> runtimeOnly = discovery.routes().stream().filter(route -> !documentedKeys.contains(shapeKey(route))).toList();
+    List<RuntimeRoute> documentedOnly = documented.stream().filter(route -> !runtimeKeys.contains(shapeKey(route))).toList();
+    long matched = discovery.routes().stream().filter(route -> documentedKeys.contains(shapeKey(route))).count();
 
     Map<String, Object> snapshot = new LinkedHashMap<>();
     snapshot.put("framework", "spring");
@@ -233,6 +233,11 @@ final class SpringRuntimeIntelligence {
   }
 
   private static String routeKey(RuntimeRoute route) { return route.method() + " " + route.path(); }
+
+  /** Wire identity. Parameter names such as `{id}` and `{petId}` describe the same operation. */
+  private static String shapeKey(RuntimeRoute route) {
+    return route.method() + " " + route.path().replaceAll("\\{[^/{}]+\\}", "{}");
+  }
 
   private static boolean isExcluded(String path, String docsPath, String specPath) {
     return path.equals(docsPath) || path.startsWith(docsPath + "/") || (specPath != null && path.equals(specPath));

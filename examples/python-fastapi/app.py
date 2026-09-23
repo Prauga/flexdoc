@@ -84,16 +84,10 @@ async def upload_photo(
     return {"id": "upload-local", "filename": file.filename or "upload.bin", "caption": caption}
 
 
-# Hidden from the generated schema and acknowledged, so the finding stays informational.
+# Deliberately hidden from OpenAPI so the Runtime panel has a real runtime-only route to surface.
 @app.get("/internal/health", include_in_schema=False)
 async def internal_health() -> dict[str, str]:
     return {"status": "internal-ok"}
-
-
-# Hidden from the generated schema and not acknowledged, so validation fails.
-@app.post("/internal/reindex", include_in_schema=False)
-async def internal_reindex() -> dict[str, bool]:
-    return {"accepted": True}
 
 
 setup_fastapi_flexdoc(
@@ -106,5 +100,4 @@ setup_fastapi_flexdoc(
     try_it_credentials="same-origin",
     try_it_api_client_persistence_key="flexdoc-fastapi-3-showcase",
     runtime_intelligence=True,
-    acknowledged_undocumented=[{"method": "GET", "path": "/internal/health"}],
 )

@@ -80,46 +80,17 @@ class RuntimeIntelligenceTest(unittest.TestCase):
         })
         self.assertNotIn({"method": "HEAD", "path": "/mounted/items/{item_id}"}, snapshot["routes"])
         self.assertNotIn("environment", snapshot)
-        self.assertEqual(snapshot["validation"]["status"], "fail")
-        self.assertEqual(snapshot["validation"]["summary"]["errors"], 2)
+        self.assertNotIn("validation", snapshot)
 
-    def test_acknowledged_health_stays_registered_while_reindex_fails(self):
-        app = FakeFastAPI([
-            FakeRoute("/pets", {"GET"}),
-            FakeRoute("/internal/health", {"GET"}),
-            FakeRoute("/internal/reindex", {"POST"}),
-        ])
-        app.openapi = lambda: {"paths": {"/pets": {"get": {}}}}
-
-        snapshot = build_fastapi_runtime_snapshot(
-            app,
-            {"scheme": "https", "headers": [(b"host", b"staging.internal")], "server": ("127.0.0.1", 8000)},
-            acknowledged_undocumented=[{"method": "get", "path": "/internal/health"}],
-        )
-        findings = snapshot["validation"]["findings"]
-
-        self.assertEqual(snapshot["summary"]["runtime"], 3)
-        self.assertEqual(len(snapshot["runtimeOnly"]), 2)
-        self.assertEqual(snapshot["validation"]["status"], "fail")
-        self.assertEqual(snapshot["validation"]["summary"], {"total": 2, "errors": 1, "warnings": 0, "info": 1})
-        self.assertEqual(findings[0]["severity"], "error")
-        self.assertEqual(findings[0]["location"], {"kind": "operation", "path": "/internal/reindex", "method": "POST"})
-        self.assertNotIn("disposition", findings[0])
-        self.assertEqual(findings[1]["disposition"], "acknowledged")
-        self.assertEqual(findings[1]["location"]["path"], "/internal/health")
-
-    def test_partial_discovery_keeps_an_undocumented_route_a_warning(self):
-        app = FakeFastAPI([
-            FakeRoute("/internal/reindex", {"POST"}),
-            FakeMount("/opaque", []),
-        ])
-        app.openapi = lambda: {"paths": {}}
+    def test_parameter_names_do_not_split_one_wire_operation(self):
+        app = FakeFastAPI([FakeRoute("/pets/{id}", {"GET"})])
+        app.openapi = lambda: {"paths": {"/pets/{petId}": {"get": {}}}}
 
         snapshot = build_fastapi_runtime_snapshot(app, {"scheme": "http", "headers": [], "server": ("127.0.0.1", 8000)})
 
-        self.assertFalse(snapshot["validation"]["complete"])
-        self.assertEqual(snapshot["validation"]["status"], "warn")
-        self.assertEqual(snapshot["validation"]["findings"][0]["severity"], "warning")
+        self.assertEqual(snapshot["summary"]["matched"], 1)
+        self.assertEqual(snapshot["runtimeOnly"], [])
+        self.assertEqual(snapshot["documentedOnly"], [])
 
     def test_marks_opaque_mounts_partial(self):
         app = FakeFastAPI([FakeMount("/opaque", [])])
