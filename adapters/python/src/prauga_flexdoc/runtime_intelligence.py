@@ -203,7 +203,130 @@ def server_port_from_asgi_scope(scope) -> int | None:
     return port if isinstance(port, int) and 0 < port <= 65535 else None
 
 
-def build_fastapi_runtime_snapshot(app, scope, exclude_prefix: str | None = None) -> dict:
+def _route_shape(path: str) -> str:
+    return re.sub(r"\{[^/{}]+\}", "{}", path)
+
+
+def _exact_shape_key(route: dict[str, str]) -> str:
+    return f'{route["method"].upper()} {_route_shape(route["path"])}'
+
+
+def _acknowledged_routes(value) -> list[dict[str, str]]:
+    routes: list[dict[str, str]] = []
+    for entry in value or []:
+        if not isinstance(entry, dict):
+            continue
+        method = str(entry.get("method", "")).strip().upper()
+        path = entry.get("path")
+        if method not in _HTTP_METHODS or not isinstance(path, str) or not path.strip():
+            continue
+        routes.append({"method": method, "path": normalize_runtime_path(path)})
+    return _unique_sorted(routes)
+
+
+def validate_runtime_contract(documented_routes, runtime_routes, discovery_complete: bool, acknowledged_undocumented=None) -> dict:
+    """Compare documented operations with discovered routes using the Node validator's rules.
+
+    Args:
+        documented_routes: Normalized OpenAPI operations.
+        runtime_routes: Normalized routes the framework registered.
+        discovery_complete: Whether the runtime inventory is complete enough for absence claims.
+        acknowledged_undocumented: Routes accepted as intentionally absent from OpenAPI.
+
+    Returns:
+        The same validation object Node, Spring, and ASP.NET Core emit.
+    """
+    documented_keys = {_exact_shape_key(route) for route in documented_routes}
+    runtime_keys = {_exact_shape_key(route) for route in runtime_routes}
+    acknowledged_keys = {_exact_shape_key(route) for route in _acknowledged_routes(acknowledged_undocumented)}
+    findings = []
+
+    def grouped(routes):
+        groups: dict[str, set[str]] = {}
+        for route in routes:
+            groups.setdefault(_route_shape(route["path"]), set()).add(route["method"].upper())
+        return {shape: sorted(methods) for shape, methods in groups.items()}
+
+    documented_methods = grouped(documented_routes)
+    runtime_methods = grouped(runtime_routes)
+    mismatch_shapes = set()
+    for shape, expected_methods in documented_methods.items():
+        observed_methods = runtime_methods.get(shape)
+        if observed_methods is None or any(method in observed_methods for method in expected_methods):
+            continue
+        mismatch_shapes.add(shape)
+        path = next((route["path"] for route in documented_routes if _route_shape(route["path"]) == shape), shape)
+        findings.append(_finding(
+            "runtime.method-mismatch", None, path,
+            "error" if discovery_complete else "warning",
+            expected_methods[0],
+            f"Runtime route {path} is registered for different HTTP methods than OpenAPI documents.",
+            expected_methods, observed_methods, None,
+        ))
+
+    for route in runtime_routes:
+        shape = _route_shape(route["path"])
+        if shape in mismatch_shapes or _exact_shape_key(route) in documented_keys:
+            continue
+        acknowledged = _exact_shape_key(route) in acknowledged_keys
+        findings.append(_finding(
+            "runtime.operation-undocumented", route["method"], route["path"],
+            "info" if acknowledged else "error" if discovery_complete else "warning",
+            route["method"],
+            f'Runtime implements {route["method"]} {route["path"]}, but OpenAPI does not document that operation.',
+            "Operation is represented in OpenAPI",
+            "Operation exists only in the running backend and is acknowledged" if acknowledged else "Operation exists only in the running backend",
+            "acknowledged" if acknowledged else None,
+        ))
+
+    for route in documented_routes:
+        shape = _route_shape(route["path"])
+        if shape in mismatch_shapes or _exact_shape_key(route) in runtime_keys:
+            continue
+        findings.append(_finding(
+            "runtime.operation-unobserved", route["method"], route["path"],
+            "error" if discovery_complete else "info",
+            route["method"],
+            f'OpenAPI documents {route["method"]} {route["path"]}, but the running backend does not expose that operation.' if discovery_complete
+            else f'OpenAPI documents {route["method"]} {route["path"]}, but it was not observed during partial runtime discovery.',
+            "Operation is exposed by the running backend",
+            "No matching runtime operation exists" if discovery_complete else "No matching operation was observed during partial discovery",
+            None,
+        ))
+
+    rank = {"error": 0, "warning": 1, "info": 2}
+    findings.sort(key=lambda finding: (
+        rank[finding["severity"]],
+        finding["location"]["path"],
+        finding["location"].get("method", ""),
+        finding["code"],
+    ))
+    summary = {
+        "total": len(findings),
+        "errors": sum(finding["severity"] == "error" for finding in findings),
+        "warnings": sum(finding["severity"] == "warning" for finding in findings),
+        "info": sum(finding["severity"] == "info" for finding in findings),
+    }
+    status = "fail" if summary["errors"] else "warn" if summary["warnings"] else "pass" if discovery_complete else "partial"
+    return {"status": status, "complete": discovery_complete, "findings": findings, "summary": summary}
+
+
+def _finding(code, id_method, path, severity, location_method, message, expected, observed, disposition):
+    finding = {
+        "id": f'{code}:' + (f"{id_method}:" if id_method else "") + _route_shape(path),
+        "code": code,
+        "severity": severity,
+        "location": {"kind": "operation", "path": path, **({"method": location_method} if location_method else {})},
+        "message": message,
+        "expected": expected,
+        "observed": observed,
+    }
+    if disposition:
+        finding["disposition"] = disposition
+    return finding
+
+
+def build_fastapi_runtime_snapshot(app, scope, exclude_prefix: str | None = None, acknowledged_undocumented=None) -> dict:
     """Build a Runtime Intelligence route-presence snapshot for FastAPI.
 
     Args:
@@ -244,6 +367,12 @@ def build_fastapi_runtime_snapshot(app, scope, exclude_prefix: str | None = None
             "runtimeOnly": len(runtime_only),
             "documentedOnly": len(documented_only),
         },
+        "validation": validate_runtime_contract(
+            documented,
+            runtime_routes,
+            discovery["complete"],
+            acknowledged_undocumented,
+        ),
     }
 
 

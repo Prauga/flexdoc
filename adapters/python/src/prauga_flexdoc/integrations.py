@@ -45,6 +45,7 @@ def setup_fastapi_flexdoc(
     try_it_credentials: Literal["omit", "same-origin", "include"] | None = None,
     try_it_api_client_persistence_key: str | Literal[False] | None = None,
     runtime_intelligence: bool = False,
+    acknowledged_undocumented: list[dict[str, str]] | None = None,
     try_it_host_execution: bool = False,
     try_it_host_execution_allowed_origins: list[str] | tuple[str, ...] | None = None,
     try_it_host_execution_metric_sink: Callable[[object], None] | None = None,
@@ -62,6 +63,8 @@ def setup_fastapi_flexdoc(
         try_it_credentials: Optional fetch credentials mode for Try It requests.
         try_it_api_client_persistence_key: Optional persistence key, or ``False``.
         runtime_intelligence: When ``True``, expose a live runtime snapshot endpoint.
+        acknowledged_undocumented: Runtime routes accepted as intentionally absent from OpenAPI.
+            They stay registered and are reported as informational findings.
         try_it_host_execution: When ``True``, mount the native API-host execution route.
         try_it_host_execution_allowed_origins: Required exact HTTP(S) origins for native
             execution. Wildcards and paths are not accepted.
@@ -86,7 +89,8 @@ def setup_fastapi_flexdoc(
     runtime_provider = None
     runtime_framework = None
     if runtime_intelligence:
-        runtime_provider = lambda scope: build_fastapi_runtime_snapshot(app, scope, normalized_path)
+        runtime_provider = lambda scope: build_fastapi_runtime_snapshot(
+            app, scope, normalized_path, acknowledged_undocumented=acknowledged_undocumented)
         runtime_framework = "fastapi"
 
     host_execution = None
