@@ -4,7 +4,7 @@ Notable FlexDoc product releases are recorded here. Detailed release notes remai
 
 ## Unreleased
 
-- Spring MVC emits the same runtime-contract validation object as Node. A complete-discovery undocumented route fails `flexdoc validate` by method and path. `flexdoc.acknowledged-undocumented` keeps that route registered as acknowledged info.
+- Spring MVC and ASP.NET Core emit the same runtime-contract validation object as Node. A complete-discovery undocumented route fails `flexdoc validate` by method and path. Acknowledgement keeps that route registered as informational and does not remove it from the runtime record.
 
 ## 3.5.0 — Node disagreement loop
 

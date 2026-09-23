@@ -81,7 +81,7 @@ flexdoc:
 
 Spring Runtime Intelligence requires a `FlexDocSpecProvider`. Existing `spec-location` configuration creates one automatically; code-first applications can provide the exact generated OpenAPI model as a bean. FlexDoc deliberately does not fetch `spec-url` server-side and does not couple this feature to springdoc internals.
 
-Spring MVC emits the same structured `validation` object as the Node integrations, including `runtimeIntelligence` acknowledgement through `flexdoc.acknowledged-undocumented`. FastAPI and ASP.NET Core continue to emit the compatible route-level Runtime Intelligence snapshot without that object. The renderer keeps showing route presence for those snapshots; the CLI refuses to invent a validator when `validation` is absent.
+Spring MVC and ASP.NET Core emit the same structured `validation` object as the Node integrations. Spring acknowledgement is `flexdoc.acknowledged-undocumented`. ASP.NET Core acknowledgement is `FlexDocOptions.AcknowledgedUndocumented`. FastAPI continues to emit the compatible route-level Runtime Intelligence snapshot without that object. The renderer keeps showing route presence for that snapshot; the CLI refuses to invent a validator when `validation` is absent.
 
 When enabled, FlexDoc registers `GET <docsPath>/__flexdoc/runtime` under the documentation route. The renderer requests that endpoint and shows:
 
@@ -140,7 +140,7 @@ A snapshot has one framework-neutral shape. The runtime `name` identifies the ho
 }
 ```
 
-`serverOrigin`, `server`, and `environment` are optional. Missing values are omitted rather than guessed. `validation` is also optional at the renderer-contract level so route snapshots without it remain compatible. Node Express/Fastify/Hono/Nest and Spring MVC produce it.
+`serverOrigin`, `server`, and `environment` are optional. Missing values are omitted rather than guessed. `validation` is also optional at the renderer-contract level so route snapshots without it remain compatible. Node Express/Fastify/Hono/Nest, Spring MVC, and ASP.NET Core produce it.
 
 ## 3.1 Contract Validation
 

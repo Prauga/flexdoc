@@ -125,11 +125,53 @@ try
     Check(discoveredRoutes.EnumerateArray().Any(route => route.GetProperty("path").GetString() == "/orders/{orderId}"), "ASP.NET route constraints must normalize to OpenAPI parameter syntax");
     Check(!discoveredRoutes.EnumerateArray().Any(route => route.GetProperty("path").GetString() == "/openapi.json"), "OpenAPI infrastructure must be excluded");
     Check(!discoveredRoutes.EnumerateArray().Any(route => route.GetProperty("path").GetString() == "/docs"), "FlexDoc infrastructure must be excluded");
+    var validation = snapshotJson.GetProperty("validation");
+    Check(validation.GetProperty("status").GetString() == "fail", "undocumented and unobserved routes must fail validation");
+    Check(validation.GetProperty("summary").GetProperty("errors").GetInt32() == 2, "complete discovery must report both disagreements as errors");
 }
 finally
 {
     Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", originalEnvironment);
 }
+
+var acknowledged = new FlexDocAcknowledgedRoute { Method = "get", Path = "/internal/health" };
+var loopSpec = new { paths = new Dictionary<string, object> { ["/pets"] = new { get = new { } } } };
+var loopApp = WebApplication.CreateBuilder().Build();
+loopApp.MapGet("/pets", () => Results.Ok());
+loopApp.MapGet("/internal/health", () => Results.Ok());
+loopApp.MapPost("/internal/reindex", () => Results.Ok());
+var loopContext = new DefaultHttpContext();
+loopContext.Request.Scheme = "https";
+loopContext.Request.Host = new HostString("staging.internal");
+var loopSnapshot = JsonSerializer.SerializeToElement(AspNetRuntimeIntelligence.BuildSnapshot(
+    ((IEndpointRouteBuilder)loopApp).DataSources.SelectMany(static source => source.Endpoints),
+    AspNetRuntimeIntelligence.OpenApiDocumentElement(loopSpec),
+    loopContext,
+    "/docs",
+    "/openapi.json",
+    AspNetRuntimeIntelligence.NormalizeAcknowledged(new[] { acknowledged })));
+var loopFindings = loopSnapshot.GetProperty("validation").GetProperty("findings");
+Check(loopSnapshot.GetProperty("summary").GetProperty("runtime").GetInt32() == 3, "acknowledged routes stay in the runtime count");
+Check(loopSnapshot.GetProperty("runtimeOnly").GetArrayLength() == 2, "acknowledged routes stay runtime-only");
+Check(loopSnapshot.GetProperty("validation").GetProperty("status").GetString() == "fail", "unacknowledged reindex must fail the loop");
+Check(loopFindings[0].GetProperty("severity").GetString() == "error" && loopFindings[0].GetProperty("location").GetProperty("path").GetString() == "/internal/reindex", "reindex must be the error");
+Check(!loopFindings[0].TryGetProperty("disposition", out _), "an unacknowledged finding has no disposition");
+Check(loopFindings[1].GetProperty("disposition").GetString() == "acknowledged" && loopFindings[1].GetProperty("location").GetProperty("path").GetString() == "/internal/health", "health must be acknowledged info");
+
+var partialApp = WebApplication.CreateBuilder().Build();
+partialApp.MapPost("/internal/reindex", () => Results.Ok());
+var partialEndpoints = ((IEndpointRouteBuilder)partialApp).DataSources.SelectMany(static source => source.Endpoints)
+    .Append(new Endpoint(_ => Task.CompletedTask, EndpointMetadataCollection.Empty, "plain"));
+var partialSnapshot = JsonSerializer.SerializeToElement(AspNetRuntimeIntelligence.BuildSnapshot(
+    partialEndpoints,
+    AspNetRuntimeIntelligence.OpenApiDocumentElement(new { paths = new Dictionary<string, object>() }),
+    new DefaultHttpContext(),
+    "/docs",
+    "/openapi.json"));
+var partialValidation = partialSnapshot.GetProperty("validation");
+Check(partialValidation.GetProperty("complete").GetBoolean() == false, "a non-route endpoint makes discovery partial");
+Check(partialValidation.GetProperty("status").GetString() == "warn", "partial undocumented discovery warns");
+Check(partialValidation.GetProperty("findings")[0].GetProperty("severity").GetString() == "warning", "the undocumented route is a warning when discovery is partial");
 
 await HostExecutionConformance.RunAsync();
 await HostExecutionHttpSecurityConformance.RunAsync();

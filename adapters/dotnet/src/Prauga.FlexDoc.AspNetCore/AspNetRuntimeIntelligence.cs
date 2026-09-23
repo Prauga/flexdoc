@@ -34,7 +34,8 @@ internal static class AspNetRuntimeIntelligence
         JsonElement openApiDocument,
         HttpContext context,
         string docsPath,
-        string specUrl)
+        string specUrl,
+        IReadOnlyList<RuntimeRoute>? acknowledgedUndocumented = null)
     {
         var discovery = DiscoverRoutes(endpoints, docsPath, specUrl);
         var documented = DocumentedRoutes(openApiDocument);
@@ -76,7 +77,26 @@ internal static class AspNetRuntimeIntelligence
         var environmentName = StandardEnvironmentName();
         if (environmentName is not null)
             snapshot["environment"] = new Dictionary<string, object?> { ["name"] = environmentName };
+        snapshot["validation"] = AspNetContractValidation.Validate(
+            documented,
+            discovery.Routes,
+            discovery.Complete,
+            acknowledgedUndocumented ?? Array.Empty<RuntimeRoute>());
         return snapshot;
+    }
+
+    internal static IReadOnlyList<RuntimeRoute> NormalizeAcknowledged(IEnumerable<FlexDocAcknowledgedRoute>? configured)
+    {
+        if (configured is null) return Array.Empty<RuntimeRoute>();
+        var routes = new List<RuntimeRoute>();
+        foreach (var route in configured)
+        {
+            if (route is null || string.IsNullOrWhiteSpace(route.Method) || string.IsNullOrWhiteSpace(route.Path)) continue;
+            var method = route.Method.Trim().ToUpperInvariant();
+            if (!HttpMethods.Contains(method)) continue;
+            routes.Add(new RuntimeRoute(method, NormalizePath(route.Path)));
+        }
+        return UniqueSorted(routes);
     }
 
     internal static (IReadOnlyList<RuntimeRoute> Routes, bool Complete) DiscoverRoutes(

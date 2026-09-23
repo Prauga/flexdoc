@@ -60,12 +60,16 @@ public static class FlexDocEndpointRouteBuilderExtensions
                 // route; reverse proxies and application middleware may still enforce less.
                 .WithMetadata(new DisableRequestSizeLimitAttribute());
         if (runtimeDocument is JsonElement document)
+        {
+            var acknowledged = AspNetRuntimeIntelligence.NormalizeAcknowledged(options.AcknowledgedUndocumented);
             group.MapGet("/__flexdoc/runtime", context => WriteRuntime(
                 context,
                 endpoints,
                 document,
                 path,
-                options.SpecUrl));
+                options.SpecUrl,
+                acknowledged));
+        }
         return group;
     }
 
@@ -93,7 +97,8 @@ public static class FlexDocEndpointRouteBuilderExtensions
         IEndpointRouteBuilder endpoints,
         JsonElement openApiDocument,
         string path,
-        string specUrl)
+        string specUrl,
+        IReadOnlyList<AspNetRuntimeIntelligence.RuntimeRoute> acknowledgedUndocumented)
     {
         try
         {
@@ -102,7 +107,8 @@ public static class FlexDocEndpointRouteBuilderExtensions
                 openApiDocument,
                 context,
                 path,
-                specUrl);
+                specUrl,
+                acknowledgedUndocumented);
             var body = JsonSerializer.SerializeToUtf8Bytes(snapshot);
             context.Response.StatusCode = StatusCodes.Status200OK;
             context.Response.ContentType = "application/json; charset=utf-8";

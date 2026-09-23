@@ -1,13 +1,25 @@
-# FlexDoc ASP.NET Core 3.3 example
+# ASP.NET Core disagreement loop
 
-Minimal ASP.NET Core application using `Prauga.FlexDoc.AspNetCore` `0.7.0` and the FlexDoc Runtime Intelligence surface.
+This example compares the live `EndpointDataSource` with the same OpenAPI document the application serves at `/openapi.json`.
+
+| Route | What FlexDoc records | Validation |
+| --- | --- | --- |
+| `GET /health` | Documented and registered | Matched. |
+| `GET /internal/health` | Runtime-only, listed in `AcknowledgedUndocumented` | Passes. The finding stays informational, and the route stays in the runtime record. |
+| `POST /internal/reindex` | Runtime-only, not acknowledged | Fails. The finding names the method and path. |
+
+Open **Runtime**, then `POST /internal/reindex`. The page shows that OpenAPI does not declare the operation beside the route ASP.NET Core registered. **Open in API Client** sends that method and path.
 
 ```bash
 dotnet run --project examples/dotnet-aspnetcore/Prauga.FlexDoc.AspNetCore.Example.csproj
 ```
 
-Open `/docs`. The application exposes its exact OpenAPI document at `/openapi.json` and passes that same server-side document to `RuntimeOpenApiDocument`, allowing FlexDoc to compare the live `EndpointDataSource` with the documented operations without depending on Swashbuckle or NSwag.
+Open `/docs`.
 
-`GET /health` is documented, while `POST /internal` is deliberately runtime-only. Open the **Runtime** panel to see the drift detected from the running ASP.NET Core router. The browser-facing renderer is the same canonical surface used by every adapter, including Try It/API Client handoff, persisted preferences and response inspection.
+```bash
+npx @prauga/flexdoc-cli validate http://localhost:5000/docs/__flexdoc/runtime
+```
 
-During repository CI the example references the adapter project directly and the adapter embeds the canonical renderer built from `packages/client`. The standalone NuGet release for FlexDoc 3.3 is `Prauga.FlexDoc.AspNetCore` `0.7.0`.
+The command prints the acknowledged health route and exits 1 on `POST /internal/reindex`. The listen URL is the one `dotnet run` prints.
+
+The example project references the adapter in this repository. The published NuGet package remains `Prauga.FlexDoc.AspNetCore` `0.7.0`, and that package reports the route snapshot without the validation object.
