@@ -21,7 +21,7 @@
   </p>
 </div>
 
-FlexDoc runs inside the backend and reads the routes the framework actually registered. **On Node today,** it compares that runtime surface with OpenAPI, fails `flexdoc validate` on unacknowledged disagreement, and lets you open an undocumented runtime route directly in the built-in API Client.
+FlexDoc runs inside the backend and reads the routes the framework actually registered. **On Node and Spring,** it compares that runtime surface with OpenAPI, fails `flexdoc validate` on unacknowledged disagreement, and lets you open an undocumented runtime route directly in the built-in API Client.
 
 It also provides self-hosted API documentation, exploration, and execution. No FlexDoc account or control plane required.
 

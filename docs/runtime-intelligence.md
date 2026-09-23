@@ -81,7 +81,7 @@ flexdoc:
 
 Spring Runtime Intelligence requires a `FlexDocSpecProvider`. Existing `spec-location` configuration creates one automatically; code-first applications can provide the exact generated OpenAPI model as a bean. FlexDoc deliberately does not fetch `spec-url` server-side and does not couple this feature to springdoc internals.
 
-FastAPI, ASP.NET Core, and Spring MVC continue to emit the compatible route-level Runtime Intelligence snapshot in this 3.1 cut, but they do **not** yet emit the structured `validation` object. The renderer keeps showing route presence/drift for those snapshots; the CLI intentionally refuses to invent a second validator when `validation` is absent.
+Spring MVC emits the same structured `validation` object as the Node integrations, including `runtimeIntelligence` acknowledgement through `flexdoc.acknowledged-undocumented`. FastAPI and ASP.NET Core continue to emit the compatible route-level Runtime Intelligence snapshot without that object. The renderer keeps showing route presence for those snapshots; the CLI refuses to invent a validator when `validation` is absent.
 
 When enabled, FlexDoc registers `GET <docsPath>/__flexdoc/runtime` under the documentation route. The renderer requests that endpoint and shows:
 
@@ -140,7 +140,7 @@ A snapshot has one framework-neutral shape. The runtime `name` identifies the ho
 }
 ```
 
-`serverOrigin`, `server`, and `environment` are optional. Missing values are omitted rather than guessed. `validation` is also optional at the renderer-contract level so 3.0/native route snapshots remain compatible; in this cut it is produced by the Node Express/Fastify/Hono/Nest integrations.
+`serverOrigin`, `server`, and `environment` are optional. Missing values are omitted rather than guessed. `validation` is also optional at the renderer-contract level so route snapshots without it remain compatible. Node Express/Fastify/Hono/Nest and Spring MVC produce it.
 
 ## 3.1 Contract Validation
 

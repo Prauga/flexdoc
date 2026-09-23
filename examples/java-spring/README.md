@@ -1,10 +1,13 @@
-# Spring Boot + FlexDoc 3.3 Runtime Intelligence
+# Spring MVC disagreement loop
 
-This Spring MVC example keeps the standard `springdoc-openapi` code-first annotations, but the FlexDoc Runtime Intelligence comparison deliberately uses an exact checked-in OpenAPI document through `flexdoc.spec-location=classpath:/openapi.json`.
+This example compares Spring's live `RequestMappingHandlerMapping` with a checked-in OpenAPI document (`flexdoc.spec-location=classpath:/openapi.json`). The two sources can disagree. FlexDoc does not fetch `/v3/api-docs` and does not read springdoc internals.
 
-That separation is intentional: FlexDoc can inspect the live `RequestMappingHandlerMapping` registry without coupling the adapter to springdoc internals or making a server-side HTTP request back to `/v3/api-docs`. The checked-in document creates the `FlexDocSpecProvider` required by Runtime Intelligence.
+| Route | What FlexDoc records | Validation |
+| --- | --- | --- |
+| `GET /internal/health` | Runtime-only, listed in `flexdoc.acknowledged-undocumented` | Passes. The finding stays informational, and the route stays in the runtime record. |
+| `POST /internal/reindex` | Runtime-only, not acknowledged | Fails. The finding names the method and path. |
 
-The contract documents the normal pet/upload operations. `GET /internal/health` exists only in the running Spring application, so the **Runtime** panel reports a real implemented-but-undocumented route. The same `/docs` surface also exposes the canonical renderer/API Client workflows.
+Open **Runtime**, then `POST /internal/reindex`. The page shows that OpenAPI does not declare the operation beside the route Spring registered. **Open in API Client** sends that method and path.
 
 ```bash
 mvn spring-boot:run
@@ -12,4 +15,10 @@ mvn spring-boot:run
 
 Open `http://localhost:8080/docs`.
 
-The starter is pinned through `<flexdoc.version>0.10.0</flexdoc.version>`, the Java family release published for FlexDoc 3.3. CI installs the Java adapter family built from the same commit before building this example.
+```bash
+npx @prauga/flexdoc-cli validate http://localhost:8080/docs/__flexdoc/runtime
+```
+
+The command prints the acknowledged health route and exits 1 on `POST /internal/reindex`.
+
+The starter pin in this example remains `<flexdoc.version>0.10.0</flexdoc.version>`, the published Java family release. That published starter reports the route snapshot and does not emit the validation object. CI installs the starter built from this repository before packaging the example, and that build does.

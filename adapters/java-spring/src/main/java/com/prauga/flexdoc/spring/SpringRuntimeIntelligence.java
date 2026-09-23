@@ -56,7 +56,8 @@ final class SpringRuntimeIntelligence {
         request,
         properties.getPath(),
         properties.getSpecUrl(),
-        activeEnvironmentName(environment));
+        activeEnvironmentName(environment),
+        acknowledgedRoutes(properties.getAcknowledgedUndocumented()));
   }
 
   static Map<String, Object> buildSnapshot(
@@ -66,6 +67,17 @@ final class SpringRuntimeIntelligence {
       String docsPath,
       String specUrl,
       String environmentName) {
+    return buildSnapshot(mappings, spec, request, docsPath, specUrl, environmentName, List.of());
+  }
+
+  static Map<String, Object> buildSnapshot(
+      Iterable<RequestMappingInfo> mappings,
+      JsonNode spec,
+      HttpServletRequest request,
+      String docsPath,
+      String specUrl,
+      String environmentName,
+      List<RuntimeRoute> acknowledgedUndocumented) {
     Discovery discovery = discoverRoutes(mappings, docsPath, specUrl);
     List<RuntimeRoute> documented = documentedRoutes(spec);
     Set<String> documentedKeys = new LinkedHashSet<>();
@@ -101,7 +113,24 @@ final class SpringRuntimeIntelligence {
         "matched", matched,
         "runtimeOnly", runtimeOnly.size(),
         "documentedOnly", documentedOnly.size()));
+    snapshot.put("validation", SpringContractValidation.validate(
+        documented,
+        discovery.routes(),
+        discovery.complete(),
+        acknowledgedUndocumented == null ? List.of() : acknowledgedUndocumented));
     return snapshot;
+  }
+
+  private static List<RuntimeRoute> acknowledgedRoutes(List<FlexDocProperties.AcknowledgedRoute> configured) {
+    if (configured == null || configured.isEmpty()) return List.of();
+    List<RuntimeRoute> routes = new ArrayList<>();
+    for (FlexDocProperties.AcknowledgedRoute route : configured) {
+      if (route == null || route.getMethod() == null || route.getPath() == null) continue;
+      String method = route.getMethod().trim().toUpperCase(Locale.ROOT);
+      if (!HTTP_METHODS.contains(method) || route.getPath().isBlank()) continue;
+      routes.add(new RuntimeRoute(method, normalizePath(route.getPath())));
+    }
+    return uniqueSorted(routes);
   }
 
   static Discovery discoverRoutes(Iterable<RequestMappingInfo> mappings, String docsPath, String specUrl) {

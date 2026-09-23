@@ -41,8 +41,28 @@ public class FlexDocProperties {
   private int hostExecutionMaxInFlight = 16;
   /** Retry-After seconds returned when process-local host-execution admission is saturated. */
   private int hostExecutionRetryAfterSeconds = 1;
-  /** Enables live Spring route discovery and OpenAPI presence drift reporting. */
+  /** Enables live Spring route discovery and the same contract-validation object Node emits. */
   private boolean runtimeIntelligence;
+  /** Runtime routes accepted as intentionally absent from OpenAPI. They stay registered. */
+  private List<AcknowledgedRoute> acknowledgedUndocumented = List.of();
+
+  /** One runtime route the operator has accepted as undocumented. */
+  public static class AcknowledgedRoute {
+    private String method = "";
+    private String path = "";
+
+    /** @return the HTTP method */
+    public String getMethod() { return method; }
+
+    /** @param method the HTTP method */
+    public void setMethod(String method) { this.method = method; }
+
+    /** @return the route path */
+    public String getPath() { return path; }
+
+    /** @param path the route path */
+    public void setPath(String path) { this.path = path; }
+  }
 
   /** @return whether FlexDoc auto-configuration is enabled */
   public boolean isEnabled() { return enabled; }
@@ -157,6 +177,14 @@ public class FlexDocProperties {
 
   /** @param runtimeIntelligence whether Runtime Intelligence is enabled */
   public void setRuntimeIntelligence(boolean runtimeIntelligence) { this.runtimeIntelligence = runtimeIntelligence; }
+
+  /** @return runtime routes accepted as intentionally absent from OpenAPI */
+  public List<AcknowledgedRoute> getAcknowledgedUndocumented() { return acknowledgedUndocumented; }
+
+  /** @param acknowledgedUndocumented runtime routes accepted as intentionally absent from OpenAPI */
+  public void setAcknowledgedUndocumented(List<AcknowledgedRoute> acknowledgedUndocumented) {
+    this.acknowledgedUndocumented = acknowledgedUndocumented == null ? List.of() : List.copyOf(acknowledgedUndocumented);
+  }
 
   FlexDocConfig toConfig() {
     FlexDocConfig.Builder builder = FlexDocConfig.builder()

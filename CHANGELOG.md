@@ -4,6 +4,8 @@ Notable FlexDoc product releases are recorded here. Detailed release notes remai
 
 ## Unreleased
 
+- Spring MVC emits the same runtime-contract validation object as Node. A complete-discovery undocumented route fails `flexdoc validate` by method and path. `flexdoc.acknowledged-undocumented` keeps that route registered as acknowledged info.
+
 ## 3.5.0 — Node disagreement loop
 
 `@prauga/flexdoc-client` and `@prauga/flexdoc-backend` **3.5.0**, with `@prauga/flexdoc-cli` **0.8.0**. Native adapter versions are unchanged.

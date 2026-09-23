@@ -109,10 +109,16 @@ public class FlexDocExampleApplication {
                 "caption", caption);
     }
 
-    // Intentionally absent from the checked-in OpenAPI contract used by FlexDoc Runtime Intelligence.
+    // Acknowledged in application.properties. The finding stays informational.
     @GetMapping("/internal/health")
     public Map<String, String> internalHealth() {
         return Map.of("status", "internal-ok");
+    }
+
+    // Absent from the checked-in OpenAPI contract and not acknowledged, so validation fails.
+    @PostMapping("/internal/reindex")
+    public Map<String, Boolean> internalReindex() {
+        return Map.of("accepted", true);
     }
 
     public record PetInput(
